@@ -249,3 +249,57 @@ venv/
 .venv/
 __pycache__/
 *.pyc
+
+# Virtual environments
+prakharenv/
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# SQLite database
+db.sqlite3
+
+# Django collected static files
+staticfiles/
+
+# Media (optional - ignore if uploaded files shouldn't be in Git)
+media/
+
+# VS Code
+.vscode/
+
+# Python version
+.python-version
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Logs
+*.log
+
+# Pytest
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Mypy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Secret files
+secret_key.txt
