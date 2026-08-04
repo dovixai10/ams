@@ -243,3 +243,9 @@ nohup.out
 db.json
 credentials.json
 .env
+
+prakharenv/
+venv/
+.venv/
+__pycache__/
+*.pyc
