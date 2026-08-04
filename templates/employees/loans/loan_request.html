@@ -1,0 +1,418 @@
+{% extends layout_path %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Loans & Advance | Employee Portal{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .finance-shell {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0.75rem 0 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .finance-header {
+    background: linear-gradient(120deg, rgba(59,130,246,0.15), rgba(37,99,235,0.05));
+    border-radius: 24px;
+    padding: 1.5rem;
+    border: 1px solid rgba(148,163,184,0.2);
+    box-shadow: 0 18px 40px rgba(15,23,42,0.12);
+  }
+
+  .finance-header__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.25rem;
+  }
+
+  .finance-header__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .finance-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.4);
+    color: #1d4ed8;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .finance-tabs {
+    background: rgba(148,163,184,0.15);
+    border-radius: 999px;
+    padding: 0.35rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  .finance-tab {
+    border: none;
+    border-radius: 999px;
+    padding: 0.65rem 1rem;
+    font-weight: 600;
+    background: transparent;
+    color: rgba(15,23,42,0.6);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    transition: all 0.2s ease;
+  }
+
+  .finance-tab.is-active {
+    background: white;
+    color: #1d4ed8;
+    box-shadow: 0 10px 24px rgba(59,130,246,0.25);
+  }
+
+  .finance-panel {
+    display: none;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .finance-panel.is-active {
+    display: block;
+  }
+
+  .loan-card {
+    border-radius: 22px;
+    border: 1px solid rgba(148,163,184,.25);
+    background: #fff;
+    box-shadow: 0 18px 40px rgba(15,23,42,.08);
+    padding: 1.5rem 1.4rem 1.7rem;
+  }
+
+  .loan-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .loan-field label {
+    font-size: .88rem;
+    font-weight: 600;
+    color: rgba(15,23,42,.8);
+  }
+
+  .loan-field .form-control,
+  .loan-field textarea {
+    border-radius: 16px;
+    border: 1px solid rgba(148,163,184,.35);
+    padding: .7rem 1rem;
+    font-size: .95rem;
+  }
+
+  .loan-field textarea {
+    min-height: 140px;
+    resize: vertical;
+  }
+
+  .loan-submit {
+    width: 100%;
+    border-radius: 18px;
+    padding: .85rem 1rem;
+    font-weight: 600;
+    box-shadow: 0 16px 32px rgba(16,185,129,.28);
+  }
+
+  .field-error {
+    font-size: 0.8rem;
+    color: #dc2626;
+    margin-top: 0.35rem;
+  }
+
+  .history-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .loan-history-card {
+    border-radius: 18px;
+    border: 1px solid rgba(148,163,184,.18);
+    padding: 1.25rem;
+    background: #fff;
+    box-shadow: 0 12px 24px rgba(15,23,42,.06);
+  }
+
+  .loan-history-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .loan-amount {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .loan-status {
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .status-pending { background: #fef3c7; color: #92400e; }
+  .status-approved { background: #d1fae5; color: #065f46; }
+  .status-disapproved { background: #fee2e2; color: #991b1b; }
+
+  .loan-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .loan-meta-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .loan-meta-value {
+    font-size: 0.9rem;
+    color: #111827;
+  }
+
+  .loan-reason {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 0.85rem;
+    font-size: 0.9rem;
+    color: #4b5563;
+  }
+
+  .loan-attachment {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(148,163,184,0.2);
+  }
+
+  .attachment-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #2563eb;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: #6b7280;
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 576px) {
+    .finance-header {
+      padding: 1.25rem;
+    }
+    .loan-card {
+      padding: 1.25rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="finance-shell" id="loanPortal" data-initial-tab="{{ active_tab|default:'request' }}">
+  <!-- <section class="finance-header">
+    <div class="finance-header__body">
+      <div class="badge bg-label-primary mb-2">
+        <i class="bx bx-money me-1"></i> Loans & Advances
+      </div>
+      <h1 class="finance-header__title mb-1" style="font-size: larger;">Manage your loan requests</h1>
+      <!-- <div class="finance-header__meta">
+        <span class="finance-chip">
+          <i class="bx bx-list-check"></i>{{ loans|length }} total requests
+        </span>
+        <span class="finance-chip text-success">
+          <i class="bx bx-check-circle"></i>
+          {{ loans|dictsortreversed:"status"|length|default:0 }} records tracked
+        </span>
+      </div> -->
+
+  <div class="finance-tabs" role="tablist">
+    <button type="button" class="finance-tab {% if active_tab != 'history' %}is-active{% endif %}" data-tab="request">
+      <i class="bx bx-edit-alt"></i> Loan Request
+    </button>
+    <button type="button" class="finance-tab {% if active_tab == 'history' %}is-active{% endif %}" data-tab="history">
+      <i class="bx bx-book-content"></i> My Loans
+    </button>
+  </div>
+
+  <section class="finance-panel {% if active_tab != 'history' %}is-active{% endif %}" data-panel="request">
+    <div class="loan-card">
+      <form method="post" enctype="multipart/form-data" class="loan-form" novalidate>
+        {% csrf_token %}
+        {% if loan_form.non_field_errors %}
+          <div class="alert alert-danger">
+            {{ loan_form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        <div class="loan-field">
+          <label for="{{ loan_form.amount.id_for_label }}">Amount (₹)</label>
+          {{ loan_form.amount }}
+          {% for error in loan_form.amount.errors %}
+            <span class="field-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="loan-field">
+          <label for="{{ loan_form.reason.id_for_label }}">Reason / Description</label>
+          {{ loan_form.reason }}
+          {% for error in loan_form.reason.errors %}
+            <span class="field-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="loan-field">
+          <label for="{{ loan_form.attachment.id_for_label }}">Optional supporting document</label>
+          {{ loan_form.attachment }}
+          <small class="text-muted">Upload payslips, bills or any supporting proof (PDF / Image).</small>
+          {% for error in loan_form.attachment.errors %}
+            <span class="field-error d-block">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <button type="submit" class="btn btn-success loan-submit">
+          <i class="bx bx-send me-1"></i>Submit Request
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <section class="finance-panel {% if active_tab == 'history' %}is-active{% endif %}" data-panel="history">
+    {% if loans %}
+      <div class="history-grid">
+        {% for loan in loans %}
+          <article class="loan-history-card">
+            <div class="loan-history-head">
+              <div>
+                <div class="loan-amount">₹{{ loan.amount|floatformat:2 }}</div>
+                <small class="text-muted">Request #{{ loan.request_number }}</small>
+              </div>
+              <div class="loan-status status-{{ loan.status }}">
+                {{ loan.get_status_display }}
+              </div>
+            </div>
+
+            <div class="loan-meta-grid">
+              <div>
+                <div class="loan-meta-label">Requested</div>
+                <div class="loan-meta-value">{{ loan.created_at|date:"M d, Y" }}</div>
+              </div>
+              {% if loan.reviewed_at %}
+                <div>
+                  <div class="loan-meta-label">Reviewed</div>
+                  <div class="loan-meta-value">{{ loan.reviewed_at|date:"M d, Y" }}</div>
+                </div>
+              {% endif %}
+              {% if loan.reviewed_by %}
+                <div>
+                  <div class="loan-meta-label">Reviewed By</div>
+                  <div class="loan-meta-value">{{ loan.reviewed_by.get_full_name|default:loan.reviewed_by.username }}</div>
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="loan-reason">
+              <strong class="d-block mb-1">Reason</strong>
+              {{ loan.reason|linebreaks }}
+            </div>
+
+            {% if loan.attachment %}
+              <div class="loan-attachment">
+                <a href="{{ loan.attachment.url }}" target="_blank" rel="noopener" class="attachment-link">
+                  <i class="bx bx-file"></i> View Attachment
+                </a>
+              </div>
+            {% endif %}
+
+            {% if loan.admin_comment %}
+              <div class="loan-attachment">
+                <div class="loan-meta-label mb-1 text-uppercase">Admin Comment</div>
+                <div class="loan-meta-value">{{ loan.admin_comment|linebreaks }}</div>
+              </div>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <i class="bx bx-money"></i>
+        <h4 class="mb-1">No loan requests yet</h4>
+        <p class="mb-2">Your approved, pending, and rejected loans will show up here.</p>
+        <button type="button" class="btn btn-primary px-4" data-tab-focus="request">
+          <i class="bx bx-plus me-1"></i>Start a new request
+        </button>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const portal = document.getElementById('loanPortal');
+      if (!portal) return;
+      const tabs = portal.querySelectorAll('.finance-tab');
+      const panels = portal.querySelectorAll('.finance-panel');
+
+      function setActiveTab(tabName) {
+        tabs.forEach(tab => {
+          const isActive = tab.dataset.tab === tabName;
+          tab.classList.toggle('is-active', isActive);
+        });
+        panels.forEach(panel => {
+          panel.classList.toggle('is-active', panel.dataset.panel === tabName);
+        });
+      }
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
+      });
+
+      portal.querySelectorAll('[data-tab-focus]').forEach(btn => {
+        btn.addEventListener('click', () => setActiveTab(btn.dataset.tabFocus));
+      });
+
+      setActiveTab(portal.dataset.initialTab || 'request');
+    });
+  </script>
+{% endblock %}

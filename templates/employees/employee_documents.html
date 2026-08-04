@@ -1,0 +1,854 @@
+{% extends layout_path %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}My Documents | Employee Portal{% endblock %}
+
+{% block content %}
+<div class="doc-screen">
+  <!-- Success Notification -->
+  <div id="uploadNotification" class="doc-notification">
+    <div class="doc-notification__content">
+      <i class="bx bx-check-circle doc-notification__icon"></i>
+      <span class="doc-notification__text">Document uploaded successfully</span>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="doc-header">
+    <div class="doc-header__content">
+      <h1 class="doc-header__title">
+        <i class="bx bx-file-blank"></i>
+        My Documents
+      </h1>
+      <p class="doc-header__subtitle">Upload your compliance documents</p>
+    </div>
+  </div>
+
+  <!-- Documents Grid -->
+  <div class="doc-grid">
+    <!-- 10th Marksheet -->
+    <div class="doc-card">
+      <div class="doc-card__header">
+        <span class="doc-card__label">10TH MARKSHEET</span>
+        <span class="doc-card__status" id="status-10th">
+          <span class="doc-badge doc-badge--pending">Pending</span>
+        </span>
+      </div>
+      <div class="doc-card__body">
+        <label class="doc-upload" data-doc-type="10th">
+          <input type="file" class="doc-upload__input" data-doc-type="10th" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
+          <div class="doc-upload__placeholder">
+            <i class="bx bx-cloud-upload"></i>
+            <span>Upload file</span>
+          </div>
+        </label>
+        <p class="doc-card__filename" id="filename-10th"></p>
+        <div class="doc-card__actions" id="actions-10th" style="display: none;">
+          <button type="button" class="doc-btn-view" onclick="viewDocument(this)" data-doc-id="">
+            <i class="bx bx-show"></i>View
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12th Marksheet -->
+    <div class="doc-card">
+      <div class="doc-card__header">
+        <span class="doc-card__label">12TH MARKSHEET</span>
+        <span class="doc-card__status" id="status-12th">
+          <span class="doc-badge doc-badge--pending">Pending</span>
+        </span>
+      </div>
+      <div class="doc-card__body">
+        <label class="doc-upload" data-doc-type="12th">
+          <input type="file" class="doc-upload__input" data-doc-type="12th" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
+          <div class="doc-upload__placeholder">
+            <i class="bx bx-cloud-upload"></i>
+            <span>Upload file</span>
+          </div>
+        </label>
+        <p class="doc-card__filename" id="filename-12th"></p>
+      </div>
+    </div>
+
+    <!-- Aadhar Front -->
+    <div class="doc-card">
+      <div class="doc-card__header">
+        <span class="doc-card__label">AADHAR FRONT</span>
+        <span class="doc-card__status" id="status-aadhaar">
+          <span class="doc-badge doc-badge--pending">Pending</span>
+        </span>
+      </div>
+      <div class="doc-card__body">
+        <label class="doc-upload" data-doc-type="aadhaar">
+          <input type="file" class="doc-upload__input" data-doc-type="aadhaar" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
+          <div class="doc-upload__placeholder">
+            <i class="bx bx-cloud-upload"></i>
+            <span>Upload file</span>
+          </div>
+        </label>
+        <p class="doc-card__filename" id="filename-aadhaar"></p>
+      </div>
+    </div>
+
+    <!-- Aadhar Back -->
+    <div class="doc-card">
+      <div class="doc-card__header">
+        <span class="doc-card__label">AADHAR BACK</span>
+        <span class="doc-card__status" id="status-aadhaar-back">
+          <span class="doc-badge doc-badge--pending">Pending</span>
+        </span>
+      </div>
+      <div class="doc-card__body">
+        <label class="doc-upload" data-doc-type="aadhaar-back">
+          <input type="file" class="doc-upload__input" data-doc-type="aadhaar-back" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
+          <div class="doc-upload__placeholder">
+            <i class="bx bx-cloud-upload"></i>
+            <span>Upload file</span>
+          </div>
+        </label>
+        <p class="doc-card__filename" id="filename-aadhaar-back"></p>
+      </div>
+    </div>
+
+    <!-- PAN -->
+    <div class="doc-card">
+      <div class="doc-card__header">
+        <span class="doc-card__label">PAN CARD</span>
+        <span class="doc-card__status" id="status-pan">
+          <span class="doc-badge doc-badge--pending">Pending</span>
+        </span>
+      </div>
+      <div class="doc-card__body">
+        <label class="doc-upload" data-doc-type="pan">
+          <input type="file" class="doc-upload__input" data-doc-type="pan" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
+          <div class="doc-upload__placeholder">
+            <i class="bx bx-cloud-upload"></i>
+            <span>Upload file</span>
+          </div>
+        </label>
+        <p class="doc-card__filename" id="filename-pan"></p>
+      </div>
+    </div>
+
+    <!-- Bank Proof -->
+    <div class="doc-card">
+      <div class="doc-card__header">
+        <span class="doc-card__label">BANK PROOF</span>
+        <span class="doc-card__status" id="status-bank">
+          <span class="doc-badge doc-badge--pending">Pending</span>
+        </span>
+      </div>
+      <div class="doc-card__body">
+        <label class="doc-upload" data-doc-type="bank">
+          <input type="file" class="doc-upload__input" data-doc-type="bank" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
+          <div class="doc-upload__placeholder">
+            <i class="bx bx-cloud-upload"></i>
+            <span>Upload file</span>
+          </div>
+        </label>
+        <p class="doc-card__filename" id="filename-bank"></p>
+      </div>
+    </div>
+
+    <!-- Education Proof -->
+    <div class="doc-card">
+      <div class="doc-card__header">
+        <span class="doc-card__label">PASSPORT SIZE PHOTO</span>
+        <span class="doc-card__status" id="status-education">
+          <span class="doc-badge doc-badge--pending">Pending</span>
+        </span>
+      </div>
+      <div class="doc-card__body">
+        <label class="doc-upload" data-doc-type="education">
+          <input type="file" class="doc-upload__input" data-doc-type="education" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
+          <div class="doc-upload__placeholder">
+            <i class="bx bx-cloud-upload"></i>
+            <span>Upload file</span>
+          </div>
+        </label>
+        <p class="doc-card__filename" id="filename-education"></p>
+      </div>
+    </div>
+
+    <!-- Address Proof -->
+    <!-- <div class="doc-card"> -->
+      <!-- <div class="doc-card__header">
+        <span class="doc-card__label">ADDRESS PROOF</span>
+        <span class="doc-card__status" id="status-address_proof">
+          <span class="doc-badge doc-badge--pending">Pending</span>
+        </span>
+      </div> -->
+      <!-- <div class="doc-card__body">
+        <label class="doc-upload">
+          <input type="file" class="doc-upload__input" data-doc-type="address_proof" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
+          <div class="doc-upload__placeholder">
+            <i class="bx bx-cloud-upload"></i>
+            <span>Upload file</span>
+          </div>
+        </label>
+        <p class="doc-card__filename" id="filename-address_proof"></p>
+      </div> -->
+    </div>
+  </div>
+
+  <!-- Bottom Spacing for Navigation -->
+  <div class="doc-spacer"></div>
+</div>
+{% endblock %}
+
+{% block page_css %}
+  {{ block.super }}
+  <style>
+    :root {
+      --doc-primary: #6366f1;
+      --doc-success: #10b981;
+      --doc-warning: #f59e0b;
+      --doc-border: rgba(15, 23, 42, 0.08);
+      --doc-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+    }
+
+    .doc-screen {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      min-height: 100vh;
+      max-width: 100%;
+      margin: 0 auto;
+      padding-bottom: 5.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .doc-screen {
+        padding: 1rem;
+        gap: 1rem;
+      }
+    }
+
+    /* Notification */
+    .doc-notification {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background: #ffffff;
+      border: 1px solid var(--doc-border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(-20px);
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .doc-notification.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .doc-notification__content {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.95rem;
+      color: #1f2937;
+      font-weight: 600;
+    }
+
+    .doc-notification__icon {
+      font-size: 1.5rem;
+      color: var(--doc-success);
+    }
+
+    /* Header */
+    .doc-header {
+      background: linear-gradient(135deg, #00f7f0 0%, #812e2e 100%);
+      border-radius: 12px;
+      padding: 0.8rem;
+      color: #ffffff;
+      box-shadow: var(--doc-shadow);
+    }
+
+    .doc-header__title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0;
+      margin-bottom: 0.1rem;
+    }
+
+    .doc-header__title i {
+      font-size: 1.3rem;
+    }
+
+    .doc-header__subtitle {
+      margin: 0;
+      font-size: 0.75rem;
+      opacity: 0.9;
+    }
+
+    /* Grid */
+    .doc-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+
+    @media (min-width: 576px) {
+      .doc-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.6rem;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .doc-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .doc-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.75rem;
+      }
+    }
+
+    /* Card */
+    .doc-card {
+      background: #ffffff;
+      border: 1px solid var(--doc-border);
+      border-radius: 10px;
+      padding: 0.65rem;
+      box-shadow: var(--doc-shadow);
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .doc-card:hover {
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .doc-card__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .doc-card__label {
+      font-weight: 700;
+      font-size: 0.7rem;
+      color: #1f2937;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      flex: 1;
+    }
+
+    .doc-card__status {
+      flex-shrink: 0;
+    }
+
+    .doc-card__body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    /* Upload */
+    .doc-upload {
+      position: relative;
+      cursor: pointer;
+    }
+
+    .doc-upload__input {
+      display: none;
+    }
+
+    .doc-upload__placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      padding: 0.8rem 0.6rem;
+      border: 2px dashed var(--doc-border);
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(139, 92, 246, 0.05));
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .doc-upload:hover .doc-upload__placeholder {
+      border-color: var(--doc-primary);
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+    }
+
+    .doc-upload__placeholder i {
+      font-size: 1.3rem;
+      color: var(--doc-primary);
+    }
+
+    .doc-upload__placeholder span {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: #6b7280;
+    }
+
+    /* Filename */
+    .doc-card__filename {
+      font-size: 0.65rem;
+      color: #6b7280;
+      margin: 0;
+      word-break: break-all;
+      min-height: 0.9rem;
+    }
+
+    /* Badge */
+    .doc-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .doc-badge--pending {
+      background: rgba(245, 158, 11, 0.15);
+      color: #b45309;
+    }
+
+    .doc-badge--submitted {
+      background: rgba(59, 130, 246, 0.15);
+      color: #1e40af;
+    }
+
+    .doc-badge--submitted::before {
+      content: '⧗';
+      font-weight: 800;
+      margin-right: 0.2rem;
+    }
+
+    .doc-badge--verified {
+      background: rgba(16, 185, 129, 0.15);
+      color: #047857;
+    }
+
+    .doc-badge--verified::before {
+      content: '✓';
+      font-weight: 800;
+    }
+
+    .doc-lock-info {
+      margin-top: 0.25rem;
+      line-height: 1.2;
+    }
+
+    .doc-lock-info small {
+      display: block;
+      font-size: 0.65rem;
+      opacity: 0.8;
+    }
+
+    /* Document Actions */
+    .doc-card__actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .doc-btn-view {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      background: linear-gradient(135deg, #06b6d4, #0891b2);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      transition: all 0.2s ease;
+    }
+
+    .doc-btn-view:hover {
+      box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .doc-btn-view i {
+      font-size: 0.9rem;
+    }
+
+    /* Toast Notifications */
+    .doc-toast {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background: #ffffff;
+      border-left: 4px solid #10b981;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+      z-index: 9999;
+      opacity: 0;
+      transform: translateX(400px);
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-width: 90vw;
+    }
+
+    .doc-toast.show {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .doc-toast--success {
+      border-left-color: #10b981;
+    }
+
+    .doc-toast--error {
+      border-left-color: #ef4444;
+    }
+
+    .doc-toast__content {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.95rem;
+      color: #1f2937;
+      font-weight: 600;
+    }
+
+    .doc-toast__icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .doc-toast--success .doc-toast__icon {
+      color: #10b981;
+    }
+
+    .doc-toast--error .doc-toast__icon {
+      color: #ef4444;
+    }
+
+    .doc-toast__text {
+      word-break: break-word;
+    }
+
+    /* Spacer */
+    .doc-spacer {
+      height: 1.5rem;
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 576px) {
+      .doc-screen {
+        padding: 0.4rem;
+        gap: 0.4rem;
+      }
+
+      .doc-header {
+        padding: 0.7rem;
+      }
+
+      .doc-header__title {
+        font-size: 1rem;
+      }
+
+      .doc-header__title i {
+        font-size: 1.1rem;
+      }
+
+      .doc-notification {
+        left: 0.5rem;
+        right: 0.5rem;
+        top: 0.5rem;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const fileInputs = document.querySelectorAll('.doc-upload__input');
+      const notification = document.getElementById('uploadNotification');
+
+      fileInputs.forEach(input => {
+        input.addEventListener('change', function(e) {
+          const file = this.files[0];
+          if (!file) return;
+
+          const docType = this.dataset.docType; // 10th, 12th, aadhaar, aadhaar-back, pan, bank, education
+          const filenameEl = document.getElementById(`filename-${docType}`);
+          const statusEl = document.getElementById(`status-${docType}`);
+
+          // Validate file size (5MB)
+          if (file.size > 5 * 1024 * 1024) {
+            showToast('File size must be less than 5MB', 'error');
+            this.value = '';
+            return;
+          }
+
+          // Upload file via AJAX
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('document_type', docType);
+
+          const apiDocType = docType; // already in API format
+
+          // Get CSRF token from cookie
+          function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+              const cookies = document.cookie.split(';');
+              for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                  break;
+                }
+              }
+            }
+            return cookieValue;
+          }
+
+          fetch(`/api/upload/${apiDocType}/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-CSRFToken': getCookie('csrftoken')
+            }
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.status === 'success') {
+              // Update filename
+              filenameEl.textContent = file.name;
+
+              // Update status badge
+              statusEl.innerHTML = '<span class="doc-badge doc-badge--submitted">Submitted</span>';
+
+              // Show success notification
+              showToast(data.message || 'Document uploaded successfully!', 'success');
+              
+              // Reload documents to get latest status
+              loadDocuments();
+            } else if (data.status === 'locked') {
+              // Document is verified and locked
+              showToast(data.message || 'Document is verified and cannot be re-uploaded', 'error');
+              this.value = '';
+              
+              // Update UI to show locked status
+              updateLockedStatus(docType, data);
+            } else {
+              showToast(data.message || 'Upload failed', 'error');
+              this.value = '';
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            showToast('Upload failed. Please try again.', 'error');
+            this.value = '';
+          });
+        });
+      });
+
+      // Toast notification function
+      function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `doc-toast doc-toast--${type}`;
+        toast.innerHTML = `
+          <div class="doc-toast__content">
+            <i class="bx bx-${type === 'success' ? 'check-circle' : 'x-circle'} doc-toast__icon"></i>
+            <span class="doc-toast__text">${message}</span>
+          </div>
+        `;
+        document.body.appendChild(toast);
+
+        // Trigger animation
+        setTimeout(() => toast.classList.add('show'), 10);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+          toast.classList.remove('show');
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+
+      // View document function
+      window.viewDocument = function(button) {
+        const docId = button.getAttribute('data-doc-id');
+        if (!docId) {
+          showToast('Document ID not found', 'error');
+          return;
+        }
+        
+        // Open document in new tab
+        window.open(`/employee/document/${docId}/view/`, '_blank');
+      };
+
+      // Update locked status function
+      function updateLockedStatus(docType, data) {
+        const uploadLabel = document.querySelector(`label[data-doc-type="${docType}"]`);
+        const uploadInput = document.querySelector(`input[data-doc-type="${docType}"]`);
+        const statusEl = document.getElementById(`status-${docType}`);
+        
+        if (uploadLabel && uploadInput) {
+          // Disable upload
+          uploadInput.disabled = true;
+          uploadLabel.style.opacity = '0.5';
+          uploadLabel.style.pointerEvents = 'none';
+          uploadLabel.innerHTML = `
+            <div class="doc-upload__placeholder">
+              <i class="bx bx-lock-alt"></i>
+              <span>Verified – upload locked</span>
+            </div>
+          `;
+          
+          // Update status
+          if (statusEl) {
+            const verifiedDate = data.verified_at ? new Date(data.verified_at).toLocaleDateString() : '';
+            const verifiedBy = data.verified_by || 'Admin';
+            statusEl.innerHTML = `
+              <span class="doc-badge doc-badge--verified">Verified</span>
+              <div class="doc-lock-info">
+                <small class="text-muted">Verified by ${verifiedBy}</small>
+                ${verifiedDate ? `<small class="text-muted">on ${verifiedDate}</small>` : ''}
+              </div>
+            `;
+          }
+        }
+      }
+
+      // Load existing documents on page load
+      loadDocuments();
+      
+      // Refresh document status every 5 seconds to check for admin verification
+      setInterval(loadDocuments, 5000);
+
+      function loadDocuments() {
+        fetch('/api/documents/status/', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'success' && data.documents) {
+            Object.keys(data.documents).forEach(docType => {
+              const doc = data.documents[docType];
+              const statusEl = document.getElementById(`status-${docType}`);
+              const filenameEl = document.getElementById(`filename-${docType}`);
+              const actionsEl = document.getElementById(`actions-${docType}`);
+              const uploadLabel = document.querySelector(`label[data-doc-type="${docType}"]`);
+              const uploadInput = document.querySelector(`input[data-doc-type="${docType}"]`);
+              
+              if (doc.uploaded && statusEl) {
+                // Show filename
+                if (filenameEl) {
+                  const url = doc.url;
+                  const fileName = url ? url.split('/').pop() : 'Document';
+                  filenameEl.textContent = fileName;
+                }
+                
+                let badgeClass = 'doc-badge--pending';
+                let badgeText = 'Pending';
+                let extraNote = '';
+                
+                if (doc.status === 'submitted') {
+                  badgeClass = 'doc-badge--submitted';
+                  badgeText = 'Submitted';
+                } else if (doc.status === 'verified') {
+                  badgeClass = 'doc-badge--verified';
+                  badgeText = 'Verified';
+                  
+                  const verifiedDate = doc.verified_at ? new Date(doc.verified_at).toLocaleDateString() : '';
+                  const verifiedBy = doc.verified_by || 'Admin';
+                  extraNote = `
+                    <div class="doc-lock-info">
+                      <small class="text-muted">Verified by ${verifiedBy}</small>
+                      ${verifiedDate ? `<small class="text-muted">on ${verifiedDate}</small>` : ''}
+                    </div>
+                  `;
+                } else if (doc.status === 'rejected') {
+                  badgeClass = 'doc-badge--rejected';
+                  badgeText = 'Rejected';
+                }
+                
+                statusEl.innerHTML = `<span class="doc-badge ${badgeClass}">${badgeText}</span>${extraNote}`;
+                
+                // Handle lock status
+                if (doc.is_locked) {
+                  // Disable upload for verified documents
+                  if (uploadLabel && uploadInput) {
+                    uploadInput.disabled = true;
+                    uploadLabel.style.opacity = '0.5';
+                    uploadLabel.style.pointerEvents = 'none';
+                    uploadLabel.innerHTML = `
+                      <div class="doc-upload__placeholder">
+                        <i class="bx bx-lock-alt"></i>
+                        <span>Verified – upload locked</span>
+                      </div>
+                    `;
+                  }
+                } else if (uploadLabel && uploadInput) {
+                  // Enable upload for non-verified documents
+                  uploadInput.disabled = false;
+                  uploadLabel.style.opacity = '1';
+                  uploadLabel.style.pointerEvents = 'auto';
+                }
+                
+                // Show view button if document has been uploaded
+                if (actionsEl && doc.url) {
+                  const viewBtn = actionsEl.querySelector('.doc-btn-view');
+                  if (viewBtn) {
+                    viewBtn.setAttribute('data-doc-id', docType);
+                    viewBtn.onclick = () => window.open(doc.url, '_blank');
+                  }
+                  actionsEl.style.display = 'flex';
+                }
+              }
+            });
+          }
+        })
+        .catch(error => console.error('Error loading documents:', error));
+      }
+    });
+  </script>
+{% endblock %}

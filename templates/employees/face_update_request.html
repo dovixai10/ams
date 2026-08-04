@@ -1,0 +1,373 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}Face Update Request | Employee Portal{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .face-request-card {
+    max-width: 700px;
+    margin: 0 auto;
+    border-radius: 20px;
+    border: none;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
+    overflow: hidden;
+  }
+  .face-request-hero {
+    background: linear-gradient(135deg, #00f7f0 0%, #812e2e 100%);
+    color: #fff;
+    padding: 2rem 2.2rem;
+  }
+  .face-request-body {
+    padding: 2rem 2.2rem;
+    background: #fff;
+    color: #1f2937;
+  }
+  .timeline {
+    position: relative;
+    margin: 1.5rem 0;
+    padding-left: 1.5rem;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.52rem;
+    top: 0.4rem;
+    bottom: 0.4rem;
+    width: 2px;
+    background: rgba(99, 102, 241, 0.3);
+  }
+  .timeline-step {
+    position: relative;
+    padding-left: 1.2rem;
+    margin-bottom: 1rem;
+  }
+  .timeline-step:last-child {
+    margin-bottom: 0;
+  }
+  .timeline-step::before {
+    content: '';
+    position: absolute;
+    left: -1.5rem;
+    top: 0.35rem;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #6366f1;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.16);
+  }
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+  .status-chip.pending {
+    background: rgba(234, 179, 8, 0.18);
+    color: #b45309;
+  }
+  .status-chip.approved {
+    background: rgba(34, 197, 94, 0.18);
+    color: #15803d;
+  }
+  .status-chip.rejected {
+    background: rgba(244, 63, 94, 0.18);
+    color: #be123c;
+  }
+  .status-chip.completed {
+    background: rgba(59, 130, 246, 0.18);
+    color: #1d4ed8;
+  }
+  .request-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .request-meta-card {
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+  }
+  .request-meta-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+  }
+  .request-meta-value {
+    font-weight: 600;
+    color: #1e293b;
+  }
+  .reason-textarea {
+    border-radius: 14px !important;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    padding: 1rem 1.1rem;
+    min-height: 140px;
+    resize: vertical;
+    background: #f8fafc;
+    color: #1f2937;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  }
+  .reason-textarea:focus {
+    border-color: #3b82f6;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 2px 8px rgba(15, 23, 42, 0.06);
+    outline: none;
+  }
+  .face-request-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.5rem 0;
+    margin-top: 1.5rem;
+  }
+  .face-request-actions .btn {
+    border-radius: 12px;
+    padding: 0.65rem 1.3rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    min-height: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+  }
+  .face-request-actions .btn-light {
+    color: #6b7280;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+  }
+  .face-request-actions .btn-light:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+  }
+  .face-request-actions .btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    border: none;
+    box-shadow: 0 12px 28px rgba(59, 130, 246, 0.3);
+    color: #fff;
+  }
+  .face-request-actions .btn-primary:hover,
+  .face-request-actions .btn-primary:focus {
+    background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+    box-shadow: 0 14px 32px rgba(59, 130, 246, 0.35);
+    transform: translateY(-2px);
+  }
+  .face-request-hero h2 {
+    font-size: 1.6rem;
+  }
+  .face-request-hero p {
+    font-size: 0.95rem;
+    opacity: 0.92;
+  }
+  @media (max-width: 768px) {
+    .face-request-card {
+      border-radius: 18px;
+      margin: 0 0.75rem;
+    }
+    .face-request-hero,
+    .face-request-body {
+      padding: 1.6rem 1.5rem;
+    }
+    .face-request-hero h2 {
+      font-size: 1.45rem;
+      font-weight: 700;
+    }
+    .face-request-hero p {
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+  }
+  @media (max-width: 576px) {
+    .face-request-card {
+      border-radius: 16px;
+      margin: 0.75rem;
+    }
+    .face-request-hero,
+    .face-request-body {
+      padding: 1.4rem 1.2rem;
+    }
+    .face-request-hero h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .face-request-hero p {
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .face-request-card img {
+      max-height: 92px;
+    }
+    .request-meta {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .request-meta-card {
+      padding: 0.9rem;
+      border-radius: 12px;
+    }
+    .timeline {
+      margin: 1rem 0;
+      padding-left: 1rem;
+    }
+    .reason-textarea {
+      min-height: 120px;
+      padding: 0.9rem;
+      font-size: 0.9rem;
+    }
+    .face-request-actions {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.7rem;
+      margin-top: 1.2rem;
+    }
+    .face-request-actions .btn {
+      width: 100%;
+      justify-content: center;
+      font-size: 0.9rem;
+      padding: 0.7rem 1rem;
+      border-radius: 10px;
+    }
+    .face-request-body {
+      padding-bottom: 1.8rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="face-request-card">
+    <div class="face-request-hero">
+      <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+        <div>
+          <span class="status-chip {% if active_exists %}{% if latest_request.status == 'approved' %}approved{% elif latest_request.status == 'pending' %}pending{% elif latest_request.status == 'rejected' %}rejected{% else %}completed{% endif %}{% else %}approved{% endif %}">
+            <i class="bx bx-face"></i>
+            {% if active_exists %}
+              {% if latest_request.status == 'approved' %}
+                Approved – re-register soon
+              {% elif latest_request.status == 'pending' %}
+                Pending review
+              {% elif latest_request.status == 'rejected' %}
+                Rejected
+              {% else %}
+                Completed
+              {% endif %}
+            {% else %}
+              No active request
+            {% endif %}
+          </span>
+          <h2 class="mt-3 mb-2">Face Update Request</h2>
+          <p class="mb-0">Need to capture your face again? Submit a request and an administrator will approve it so you can refresh your profile.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="face-request-body">
+      {% if latest_request and active_exists %}
+        <div class="request-meta">
+          <div class="request-meta-card">
+            <div class="request-meta-label">Status</div>
+            <div class="request-meta-value">{{ latest_request.get_status_display }}</div>
+          </div>
+          <div class="request-meta-card">
+            <div class="request-meta-label">Requested on</div>
+            <div class="request-meta-value">{{ latest_request.requested_at|date:"M j, Y h:i A" }}</div>
+          </div>
+          {% if latest_request.reviewed_at %}
+            <div class="request-meta-card">
+              <div class="request-meta-label">Reviewed</div>
+              <div class="request-meta-value">{{ latest_request.reviewed_at|date:"M j, Y h:i A" }}</div>
+            </div>
+          {% endif %}
+          {% if latest_request.reviewed_by %}
+            <div class="request-meta-card">
+              <div class="request-meta-label">Reviewer</div>
+              <div class="request-meta-value">{{ latest_request.reviewed_by.get_full_name|default:latest_request.reviewed_by.username }}</div>
+            </div>
+          {% endif %}
+        </div>
+
+        {% if latest_request.reason %}
+          <div class="mt-4">
+            <h5 class="text-muted text-uppercase fs-6 mb-2">Your reason</h5>
+            <div class="p-3 bg-light rounded-3 border">{{ latest_request.reason|linebreaks }}</div>
+          </div>
+        {% endif %}
+
+        {% if latest_request.admin_comment %}
+          <div class="mt-4">
+            <h5 class="text-muted text-uppercase fs-6 mb-2">Admin comment</h5>
+            <div class="p-3 bg-warning bg-opacity-25 rounded-3 border border-warning">{{ latest_request.admin_comment|linebreaks }}</div>
+          </div>
+        {% endif %}
+
+        <div class="mt-4">
+          <h5 class="text-muted text-uppercase fs-6 mb-3">Workflow</h5>
+          <div class="timeline">
+            <div class="timeline-step">
+              <h6 class="mb-1">Request submitted</h6>
+              <small class="text-muted">{{ latest_request.requested_at|naturaltime }}</small>
+            </div>
+            {% if latest_request.reviewed_at %}
+              <div class="timeline-step">
+                <h6 class="mb-1">Reviewed by admin</h6>
+                <small class="text-muted">{{ latest_request.reviewed_at|naturaltime }}</small>
+              </div>
+            {% endif %}
+            {% if latest_request.completed_at %}
+              <div class="timeline-step">
+                <h6 class="mb-1">Face update completed</h6>
+                <small class="text-muted">{{ latest_request.completed_at|naturaltime }}</small>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      {% if active_exists %}
+        <div class="alert alert-info mt-4" role="alert">
+          <div class="d-flex align-items-start gap-2">
+            <i class="bx bx-time-five fs-4"></i>
+            <div>
+              {% if latest_request.status == 'approved' %}
+                You already have an approved request. Please head to <a href="{% url 'employees:face_register' %}" class="alert-link">Face Registration</a> to re-capture your face.
+              {% elif latest_request.status == 'pending' %}
+                Your request is awaiting admin review. We will notify you once it is processed.
+              {% else %}
+                Your face update is being processed. Please check back later.
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <form method="post" class="mt-4">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label for="reason" class="form-label fw-semibold">Why do you need to update your face data?</label>
+            <textarea name="reason" id="reason" class="form-control reason-textarea" placeholder="Example: I recently changed my hairstyle or appearance drastically." maxlength="500"></textarea>
+            <div class="form-text">Optional but helps the admin approve faster. Max 500 characters.</div>
+          </div>
+          <div class="face-request-actions mt-4">
+            <a href="{% url 'employees:employee_dashboard' %}" class="btn btn-light">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bx bx-send me-1"></i>Submit request
+            </button>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

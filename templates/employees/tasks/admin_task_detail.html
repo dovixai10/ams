@@ -1,0 +1,258 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Task Details | Admin{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .task-detail-layout {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 992px) {
+    .task-detail-layout {
+      grid-template-columns: minmax(0, 1fr) 320px;
+    }
+  }
+
+  .task-summary-card .badge {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.7rem;
+  }
+
+  .metric-chip {
+    border-radius: 14px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    background: rgba(99, 102, 241, 0.1);
+    color: #4f46e5;
+  }
+
+  .history-accordion .accordion-item {
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .history-accordion .accordion-button {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .history-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: rgba(79, 70, 229, 0.12);
+    color: #4f46e5;
+  }
+
+  .history-pill {
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+  }
+
+  .detail-sidebar .card {
+    position: sticky;
+    top: calc(var(--layout-navbar-height, 4rem) + 1.25rem);
+  }
+
+  @media (max-width: 991.98px) {
+    .detail-sidebar .card {
+      position: static;
+    }
+  }
+
+  .timeline-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #94a3b8;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3 g-md-4 mb-3">
+  <div class="col-12">
+    <a href="{% url 'employees:admin_tasks' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bx bx-chevron-left"></i> Back to Task Board
+    </a>
+  </div>
+
+  <div class="col-12">
+    <div class="card shadow-sm task-summary-card">
+      <div class="card-header d-flex flex-column flex-md-row align-items-md-center justify-content-md-between gap-3">
+        <div>
+          <h4 class="mb-1">{{ task.title }}</h4>
+          <div class="d-flex flex-wrap align-items-center gap-3 text-muted small">
+            <span class="badge bg-{{ task.status_badge }} text-capitalize">{{ task.get_status_display }}</span>
+            {% if task.due_date %}
+              <span><i class="bx bx-calendar me-1"></i> Due {{ task.due_date|date:'M j, Y' }}</span>
+            {% endif %}
+            <span><i class="bx bx-user-circle me-1"></i> {{ task.assigned_to.full_name }} ({{ task.assigned_to.email }})</span>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <span class="badge bg-{{ task.priority_badge }} text-capitalize">{{ task.get_priority_display }}</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <h6 class="text-muted text-uppercase fw-semibold mb-2">Description</h6>
+        <p class="mb-4">{{ task.description|default:'No description provided.' }}</p>
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <div class="border rounded-3 p-3 h-100 bg-light bg-opacity-50">
+              <span class="small text-muted d-block">Assigned by</span>
+              <span class="fw-semibold">{{ task.assigned_by.get_full_name|default:task.assigned_by.username|default:'System' }}</span>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="border rounded-3 p-3 h-100">
+              <span class="small text-muted d-block">Created</span>
+              <span class="fw-semibold">{{ task.created_at|date:'M j, Y g:i A' }}</span>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="border rounded-3 p-3 h-100">
+              <span class="small text-muted d-block">Last updated</span>
+              <span class="fw-semibold">{{ task.status_updated_at|default:task.updated_at|date:'M j, Y g:i A' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="task-detail-layout">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex flex-column flex-sm-row justify-content-sm-between gap-2 align-items-sm-center">
+        <h5 class="mb-0">Update History</h5>
+        <span class="metric-chip">{{ task.updates.count }} entries logged</span>
+      </div>
+      <div class="card-body">
+        {% if task.updates.exists %}
+          <div class="history-accordion accordion" id="historyAccordion">
+            {% for update in task.updates.all %}
+              <div class="accordion-item mb-2">
+                <h2 class="accordion-header" id="updateHeader{{ update.pk }}">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#updateCollapse{{ update.pk }}" aria-expanded="false" aria-controls="updateCollapse{{ update.pk }}">
+                    <span class="history-icon"><i class="bx bx-refresh"></i></span>
+                    <div class="d-flex flex-column flex-grow-1">
+                      <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="fw-semibold text-capitalize">{{ update.get_new_status_display }}</span>
+                        {% if update.previous_status %}
+                          <span class="history-pill bg-light text-muted">from {{ update.get_previous_status_display }}</span>
+                        {% endif %}
+                      </div>
+                      <span class="text-muted small">{{ update.created_at|date:'M j, Y g:i A' }} · {{ update.created_at|timesince }} ago</span>
+                      <span class="text-muted small">By {{ update.updated_by.get_full_name|default:update.updated_by.username }}</span>
+                    </div>
+                  </button>
+                </h2>
+                <div id="updateCollapse{{ update.pk }}" class="accordion-collapse collapse" aria-labelledby="updateHeader{{ update.pk }}" data-bs-parent="#historyAccordion">
+                  <div class="accordion-body">
+                    {% if update.comment %}
+                      <p class="mb-0">{{ update.comment }}</p>
+                    {% else %}
+                      <p class="text-muted mb-0">No additional comments recorded.</p>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="timeline-empty">
+            <i class="bx bx-history bx-lg d-block mb-2"></i>
+            No updates recorded yet.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="detail-sidebar">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Quick Status Update</h5>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{% url 'employees:update_task_status' task.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{% url 'employees:admin_task_detail' task.pk %}">
+          <div class="mb-3">
+            <label class="form-label">Status</label>
+            {{ update_form.new_status }}
+            {% if update_form.new_status.errors %}
+              <div class="invalid-feedback d-block">{{ update_form.new_status.errors|join:', ' }}</div>
+            {% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Comment</label>
+            {{ update_form.comment }}
+            {% if update_form.comment.errors %}
+              <div class="invalid-feedback d-block">{{ update_form.comment.errors|join:', ' }}</div>
+            {% endif %}
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary">
+              <i class="bx bx-send"></i>
+              <span class="ms-1">Submit Update</span>
+            </button>
+          </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header">
+          <h5 class="mb-0">Edit Task</h5>
+        </div>
+        <div class="card-body">
+          <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Title</label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="invalid-feedback d-block">{{ form.title.errors|join:', ' }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="invalid-feedback d-block">{{ form.description.errors|join:', ' }}</div>{% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Assignee</label>
+            {{ form.assigned_to }}
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Priority</label>
+              {{ form.priority }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Status</label>
+              {{ form.status }}
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Due date</label>
+              {{ form.due_date }}
+            </div>
+          </div>
+          <div class="d-grid mt-4">
+            <button type="submit" class="btn btn-outline-primary">Save Changes</button>
+          </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,626 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Attendance Records | Dovix CRM{% endblock %}
+
+{% block vendor_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}"/>
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+  {{ block.super }}
+  <script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block content %}
+  <style>
+    :root {
+      --app-radius: 18px;
+      --app-soft-bg: #f4f6fb;
+      --app-card-bg: #ffffff;
+      --app-border: rgba(17, 24, 39, 0.06);
+      --app-muted: #6b7280;
+      --app-shadow: 0 16px 44px rgba(15, 23, 42, 0.1);
+    }
+
+    body {
+      background: var(--app-soft-bg);
+    }
+
+    .app-screen {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      padding-bottom: 2.4rem;
+    }
+
+    .app-screen--padded {
+      padding: 1.6rem 0 2.6rem;
+    }
+
+    .app-card {
+      background: var(--app-card-bg);
+      border-radius: var(--app-radius);
+      border: 1px solid var(--app-border);
+      box-shadow: var(--app-shadow);
+      padding: 1.5rem;
+    }
+
+    .app-hero {
+      position: relative;
+      overflow: hidden;
+      color: #f8fafc;
+      background: linear-gradient(135deg, #6366f1 0%, #5b21b6 100%);
+      display: grid;
+      gap: 1.1rem;
+    }
+
+    .app-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.28), transparent 60%);
+      pointer-events: none;
+    }
+
+    .app-hero__header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      z-index: 1;
+    }
+
+    .app-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .app-chip--glass {
+      background: rgba(255, 255, 255, 0.16);
+      color: rgba(248, 250, 252, 0.92);
+    }
+
+    .app-hero__title {
+      font-size: 1.6rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .app-hero__subtitle {
+      font-size: 0.9rem;
+      opacity: 0.85;
+      margin: 0;
+      max-width: 540px;
+    }
+
+    .app-hero__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      z-index: 1;
+    }
+
+    .app-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: var(--app-radius);
+      border: 1px solid rgba(17, 24, 39, 0.05);
+      padding: 0.85rem;
+      box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06);
+    }
+
+    .app-metric {
+      flex: 1 1 calc(50% - 0.75rem);
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+      min-width: 140px;
+    }
+
+    .app-metric__icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+    }
+
+    .app-metric__data {
+      display: grid;
+      gap: 0.1rem;
+    }
+
+    .app-metric__value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .app-metric__label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--app-muted);
+    }
+
+    .app-filter-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      background: #fff;
+      border-radius: var(--app-radius);
+      border: 1px solid var(--app-border);
+      padding: 1.2rem;
+      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+    }
+
+    .app-filter__row {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .app-filter__controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .app-filter__controls .form-control,
+    .app-filter__controls .form-select {
+      border-radius: 999px;
+      padding-inline: 1rem;
+    }
+
+    .app-filter__chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(99, 102, 241, 0.12);
+      color: #4338ca;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .app-table {
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--app-border);
+      box-shadow: 0 16px 44px rgba(15, 23, 42, 0.08);
+    }
+
+    .app-table table {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .app-table thead {
+      background: rgba(99, 102, 241, 0.08);
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
+    }
+
+    .app-table tbody tr {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .app-table tbody tr:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .app-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .app-badge--success {
+      background: rgba(34, 197, 94, 0.18);
+      color: #15803d;
+    }
+
+    .app-badge--danger {
+      background: rgba(239, 68, 68, 0.18);
+      color: #b91c1c;
+    }
+
+    .app-badge--warning {
+      background: rgba(251, 191, 36, 0.2);
+      color: #b45309;
+    }
+
+    .app-badge--muted {
+      background: rgba(148, 163, 184, 0.2);
+      color: #475569;
+    }
+
+    .app-empty {
+      text-align: center;
+      padding: 2.4rem 1rem;
+      background: #fff;
+      border-radius: var(--app-radius);
+      border: 1px dashed rgba(148, 163, 184, 0.38);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+    }
+
+    .app-empty i {
+      font-size: 2.8rem;
+      color: rgba(99, 102, 241, 0.5);
+    }
+
+    .app-pagination .page-link {
+      border-radius: 999px !important;
+      padding: 0.4rem 0.8rem;
+      min-width: 36px;
+    }
+
+    .app-pagination .page-item.active .page-link {
+      background: #6366f1;
+      border-color: #6366f1;
+      color: #fff;
+      box-shadow: 0 12px 24px rgba(99, 102, 241, 0.3);
+    }
+
+    @media (max-width: 992px) {
+      .app-card {
+        padding: 1.3rem;
+      }
+
+      .app-hero__title {
+        font-size: 1.4rem;
+      }
+      .app-metric {
+        flex: 1 1 calc(50% - 0.75rem);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app-screen--padded {
+        padding: 1.2rem 0 2.2rem;
+      }
+
+      .app-card {
+        padding: 1.2rem 1.1rem;
+      }
+
+      .app-filter__controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .app-hero__actions .btn {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .app-table {
+        border-radius: 16px;
+      }
+      .app-metrics {
+        gap: 0.6rem;
+      }
+      .app-metric {
+        flex: 1 1 100%;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .app-screen--padded {
+        padding: 1rem 0 2rem;
+      }
+
+      .app-table table {
+        font-size: 0.82rem;
+      }
+      .app-metrics {
+        padding: 0.75rem;
+      }
+      .app-metric__icon {
+        width: 34px;
+        height: 34px;
+        font-size: 1rem;
+      }
+      .app-metric__value {
+        font-size: 1.05rem;
+      }
+    }
+  </style>
+
+  <div class="row justify-content-center">
+    <div class="col-xl-9 col-lg-10 col-12" style="padding: inherit; width: -webkit-fill-available;">
+      <div class="app-screen app-screen--padded">
+
+        <!-- Hero section -->
+        <section class="app-card app-hero">
+          <div class="app-hero__header">
+            <span class="app-chip app-chip--glass">
+              <i class="bx bx-calendar-heart"></i>
+              Attendance overview
+            </span>
+            <div>
+              <h1 class="app-hero__title">Attendance Records</h1>
+              <p class="app-hero__subtitle">Monitor your daily check-ins with a mobile-first view—filters, quick insights, and compact interactions built for on-the-go review.</p>
+            </div>
+          </div>
+          <div class="app-hero__actions">
+            <a href="{% url 'employees:employee_dashboard' %}" class="btn btn-outline-light btn-sm">
+              <i class="bx bx-home-circle me-1"></i> Dashboard
+            </a>
+            <!-- <a href="{% url 'employees:my_attendance_logs' %}" class="btn btn-light btn-sm text-primary">
+              <i class="bx bx-calendar-star me-1"></i> Calendar view
+            </a> -->
+          </div>
+        </section>
+
+        <!-- Summary section -->
+        <section class="app-metrics">
+          <div class="app-metric">
+            <span class="app-metric__icon" style="background: rgba(99, 102, 241, 0.15); color: #4338ca;">
+              <i class="bx bx-briefcase-alt-2"></i>
+            </span>
+            <div class="app-metric__data">
+              <span class="app-metric__value">{{ total_working_days }}</span>
+              <span class="app-metric__label">Working days</span>
+            </div>
+          </div>
+
+          <div class="app-metric">
+            <span class="app-metric__icon" style="background: rgba(34, 197, 94, 0.18); color: #15803d;">
+              <i class="bx bx-check-double"></i>
+            </span>
+            <div class="app-metric__data">
+              <span class="app-metric__value">{{ present_days }}</span>
+              <span class="app-metric__label">Present</span>
+            </div>
+          </div>
+
+          <div class="app-metric">
+            <span class="app-metric__icon" style="background: rgba(239, 68, 68, 0.2); color: #b91c1c;">
+              <i class="bx bx-x-circle"></i>
+            </span>
+            <div class="app-metric__data">
+              <span class="app-metric__value">{{ absent_days }}</span>
+              <span class="app-metric__label">Absent</span>
+            </div>
+          </div>
+
+          <div class="app-metric">
+            <span class="app-metric__icon" style="background: rgba(56, 189, 248, 0.18); color: #0ea5e9;">
+              <i class="bx bx-adjust"></i>
+            </span>
+            <div class="app-metric__data">
+              <span class="app-metric__value">{{ half_day_days }}</span>
+              <span class="app-metric__label">Half days</span>
+            </div>
+          </div>
+
+          <div class="app-metric">
+            <span class="app-metric__icon" style="background: rgba(251, 191, 36, 0.18); color: #c2410c;">
+              <i class="bx bx-pie-chart-alt"></i>
+            </span>
+            <div class="app-metric__data">
+              <span class="app-metric__value">{{ attendance_percentage }}%</span>
+              <span class="app-metric__label">Attendance rate</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Filter controls -->
+        <section class="app-filter-card">
+          <div class="app-filter__row">
+            <span class="app-chip app-chip--muted">
+              <i class="bx bx-filter-alt"></i>
+              Refine results
+            </span>
+            <p class="text-muted small mb-0">Select a specific date or clear filters to view the full list.</p>
+          </div>
+          <form method="get" class="app-filter__row">
+            <div class="app-filter__controls">
+              <div class="input-group flex-grow-1">
+                <span class="input-group-text bg-white border-0 ps-2"><i class="bx bx-calendar"></i></span>
+                <input type="date" class="form-control" name="date" value="{{ request.GET.date|default:'' }}" placeholder="Filter by date">
+              </div>
+              <button class="btn btn-primary" type="submit">
+                <i class="bx bx-search me-1"></i> Apply
+              </button>
+              {% if request.GET.date %}
+                <a href="{% url 'employees:attendance_list' %}" class="btn btn-outline-secondary">
+                  <i class="bx bx-x"></i>
+                </a>
+              {% endif %}
+            </div>
+          </form>
+          {% if request.GET.date %}
+            <span class="app-filter__chip">
+              <i class="bx bx-calendar-event"></i>
+              {{ request.GET.date|date:"d M Y" }}
+            </span>
+          {% endif %}
+        </section>
+
+        {% if attendance_records %}
+          <!-- Records table -->
+          <section class="app-card app-table">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th scope="col">Member</th>
+                  <th scope="col" class="text-nowrap">Date</th>
+                  <th scope="col" class="text-nowrap"><i class="bx bx-log-in me-1"></i>In</th>
+                  <th scope="col" class="text-nowrap"><i class="bx bx-log-out me-1"></i>Out</th>
+                  <th scope="col" class="text-center">Duration</th>
+                  <th scope="col" class="text-end">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for record in attendance_records %}
+                  <tr>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle" style="width: 40px; height: 40px; overflow: hidden; background: rgba(99, 102, 241, 0.12); display: grid; place-items: center;">
+                          {% if record.employee.profile_picture %}
+                            <img src="{{ record.employee.profile_picture.url }}" alt="{{ record.employee.name }}" style="width: 100%; height: 100%; object-fit: cover;">
+                          {% else %}
+                            <span class="fw-semibold text-primary">{{ record.employee.name|first|upper }}</span>
+                          {% endif %}
+                        </div>
+                        <div>
+                          <p class="mb-0 fw-semibold">{{ record.employee.name }}</p>
+                          <small class="text-muted">{{ record.employee.email }}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <p class="mb-0 fw-semibold">{{ record.date|date:"d M" }}</p>
+                      <small class="text-muted">{{ record.date|date:"l" }}</small>
+                    </td>
+                    <td>
+                      <span class="app-badge app-badge--success">
+                        <i class="bx bx-time-five"></i>{{ record.check_in_time|date:"H:i" }}
+                      </span>
+                    </td>
+                    <td>
+                      {% if record.check_out_time %}
+                        <span class="app-badge app-badge--danger">
+                          <i class="bx bx-log-out"></i>{{ record.check_out_time|date:"H:i" }}
+                        </span>
+                      {% else %}
+                        <span class="app-badge app-badge--muted">
+                          <i class="bx bx-dots-horizontal-rounded"></i>Pending
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      {% if record.check_out_time %}
+                        <span class="fw-semibold text-primary"><i class="bx bx-time"></i> {{ record.duration }}</span>
+                      {% else %}
+                        <span class="text-muted">--</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      {% if record.check_out_time %}
+                        <span class="app-badge app-badge--success"><i class="bx bx-check-circle"></i>Complete</span>
+                      {% elif record.date|date:"Y-m-d" == today|date:"Y-m-d" %}
+                        <span class="app-badge app-badge--warning"><i class="bx bx-time-five"></i>In progress</span>
+                      {% else %}
+                        <span class="app-badge app-badge--muted"><i class="bx bx-error"></i>Incomplete</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </section>
+
+          {% if is_paginated %}
+            <nav aria-label="Attendance pagination" class="app-pagination mt-3">
+              <ul class="pagination justify-content-center gap-2">
+                {% if page_obj.has_previous %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}"><i class="bx bx-chevron-left"></i></a>
+                  </li>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                  {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                  {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}">{{ num }}</a></li>
+                  {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}"><i class="bx bx-chevron-right"></i></a>
+                  </li>
+                {% endif %}
+              </ul>
+            </nav>
+          {% endif %}
+        {% else %}
+          <div class="app-empty">
+            <i class="bx bx-calendar-x mb-3"></i>
+            <h5 class="mb-2">No attendance records found</h5>
+            {% if request.GET.date %}
+              <p class="text-muted mb-3">Try removing the date filter to see all records.</p>
+              <a href="{% url 'employees:attendance_list' %}" class="btn btn-primary btn-sm">View all records</a>
+            {% else %}
+              <p class="text-muted mb-3">Activity will appear here once attendance is marked.</p>
+              <a href="{% url 'employees:employee_dashboard' %}" class="btn btn-outline-primary btn-sm">Go to dashboard</a>
+            {% endif %}
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize date picker
+      flatpickr('input[name="date"]', {
+        dateFormat: 'Y-m-d',
+        maxDate: 'today'
+      });
+    });
+  </script>
+{% endblock %}
+
+<style>
+  .attendance-photo-preview {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 2px solid #28a745;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .attendance-photo-preview.checkout-photo {
+    border-color: #dc3545;
+  }
+
+  .attendance-photo-preview:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    border-width: 3px;
+  }
+
+  .modal img {
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+  }
+  
+  .avatar-xs {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .avatar-xs .avatar-initial {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
+  }
+</style>

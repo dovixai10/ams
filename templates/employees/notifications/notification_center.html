@@ -1,0 +1,730 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Notification Center | Employee{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .notification-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  .notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .notification-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+  }
+
+  .notification-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-action {
+    padding: 0.75rem 1.25rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .btn-mark-read {
+    background: #e0e7ff;
+    color: #4f46e5;
+  }
+
+  .btn-mark-read:hover {
+    background: #c7d2fe;
+  }
+
+  .btn-clear {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  .btn-clear:hover {
+    background: #fecaca;
+  }
+
+  .notification-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid #e5e7eb;
+    overflow-x: auto;
+  }
+
+  .tab-button {
+    padding: 1rem 1.5rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-weight: 600;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .tab-button.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+  }
+
+  .tab-button:hover {
+    color: #1f2937;
+  }
+
+  .notification-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .notification-item {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border-left: 4px solid #667eea;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s ease;
+    display: flex;
+    gap: 1rem;
+  }
+
+  .notification-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .notification-item.unread {
+    background: linear-gradient(135deg, #f0f9ff 0%, #f5f7fa 100%);
+  }
+
+  .notification-item.info {
+    border-left-color: #3b82f6;
+  }
+
+  .notification-item.success {
+    border-left-color: #10b981;
+  }
+
+  .notification-item.warning {
+    border-left-color: #f59e0b;
+  }
+
+  .notification-item.error {
+    border-left-color: #ef4444;
+  }
+
+  .notification-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .notification-item.info .notification-icon {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+
+  .notification-item.success .notification-icon {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+
+  .notification-item.warning .notification-icon {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+
+  .notification-item.error .notification-icon {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+
+  .notification-content {
+    flex: 1;
+  }
+
+  .notification-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .notification-title-text {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 1rem;
+  }
+
+  .notification-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .notification-item.info .notification-badge {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+
+  .notification-item.success .notification-badge {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+
+  .notification-item.warning .notification-badge {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+
+  .notification-item.error .notification-badge {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+
+  .notification-message {
+    color: #4b5563;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+  }
+
+  .notification-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #9ca3af;
+  }
+
+  .notification-time {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .notification-actions-mini {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .btn-mini {
+    padding: 0.4rem 0.8rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #e5e7eb;
+    color: #1f2937;
+  }
+
+  .btn-mini:hover {
+    background: #d1d5db;
+  }
+
+  .btn-mini.danger {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  .btn-mini.danger:hover {
+    background: #fecaca;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #9ca3af;
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    color: #d1d5db;
+    margin-bottom: 1rem;
+  }
+
+  .empty-state p {
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  .notification-preferences {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-top: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .preferences-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 1.5rem;
+  }
+
+  .preference-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .preference-item:last-child {
+    border-bottom: none;
+  }
+
+  .preference-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .preference-name {
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .preference-description {
+    font-size: 0.85rem;
+    color: #6b7280;
+  }
+
+  .toggle-switch {
+    position: relative;
+    width: 50px;
+    height: 28px;
+    background: #e5e7eb;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .toggle-switch.active {
+    background: #10b981;
+  }
+
+  .toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: all 0.2s ease;
+  }
+
+  .toggle-switch.active::after {
+    left: 24px;
+  }
+
+  .notification-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #667eea;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 768px) {
+    .notification-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .notification-actions {
+      justify-content: stretch;
+    }
+
+    .btn-action {
+      flex: 1;
+      justify-content: center;
+    }
+
+    .notification-item {
+      flex-direction: column;
+    }
+
+    .notification-header-row {
+      flex-direction: column;
+    }
+
+    .notification-meta {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .notification-tabs {
+      gap: 0;
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notification-container">
+  <!-- Header -->
+  <div class="notification-header">
+    <div>
+      <h1 class="notification-title">
+        <i class="bx bx-bell me-2"></i>Notification Center
+      </h1>
+      <p class="text-muted mb-0">Stay updated with all your notifications</p>
+    </div>
+    <div class="notification-actions">
+      <button class="btn-action btn-mark-read" onclick="markAllAsRead()">
+        <i class="bx bx-check-double"></i> Mark All Read
+      </button>
+      <button class="btn-action btn-clear" onclick="clearAllNotifications()">
+        <i class="bx bx-trash"></i> Clear All
+      </button>
+    </div>
+  </div>
+
+  <!-- Statistics -->
+  <div class="notification-stats">
+    <div class="stat-card">
+      <div class="stat-value">{{ unread_count }}</div>
+      <div class="stat-label">Unread</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ total_count }}</div>
+      <div class="stat-label">Total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ info_count }}</div>
+      <div class="stat-label">Info</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ success_count }}</div>
+      <div class="stat-label">Success</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="notification-tabs">
+    <button class="tab-button active" onclick="filterNotifications('all')">
+      All Notifications
+    </button>
+    <button class="tab-button" onclick="filterNotifications('unread')">
+      Unread
+    </button>
+    <button class="tab-button" onclick="filterNotifications('info')">
+      Info
+    </button>
+    <button class="tab-button" onclick="filterNotifications('success')">
+      Success
+    </button>
+    <button class="tab-button" onclick="filterNotifications('warning')">
+      Warnings
+    </button>
+    <button class="tab-button" onclick="filterNotifications('error')">
+      Errors
+    </button>
+  </div>
+
+  <!-- Notifications List -->
+  <div class="notification-list" id="notificationList">
+    {% if notifications %}
+      {% for notification in notifications %}
+        <div class="notification-item {% if not notification.is_read %}unread{% endif %} {{ notification.notification_type }}" data-id="{{ notification.id }}" data-type="{{ notification.notification_type }}">
+          <div class="notification-icon">
+            {% if notification.notification_type == 'info' %}
+              <i class="bx bx-info-circle"></i>
+            {% elif notification.notification_type == 'success' %}
+              <i class="bx bx-check-circle"></i>
+            {% elif notification.notification_type == 'warning' %}
+              <i class="bx bx-alert-circle"></i>
+            {% elif notification.notification_type == 'error' %}
+              <i class="bx bx-x-circle"></i>
+            {% endif %}
+          </div>
+          <div class="notification-content">
+            <div class="notification-header-row">
+              <div class="notification-title-text">{{ notification.title }}</div>
+              <span class="notification-badge">{{ notification.notification_type }}</span>
+            </div>
+            <div class="notification-message">{{ notification.message }}</div>
+            <div class="notification-meta">
+              <div class="notification-time">
+                <i class="bx bx-time"></i>
+                <span>{{ notification.created_at|timesince }} ago</span>
+              </div>
+              <div class="notification-actions-mini">
+                {% if not notification.is_read %}
+                  <button class="btn-mini" onclick="markAsRead({{ notification.id }})">
+                    Mark Read
+                  </button>
+                {% endif %}
+                <button class="btn-mini danger" onclick="deleteNotification({{ notification.id }})">
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <i class="bx bx-inbox"></i>
+        <p>No notifications yet</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Preferences -->
+  <div class="notification-preferences">
+    <h3 class="preferences-title">
+      <i class="bx bx-cog me-2"></i>Notification Preferences
+    </h3>
+    
+    <div class="preference-item">
+      <div class="preference-label">
+        <span class="preference-name">Email Notifications</span>
+        <span class="preference-description">Receive notifications via email</span>
+      </div>
+      <div class="toggle-switch {% if preferences.email_notifications %}active{% endif %}" onclick="togglePreference(this, 'email_notifications')"></div>
+    </div>
+
+    <div class="preference-item">
+      <div class="preference-label">
+        <span class="preference-name">Attendance Alerts</span>
+        <span class="preference-description">Get notified about attendance changes</span>
+      </div>
+      <div class="toggle-switch {% if preferences.attendance_alerts %}active{% endif %}" onclick="togglePreference(this, 'attendance_alerts')"></div>
+    </div>
+
+    <div class="preference-item">
+      <div class="preference-label">
+        <span class="preference-name">Leave Updates</span>
+        <span class="preference-description">Notifications about leave requests</span>
+      </div>
+      <div class="toggle-switch {% if preferences.leave_updates %}active{% endif %}" onclick="togglePreference(this, 'leave_updates')"></div>
+    </div>
+
+    <div class="preference-item">
+      <div class="preference-label">
+        <span class="preference-name">Task Reminders</span>
+        <span class="preference-description">Get reminded about assigned tasks</span>
+      </div>
+      <div class="toggle-switch {% if preferences.task_reminders %}active{% endif %}" onclick="togglePreference(this, 'task_reminders')"></div>
+    </div>
+
+    <div class="preference-item">
+      <div class="preference-label">
+        <span class="preference-name">System Updates</span>
+        <span class="preference-description">Important system and security updates</span>
+      </div>
+      <div class="toggle-switch {% if preferences.system_updates %}active{% endif %}" onclick="togglePreference(this, 'system_updates')"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Filter notifications by type
+  function filterNotifications(type) {
+    const items = document.querySelectorAll('.notification-item');
+    const tabs = document.querySelectorAll('.tab-button');
+    
+    // Update active tab
+    tabs.forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Filter items
+    items.forEach(item => {
+      if (type === 'all') {
+        item.style.display = 'flex';
+      } else if (type === 'unread') {
+        item.style.display = item.classList.contains('unread') ? 'flex' : 'none';
+      } else {
+        item.style.display = item.dataset.type === type ? 'flex' : 'none';
+      }
+    });
+  }
+
+  // Mark notification as read
+  function markAsRead(notificationId) {
+    fetch(`/employees/api/notifications/${notificationId}/mark-read/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const item = document.querySelector(`[data-id="${notificationId}"]`);
+        item.classList.remove('unread');
+        location.reload();
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  // Mark all as read
+  function markAllAsRead() {
+    fetch('/employees/api/notifications/mark-all-read/', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  // Delete notification
+  function deleteNotification(notificationId) {
+    if (confirm('Are you sure you want to delete this notification?')) {
+      fetch(`/employees/api/notifications/${notificationId}/delete/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        }
+      })
+      .catch(error => console.error('Error:', error));
+    }
+  }
+
+  // Clear all notifications
+  function clearAllNotifications() {
+    if (confirm('Are you sure you want to delete all notifications? This cannot be undone.')) {
+      fetch('/employees/api/notifications/clear-all/', {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        }
+      })
+      .catch(error => console.error('Error:', error));
+    }
+  }
+
+  // Toggle preference
+  function togglePreference(element, preference) {
+    element.classList.toggle('active');
+    const isActive = element.classList.contains('active');
+    
+    fetch('/employees/api/notification-preferences/', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        preference: preference,
+        value: isActive
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        console.log('Preference updated');
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  // Get CSRF token
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+</script>
+{% endblock %}

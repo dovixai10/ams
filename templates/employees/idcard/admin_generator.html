@@ -1,0 +1,722 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}ID Card Generator | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .idcard-container {
+    padding: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+  }
+
+  .generator-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .form-section {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .form-section h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .form-group {
+    margin-bottom: 1.25rem;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.95rem;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  .preview-section {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .id-card-preview {
+    width: 100%;
+    max-width: 350px;
+    aspect-ratio: 1.586;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .id-card-front {
+    flex: 1;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1.5rem;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+  }
+
+  .id-card-front::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="15" fill="white" opacity="0.1"/><circle cx="80" cy="80" r="20" fill="white" opacity="0.1"/></svg>');
+    pointer-events: none;
+  }
+
+  .id-card-header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .id-card-logo {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+
+  .id-card-chip {
+    width: 40px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+  }
+
+  .id-card-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .id-card-photo {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 3px solid white;
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+  }
+
+  .id-card-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 5px;
+  }
+
+  .id-card-info {
+    text-align: center;
+    font-size: 0.85rem;
+  }
+
+  .id-card-name {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  .id-card-designation {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    margin-bottom: 0.5rem;
+  }
+
+  .id-card-detail {
+    font-size: 0.7rem;
+    opacity: 0.85;
+    margin: 0.15rem 0;
+  }
+
+  .id-card-footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    font-size: 0.7rem;
+    opacity: 0.8;
+  }
+
+  .id-card-back {
+    flex: 1;
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    padding: 1.5rem;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+    position: relative;
+  }
+
+  .id-card-back::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="15" fill="white" opacity="0.1"/><circle cx="80" cy="80" r="20" fill="white" opacity="0.1"/></svg>');
+    pointer-events: none;
+  }
+
+  .id-card-qr {
+    position: relative;
+    z-index: 1;
+    width: 80px;
+    height: 80px;
+    background: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+  }
+
+  .id-card-company {
+    position: relative;
+    z-index: 1;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .id-card-contact {
+    position: relative;
+    z-index: 1;
+    font-size: 0.65rem;
+    opacity: 0.9;
+    line-height: 1.4;
+  }
+
+  .preview-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    justify-content: center;
+  }
+
+  .preview-toggle button {
+    padding: 0.5rem 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+
+  .preview-toggle button.active {
+    background: white;
+    color: #667eea;
+    border-color: white;
+  }
+
+  .preview-toggle button:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .button-group {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    flex: 1;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+
+  .btn-secondary {
+    background: #e5e7eb;
+    color: #1f2937;
+    flex: 1;
+  }
+
+  .btn-secondary:hover {
+    background: #d1d5db;
+  }
+
+  .btn-download {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+  }
+
+  .btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .alert {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .alert-info {
+    background: #dbeafe;
+    color: #0c4a6e;
+    border: 1px solid #bfdbfe;
+  }
+
+  .alert-success {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+  }
+
+  .alert-error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+  }
+
+  @media (max-width: 768px) {
+    .generator-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .page-header {
+      flex-direction: column;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="idcard-container">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="bx bx-id-card me-2"></i>ID Card Generator</h1>
+      <p class="text-muted mb-0">Create and manage employee ID cards</p>
+    </div>
+  </div>
+
+  <div class="generator-grid">
+    <!-- Form Section -->
+    <div class="form-section">
+      <h3><i class="bx bx-edit"></i>Employee Details</h3>
+
+      <form id="idCardForm">
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label for="employeeSelect">Select Employee <span class="text-danger">*</span></label>
+          <select id="employeeSelect" name="employee" required onchange="loadEmployeeData()">
+            <option value="">-- Choose an employee --</option>
+            {% for employee in employees %}
+              <option value="{{ employee.id }}" data-name="{{ employee.full_name }}" data-code="KI{{ employee.id|stringformat:'05d' }}" data-designation="{{ employee.designation }}" data-joining="{{ employee.joining_date }}" data-contact="{{ employee.contact }}" data-photo="{{ employee.profile_picture.url }}">
+                {{ employee.full_name }} ({{ employee.id }})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="employeeName">Full Name</label>
+          <input type="text" id="employeeName" readonly>
+        </div>
+
+        <div class="form-group">
+          <label for="employeeCode">Employee Code</label>
+          <input type="text" id="employeeCode" readonly>
+        </div>
+
+        <div class="form-group">
+          <label for="employeeDesignation">Designation</label>
+          <input type="text" id="employeeDesignation" readonly>
+        </div>
+
+        <div class="form-group">
+          <label for="employeeJoining">Date of Joining</label>
+          <input type="text" id="employeeJoining" readonly>
+        </div>
+
+        <div class="form-group">
+          <label for="employeeContact">Contact Number</label>
+          <input type="text" id="employeeContact" readonly>
+        </div>
+
+        <div class="form-group">
+          <label for="companyName">Company Name</label>
+          <input type="text" id="companyName" value="Dovix" required>
+        </div>
+
+        <div class="form-group">
+          <label for="companyAddress">Company Address</label>
+          <textarea id="companyAddress" rows="3" required>Jaipur, Rajasthan, India</textarea>
+        </div>
+
+        <div class="button-group">
+          <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+          <button type="button" class="btn btn-primary" onclick="generateIDCard()">
+            <i class="bx bx-check"></i> Generate Card
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="preview-section">
+      <div class="preview-toggle">
+        <button class="preview-btn active" onclick="showPreview('front')">Front</button>
+        <button class="preview-btn" onclick="showPreview('back')">Back</button>
+      </div>
+
+      <div id="previewContainer">
+        <div class="empty-state">
+          <i class="bx bx-id-card"></i>
+          <p>Select an employee to preview ID card</p>
+        </div>
+      </div>
+
+      <div class="button-group" style="margin-top: 1.5rem;">
+        <button type="button" class="btn btn-download" onclick="downloadIDCard()">
+          <i class="bx bx-download"></i> Download
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  let currentPreview = 'front';
+  let currentEmployeeData = null;
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function loadEmployeeData() {
+    const select = document.getElementById('employeeSelect');
+    const option = select.options[select.selectedIndex];
+
+    if (!option.value) {
+      resetForm();
+      return;
+    }
+
+    const data = {
+      id: option.value,
+      name: option.dataset.name,
+      code: option.dataset.code,
+      designation: option.dataset.designation,
+      joining: option.dataset.joining,
+      contact: option.dataset.contact,
+      photo: option.dataset.photo
+    };
+
+    document.getElementById('employeeName').value = data.name;
+    document.getElementById('employeeCode').value = data.code;
+    document.getElementById('employeeDesignation').value = data.designation;
+    document.getElementById('employeeJoining').value = data.joining;
+    document.getElementById('employeeContact').value = data.contact;
+
+    currentEmployeeData = data;
+    updatePreview();
+  }
+
+  function buildFrontCardHTML(data) {
+    const photoUrl = data.photo || 'https://via.placeholder.com/80?text=Photo';
+    const joiningDate = new Date(data.joining).toLocaleDateString('en-IN', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+    return `
+      <div class="id-card-preview">
+        <div class="id-card-front">
+          <div class="id-card-header">
+            <div class="id-card-logo">DOVIX</div>
+            <div class="id-card-chip"></div>
+          </div>
+          <div class="id-card-content">
+            <div class="id-card-photo">
+              <img src="${photoUrl}" alt="Employee Photo" crossorigin="anonymous" onerror="this.src='https://via.placeholder.com/80?text=Photo'">
+            </div>
+            <div class="id-card-info">
+              <div class="id-card-name">${data.name}</div>
+              <div class="id-card-designation">${data.designation}</div>
+              <div class="id-card-detail">ID: ${data.code}</div>
+              <div class="id-card-detail">DOJ: ${joiningDate}</div>
+            </div>
+          </div>
+          <div class="id-card-footer"><div>Valid ID Card</div></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildBackCardHTML(data) {
+    const companyName = document.getElementById('companyName').value || 'Dovix';
+    const companyAddress = document.getElementById('companyAddress').value || 'Jaipur, Rajasthan, India';
+    return `
+      <div class="id-card-preview">
+        <div class="id-card-back">
+          <div class="id-card-qr"><i class="bx bx-qr"></i></div>
+          <div class="id-card-company">${companyName}</div>
+          <div class="id-card-contact">
+            <div>${companyAddress}</div>
+            <div style="margin-top: 0.5rem;">Contact: ${data.contact}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function updatePreview() {
+    if (!currentEmployeeData) return;
+    const container = document.getElementById('previewContainer');
+    container.innerHTML = currentPreview === 'front'
+      ? buildFrontCardHTML(currentEmployeeData)
+      : buildBackCardHTML(currentEmployeeData);
+  }
+
+  function showPreview(side) {
+    currentPreview = side;
+    document.querySelectorAll('.preview-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    updatePreview();
+  }
+
+  // Renders front + back off-screen and stitches them into a 2-page,
+  // CR80 card-sized (85.6mm x 54mm) PDF using html2canvas + jsPDF.
+  async function generateIDCardPDF() {
+    if (!currentEmployeeData) {
+      alert('Please select an employee first');
+      return;
+    }
+
+    const stage = document.createElement('div');
+    stage.style.position = 'fixed';
+    stage.style.left = '-9999px';
+    stage.style.top = '0';
+    document.body.appendChild(stage);
+
+    try {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
+
+      // --- Front ---
+      stage.innerHTML = buildFrontCardHTML(currentEmployeeData);
+      const frontEl = stage.querySelector('.id-card-preview');
+      frontEl.style.width = '350px';
+      let canvas = await html2canvas(frontEl, { scale: 3, useCORS: true, backgroundColor: null });
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 85.6, 54);
+
+      // --- Back ---
+      pdf.addPage([85.6, 54], 'landscape');
+      stage.innerHTML = buildBackCardHTML(currentEmployeeData);
+      const backEl = stage.querySelector('.id-card-preview');
+      backEl.style.width = '350px';
+      canvas = await html2canvas(backEl, { scale: 3, useCORS: true, backgroundColor: null });
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 85.6, 54);
+
+      pdf.save(`ID_Card_${currentEmployeeData.code}.pdf`);
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      alert('Could not generate the PDF. Please try again.');
+    } finally {
+      document.body.removeChild(stage);
+    }
+  }
+
+  // Single source of truth for the Download button — the earlier
+  // "coming soon" stub that used to live here was overwriting this
+  // function and silently breaking the download.
+  function downloadIDCard() {
+  generateIDCard();
+}
+
+  function generateIDCard() {
+  if (!currentEmployeeData) {
+    alert('Please select an employee first');
+    return;
+  }
+
+  const payload = {
+    employee_id: currentEmployeeData.id,
+    employee_code: document.getElementById('employeeCode').value,
+    job_position: document.getElementById('employeeDesignation').value,
+    date_of_joining: document.getElementById('employeeJoining').value,
+    company_name: document.getElementById('companyName').value,
+    company_address: document.getElementById('companyAddress').value
+  };
+
+  const url = "{% url 'employees:dynamic_id_card_generator' %}";
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: JSON.stringify(payload)
+  })
+  .then(async response => {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('application/pdf')) {
+      // Success — response body IS the PDF. Download it immediately.
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `ID_Card_${currentEmployeeData.code}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } else {
+      // Error — response is JSON
+      const data = await response.json();
+      alert('Failed to generate ID Card: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(error => {
+    console.error('Error generating ID card:', error);
+    alert('An error occurred while generating the ID card.');
+  });
+}
+
+  function resetForm() {
+    document.getElementById('idCardForm').reset();
+    document.getElementById('employeeSelect').value = '';
+    currentEmployeeData = null;
+    document.getElementById('previewContainer').innerHTML = `
+      <div class="empty-state">
+        <i class="bx bx-id-card"></i>
+        <p>Select an employee to preview ID card</p>
+      </div>
+    `;
+  }
+
+  // Update preview when company details change
+  document.getElementById('companyName').addEventListener('change', updatePreview);
+  document.getElementById('companyAddress').addEventListener('change', updatePreview);
+</script>
+{% endblock %}

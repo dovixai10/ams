@@ -1,0 +1,594 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}My Profile | Dovix CRM{% endblock %}
+
+{% block content %}
+  <style>
+    .profile-page {
+      padding: 1rem;
+      padding-bottom: 5rem;
+      background-color: #f8fafc;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .profile-wrapper {
+      width: min(520px, 100%);
+      display: grid;
+      gap: 1.2rem;
+    }
+
+    .profile-summary {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-areas:
+        "avatar info"
+        "avatar actions";
+      gap: 1rem;
+      background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+      border-radius: 20px;
+      padding: 1.2rem;
+      color: #f8fafc;
+      box-shadow: 0 12px 32px rgba(14, 165, 233, 0.25);
+    }
+
+    .profile-summary__avatar {
+      grid-area: avatar;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      display: grid;
+      place-items: center;
+      background: rgba(15, 23, 42, 0.22);
+      color: #f8fafc;
+    }
+
+    .profile-summary__avatar-button {
+      width: 100%;
+      height: 100%;
+      border: none;
+      padding: 0;
+      background: transparent;
+      border-radius: inherit;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .profile-summary__avatar-button:hover,
+    .profile-summary__avatar-button:focus-visible {
+      transform: scale(1.02);
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.35);
+      outline: none;
+    }
+
+    .profile-summary__avatar-button img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .profile-summary__avatar-initial {
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+
+    .profile-summary__info {
+      grid-area: info;
+      display: grid;
+      gap: 0.1rem;
+    }
+
+    .profile-summary__info .h5 {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .profile-summary__actions {
+      grid-area: actions;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .profile-action {
+      flex: 1 1 48%;
+      min-width: 140px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+    }
+
+    .profile-action i {
+      font-size: 1rem;
+    }
+
+    .profile-action--dashboard {
+      background: rgba(255, 255, 255, 0.15);
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+    }
+
+    .profile-action--checkin {
+      background: rgba(59, 130, 246, 0.25);
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .profile-action--logout {
+      background: rgba(239, 68, 68, 0.28);
+      color: #fff5f5;
+      border: 1px solid rgba(248, 113, 113, 0.4);
+    }
+
+    .profile-action:hover,
+    .profile-action:focus {
+      transform: translateY(-1px);
+    }
+
+    .profile-card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 1.2rem;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+      display: grid;
+      gap: 1rem;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+
+    .face-status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border-radius: 999px;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    .face-info-block {
+      background: #f8fafc;
+      border-radius: 14px;
+      padding: 0.85rem;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      font-size: 0.88rem;
+      color: #334155;
+    }
+
+    .face-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .profile-card__title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .profile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+
+    .profile-field {
+      background: linear-gradient(135deg, #f0f9ff 0%, #ecfdf5 100%);
+      border-radius: 14px;
+      padding: 0.9rem 1rem;
+      display: grid;
+      gap: 0.4rem;
+      border: 1px solid rgba(14, 165, 233, 0.15);
+    }
+
+    .profile-field__label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #0369a1;
+      font-weight: 700;
+    }
+
+    .profile-field__value {
+      font-size: 0.95rem;
+      color: #1f2937;
+      word-break: break-word;
+      font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+      .profile-wrapper {
+        gap: 0.9rem;
+      }
+
+      .profile-summary {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "avatar"
+          "info"
+          "actions";
+        text-align: center;
+        padding: 1.1rem;
+      }
+
+      .profile-summary__avatar {
+        margin: 0 auto;
+        width: 68px;
+        height: 68px;
+      }
+
+      .profile-summary__info {
+        gap: 0.2rem;
+      }
+
+      .profile-summary__info .h5 {
+        font-size: 1rem;
+      }
+
+      .profile-summary__actions {
+        justify-content: center;
+      }
+
+      .profile-action {
+        flex: 1 1 calc(50% - 0.5rem);
+        min-width: 120px;
+        font-size: 0.78rem;
+        padding: 0.45rem 0.7rem;
+      }
+
+      .profile-card {
+        padding: 1rem;
+        gap: 0.9rem;
+      }
+
+      .profile-grid {
+        gap: 0.9rem;
+      }
+
+      .profile-field {
+        padding: 0.8rem 0.9rem;
+      }
+
+      .profile-field__label {
+        font-size: 0.7rem;
+      }
+
+      .profile-field__value {
+        font-size: 0.9rem;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .profile-page {
+        padding: 0.6rem;
+      }
+
+      .profile-wrapper {
+        gap: 0.8rem;
+      }
+
+      .profile-summary {
+        padding: 1rem;
+        gap: 0.7rem;
+        border-radius: 16px;
+      }
+
+      .profile-summary__avatar {
+        width: 64px;
+        height: 64px;
+      }
+
+      .profile-summary__info .h5 {
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .profile-summary__info p {
+        font-size: 0.8rem;
+      }
+
+      .profile-action {
+        flex: 1 1 100%;
+        min-width: 0;
+        font-size: 0.75rem;
+        padding: 0.5rem 0.8rem;
+      }
+
+      .profile-card {
+        padding: 0.95rem;
+        gap: 0.8rem;
+        border-radius: 14px;
+      }
+
+      .profile-card__title {
+        font-size: 0.9rem;
+      }
+
+      .profile-grid {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+      }
+
+      .profile-field {
+        padding: 0.8rem 0.9rem;
+        border-radius: 12px;
+      }
+
+      .profile-field__label {
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+      }
+
+      .profile-field__value {
+        font-size: 0.88rem;
+      }
+    }
+
+    /* Hide unnecessary sections */
+    .profile-wrapper > section:nth-child(n+3) {
+      display: none;
+    }
+  </style>
+
+  <section class="profile-page">
+    <div class="profile-wrapper">
+      <div class="profile-summary">
+        <div class="profile-summary__avatar">
+          {% if employee.profile_picture %}
+            <button type="button"
+                    class="profile-summary__avatar-button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#profilePhotoModal"
+                    aria-label="View profile photo">
+              <img src="{{ employee.profile_picture.url }}" alt="{{ employee.full_name }}">
+            </button>
+          {% else %}
+            <span class="profile-summary__avatar-initial">{{ employee.full_name|default:employee.email|slice:":1"|upper }}</span>
+          {% endif %}
+        </div>
+        
+        <div class="profile-summary__info">
+          <h2 class="h5 mb-1">{{ employee.full_name }}</h2>
+          <p class="mb-0 small">{{ employee.email }}</p>
+        </div>
+      </div>
+
+      <section class="profile-card">
+        <h3 class="profile-card__title"><i class="bx bx-user"></i> Personal details</h3>
+        <div class="profile-grid">
+          <div class="profile-field">
+            <span class="profile-field__label">First name</span>
+            <span class="profile-field__value">{{ employee.name }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field__label">Full name</span>
+            <span class="profile-field__value">{{ employee.full_name }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field__label">Email</span>
+            <span class="profile-field__value">{{ employee.email }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field__label">Contact</span>
+            <span class="profile-field__value">{{ employee.contact }}</span>
+          </div>
+          <!-- <div class="profile-field">
+            <span class="profile-field__label">Current address</span>
+            <span class="profile-field__value">{{ employee.current_address|default:"Not provided"|linebreaksbr }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field__label">Permanent address</span>
+            <span class="profile-field__value">{{ employee.permanent_address|default:"Not provided"|linebreaksbr }}</span>
+          </div> -->
+        </div>
+      {% if employee.profile_picture %}
+      <div class="modal fade" id="profilePhotoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-body p-0">
+              <img src="{{ employee.profile_picture.url }}" alt="{{ employee.full_name }}" class="img-fluid w-100 rounded-top">
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- <section class="profile-card">
+        <h3 class="profile-card__title"><i class="bx bx-id-card"></i> Compliance documents</h3>
+        <div class="d-flex flex-column gap-3">
+          <p class="mb-2 small text-muted">Keep your records up to date so HR can complete onboarding and payroll without delays.</p>
+
+          <div class="document-status-grid">
+            <div class="document-status-card">
+              <div class="document-status-header">
+                <span class="document-status-icon bg-label-primary"><i class="bx bx-credit-card"></i></span>
+                <span class="document-status-title">Aadhaar</span>
+              </div>
+              {% if employee.aadhar_document %}
+                <span class="badge bg-label-success">Uploaded</span>
+                <a href="{{ employee.aadhar_document.url }}" class="document-status-link" target="_blank" rel="noopener">View file</a>
+              {% else %}
+                <span class="badge bg-label-warning">Pending</span>
+              {% endif %}
+            </div>
+
+            <div class="document-status-card">
+              <div class="document-status-header">
+                <span class="document-status-icon bg-label-info"><i class="bx bx-id-card"></i></span>
+                <span class="document-status-title">PAN</span>
+              </div>
+              {% if employee.pan_document %}
+                <span class="badge bg-label-success">Uploaded</span>
+                <a href="{{ employee.pan_document.url }}" class="document-status-link" target="_blank" rel="noopener">View file</a>
+              {% else %}
+                <span class="badge bg-label-warning">Pending</span>
+              {% endif %}
+            </div>
+
+            <div class="document-status-card">
+              <div class="document-status-header">
+                <span class="document-status-icon bg-label-secondary"><i class="bx bx-bank"></i></span>
+                <span class="document-status-title">Bank proof</span>
+              </div>
+              {% if employee.bank_passbook_document %}
+                <span class="badge bg-label-success">Uploaded</span>
+                <a href="{{ employee.bank_passbook_document.url }}" class="document-status-link" target="_blank" rel="noopener">View file</a>
+              {% else %}
+                <span class="badge bg-label-warning">Pending</span>
+              {% endif %}
+            </div>
+
+            <div class="document-status-card">
+              <div class="document-status-header">
+                <span class="document-status-icon bg-label-success"><i class="bx bx-book"></i></span>
+                <span class="document-status-title">Education proof</span>
+              </div>
+              {% if employee.educational_qualifications %}
+                <span class="badge bg-label-success">Uploaded</span>
+                <a href="{{ employee.educational_qualifications.url }}" class="document-status-link" target="_blank" rel="noopener">View file</a>
+              {% else %}
+                <span class="badge bg-label-warning">Pending</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div>
+            <a href="{% url 'employees:employee_documents' %}" class="btn btn-primary btn-sm">
+              <i class="bx bx-upload me-1"></i>Manage documents
+            </a>
+          </div>
+        </div>
+      </section> -->
+
+      {% if not user.is_superuser %}
+      <!-- <section class="profile-card">
+        <h3 class="profile-card__title"><i class="bx bx-face"></i> Face recognition</h3>
+        <div class="d-flex flex-column gap-3">
+          <div>
+            {% if employee.has_registered_face %}
+              {% if face_update_pending %}
+                <span class="face-status-chip face-status-chip--pending"><i class="bx bx-time-five"></i> Pending approval</span>
+              {% elif face_update_active and latest_face_update_request.status == 'approved' %}
+                <span class="face-status-chip face-status-chip--approved"><i class="bx bx-check"></i> Approved – re-register required</span>
+              {% elif face_update_status == 'completed' %}
+                <span class="face-status-chip face-status-chip--completed"><i class="bx bx-badge-check"></i> Up to date</span>
+              {% else %}
+                <span class="face-status-chip face-status-chip--completed"><i class="bx bx-badge-check"></i> Active</span>
+              {% endif %}
+            {% else %}
+              <span class="face-status-chip face-status-chip--none"><i class="bx bx-error"></i> Not registered</span>
+            {% endif %}
+          </div>
+
+          <div class="face-info-block">
+            {% if not employee.has_registered_face %}
+              <p class="mb-2">You have not registered your face yet. Use the button below to capture your profile photo and unlock face-based check-in.</p>
+            {% elif face_update_pending %}
+              <p class="mb-2">Your face update request was submitted {{ latest_face_update_request.requested_at|naturaltime }} and is awaiting admin approval.</p>
+              {% if latest_face_update_request.reason %}
+                <p class="small text-muted mb-0">Reason: {{ latest_face_update_request.reason }}</p>
+              {% endif %}
+            {% elif face_update_active and latest_face_update_request.status == 'approved' %}
+              <p class="mb-2">Your request was approved {{ latest_face_update_request.reviewed_at|naturaltime }}. Please re-register your face to finish the update.</p>
+              {% if latest_face_update_request.admin_comment %}
+                <p class="small text-muted mb-0">Admin note: {{ latest_face_update_request.admin_comment }}</p>
+              {% endif %}
+            {% else %}
+              <p class="mb-2">Face data registered on {{ employee.face_registered_at|date:"M j, Y" }}. Request an update if your appearance has changed.</p>
+            {% endif %}
+          </div>
+
+          <div class="face-actions">
+            {% if not employee.has_registered_face %}
+              <a href="{% url 'employees:face_register' %}" class="btn btn-primary btn-sm">
+                <i class="bx bx-face me-1"></i>Register face
+              </a>
+            {% elif can_request_face_update %}
+              <a href="{% url 'employees:request_face_update' %}" class="btn btn-primary btn-sm">
+                <i class="bx bx-refresh me-1"></i>Request face update
+              </a>
+            {% elif face_update_active %}
+              {% if latest_face_update_request.status == 'approved' %}
+                <a href="{% url 'employees:face_register' %}" class="btn btn-primary btn-sm">
+                  <i class="bx bx-face me-1"></i>Re-register face
+                </a>
+              {% endif %}
+              <a href="{% url 'employees:request_face_update' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bx bx-detail me-1"></i>View request details
+              </a>
+            {% else %}
+              <a href="{% url 'employees:request_face_update' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bx bx-detail me-1"></i>View request history
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </section> -->
+      {% endif %}
+
+      <!-- <section class="profile-card">
+        <h3 class="profile-card__title"><i class="bx bx-shield-quarter"></i> Emergency contact</h3>
+        <div class="profile-grid">
+          <div class="profile-field">
+            <span class="profile-field__label">Name</span>
+            <span class="profile-field__value">{{ employee.relative_name|default:"Not provided" }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field__label">Relation</span>
+            <span class="profile-field__value">{{ employee.relation_with_employee|default:"Not provided" }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field__label">Contact</span>
+            <span class="profile-field__value">{{ employee.relative_contact|default:"Not provided" }}</span>
+          </div>
+        </div>
+      </section> -->
+
+      <!-- <section class="profile-card">
+        <h3 class="profile-card__title"><i class="bx bx-wallet"></i> Financial information</h3>
+        <div class="profile-grid">
+          <div class="profile-field">
+            <span class="profile-field__label">Aadhaar number</span>
+            <span class="profile-field__value">{{ employee.aadhar_card_number }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field__label">PAN</span>
+            <span class="profile-field__value">{{ employee.pan_card }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field__label">Account number</span>
+            <span class="profile-field__value">{{ employee.account_number }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field__label">IFSC code</span>
+            <span class="profile-field__value">{{ employee.ifsc_code }}</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section> -->
+{% endblock %}

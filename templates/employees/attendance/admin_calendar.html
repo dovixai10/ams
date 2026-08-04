@@ -1,0 +1,1408 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Attendance Calendar | Admin Portal{% endblock %}
+
+{% block content %}
+<div class="row">
+  <!-- Page Header -->
+  <div class="col-12 mb-4">
+    <div class="card bg-gradient-primary text-white">
+      <div class="card-body">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+          <div>
+            <h4 class="card-title text-white mb-1">
+              <i class="bx bx-calendar me-2"></i>Attendance Calendar
+            </h4>
+            <p class="mb-0 opacity-75">Monitor employee attendance and view detailed insights</p>
+          </div>
+          <div>
+            <a href="{% url 'employees:attendance_list' %}" class="btn btn-light">
+              <i class="bx bx-list-ul me-1"></i>View List
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Month Statistics -->
+  <div class="col-xl-3 col-md-6 col-12 mb-4">
+    <div class="card">
+      <div class="card-body text-center summary-card">
+        <div class="summary-icon summary-icon--success">
+          <i class="bx bx-check-circle"></i>
+        </div>
+        <h4 class="mb-1 text-success">{{ total_present }}</h4>
+        <small class="text-muted">Total Present</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-3 col-md-6 col-12 mb-4">
+    <div class="card">
+      <div class="card-body text-center summary-card">
+        <div class="summary-icon summary-icon--danger">
+          <i class="bx bx-x-circle"></i>
+        </div>
+        <h4 class="mb-1 text-danger fw-bold">{{ total_absent }}</h4>
+        <small class="text-muted">Absent Employees</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-3 col-md-6 col-12 mb-4">
+    <div class="card">
+      <div class="card-body text-center summary-card">
+        <div class="summary-icon summary-icon--info">
+          <i class="bx bx-time-five"></i>
+        </div>
+        <h4 class="mb-1 text-info">{{ total_half_days }}</h4>
+        <small class="text-muted">Half Days</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-3 col-md-6 col-12 mb-4">
+    <div class="card">
+      <div class="card-body text-center summary-card">
+        <div class="summary-icon summary-icon--secondary">
+          <i class="bx bx-group"></i>
+        </div>
+        <h4 class="mb-1 text-secondary">{{ all_employees.count }}</h4>
+        <small class="text-muted">Total Employees</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar Card -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+          <h5 class="card-title m-0">{{ month_name }} {{ year }}</h5>
+          
+          <!-- Filters and Navigation -->
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <!-- Employee Filter -->
+            <select id="employeeFilter"
+                    class="form-select form-select-sm"
+                    style="width: auto; min-width: 150px;"
+                    onchange="updateFilters()">
+              <option value="">All Employees</option>
+              {% for emp in all_employees %}
+                <option value="{{ emp.id }}" {% if selected_employee and selected_employee.id == emp.id %}selected{% endif %}>
+                  {{ emp.name }}
+                </option>
+              {% endfor %}
+            </select>
+            
+            <!-- Quick Month Selector -->
+            <div class="btn-group" role="group">
+              {% for m in months_list %}
+                <a href="?year={{ year }}&month={{ m.number }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}" 
+                   class="btn btn-sm {% if m.number == month %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                   title="{{ m.name }}">
+                  {{ m.abbr }}
+                </a>
+              {% endfor %}
+            </div>
+            
+            <!-- Year Selector -->
+            <select class="form-select form-select-sm" style="width: auto;" onchange="window.location.href='?year='+this.value+'&month={{ month }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}'">
+              {% for y in year_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+            </select>
+            
+            <!-- Navigation Arrows -->
+            <div class="btn-group" role="group">
+              <a href="?year={{ prev_year }}&month={{ prev_month }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bx bx-chevron-left"></i>
+              </a>
+              <a href="?year={{ current_date.year }}&month={{ current_date.month }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}" class="btn btn-sm btn-outline-secondary" title="Today">
+                <i class="bx bx-calendar-event"></i>
+              </a>
+              <a href="?year={{ next_year }}&month={{ next_month }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bx bx-chevron-right"></i>
+              </a>
+            </div>
+            <button class="btn btn-sm" onclick="downloadAttendanceReport()" style="background:linear-gradient(135deg,#696CFF,#8B5CF6); color:#fff; border:none;">
+      <i class="bx bx-download me-1"></i>
+      Download Excel Report
+  </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- Calendar Grid -->
+        <div class="table-responsive">
+          <table class="table table-bordered attendance-calendar">
+            <thead>
+              <tr>
+                <th class="text-center">Sun</th>
+                <th class="text-center">Mon</th>
+                <th class="text-center">Tue</th>
+                <th class="text-center">Wed</th>
+                <th class="text-center">Thu</th>
+                <th class="text-center">Fri</th>
+                <th class="text-center">Sat</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for week in calendar_data %}
+                <tr>
+                  {% for day in week %}
+                    {% if day %}
+                      <td class="calendar-day {% if day.is_today %}today{% endif %} {% if day.is_future %}future{% endif %} {% if day.is_holiday %}holiday{% endif %}"
+                          data-date="{{ day.date|date:'Y-m-d' }}"
+                          data-day="{{ day.day }}"
+                          data-bs-toggle="modal"
+                          data-bs-target="#dayDetailModal"
+                          data-default-employee-id="{% if selected_employee %}{{ selected_employee.id }}{% endif %}"
+                          data-default-employee-name="{% if selected_employee %}{{ selected_employee.name|default_if_none:''|escape }}{% endif %}"
+                          data-default-employee-email="{% if selected_employee %}{{ selected_employee.email|default_if_none:''|escape }}{% endif %}"
+                          data-attendance='[{% for record in day.attendance_records %}{"employee":"{{ record.employee.name|escapejs }}","employee_id":"{{ record.employee.employee_id|escapejs }}","employee_pk":{{ record.employee.pk }},"employee_email":"{{ record.employee.email|default_if_none:''|escapejs }}","checkin":"{{ record.check_in_time|date:"H:i:s"|escapejs }}","checkout":"{% if record.check_out_time %}{{ record.check_out_time|date:"H:i:s"|escapejs }}{% else %}Not checked out{% endif %}","duration":"{{ record.duration|escapejs }}","status":"{% if record.check_out_time and record.is_half_day %}halfday{% elif record.check_out_time %}complete{% else %}pending{% endif %}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
+                          style="cursor: pointer;">
+                        <div class="day-number">{{ day.day }}</div>
+                        
+                        {% if day.total_present > 0 or day.absent_count > 0 %}
+                          <div class="day-stats mt-2">
+                            {% if day.checked_out_count > 0 %}
+                              <div class="stat-item">
+                                <span class="badge badge-status badge-status-complete badge-sm">
+                                  <i class="bx bx-check"></i>
+                                  <span>{{ day.checked_out_count }}</span>
+                                </span>
+                              </div>
+                            {% endif %}
+                            {% if day.half_day_count > 0 %}
+                              <div class="stat-item">
+                                <span class="badge badge-status badge-status-half badge-sm">
+                                  <i class="bx bx-time-five"></i>
+                                  <span>{{ day.half_day_count }}</span>
+                                </span>
+                              </div>
+                            {% endif %}
+                            {% if day.checked_in_count > 0 %}
+                              <div class="stat-item">
+                                <span class="badge badge-status badge-status-pending badge-sm">
+                                  <i class="bx bx-time"></i>
+                                  <span>{{ day.checked_in_count }}</span>
+                                </span>
+                              </div>
+                            {% endif %}
+                            {% if day.absent_count > 0 %}
+                              <div class="stat-item">
+                                <span class="badge badge-status badge-status-absent badge-sm">
+                                  <i class="bx bx-x"></i>
+                                  <span>{{ day.absent_count }}</span>
+                                </span>
+                              </div>
+                            {% endif %}
+                          </div>
+                        {% endif %}
+                      </td>
+                    {% else %}
+                      <td class="calendar-day empty"></td>
+                    {% endif %}
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Legend -->
+        <div class="mt-4">
+          <h6 class="mb-3">Legend:</h6>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="d-flex align-items-center">
+              <span class="badge badge-status badge-status-complete me-2"><i class="bx bx-check"></i></span>
+              <span>Checked Out</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="badge badge-status badge-status-half me-2"><i class="bx bx-time-five"></i></span>
+              <span>Half Day</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="badge badge-status badge-status-pending me-2"><i class="bx bx-time"></i></span>
+              <span>Checked In Only</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="badge badge-status badge-status-absent me-2"><i class="bx bx-x"></i></span>
+              <span>Absent</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="badge badge-status badge-status-holiday me-2"><i class="bx bx-calendar"></i></span>
+              <span>Holiday (Sun & 1st, 3rd, 5th Sat)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Day Detail Modal -->
+<div class="modal fade" id="dayDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white">
+          <i class="bx bx-calendar-check me-2"></i>Attendance Details - <span id="modal-date"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <div id="modal-attendance-summary" class="modal-attendance-summary"></div>
+          </div>
+          <div class="col-12">
+            <div class="am-comment-card" id="modal-comment-card">
+              <div class="am-comment-card__header">
+                <div>
+                  <h6 class="am-comment-card__title mb-0">Day Conversation</h6>
+                  <small class="text-muted" id="modal-comment-date">Select an employee to load comments.</small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn btn-sm btn-outline-secondary" type="button" id="modal-comment-refresh" title="Refresh conversation">
+                    <i class='bx bx-refresh'></i>
+                  </button>
+                </div>
+              </div>
+              <div class="am-comment-card__body">
+                <div class="mb-3">
+                  <label for="modal-comment-employee" class="form-label small text-muted">Employee</label>
+                  <select class="form-select form-select-sm" id="modal-comment-employee"></select>
+                  <div class="form-text" id="modal-comment-employee-hint">Select an employee to view the shared notes.</div>
+                </div>
+                <div class="am-comment-thread" id="modal-comment-thread" aria-live="polite"></div>
+                <div class="am-comment-placeholder text-muted small" id="modal-comment-placeholder">Select an employee to load comments for this day.</div>
+                <div class="text-danger small d-none" id="modal-comment-error"></div>
+                <form class="am-comment-form mt-3" id="modal-comment-form" novalidate>
+                  <div class="am-comment-form__field">
+                    <textarea class="form-control" id="modal-comment-input" rows="3" maxlength="500" placeholder="Type your reply for this day..." required disabled></textarea>
+                    <div class="am-comment-form__hint"><small id="modal-comment-hint">Replies are visible to the employee.</small></div>
+                  </div>
+                  <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="modal-comment-cancel" disabled>Reset</button>
+                    <button type="submit" class="btn btn-primary btn-sm" id="modal-comment-submit" disabled>
+                      <span class="am-comment-submit__label">Send Reply</span>
+                      <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_css %}
+<style>
+.attendance-calendar {
+  margin-bottom: 0;
+}
+
+.attendance-calendar th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  padding: 12px 8px;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+}
+
+.calendar-day {
+  height: 120px;
+  vertical-align: top;
+  padding: 8px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.calendar-day.empty {
+  background-color: #f8f9fa;
+}
+
+.calendar-day.today {
+  background-color: #e7f3ff;
+  border: 2px solid #0d6efd !important;
+}
+
+.calendar-day.future {
+  background-color: #fafafa;
+  opacity: 0.6;
+}
+
+.calendar-day.holiday {
+  background: #8b5cf6 !important;
+  color: white !important;
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  position: relative;
+}
+
+.calendar-day.holiday::after {
+  content: '🏖️';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.9rem;
+  opacity: 0.6;
+}
+
+.calendar-day:not(.empty):not(.future):hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.calendar-day[data-bs-toggle="modal"] {
+  cursor: pointer !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.calendar-day[data-bs-toggle="modal"]:hover {
+  background: linear-gradient(135deg, #e7f3ff 0%, #cfe2ff 100%);
+}
+
+.calendar-day[data-bs-toggle="modal"]:active {
+  transform: scale(0.98);
+}
+
+.day-number {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.day-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+}
+
+.badge-sm {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.summary-card {
+  position: relative;
+  padding-top: 2.5rem;
+}
+
+.summary-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  color: #fff;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.2;
+  background: radial-gradient(circle at 30% 30%, #fff 0%, transparent 60%);
+}
+
+.summary-icon--primary {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+}
+
+.summary-icon--success {
+  background: linear-gradient(135deg, #34d399, #059669);
+}
+
+.summary-icon--danger {
+  background: linear-gradient(135deg, #f87171, #dc2626);
+}
+
+.summary-icon--info {
+  background: linear-gradient(135deg, #38bdf8, #2563eb);
+}
+
+.summary-icon--secondary {
+  background: linear-gradient(135deg, #94a3b8, #475569);
+}
+
+.summary-card h4 {
+  font-weight: 700;
+}
+
+.summary-card small {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badge-status {
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: #ffffff !important;
+  border-radius: 999px;
+  box-shadow: 0 6px 14px rgba(70, 70, 90, 0.18);
+  letter-spacing: 0.02em;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.badge-status i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 0.85rem;
+}
+
+.badge-status span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-status-complete {
+  background: linear-gradient(135deg, #22c55e, #15803d);
+}
+
+.badge-status-half {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+}
+
+.badge-status-pending {
+  background: linear-gradient(135deg, #f97316, #facc15);
+  color: #1f2937 !important;
+}
+
+.badge-status-pending i {
+  background: rgba(31, 41, 55, 0.18);
+}
+
+.badge-status-absent {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.badge-status-holiday {
+  background: linear-gradient(135deg, #6b7280, #374151);
+}
+
+.badge-status:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(70, 70, 90, 0.22);
+}
+
+.am-comment-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
+  padding: 1.25rem;
+}
+
+.am-comment-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.am-comment-card__title {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.am-comment-card__body {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.am-comment-thread {
+  max-height: 280px;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.75rem;
+  padding-right: 0.25rem;
+}
+
+.am-comment-thread::-webkit-scrollbar {
+  width: 6px;
+}
+
+.am-comment-thread::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.65);
+  border-radius: 999px;
+}
+
+.am-comment-thread::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.6);
+  border-radius: 999px;
+}
+
+.am-comment-thread__empty,
+.am-comment-placeholder {
+  text-align: center;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  background: rgba(148, 163, 184, 0.1);
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.am-comment-item {
+  position: relative;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border: 1px solid transparent;
+  background: rgba(241, 245, 249, 0.75);
+}
+
+.am-comment-item--employee {
+  justify-self: flex-start;
+  border-color: rgba(14, 165, 233, 0.4);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(14, 165, 233, 0.08));
+}
+
+.am-comment-item--admin {
+  justify-self: flex-end;
+  border-color: rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.12));
+}
+
+.am-comment-item__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(15, 23, 42, 0.55);
+  margin-bottom: 0.45rem;
+  gap: 0.75rem;
+}
+
+.am-comment-item__text {
+  margin: 0;
+  color: #1e293b;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+.am-comment-form__field textarea {
+  resize: vertical;
+}
+
+.am-comment-form__hint {
+  margin-top: 0.35rem;
+  color: #64748b;
+}
+
+.modal-attendance-summary .table th,
+.modal-attendance-summary .table td {
+  vertical-align: middle;
+}
+
+.modal-attendance-summary .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.modal-attendance-summary .status-badge i {
+  font-size: 1rem;
+}
+
+.comment-alert-note {
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+/* Mobile Responsive */
+@media (max-width: 992px) {
+  /* Tablet adjustments */
+  .calendar-day {
+    height: 110px;
+    padding: 6px;
+  }
+  
+  .day-number {
+    font-size: 1rem;
+  }
+  
+  .day-stats {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Mobile adjustments */
+  .card-header {
+    padding: 1rem;
+  }
+  
+  .card-body {
+    padding: 0.75rem;
+  }
+  
+  /* Make table fully responsive */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .attendance-calendar {
+    min-width: 100%;
+    font-size: 0.75rem;
+  }
+  
+  .attendance-calendar th {
+    padding: 8px 4px;
+    font-size: 0.7rem;
+  }
+  
+  .calendar-day {
+    height: 90px;
+    padding: 4px;
+  }
+  
+  .day-number {
+    font-size: 0.9rem;
+  }
+  
+  .badge-sm {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+  }
+  
+  .btn-group .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 576px) {
+  /* Extra small mobile */
+  .card-header h5 {
+    font-size: 0.95rem;
+  }
+  
+  /* Stack controls vertically */
+  .card-header .d-flex {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  
+  .form-select-sm {
+    width: 100% !important;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Calendar adjustments */
+  .attendance-calendar th {
+    padding: 6px 2px;
+    font-size: 0.65rem;
+  }
+  
+  .calendar-day {
+    height: 75px;
+    padding: 2px;
+  }
+  
+  .day-number {
+    font-size: 0.8rem;
+  }
+  
+  .badge-sm {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.3rem;
+  }
+  
+  .day-stats {
+    font-size: 0.6rem;
+  }
+  
+  .day-stats .badge {
+    font-size: 0.55rem;
+    padding: 0.1rem 0.2rem;
+  }
+  
+  /* Reduce hover effects on mobile */
+  .calendar-day:not(.empty):not(.future):hover {
+    transform: scale(1.02);
+  }
+  
+  /* Legend adjustments */
+  .mt-4 h6 {
+    font-size: 0.9rem;
+  }
+  
+  .mt-4 .d-flex span {
+    font-size: 0.75rem;
+  }
+  
+  .mt-4 .badge {
+    font-size: 0.65rem;
+  }
+  
+  /* Stats cards */
+  .card-body h4 {
+    font-size: 1.25rem;
+  }
+  
+  .card-body small {
+    font-size: 0.75rem;
+  }
+}
+</style>
+{% endblock %}
+
+{% block page_js %}
+<script>
+  function downloadAttendanceReport() {
+    const url = "{% url 'employees:attendance_excel_report' %}"
+        + "?year={{ year }}"
+        + "&month={{ month }}"
+        + "{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}";
+
+    window.location.href = url;
+}
+function updateFilters() {
+  const employeeSelect = document.getElementById('employeeFilter');
+  if (!employeeSelect) {
+    console.warn('Employee filter select not found, skipping filter update.');
+    return;
+  }
+
+  const employeeId = employeeSelect.value;
+  const url = new URL(window.location.href);
+
+  if (employeeId) {
+    url.searchParams.set('employee', employeeId);
+  } else {
+    url.searchParams.delete('employee');
+  }
+
+  window.location.href = url.toString();
+}
+
+// Add keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+    return;
+  }
+
+  const currentMonth = Number('{{ month|escapejs }}');
+  const currentYear = Number('{{ year|escapejs }}');
+  const employeeParam = '{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}';
+
+  if (e.key === 'ArrowLeft') {
+    // Previous month
+    const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    window.location.href = `?year=${prevYear}&month=${prevMonth}${employeeParam}`;
+  } else if (e.key === 'ArrowRight') {
+    // Next month
+    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+    const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+    window.location.href = `?year=${nextYear}&month=${nextMonth}${employeeParam}`;
+  }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  const dayDetailModal = document.getElementById('dayDetailModal');
+  if (!dayDetailModal) {
+    return;
+  }
+
+  const commentListUrl = "{% url 'employees:attendance_comments_list' %}";
+  const commentCreateUrl = "{% url 'employees:attendance_comments_create' %}";
+
+  const modalDateLabel = document.getElementById('modal-date');
+  const attendanceSummaryEl = document.getElementById('modal-attendance-summary');
+  const commentDateLabel = document.getElementById('modal-comment-date');
+  const commentEmployeeSelect = document.getElementById('modal-comment-employee');
+  const commentThreadEl = document.getElementById('modal-comment-thread');
+  const commentPlaceholder = document.getElementById('modal-comment-placeholder');
+  const commentErrorEl = document.getElementById('modal-comment-error');
+  const commentForm = document.getElementById('modal-comment-form');
+  const commentInput = document.getElementById('modal-comment-input');
+  const commentSubmit = document.getElementById('modal-comment-submit');
+  const commentSubmitLabel = commentSubmit ? commentSubmit.querySelector('.am-comment-submit__label') : null;
+  const commentSpinner = commentSubmit ? commentSubmit.querySelector('.spinner-border') : null;
+  const commentCancel = document.getElementById('modal-comment-cancel');
+  const commentHint = document.getElementById('modal-comment-hint');
+  const commentRefreshBtn = document.getElementById('modal-comment-refresh');
+
+  const defaultFilterEmployee = {
+    id: "{{ selected_employee_id|default_if_none:'' }}",
+    name: "{{ selected_employee_name|escapejs }}",
+    email: "{{ selected_employee_email|default_if_none:''|escapejs }}",
+    code: "{{ selected_employee_code|default_if_none:''|escapejs }}"
+  };
+
+  let modalCurrentDate = null;
+  let modalCurrentEmployee = null;
+  let lastAdminCommentValue = '';
+  let isLoadingComments = false;
+  let commentsPollingTimer = null;
+
+  function formatDisplayDate(dateIso) {
+    if (!dateIso) {
+      return '—';
+    }
+    const parsed = new Date(dateIso);
+    if (Number.isNaN(parsed.getTime())) {
+      return '—';
+    }
+    return parsed.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
+
+  function renderStatusBadge(status) {
+    switch (status) {
+      case 'complete':
+        return '<span class="badge bg-success"><i class="bx bx-check"></i> Complete</span>';
+      case 'halfday':
+        return '<span class="badge bg-info"><i class="bx bx-time-five"></i> Half Day</span>';
+      case 'pending':
+      default:
+        return '<span class="badge bg-warning"><i class="bx bx-time"></i> Pending</span>';
+    }
+  }
+
+  function renderAttendanceSummary(records) {
+    if (!attendanceSummaryEl) {
+      return;
+    }
+
+    if (!records.length) {
+      attendanceSummaryEl.innerHTML = '<div class="alert alert-info"><i class="bx bx-info-circle me-2"></i>No attendance records for this day.</div>';
+      return;
+    }
+
+    const rows = records.map((record) => `
+      <tr>
+        <td>${record.employee}</td>
+        <td>${record.employee_id || ''}</td>
+        <td>${record.checkin || '—'}</td>
+        <td>${record.checkout || '—'}</td>
+        <td>${record.duration || '—'}</td>
+        <td>${renderStatusBadge(record.status)}</td>
+      </tr>
+    `).join('');
+
+    attendanceSummaryEl.innerHTML = `
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>ID</th>
+              <th>Check-in</th>
+              <th>Check-out</th>
+              <th>Duration</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function showPlaceholder(message) {
+    if (commentPlaceholder) {
+      commentPlaceholder.textContent = message;
+      commentPlaceholder.classList.remove('d-none');
+    }
+    if (commentThreadEl) {
+      commentThreadEl.innerHTML = '';
+      commentThreadEl.classList.add('d-none');
+    }
+  }
+
+  function showThread() {
+    if (commentPlaceholder) {
+      commentPlaceholder.classList.add('d-none');
+    }
+    if (commentThreadEl) {
+      commentThreadEl.classList.remove('d-none');
+    }
+  }
+
+  function clearError() {
+    if (commentErrorEl) {
+      commentErrorEl.textContent = '';
+      commentErrorEl.classList.add('d-none');
+    }
+  }
+
+  function setError(message) {
+    if (commentErrorEl) {
+      commentErrorEl.textContent = message;
+      commentErrorEl.classList.remove('d-none');
+    }
+  }
+
+  function updateFormControlsAvailability() {
+    const hasEmployee = Boolean(modalCurrentEmployee && modalCurrentEmployee.id);
+    const disableInputs = !hasEmployee || isLoadingComments;
+
+    if (commentInput) {
+      commentInput.disabled = disableInputs;
+    }
+    if (commentSubmit) {
+      commentSubmit.disabled = disableInputs;
+    }
+    if (commentCancel) {
+      commentCancel.disabled = disableInputs || !hasEmployee;
+    }
+    if (commentRefreshBtn) {
+      commentRefreshBtn.disabled = !hasEmployee || isLoadingComments;
+    }
+  }
+
+  function setCommentLoading(loading) {
+    isLoadingComments = loading;
+    if (commentSpinner) {
+      commentSpinner.classList.toggle('d-none', !loading);
+    }
+    if (commentSubmitLabel) {
+      commentSubmitLabel.classList.toggle('d-none', loading);
+    }
+    updateFormControlsAvailability();
+  }
+
+  function startCommentsPolling() {
+    stopCommentsPolling();
+    commentsPollingTimer = window.setInterval(loadComments, 12000);
+  }
+
+  function stopCommentsPolling() {
+    if (commentsPollingTimer) {
+      window.clearInterval(commentsPollingTimer);
+      commentsPollingTimer = null;
+    }
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      stopCommentsPolling();
+    } else if (modalCurrentDate && modalCurrentEmployee && modalCurrentEmployee.id) {
+      loadComments();
+      startCommentsPolling();
+    }
+  }
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  function getCsrfToken() {
+    const value = `; ${document.cookie}`;
+    const parts = value.split('; csrftoken=');
+    if (parts.length === 2) {
+      return parts.pop().split(';').shift();
+    }
+    return '';
+  }
+
+  function renderCommentItem(comment, employeeName) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'am-comment-item ' + (comment.is_admin_comment ? 'am-comment-item--admin' : 'am-comment-item--employee');
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'am-comment-item__meta';
+
+    const author = document.createElement('span');
+    author.textContent = comment.is_admin_comment
+      ? (comment.created_by_display || 'Admin')
+      : (comment.created_by_display || employeeName || 'Employee');
+
+    const timestamp = document.createElement('span');
+    const parsed = comment.updated_at ? new Date(comment.updated_at) : null;
+    timestamp.textContent = parsed && !Number.isNaN(parsed.getTime())
+      ? parsed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+      : '';
+
+    metaRow.appendChild(author);
+    metaRow.appendChild(timestamp);
+
+    const body = document.createElement('p');
+    body.className = 'am-comment-item__text';
+    body.textContent = comment.comment || '';
+
+    wrapper.appendChild(metaRow);
+    wrapper.appendChild(body);
+
+    return wrapper;
+  }
+
+  function renderCommentThread(comments) {
+    if (!commentThreadEl) {
+      return;
+    }
+
+    commentThreadEl.innerHTML = '';
+
+    if (!comments.length) {
+      showPlaceholder('No comments yet for this day.');
+      lastAdminCommentValue = '';
+      if (commentInput) {
+        commentInput.value = '';
+      }
+      updateFormControlsAvailability();
+      return;
+    }
+
+    showThread();
+
+    comments.forEach((comment) => {
+      const element = renderCommentItem(comment, modalCurrentEmployee ? modalCurrentEmployee.name : 'Employee');
+      commentThreadEl.appendChild(element);
+      if (comment.is_admin_comment) {
+        lastAdminCommentValue = comment.comment || '';
+      }
+    });
+
+    if (commentInput) {
+      commentInput.value = lastAdminCommentValue;
+    }
+
+    updateFormControlsAvailability();
+    commentThreadEl.scrollTop = commentThreadEl.scrollHeight;
+  }
+
+  function populateEmployeeSelect(records, defaultEmployee) {
+    if (!commentEmployeeSelect) {
+      return new Map();
+    }
+
+    commentEmployeeSelect.innerHTML = '';
+
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = 'Select employee';
+    commentEmployeeSelect.appendChild(placeholderOption);
+
+    const employeesMap = new Map();
+
+    records.forEach((record) => {
+      if (!record) {
+        return;
+      }
+      const key = String(record.employee_pk || record.employee_id || record.employee);
+      if (!employeesMap.has(key)) {
+        employeesMap.set(key, {
+          id: key,
+          name: record.employee,
+          email: record.employee_email || '',
+          code: record.employee_id || ''
+        });
+      }
+    });
+
+    if (defaultEmployee && defaultEmployee.id) {
+      const key = String(defaultEmployee.id);
+      if (!employeesMap.has(key)) {
+        employeesMap.set(key, {
+          id: key,
+          name: defaultEmployee.name || 'Employee',
+          email: defaultEmployee.email || '',
+          code: defaultEmployee.code || ''
+        });
+      }
+    }
+
+    Array.from(employeesMap.values())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((employee) => {
+        const option = document.createElement('option');
+        option.value = String(employee.id);
+        option.textContent = employee.code
+          ? `${employee.name} (${employee.code})`
+          : employee.name;
+        option.dataset.name = employee.name;
+        option.dataset.email = employee.email || '';
+        option.dataset.code = employee.code || '';
+        commentEmployeeSelect.appendChild(option);
+      });
+
+    return employeesMap;
+  }
+
+  function selectEmployeeById(employeeId) {
+    if (!commentEmployeeSelect) {
+      return;
+    }
+    commentEmployeeSelect.value = employeeId ? String(employeeId) : '';
+    commentEmployeeSelect.dispatchEvent(new Event('change'));
+  }
+
+  function loadComments() {
+    if (!modalCurrentDate || !modalCurrentEmployee || !modalCurrentEmployee.id) {
+      return;
+    }
+
+    clearError();
+    showPlaceholder('Loading conversation…');
+    setCommentLoading(true);
+
+    const params = new URLSearchParams({ date: modalCurrentDate });
+    params.append('employee_id', modalCurrentEmployee.id);
+
+    fetch(`${commentListUrl}?${params.toString()}`, {
+      headers: { Accept: 'application/json' },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to load comments');
+        }
+        return response.json();
+      })
+      .then((data) => {
+        const comments = Array.isArray(data.comments) ? data.comments : [];
+        lastAdminCommentValue = '';
+        renderCommentThread(comments);
+      })
+      .catch(() => {
+        showPlaceholder('Unable to load comments right now.');
+        setError('Unable to load comments right now.');
+      })
+      .finally(() => {
+        setCommentLoading(false);
+        if (!document.hidden && modalCurrentEmployee && modalCurrentEmployee.id) {
+          startCommentsPolling();
+        }
+      });
+  }
+
+  function handleEmployeeSelection() {
+    if (!commentEmployeeSelect) {
+      return;
+    }
+
+    const selectedOption = commentEmployeeSelect.options[commentEmployeeSelect.selectedIndex];
+    if (!selectedOption || !selectedOption.value) {
+      modalCurrentEmployee = null;
+      lastAdminCommentValue = '';
+      if (commentHint) {
+        commentHint.textContent = 'Replies are visible to the employee.';
+      }
+      showPlaceholder('Select an employee to load comments for this day.');
+      stopCommentsPolling();
+      updateFormControlsAvailability();
+      return;
+    }
+
+    modalCurrentEmployee = {
+      id: selectedOption.value,
+      name: selectedOption.dataset.name || 'Employee',
+      email: selectedOption.dataset.email || '',
+      code: selectedOption.dataset.code || ''
+    };
+    lastAdminCommentValue = '';
+
+    if (commentHint) {
+      const name = modalCurrentEmployee.name || 'the employee';
+      commentHint.textContent = `Replies are visible to ${name}.`;
+    }
+
+    updateFormControlsAvailability();
+    loadComments();
+  }
+
+  function handleCommentSubmit(event) {
+    event.preventDefault();
+    if (!modalCurrentEmployee || !modalCurrentEmployee.id || !modalCurrentDate || !commentInput) {
+      return;
+    }
+
+    const value = commentInput.value.trim();
+    if (!value) {
+      setError('Reply cannot be empty.');
+      commentInput.focus();
+      return;
+    }
+
+    clearError();
+    setCommentLoading(true);
+    stopCommentsPolling();
+
+    const payload = new URLSearchParams();
+    payload.append('employee_id', modalCurrentEmployee.id);
+    payload.append('date', modalCurrentDate);
+    payload.append('comment', value);
+
+    fetch(commentCreateUrl, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken(),
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      },
+      body: payload.toString(),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to save comment');
+        }
+        return response.json();
+      })
+      .then(() => {
+        lastAdminCommentValue = value;
+        loadComments();
+      })
+      .catch(() => {
+        setError('Unable to send reply. Please try again.');
+        setCommentLoading(false);
+      });
+  }
+
+  function handleCommentCancel(event) {
+    event.preventDefault();
+    if (!commentInput) {
+      return;
+    }
+    commentInput.value = lastAdminCommentValue || '';
+    commentInput.focus();
+  }
+
+  function resetModalState() {
+    modalCurrentDate = null;
+    modalCurrentEmployee = null;
+    lastAdminCommentValue = '';
+    isLoadingComments = false;
+    stopCommentsPolling();
+
+    if (modalDateLabel) {
+      modalDateLabel.textContent = '—';
+    }
+    if (attendanceSummaryEl) {
+      attendanceSummaryEl.innerHTML = '';
+    }
+    if (commentEmployeeSelect) {
+      commentEmployeeSelect.innerHTML = '';
+    }
+    if (commentInput) {
+      commentInput.value = '';
+    }
+    if (commentHint) {
+      commentHint.textContent = 'Replies are visible to the employee.';
+    }
+    if (commentDateLabel) {
+      commentDateLabel.textContent = 'Select an employee to load comments.';
+    }
+    clearError();
+    showPlaceholder('Select an employee to load comments for this day.');
+    setCommentLoading(false);
+  }
+
+  dayDetailModal.addEventListener('show.bs.modal', function(event) {
+    resetModalState();
+
+    const trigger = event.relatedTarget;
+    const dateIso = trigger ? trigger.getAttribute('data-date') : null;
+    const rawAttendance = trigger ? trigger.getAttribute('data-attendance') : null;
+    const defaultEmployeeFromCell = trigger ? {
+      id: trigger.dataset.defaultEmployeeId || defaultFilterEmployee.id,
+      name: trigger.dataset.defaultEmployeeName || defaultFilterEmployee.name,
+      email: trigger.dataset.defaultEmployeeEmail || defaultFilterEmployee.email,
+      code: trigger.dataset.defaultEmployeeCode || defaultFilterEmployee.code,
+    } : defaultFilterEmployee;
+
+    modalCurrentDate = dateIso;
+
+    if (modalDateLabel) {
+      modalDateLabel.textContent = formatDisplayDate(dateIso);
+    }
+    if (commentDateLabel) {
+      commentDateLabel.textContent = dateIso ? `Conversation for ${formatDisplayDate(dateIso)}` : 'Select an employee to load comments.';
+    }
+
+    let attendanceRecords = [];
+    if (rawAttendance) {
+      try {
+        attendanceRecords = JSON.parse(rawAttendance) || [];
+      } catch (err) {
+        console.error('Failed to parse attendance data for date', dateIso, err);
+        attendanceRecords = [];
+      }
+    }
+
+    renderAttendanceSummary(attendanceRecords);
+
+    const employeesMap = populateEmployeeSelect(attendanceRecords, defaultEmployeeFromCell);
+
+    let preselectId = '';
+    if (defaultEmployeeFromCell && defaultEmployeeFromCell.id && employeesMap.has(String(defaultEmployeeFromCell.id))) {
+      preselectId = String(defaultEmployeeFromCell.id);
+    } else if (employeesMap.size === 1) {
+      preselectId = employeesMap.keys().next().value;
+    }
+
+    if (preselectId) {
+      selectEmployeeById(preselectId);
+    } else {
+      showPlaceholder('Select an employee to load comments for this day.');
+      updateFormControlsAvailability();
+    }
+  });
+
+  dayDetailModal.addEventListener('hidden.bs.modal', resetModalState);
+
+  if (commentEmployeeSelect) {
+    commentEmployeeSelect.addEventListener('change', handleEmployeeSelection);
+  }
+  if (commentForm) {
+    commentForm.addEventListener('submit', handleCommentSubmit);
+  }
+  if (commentCancel) {
+    commentCancel.addEventListener('click', handleCommentCancel);
+  }
+  if (commentRefreshBtn) {
+    commentRefreshBtn.addEventListener('click', function(event) {
+      event.preventDefault();
+      if (modalCurrentEmployee && modalCurrentEmployee.id) {
+        loadComments();
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

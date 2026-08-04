@@ -1,0 +1,95 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2 class="mb-3">Adjust Paid Leave</h2>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="POST" action="{% url 'employees:adjust_paid_leave' %}" class="card p-4 shadow-sm">
+    {% csrf_token %}
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label>Select Employee</label>
+            <select name="employee" class="form-control" required>
+                <option value="">-- Choose Employee --</option>
+                {% for emp in employees %}
+                    <option value="{{ emp.id }}"
+                        {% if selected_employee and emp.id == selected_employee.id %}selected{% endif %}>
+                        {{ emp.full_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label>Adjustment Type</label>
+            <select name="adjustment_type" class="form-control" required>
+                <option value="increase">Increase</option>
+                <option value="decrease">Decrease</option>
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label>Amount</label>
+            <input type="number" step="0.5" min="0.5" max="100" name="amount" class="form-control" required>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label>Reason (Optional)</label>
+        <textarea name="reason" class="form-control" rows="3"></textarea>
+    </div>
+
+    <button class="btn btn-primary px-4">Save Adjustment</button>
+</form>
+
+    <h3 class="mt-5 mb-3">Paid Leave Adjustment History</h3>
+
+    <div class="card shadow-sm p-3">
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Employee</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Previous</th>
+                    <th>New</th>
+                    <th>Reason</th>
+                    <th>Updated By</th>
+                    <th>Updated At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for adj in adjustments %}
+                    <tr>
+                        <td>{{ adj.employee.full_name }}</td>
+                        <td>{{ adj.adjustment_type|title }}</td>
+                        <td>{{ adj.amount }}</td>
+                        <td>{{ adj.previous_balance }}</td>
+                        <td>{{ adj.new_balance }}</td>
+                        <td>{{ adj.reason }}</td>
+                        <td>{{ adj.adjusted_by }}</td>
+                        <td>{{ adj.adjusted_at|date:"d M Y H:i" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted">No adjustments yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

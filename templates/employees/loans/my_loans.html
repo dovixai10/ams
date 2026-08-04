@@ -1,0 +1,290 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}My Loan Requests{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+.my-loans-container {
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.btn-new-loan {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.btn-new-loan:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  color: white;
+}
+
+.loans-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.loan-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.loan-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.loan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.loan-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.loan-status {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-disapproved {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.loan-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-value {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.loan-reason {
+  color: #4b5563;
+  line-height: 1.6;
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.loan-attachment {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.attachment-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.attachment-link:hover {
+  color: #4338ca;
+}
+
+.admin-comment {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+  border-left: 4px solid #6366f1;
+}
+
+.admin-comment-title {
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.admin-comment-text {
+  color: #4b5563;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-new-loan {
+    justify-content: center;
+  }
+  
+  .loan-details {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="my-loans-container">
+  <div class="page-header">
+    <h1 class="page-title">My Loan Requests</h1>
+    <a href="{% url 'employees:loan_request' %}" class="btn-new-loan">
+      <i class="bx bx-plus"></i>
+      New Loan Request
+    </a>
+  </div>
+
+  {% if loans %}
+    <div class="loans-grid">
+      {% for loan in loans %}
+        <div class="loan-card">
+          <div class="loan-header">
+            <div class="loan-amount">₹{{ loan.amount }}</div>
+            <div class="loan-status status-{{ loan.status }}">
+              {{ loan.get_status_display }}
+            </div>
+          </div>
+          
+          <div class="loan-details">
+            <div class="detail-item">
+              <span class="detail-label">Request Date</span>
+              <span class="detail-value">{{ loan.created_at|date:"M d, Y" }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Request ID</span>
+              <span class="detail-value">#{{ loan.id }}</span>
+            </div>
+            {% if loan.reviewed_at %}
+              <div class="detail-item">
+                <span class="detail-label">Reviewed Date</span>
+                <span class="detail-value">{{ loan.reviewed_at|date:"M d, Y" }}</span>
+              </div>
+            {% endif %}
+            {% if loan.reviewed_by %}
+              <div class="detail-item">
+                <span class="detail-label">Reviewed By</span>
+                <span class="detail-value">{{ loan.reviewed_by.get_full_name|default:loan.reviewed_by.username }}</span>
+              </div>
+            {% endif %}
+          </div>
+          
+          <div class="loan-reason">
+            <strong>Reason:</strong> {{ loan.reason|linebreaks }}
+          </div>
+          
+          {% if loan.attachment %}
+            <div class="loan-attachment">
+              <a href="{{ loan.attachment.url }}" target="_blank" class="attachment-link">
+                <i class="bx bx-file"></i>
+                View Attachment
+              </a>
+            </div>
+          {% endif %}
+          
+          {% if loan.admin_comment %}
+            <div class="admin-comment">
+              <div class="admin-comment-title">Admin Comment</div>
+              <div class="admin-comment-text">{{ loan.admin_comment|linebreaks }}</div>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <i class="bx bx-money"></i>
+      <h3>No Loan Requests</h3>
+      <p>You haven't submitted any loan requests yet.</p>
+      <a href="{% url 'employees:loan_request' %}" class="btn-new-loan">
+        <i class="bx bx-plus"></i>
+        Create Your First Request
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

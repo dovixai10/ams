@@ -1,0 +1,201 @@
+{% extends 'layout/blank.html' %}
+{% load static %}
+
+{% block title %}Face Recognition Attendance{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Face Recognition Attendance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="video-container mb-3">
+                                <video id="video" width="100%" height="auto" autoplay></video>
+                            </div>
+                            <div class="text-center">
+                                <button id="capture" class="btn btn-primary">Mark Attendance</button>
+                                <div id="status" class="mt-3"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Instructions</h5>
+                                </div>
+                                <div class="card-body">
+                                    <ol>
+                                        <li>Position yourself in a well-lit area</li>
+                                        <li>Look directly at the camera</li>
+                                        <li>Make sure your face is clearly visible</li>
+                                        <li>Click 'Mark Attendance' to check in/out</li>
+                                    </ol>
+                                    <div id="attendanceResult" class="text-center d-none">
+                                        <div class="alert alert-success" id="successMessage" style="display: none;"></div>
+                                        <div class="alert alert-danger" id="errorMessage" style="display: none;"></div>
+                                        <img id="preview" class="img-fluid rounded mt-3" style="max-width: 200px;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const video = document.getElementById('video');
+        const captureBtn = document.getElementById('capture');
+        const preview = document.getElementById('preview');
+        const statusDiv = document.getElementById('status');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const attendanceResult = document.getElementById('attendanceResult');
+        let stream = null;
+        let isProcessing = false;
+
+        // Access the webcam
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user' 
+                    },
+                    audio: false 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing the camera: ", err);
+                statusDiv.innerHTML = '<div class="alert alert-danger">Error accessing the camera. Please make sure you\'ve granted camera permissions.</div>';
+            }
+        }
+
+        // Capture image from video stream
+        captureBtn.addEventListener('click', function() {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            statusDiv.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Processing...</span></div> Processing...';
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Show preview
+            preview.src = canvas.toDataURL('image/jpeg');
+            attendanceResult.classList.remove('d-none');
+            successMessage.style.display = 'none';
+            errorMessage.style.display = 'none';
+            
+            // Send to server
+            markAttendance(canvas.toDataURL('image/jpeg'));
+        });
+
+        // Send the captured image to the server
+        async function markAttendance(imageData) {
+            try {
+                const response = await fetch('{% url "employees:face_attendance" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: `image=${encodeURIComponent(imageData)}`
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    successMessage.textContent = result.message || 'Attendance marked successfully!';
+                    successMessage.style.display = 'block';
+                    errorMessage.style.display = 'none';
+                    
+                    // Update status with employee name and time
+                    if (result.employee_name) {
+                        const action = result.action === 'check_in' ? 'Checked In' : 'Checked Out';
+                        statusDiv.innerHTML = `<div class="alert alert-success">
+                            ${action} for <strong>${result.employee_name}</strong> at ${result.time || 'now'}
+                        </div>`;
+                    }
+                } else {
+                    errorMessage.textContent = result.error || 'Failed to mark attendance';
+                    errorMessage.style.display = 'block';
+                    successMessage.style.display = 'none';
+                    statusDiv.innerHTML = `<div class="alert alert-danger">${result.error || 'Error processing your request'}</div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                statusDiv.innerHTML = '<div class="alert alert-danger">An error occurred while processing your request.</div>';
+                errorMessage.textContent = 'An error occurred. Please try again.';
+                errorMessage.style.display = 'block';
+                successMessage.style.display = 'none';
+            } finally {
+                isProcessing = false;
+                
+                // Auto-refresh after 3 seconds if successful
+                if (response && response.success) {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                }
+            }
+        }
+
+        // Start the camera when the page loads
+        startCamera();
+
+        // Clean up the stream when the page is unloaded
+        window.addEventListener('beforeunload', function() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    });
+</script>
+
+<style>
+    .video-container {
+        position: relative;
+        width: 100%;
+        padding-bottom: 75%; /* 4:3 Aspect Ratio */
+        background: #000;
+        border-radius: 0.375rem;
+        overflow: hidden;
+    }
+    
+    .video-container video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    #capture {
+        width: 200px;
+        height: 50px;
+        font-size: 1.1rem;
+    }
+    
+    #status {
+        min-height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+{% endblock %}

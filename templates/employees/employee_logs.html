@@ -1,0 +1,461 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}{{ employee.full_name }} | Attendance Activity Logs{% endblock %}
+
+{% block vendor_css %}
+  {{ block.super }}
+{% endblock vendor_css %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+          <h4 class="mb-1">Attendance Activity Logs</h4>
+          <p class="text-muted mb-0">Interactive timeline of all Check-In / Check-Out / Break attempts by {{ employee.full_name }}</p>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="{% url 'employees:employee_detail' employee.pk %}" class="btn btn-outline-secondary">
+            <i class="bx bx-arrow-back me-1"></i> Back to Profile
+          </a>
+          <a href="{% url 'employees:admin_attendance_logs' %}?employee={{ employee.pk }}" class="btn btn-outline-primary">
+            <i class="bx bx-list-ul me-1"></i> Admin-wide Logs
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <div class="row g-4 align-items-center">
+            <div class="col-xl-4 col-lg-5">
+              <div class="d-flex align-items-center">
+                <div class="avatar avatar-lg flex-shrink-0 me-3">
+                  <div class="avatar-initial bg-label-primary rounded-circle">
+                    {{ employee.full_name|slice:":1"|upper }}
+                  </div>
+                </div>
+                <div>
+                  <h6 class="mb-1">{{ employee.full_name }}</h6>
+                  <small class="text-muted d-block">{{ employee.email }}</small>
+                  <small class="text-muted">Joined {{ employee.created_at|date:"M d, Y" }}</small>
+                  <div class="mt-2 d-flex gap-2 flex-wrap">
+                    {% if employee.user.is_active %}
+                      <span class="badge bg-label-success">Active</span>
+                    {% else %}
+                      <span class="badge bg-label-danger">Inactive</span>
+                    {% endif %}
+                    {% if employee.face_registered %}
+                      <span class="badge bg-label-success"><i class="bx bx-face me-1"></i> Face Registered</span>
+                    {% else %}
+                      <span class="badge bg-label-warning"><i class="bx bx-face me-1"></i> Face Not Registered</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-xl-8 col-lg-7">
+              <div class="row g-3 log-summary-cards">
+                <div class="col-sm-4 col-12">
+                  <div class="log-stat-card h-100">
+                    <span class="log-stat-label">Total Attempts</span>
+                    <h4 class="log-stat-value">{{ total_logs }}</h4>
+                  </div>
+                </div>
+                <div class="col-sm-4 col-6">
+                  <div class="log-stat-card h-100">
+                    <span class="log-stat-label">Success</span>
+                    <h5 class="log-stat-value text-success">{{ successful_logs }}</h5>
+                  </div>
+                </div>
+                <div class="col-sm-4 col-6">
+                  <div class="log-stat-card h-100">
+                    <span class="log-stat-label">Failed</span>
+                    <h5 class="log-stat-value text-danger">{{ failed_logs }}</h5>
+                  </div>
+                </div>
+                {% if action_summary %}
+                  <div class="col-12">
+                    <div class="log-stat-card flex-row align-items-center justify-content-between">
+                      <div>
+                        <span class="log-stat-label mb-1">Top Actions</span>
+                        <div class="d-flex gap-2 flex-wrap">
+                          {% for summary in action_summary|slice:":3" %}
+                            <span class="badge bg-label-primary">{{ summary.label }} • {{ summary.count }}</span>
+                          {% endfor %}
+                        </div>
+                      </div>
+                      {% if action_summary|length > 3 %}
+                        <span class="text-muted small">+{{ action_summary|length|add:"-3" }} more</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% if has_more_logs %}
+            <div class="alert alert-info mt-3 mb-0">
+              <i class="bx bx-info-circle me-1"></i> Showing the latest {{ log_display_limit }} entries. Use the admin logs for a complete export.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card" id="employee-logs-card">
+        <div class="card-header border-bottom-0 pb-0">
+          <div class="row g-3 align-items-end">
+            <div class="col-lg-4">
+              <label class="form-label mb-1">Search</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-transparent border-end-0"><i class="bx bx-search"></i></span>
+                <input type="search" id="employee-log-search" class="form-control border-start-0" placeholder="Search notes, IP, status...">
+              </div>
+            </div>
+            <div class="col-sm-4 col-lg-3">
+              <label for="employee-log-status" class="form-label mb-1">Status</label>
+              <select id="employee-log-status" class="form-select form-select-sm">
+                {% for status in status_filters %}
+                  <option value="{{ status.code }}">{{ status.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-4 col-lg-3">
+              <label for="employee-log-action" class="form-label mb-1">Action Type</label>
+              <select id="employee-log-action" class="form-select form-select-sm">
+                {% for action in action_filters %}
+                  <option value="{{ action.code }}">{{ action.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-lg-2 col-sm-4">
+              <div class="text-muted small text-lg-end">
+                Showing <span id="employee-log-visible-count">{{ logs|length }}</span> of {{ total_logs }}
+              </div>
+            </div>
+          </div>
+          <hr class="mt-3 mb-0">
+        </div>
+        <div class="card-body pt-3">
+          {% if logs %}
+            <div class="employee-log-scroll">
+              <div class="accordion accordion-flush employee-log-accordion" id="employeeLogAccordion">
+                {% for log in logs %}
+                  <div class="accordion-item employee-log-entry" data-status="{% if log.success %}success{% else %}failed{% endif %}" data-action-group="{% if 'check_in' in log.action %}check-in{% elif 'check_out' in log.action %}check-out{% elif 'break' in log.action %}break{% else %}other{% endif %}">
+                    <h2 class="accordion-header" id="logHeading{{ forloop.counter }}">
+                      <button class="accordion-button collapsed gap-3" type="button" data-bs-toggle="collapse" data-bs-target="#logCollapse{{ forloop.counter }}" aria-expanded="false" aria-controls="logCollapse{{ forloop.counter }}">
+                        <span class="log-timestamp text-center">
+                          <span class="log-date d-block">{{ log.timestamp|date:"d M" }}</span>
+                          <span class="log-time d-block">{{ log.timestamp|date:"H:i" }}</span>
+                        </span>
+                        <span class="flex-grow-1 text-start">
+                          <span class="d-block fw-medium">{{ log.get_action_display }}</span>
+                          <small class="text-muted">
+                            {% if log.success %}
+                              Successful attempt
+                            {% elif log.failure_reason %}
+                              Failed • {{ log.get_failure_reason_display }}
+                            {% else %}
+                              Failed attempt
+                            {% endif %}
+                          </small>
+                        </span>
+                        <span class="log-badges d-flex gap-2 align-items-center flex-wrap">
+                          <span class="badge bg-label-{% if 'check_in' in log.action %}info{% elif 'check_out' in log.action %}warning{% elif 'break' in log.action %}primary{% else %}secondary{% endif %}">
+                            <i class="bx {{ log.action_icon }}"></i>
+                          </span>
+                          {% if log.success %}
+                            <span class="badge bg-success">Success</span>
+                          {% else %}
+                            <span class="badge bg-danger">Failed</span>
+                          {% endif %}
+                          {% if log.success and log.confidence %}
+                            <span class="badge bg-label-success">{{ log.confidence|floatformat:1 }}%</span>
+                          {% elif not log.success and log.failure_reason %}
+                            <span class="badge bg-label-danger">{{ log.get_failure_reason_display }}</span>
+                          {% endif %}
+                        </span>
+                      </button>
+                    </h2>
+                    <div id="logCollapse{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="logHeading{{ forloop.counter }}">
+                      <div class="accordion-body">
+                        <div class="row g-3">
+                          <div class="col-md-4">
+                            <div class="log-detail-card h-100">
+                              <h6 class="text-uppercase small text-muted mb-2">Technical</h6>
+                              <p class="mb-1"><strong>IP Address:</strong> {{ log.ip_address|default:"-" }}</p>
+                              {% if log.user_agent %}
+                                <p class="mb-0"><strong>User Agent:</strong><br><span class="text-muted small">{{ log.user_agent }}</span></p>
+                              {% else %}
+                                <p class="mb-0 text-muted small">User agent not recorded.</p>
+                              {% endif %}
+                            </div>
+                          </div>
+                          <div class="col-md-4">
+                            <div class="log-detail-card h-100">
+                              <h6 class="text-uppercase small text-muted mb-2">Outcome</h6>
+                              {% if log.success %}
+                                <p class="mb-1">Completed at <strong>{{ log.timestamp|date:"H:i:s" }}</strong></p>
+                                {% if log.confidence %}
+                                  <p class="mb-0">Face match: <strong>{{ log.confidence|floatformat:1 }}%</strong></p>
+                                {% endif %}
+                              {% else %}
+                                <p class="mb-1">Action failed.</p>
+                                {% if log.failure_reason %}
+                                  <p class="mb-0">Reason: <span class="badge bg-danger">{{ log.get_failure_reason_display }}</span></p>
+                                {% endif %}
+                              {% endif %}
+                              {% if log.notes %}
+                                <hr class="my-2">
+                                <p class="mb-0 small text-muted">{{ log.notes }}</p>
+                              {% endif %}
+                            </div>
+                          </div>
+                          <div class="col-md-4">
+                            <div class="log-detail-card h-100">
+                              <h6 class="text-uppercase small text-muted mb-2">Attendance Record</h6>
+                              {% if log.attendance %}
+                                <p class="mb-1"><strong>Date:</strong> {{ log.attendance.date|date:"d M Y" }}</p>
+                                <p class="mb-1"><strong>Check-In:</strong> {{ log.attendance.check_in_time|date:"H:i:s" }}</p>
+                                {% if log.attendance.check_out_time %}
+                                  <p class="mb-0"><strong>Check-Out:</strong> {{ log.attendance.check_out_time|date:"H:i:s" }}</p>
+                                {% else %}
+                                  <p class="mb-0 text-muted">Check-out pending.</p>
+                                {% endif %}
+                              {% else %}
+                                <p class="mb-0 text-muted">No attendance record linked.</p>
+                              {% endif %}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="employee-log-empty-state text-center text-muted py-5 d-none">
+              <i class="bx bx-filter-alt mb-2 display-5 d-block"></i>
+              <strong>No logs match your filters</strong>
+              <div class="small">Adjust the filters or clear the search to see entries.</div>
+            </div>
+          {% else %}
+            <div class="text-center py-5">
+              <div class="avatar avatar-xl mx-auto mb-3">
+                <div class="avatar-initial bg-label-secondary rounded">
+                  <i class="bx bx-time display-4"></i>
+                </div>
+              </div>
+              <h5 class="mb-2">No activity recorded</h5>
+              <p class="text-muted mb-0">This employee has not attempted any attendance actions yet.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_script %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const searchInput = document.querySelector('#employee-log-search');
+      const statusSelect = document.querySelector('#employee-log-status');
+      const actionSelect = document.querySelector('#employee-log-action');
+      const entries = Array.from(document.querySelectorAll('.employee-log-entry'));
+      const visibleCountEl = document.querySelector('#employee-log-visible-count');
+      const emptyState = document.querySelector('.employee-log-empty-state');
+
+      if (!entries.length) {
+        return;
+      }
+
+      const cacheEntryText = (entry) => {
+        if (!entry.dataset.searchCache) {
+          entry.dataset.searchCache = entry.textContent.toLowerCase();
+        }
+        return entry.dataset.searchCache;
+      };
+
+      const closeCollapse = (entry) => {
+        const collapseEl = entry.querySelector('.accordion-collapse');
+        if (collapseEl?.classList.contains('show') && typeof bootstrap !== 'undefined') {
+          bootstrap.Collapse.getOrCreateInstance(collapseEl, {toggle: false}).hide();
+        }
+      };
+
+      const applyFilters = () => {
+        const query = (searchInput?.value || '').trim().toLowerCase();
+        const activeStatus = statusSelect?.value || 'all';
+        const activeAction = actionSelect?.value || 'all';
+        let visibleCount = 0;
+
+        entries.forEach((entry) => {
+          const matchesStatus = activeStatus === 'all' || entry.dataset.status === activeStatus;
+          const matchesAction = activeAction === 'all' || entry.dataset.actionGroup === activeAction;
+          const matchesQuery = !query || cacheEntryText(entry).includes(query);
+          const visible = matchesStatus && matchesAction && matchesQuery;
+
+          if (!visible) {
+            closeCollapse(entry);
+          }
+
+          entry.classList.toggle('d-none', !visible);
+          if (visible) visibleCount += 1;
+        });
+
+        if (visibleCountEl) {
+          visibleCountEl.textContent = visibleCount;
+        }
+
+        if (emptyState) {
+          emptyState.classList.toggle('d-none', visibleCount !== 0);
+        }
+      };
+
+      [statusSelect, actionSelect].forEach((selectEl) => {
+        selectEl?.addEventListener('change', applyFilters);
+      });
+
+      if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', () => {
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(applyFilters, 160);
+        });
+      }
+
+      applyFilters();
+    });
+  </script>
+{% endblock %}
+
+{% block page_style %}
+  {{ block.super }}
+  <style>
+    .log-summary-cards .log-stat-card {
+      height: 100%;
+    }
+
+    .log-stat-card {
+      background: var(--bs-body-bg);
+      border-radius: 0.75rem;
+      padding: 0.9rem 1rem;
+      border: 1px solid rgba(67,89,113,0.08);
+    }
+
+    .log-stat-label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--bs-gray-600);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .employee-log-scroll {
+      max-height: 540px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    .employee-log-accordion .accordion-item {
+      border: 1px solid rgba(67,89,113,0.08);
+      border-radius: 0.75rem;
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+      background: var(--bs-card-bg);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .employee-log-accordion .accordion-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .employee-log-accordion .accordion-item .accordion-button {
+      padding: 0.9rem 1rem;
+      background: transparent;
+      gap: 0.75rem;
+    }
+
+    .employee-log-accordion .accordion-button:not(.collapsed) {
+      box-shadow: none;
+      color: inherit;
+      border-bottom: 1px dashed rgba(67,89,113,0.15);
+    }
+
+    .employee-log-accordion .accordion-button:focus {
+      box-shadow: none;
+    }
+
+    .employee-log-accordion .accordion-item.show,
+    .employee-log-accordion .accordion-item .accordion-collapse.show {
+      border-color: rgba(105,108,255,0.35);
+      box-shadow: 0 12px 24px rgba(67,89,113,0.12);
+    }
+
+    .employee-log-accordion .log-timestamp {
+      min-width: 70px;
+      font-size: 0.78rem;
+      color: var(--bs-gray-600);
+    }
+
+    .employee-log-accordion .log-badges .badge {
+      font-weight: 500;
+    }
+
+    .log-detail-card {
+      background: rgba(105,108,255,0.05);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      border: 1px solid rgba(105,108,255,0.15);
+      height: 100%;
+    }
+
+    .employee-log-entry[data-status="success"] .log-detail-card {
+      background: rgba(75,191,115,0.06);
+      border-color: rgba(75,191,115,0.18);
+    }
+
+    .employee-log-entry[data-status="failed"] .log-detail-card {
+      background: rgba(255,62,62,0.06);
+      border-color: rgba(255,62,62,0.18);
+    }
+
+    .employee-log-empty-state {
+      border-top: 1px dashed rgba(67,89,113,0.12);
+    }
+
+    @media (max-width: 1199.98px) {
+      #employee-logs-card .card-header {
+        position: sticky;
+        top: 84px;
+        background: var(--bs-card-bg);
+        z-index: 1;
+      }
+    }
+
+    @media (max-width: 767.98px) {
+      .employee-log-accordion .accordion-button {
+        padding: 1rem 0.75rem;
+        flex-wrap: wrap;
+        text-align: left;
+      }
+
+      .employee-log-accordion .log-timestamp {
+        min-width: auto;
+      }
+
+      .employee-log-scroll {
+        max-height: none;
+      }
+    }
+  </style>
+{% endblock %}

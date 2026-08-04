@@ -1,0 +1,347 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Employee Login | Employee Management System{% endblock %}
+
+{% block page_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static  'vendor/css/pages/page-auth.css' %}">
+  <style>
+    :root {
+      --am-auth-bg: radial-gradient(circle at 0% -10%, rgba(59, 130, 246, 0.3), transparent 55%),
+                    radial-gradient(circle at 100% 110%, rgba(99, 102, 241, 0.28), transparent 45%);
+      --am-card-shadow: 0 24px 48px rgba(15, 23, 42, 0.14);
+      --am-card-radius: 28px;
+      --am-muted: #64748b;
+      --am-strong: #111827;
+      --am-border: rgba(15, 23, 42, 0.08);
+    }
+
+    .am-auth-screen {
+      min-height: 100vh;
+      padding: 2.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 60%, #e0e7ff 100%);
+      position: relative;
+    }
+
+    .am-auth-screen::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--am-auth-bg);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .am-auth-card {
+      width: min(100%, 420px);
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: var(--am-card-radius);
+      box-shadow: var(--am-card-shadow);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(14px);
+      padding: 2.25rem 1.85rem 2.4rem;
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 1.75rem;
+    }
+
+    .am-auth-header {
+      display: grid;
+      gap: 0.9rem;
+      text-align: center;
+    }
+
+    .am-auth-logo {
+      display: block;
+      margin: 0 auto;
+      max-width: 150px;
+    }
+
+    .am-auth-logo img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .am-auth-title {
+      font-size: clamp(1.6rem, 5vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--am-strong);
+    }
+
+    .am-auth-subtitle {
+      font-size: 0.95rem;
+      color: var(--am-muted);
+      line-height: 1.55;
+      max-width: 28ch;
+      margin: 0 auto;
+    }
+
+    .am-auth-alert {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      border-radius: 18px;
+      background: rgba(248, 113, 113, 0.12);
+      color: #b91c1c;
+      font-weight: 600;
+      border: 1px solid rgba(248, 113, 113, 0.3);
+    }
+
+    .am-auth-form {
+      display: grid;
+      gap: 1.2rem;
+    }
+
+    .am-field {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .am-field label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--am-muted);
+    }
+
+    .am-input,
+    .am-input-group {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid var(--am-border);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.04);
+    }
+
+    .am-input {
+      padding: 0.9rem 1.05rem;
+      font-size: 0.95rem;
+      color: var(--am-strong);
+    }
+
+    .am-input:focus {
+      outline: none;
+      border-color: rgba(59, 130, 246, 0.6);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+    }
+
+    .am-input-group {
+      display: flex;
+      align-items: center;
+      padding-right: 0.2rem;
+    }
+
+    .am-input-group input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 0.9rem 1.05rem;
+      font-size: 0.95rem;
+      color: var(--am-strong);
+    }
+
+    .am-input-group input:focus {
+      outline: none;
+    }
+
+    .am-password-toggle {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      border: none;
+      background: rgba(148, 163, 184, 0.1);
+      color: var(--am-muted);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .am-password-toggle:hover,
+    .am-password-toggle:focus {
+      background: rgba(59, 130, 246, 0.12);
+      color: #2563eb;
+      outline: none;
+    }
+
+    .am-auth-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.85rem;
+      color: var(--am-muted);
+    }
+
+    .am-auth-meta a {
+      color: #2563eb;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .am-auth-meta a:hover {
+      text-decoration: underline;
+    }
+
+    .am-auth-submit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      width: 100%;
+      padding: 0.95rem;
+      border-radius: 18px;
+      border: none;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow: 0 18px 36px rgba(76, 29, 149, 0.28);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .am-auth-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 22px 44px rgba(76, 29, 149, 0.35);
+    }
+
+    .am-auth-submit:active {
+      transform: translateY(1px);
+    }
+
+    .am-auth-footer {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--am-muted);
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .am-auth-footer a {
+      color: #2563eb;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .am-auth-footer a:hover {
+      text-decoration: underline;
+    }
+
+    .am-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .am-checkbox input {
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+    }
+
+    @media (min-width: 768px) {
+      .am-auth-screen {
+        padding: 3.5rem 2.5rem;
+      }
+
+      .am-auth-card {
+        width: min(100%, 520px);
+        padding: 2.6rem 2.4rem 2.8rem;
+      }
+    }
+  </style>
+{% endblock page_css %}
+
+{% block content %}
+  <div class="am-auth-screen">
+    <div class="am-auth-card">
+      <header class="am-auth-header">
+        <div class="am-auth-logo">{% include 'partials/logo.html' %}</div>
+        <!-- <div>
+          <h1 class="am-auth-title">Welcome back</h1>
+          <p class="am-auth-subtitle">Sign in to track your attendance, view schedules, and stay connected with your team.</p>
+        </div> -->
+      </header>
+
+      {% if login_error %}
+        <div class="am-auth-alert" role="alert">
+          <i class="bx bx-error-circle"></i>
+          <span>{{ login_error }}</span>
+        </div>
+      {% endif %}
+
+      <form id="formAuthentication" class="am-auth-form" method="POST" action="">
+        {% csrf_token %}
+        <div class="am-field">
+          <label for="email-username">Email or Username</label>
+          <input type="text" class="am-input" id="email-username" name="email-username" placeholder="e.g. alex@company.com" autofocus value="{{ entered_username|default:'' }}">
+        </div>
+
+        <div class="am-field">
+          <div class="am-auth-meta">
+            <label for="password">Password</label>
+            <a href="{% url 'employees:password_reset' %}">Forgot?</a>
+          </div>
+          <div class="am-input-group">
+            <input type="password" id="password" name="password" placeholder="Enter your password" aria-describedby="password-toggle">
+            <button type="button" class="am-password-toggle" data-password-toggle aria-label="Toggle password visibility">
+              <i class="bx bx-hide"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="am-auth-meta">
+          <label class="am-checkbox" for="remember-me">
+            <input type="checkbox" id="remember-me" name="remember">
+            <span>Remember me</span>
+          </label>
+        </div>
+
+        <button class="am-auth-submit" type="submit">
+          <i class="bx bx-log-in-circle"></i>
+          <span>Sign In</span>
+        </button>
+      </form>
+
+      <footer class="am-auth-footer">
+        <span>Need an account? Please contact HR or your system administrator.</span>
+      </footer>
+    </div>
+  </div>
+{% endblock content %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggle = document.querySelector('[data-password-toggle]');
+      const passwordInput = document.getElementById('password');
+
+      if (toggle && passwordInput) {
+        toggle.addEventListener('click', function() {
+          const isHidden = passwordInput.type === 'password';
+          passwordInput.type = isHidden ? 'text' : 'password';
+          const icon = this.querySelector('i');
+          if (icon) {
+            icon.className = isHidden ? 'bx bx-show' : 'bx bx-hide';
+          }
+        });
+      }
+    });
+  </script>
+{% endblock page_js %}

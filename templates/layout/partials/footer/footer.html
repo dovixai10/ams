@@ -1,0 +1,22 @@
+<!-- Footer -->
+<footer class="content-footer footer bg-footer-theme">
+  <div class="{{ container_class }} footer-container">
+    <div class="footer-container d-flex align-items-center justify-content-between py-4 flex-md-row flex-column">
+      <div class="d-none d-lg-inline-block">
+        {% if user.is_superuser %}
+          <!-- Links for Superusers -->
+          <a href="{% url 'employees:admin_dashboard' %}" class="footer-link me-4">Dashboard</a>
+          <a href="{% url 'employees:employee_list' %}" class="footer-link me-4">Employees</a>
+          <a href="{% url 'employees:attendance_list' %}" class="footer-link me-4">Attendance</a>
+          <a href="{% url 'admin:index' %}" class="footer-link me-4" target="_blank">Django Admin</a>
+        {% else %}
+          <!-- Links for Regular Employees -->
+          <a href="{% url 'employees:employee_dashboard' %}" class="footer-link me-4">Dashboard</a>
+          <a href="{% url 'employees:employee_profile' %}" class="footer-link me-4">My Profile</a>
+          <a href="{% url 'employees:check_in' %}" class="footer-link me-4">Check In/Out</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</footer>
+<!-- / Footer -->

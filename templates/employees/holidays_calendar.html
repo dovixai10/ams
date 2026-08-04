@@ -1,0 +1,742 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Holidays Calendar | Employee Portal{% endblock %}
+
+{% block content %}
+<div class="hc-screen">
+  <!-- Header -->
+  <div class="hc-header">
+    <div class="hc-header__content">
+      <h1 class="hc-header__title">
+        <i class="bx bx-calendar-event"></i>
+        Holidays Calendar
+      </h1>
+      <p class="hc-header__subtitle">View company holidays</p>
+    </div>
+  </div>
+
+  <!-- Month Navigation -->
+  <div class="hc-nav">
+    <button class="hc-nav__btn" id="prevMonth">
+      <i class="bx bx-chevron-left"></i>
+    </button>
+    <div class="hc-nav__month">
+      <span id="monthYear"></span>
+    </div>
+    <button class="hc-nav__btn" id="nextMonth">
+      <i class="bx bx-chevron-right"></i>
+    </button>
+  </div>
+
+  <!-- Calendar -->
+  <div class="hc-calendar">
+    <!-- Weekday Headers -->
+    <div class="hc-calendar__weekdays">
+      <div class="hc-calendar__weekday">Sun</div>
+      <div class="hc-calendar__weekday">Mon</div>
+      <div class="hc-calendar__weekday">Tue</div>
+      <div class="hc-calendar__weekday">Wed</div>
+      <div class="hc-calendar__weekday">Thu</div>
+      <div class="hc-calendar__weekday">Fri</div>
+      <div class="hc-calendar__weekday">Sat</div>
+    </div>
+
+    <!-- Calendar Days -->
+    <div class="hc-calendar__days" id="calendarDays"></div>
+  </div>
+
+  <!-- Holiday List -->
+  <div class="hc-holidays">
+    <h3 class="hc-holidays__title">Holidays This Month</h3>
+    <div class="hc-holidays__list" id="holidaysList">
+      <p class="hc-holidays__empty">No holidays this month</p>
+    </div>
+  </div>
+
+  <!-- Bottom Spacing -->
+  <div class="hc-spacer"></div>
+</div>
+
+<!-- Holiday Tooltip -->
+<div class="hc-tooltip" id="holidayTooltip"></div>
+
+{% endblock %}
+
+{% block page_css %}
+  {{ block.super }}
+  <style>
+    :root {
+      --hc-primary: #6366f1;
+      --hc-holiday: #8b5cf6;
+      --hc-today: #10b981;
+      --hc-border: rgba(15, 23, 42, 0.08);
+      --hc-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+    }
+
+    .hc-screen {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 0.5rem;
+      min-height: 100vh;
+      max-width: 100%;
+      margin: 0 auto;
+      padding-bottom: 5.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .hc-screen {
+        padding: 1rem;
+        gap: 1.5rem;
+      }
+    }
+
+    /* Header */
+    .hc-header {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border-radius: 12px;
+      padding: 0.8rem;
+      color: #ffffff;
+      box-shadow: var(--hc-shadow);
+    }
+
+    .hc-header__title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0;
+      margin-bottom: 0.1rem;
+    }
+
+    .hc-header__title i {
+      font-size: 1.3rem;
+    }
+
+    .hc-header__subtitle {
+      margin: 0;
+      font-size: 0.75rem;
+      opacity: 0.9;
+    }
+
+    /* Navigation */
+    .hc-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.75rem;
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: var(--hc-shadow);
+    }
+
+    .hc-nav__btn {
+      background: var(--hc-primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 1.2rem;
+    }
+
+    .hc-nav__btn:hover {
+      background: #4f46e5;
+      transform: scale(1.05);
+    }
+
+    .hc-nav__month {
+      flex: 1;
+      text-align: center;
+      font-weight: 600;
+      font-size: 1rem;
+      color: #1f2937;
+    }
+
+    /* Calendar */
+    .hc-calendar {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 0.75rem;
+      box-shadow: var(--hc-shadow);
+      overflow: hidden;
+    }
+
+    .hc-calendar__weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .hc-calendar__weekday {
+      text-align: center;
+      font-weight: 700;
+      font-size: 0.7rem;
+      color: #6b7280;
+      padding: 0.5rem 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .hc-calendar__days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.25rem;
+    }
+
+    .hc-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      background: #f9fafb;
+      color: #6b7280;
+      border: 1px solid transparent;
+    }
+
+    .hc-day--other-month {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .hc-day--today {
+      background: var(--hc-today);
+      color: white;
+      font-weight: 700;
+      border: 2px solid var(--hc-today);
+    }
+
+    .hc-day--holiday {
+      background: var(--hc-holiday);
+      color: white;
+      font-weight: 700;
+      border: 2px solid var(--hc-holiday);
+    }
+
+    .hc-day--holiday::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      width: 4px;
+      height: 4px;
+      background: white;
+      border-radius: 50%;
+    }
+
+    .hc-day:hover:not(.hc-day--other-month) {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    /* Holidays List */
+    .hc-holidays {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: var(--hc-shadow);
+    }
+
+    .hc-holidays__title {
+      margin: 0 0 0.75rem 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .hc-holidays__list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .hc-holiday-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: #f9fafb;
+      border-radius: 8px;
+      border-left: 3px solid var(--hc-holiday);
+    }
+
+    .hc-holiday-item__dot {
+      width: 8px;
+      height: 8px;
+      background: var(--hc-holiday);
+      border-radius: 50%;
+      margin-top: 0.35rem;
+      flex-shrink: 0;
+    }
+
+    .hc-holiday-item__content {
+      flex: 1;
+    }
+
+    .hc-holiday-item__name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #1f2937;
+      margin: 0;
+    }
+
+    .hc-holiday-item__date {
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin: 0.2rem 0 0 0;
+    }
+
+    .hc-holidays__empty {
+      text-align: center;
+      color: #9ca3af;
+      font-size: 0.85rem;
+      margin: 1rem 0;
+    }
+
+    /* Tooltip */
+    .hc-tooltip {
+      position: fixed;
+      background: #1f2937;
+      color: white;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.2s ease;
+      z-index: 1000;
+      white-space: nowrap;
+    }
+
+    .hc-tooltip.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Spacer */
+    .hc-spacer {
+      height: 1.5rem;
+    }
+
+    /* Mobile */
+    @media (max-width: 576px) {
+      .hc-screen {
+        padding: 0.4rem;
+        gap: 0.75rem;
+      }
+
+      .hc-header {
+        padding: 0.7rem;
+      }
+
+      .hc-header__title {
+        font-size: 1rem;
+      }
+
+      .hc-header__title i {
+        font-size: 1.1rem;
+      }
+
+      .hc-nav {
+        padding: 0.6rem;
+        gap: 0.5rem;
+      }
+
+      .hc-nav__btn {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+      }
+
+      .hc-nav__month {
+        font-size: 0.9rem;
+      }
+
+      .hc-calendar {
+        padding: 0.5rem;
+      }
+
+      .hc-day {
+        font-size: 0.75rem;
+      }
+
+      .hc-holidays {
+        padding: 0.75rem;
+      }
+
+      .hc-holidays__title {
+        font-size: 0.85rem;
+      }
+
+      .hc-holiday-item {
+        padding: 0.6rem;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    // Holiday Calendar Component
+    class HolidayCalendar {
+      constructor() {
+        this.currentDate = new Date();
+        this.holidays = {};
+        // Check if user is admin
+        this.isAdmin = {{ user.is_superuser|lower }} || {{ user.is_staff|lower }};
+        this.init();
+      }
+
+      async init() {
+        this.setupEventListeners();
+        await this.loadHolidays();
+        this.renderCalendar();
+      }
+
+      setupEventListeners() {
+        document.getElementById('prevMonth').addEventListener('click', () => this.previousMonth());
+        document.getElementById('nextMonth').addEventListener('click', () => this.nextMonth());
+      }
+
+      previousMonth() {
+        this.currentDate.setMonth(this.currentDate.getMonth() - 1);
+        this.renderCalendar();
+      }
+
+      nextMonth() {
+        this.currentDate.setMonth(this.currentDate.getMonth() + 1);
+        this.renderCalendar();
+      }
+
+      async loadHolidays() {
+        try {
+          const year = this.currentDate.getFullYear();
+          const response = await fetch(`/api/holidays/?year=${year}`);
+          const data = await response.json();
+
+          if (data.success) {
+            this.holidays = {};
+            data.holidays.forEach(holiday => {
+              this.holidays[holiday.date] = holiday;
+            });
+          }
+        } catch (error) {
+          console.error('Error loading holidays:', error);
+        }
+      }
+
+      renderCalendar() {
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+
+        // Update month/year display
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+        document.getElementById('monthYear').textContent = `${monthNames[month]} ${year}`;
+
+        // Get first day of month and number of days
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+        const calendarDays = document.getElementById('calendarDays');
+        calendarDays.innerHTML = '';
+
+        // Previous month days
+        for (let i = firstDay - 1; i >= 0; i--) {
+          const day = daysInPrevMonth - i;
+          const dayEl = this.createDayElement(day, true);
+          calendarDays.appendChild(dayEl);
+        }
+
+        // Current month days
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dayEl = this.createDayElement(day, false, year, month);
+          calendarDays.appendChild(dayEl);
+        }
+
+        // Next month days
+        const totalCells = calendarDays.children.length;
+        const remainingCells = 42 - totalCells; // 6 rows × 7 days
+        for (let day = 1; day <= remainingCells; day++) {
+          const dayEl = this.createDayElement(day, true);
+          calendarDays.appendChild(dayEl);
+        }
+
+        this.renderHolidaysList(year, month);
+      }
+
+      createDayElement(day, isOtherMonth, year, month) {
+        const dayEl = document.createElement('div');
+        dayEl.className = 'hc-day';
+        dayEl.textContent = day;
+
+        if (isOtherMonth) {
+          dayEl.classList.add('hc-day--other-month');
+          return dayEl;
+        }
+
+        const today = new Date();
+        const currentDate = new Date(year, month, day);
+        // CRITICAL FIX: Use local date format (YYYY-MM-DD) instead of toISOString() which converts to UTC
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isFuture = currentDate > today;
+
+        // Check if today
+        if (currentDate.toDateString() === today.toDateString()) {
+          dayEl.classList.add('hc-day--today');
+        }
+
+        // Check if holiday
+        if (this.holidays[dateStr]) {
+          dayEl.classList.add('hc-day--holiday');
+          const holiday = this.holidays[dateStr];
+          
+          dayEl.addEventListener('mouseenter', (e) => this.showTooltip(e, holiday.name));
+          dayEl.addEventListener('mouseleave', () => this.hideTooltip());
+          
+          // SECURITY: Only admins can edit holidays - don't add click handler for employees
+          if (this.isAdmin && isFuture) {
+            dayEl.style.cursor = 'pointer';
+            dayEl.addEventListener('click', () => this.openHolidayModal(dateStr, holiday));
+          } else if (!this.isAdmin) {
+            // Employees: disable interaction with holiday dates
+            dayEl.style.cursor = 'default';
+            dayEl.style.pointerEvents = 'none';
+            dayEl.style.opacity = '0.7';
+          }
+        } else {
+          // SECURITY: Only admins can create holidays - don't add click handler for employees
+          if (this.isAdmin && isFuture) {
+            dayEl.style.cursor = 'pointer';
+            dayEl.addEventListener('click', () => this.openHolidayModal(dateStr, null));
+          }
+        }
+
+        return dayEl;
+      }
+
+      openHolidayModal(dateStr, holiday) {
+        // SECURITY: Only admins can open this modal
+        if (!this.isAdmin) {
+          alert('You do not have permission to manage holidays.');
+          return;
+        }
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'holidayModal';
+        modal.innerHTML = `
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">${holiday ? 'Edit Holiday' : 'Mark as Holiday'}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label class="form-label">Date</label>
+                  <input type="date" class="form-control" id="holidayDate" value="${dateStr}" readonly>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Holiday Reason <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="holidayName" 
+                         value="${holiday ? holiday.name : ''}" 
+                         placeholder="Enter holiday reason" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Description (Optional)</label>
+                  <textarea class="form-control" id="holidayDescription" rows="2">${holiday ? (holiday.description || '') : ''}</textarea>
+                </div>
+              </div>
+              <div class="modal-footer">
+                ${holiday ? `<button type="button" class="btn btn-danger me-auto" onclick="deleteHoliday(${holiday.id})">
+                  <i class="bx bx-trash"></i> Remove Holiday
+                </button>` : ''}
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveHoliday('${dateStr}', ${holiday ? holiday.id : 'null'})">
+                  <i class="bx bx-save"></i> ${holiday ? 'Update' : 'Mark as Holiday'}
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        modal.addEventListener('hidden.bs.modal', function() {
+          modal.remove();
+        });
+      }
+
+      renderHolidaysList(year, month) {
+        const holidaysList = document.getElementById('holidaysList');
+        const monthHolidays = Object.values(this.holidays).filter(h => {
+          const hDate = new Date(h.date);
+          return hDate.getFullYear() === year && hDate.getMonth() === month;
+        });
+
+        if (monthHolidays.length === 0) {
+          holidaysList.innerHTML = '<p class="hc-holidays__empty">No holidays this month</p>';
+          return;
+        }
+
+        holidaysList.innerHTML = monthHolidays.map(holiday => `
+          <div class="hc-holiday-item">
+            <div class="hc-holiday-item__dot"></div>
+            <div class="hc-holiday-item__content">
+              <p class="hc-holiday-item__name">${holiday.name}</p>
+              <p class="hc-holiday-item__date">${new Date(holiday.date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}</p>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      showTooltip(event, text) {
+        const tooltip = document.getElementById('holidayTooltip');
+        tooltip.textContent = text;
+        tooltip.classList.add('show');
+
+        const rect = event.target.getBoundingClientRect();
+        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = (rect.top - 35) + 'px';
+      }
+
+      hideTooltip() {
+        document.getElementById('holidayTooltip').classList.remove('show');
+      }
+    }
+
+    // Holiday modal functions (global scope for onclick handlers)
+    window.saveHoliday = async function(dateStr, holidayId) {
+      // SECURITY: Check admin permission
+      const isAdmin = {{ user.is_superuser|lower }} || {{ user.is_staff|lower }};
+      if (!isAdmin) {
+        alert('You do not have permission to manage holidays.');
+        return;
+      }
+      
+      const name = document.getElementById('holidayName').value.trim();
+      const description = document.getElementById('holidayDescription').value.trim();
+      
+      if (!name) {
+        alert('Holiday reason is required');
+        return;
+      }
+      
+      const url = holidayId ? `/api/holidays/${holidayId}/update/` : '/api/holidays/create/';
+      const method = holidayId ? 'PUT' : 'POST';
+      
+      try {
+        const response = await fetch(url, {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+          },
+          body: JSON.stringify({
+            date: dateStr,
+            name: name,
+            description: description
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          bootstrap.Modal.getInstance(document.getElementById('holidayModal')).hide();
+          location.reload(); // Reload to show updated holidays
+        } else {
+          alert(data.error || 'Failed to save holiday');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error saving holiday');
+      }
+    };
+    
+    window.deleteHoliday = async function(holidayId) {
+      // SECURITY: Check admin permission
+      const isAdmin = {{ user.is_superuser|lower }} || {{ user.is_staff|lower }};
+      if (!isAdmin) {
+        alert('You do not have permission to manage holidays.');
+        return;
+      }
+      
+      if (!confirm('Are you sure you want to remove this holiday?')) return;
+      
+      try {
+        const response = await fetch(`/api/holidays/${holidayId}/delete/`, {
+          method: 'DELETE',
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          bootstrap.Modal.getInstance(document.getElementById('holidayModal')).hide();
+          location.reload();
+        } else {
+          alert(data.error || 'Failed to delete holiday');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error deleting holiday');
+      }
+    };
+    
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+
+    // Initialize calendar when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      new HolidayCalendar();
+    });
+  </script>
+{% endblock %}

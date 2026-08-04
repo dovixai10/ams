@@ -1,0 +1,548 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}My Support Tickets | Employee Portal{% endblock %}
+
+{% block content %}
+  <style>
+    :root {
+      --app-radius: 18px;
+      --app-soft-bg: #f4f6fb;
+      --app-card-bg: #ffffff;
+      --app-border: rgba(17, 24, 39, 0.06);
+      --app-muted: #6b7280;
+      --app-shadow: 0 16px 40px rgba(15, 23, 42, 0.1);
+    }
+
+    body {
+      background: var(--app-soft-bg);
+    }
+
+    .app-screen {
+      display: flex;
+      flex-direction: column;
+      gap: 1.4rem;
+      padding-bottom: 2.6rem;
+    }
+
+    .app-screen--padded {
+      padding: 1.6rem 0 2.6rem;
+    }
+
+    .app-card {
+      background: var(--app-card-bg);
+      border-radius: var(--app-radius);
+      border: 1px solid var(--app-border);
+      box-shadow: var(--app-shadow);
+      padding: 1.45rem;
+    }
+
+    .app-hero {
+      overflow: hidden;
+      position: relative;
+      color: #f8fafc;
+      background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+      display: grid;
+      gap: 1rem;
+    }
+
+    .app-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.28), transparent 55%);
+      pointer-events: none;
+    }
+
+    .app-hero__head {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .app-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.38rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: rgba(15, 23, 42, 0.18);
+      color: rgba(248, 250, 252, 0.9);
+    }
+
+    .app-hero__title {
+      font-size: 1.6rem;
+      margin: 0;
+    }
+
+    .app-hero__subtitle {
+      font-size: 0.9rem;
+      opacity: 0.85;
+      margin: 0;
+      max-width: 520px;
+    }
+
+    .app-hero__actions {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .app-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: var(--app-radius);
+      border: 1px solid rgba(17, 24, 39, 0.05);
+      padding: 0.9rem 1rem;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    .app-metric {
+      flex: 1 1 160px;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      min-width: 150px;
+    }
+
+    .app-metric__icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+    }
+
+    .app-metric__data {
+      display: grid;
+      gap: 0.1rem;
+    }
+
+    .app-metric__value {
+      font-size: 1.18rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .app-metric__label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--app-muted);
+    }
+
+    .app-filter {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: var(--app-radius);
+      border: 1px solid var(--app-border);
+      padding: 1.1rem;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .app-filter__controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .app-filter__controls .form-select,
+    .app-filter__controls .btn {
+      border-radius: 999px;
+      padding-inline: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .app-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .app-list__title {
+      font-size: 1.05rem;
+      margin-bottom: 0.4rem;
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .app-ticket {
+      border: 1px solid rgba(15, 23, 42, 0.05);
+      border-radius: 16px;
+      padding: 1.05rem 1.1rem;
+      display: grid;
+      gap: 0.75rem;
+      background: #fff;
+      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.25s ease;
+    }
+
+    .app-ticket:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+    }
+
+    .app-ticket__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.6rem;
+    }
+
+    .app-ticket__meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .app-ticket__number {
+      font-weight: 700;
+      color: #4338ca;
+      font-size: 0.95rem;
+    }
+
+    .app-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .app-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .app-pill--neutral {
+      background: rgba(99, 102, 241, 0.12);
+      color: #4338ca;
+    }
+
+    .app-ticket__body {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .app-ticket__subject {
+      font-weight: 600;
+      font-size: 0.98rem;
+      margin: 0;
+      color: #1f2937;
+    }
+
+    .app-ticket__desc {
+      margin: 0;
+      font-size: 0.78rem;
+      color: var(--app-muted);
+    }
+
+    .app-ticket__footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .app-ticket__time {
+      font-size: 0.72rem;
+      color: var(--app-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .app-ticket__cta {
+      border-radius: 999px;
+      padding-inline: 1rem;
+      font-size: 0.78rem;
+    }
+
+    .app-empty {
+      text-align: center;
+      padding: 2.4rem 1rem;
+      background: #fff;
+      border-radius: var(--app-radius);
+      border: 1px dashed rgba(148, 163, 184, 0.35);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    .app-empty i {
+      font-size: 2.6rem;
+      color: rgba(99, 102, 241, 0.5);
+    }
+
+    .app-pagination {
+      margin-top: 0.5rem;
+    }
+
+    .app-pagination .page-link {
+      border-radius: 999px !important;
+      min-width: 36px;
+      padding: 0.4rem 0.8rem;
+    }
+
+    .app-pagination .page-item.active .page-link {
+      background: #6366f1;
+      border-color: #6366f1;
+      box-shadow: 0 14px 32px rgba(99, 102, 241, 0.32);
+    }
+
+    @media (max-width: 992px) {
+      .app-card {
+        padding: 1.25rem 1.15rem;
+      }
+
+      .app-metric {
+        flex: 1 1 48%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app-screen--padded {
+        padding: 1.2rem 0 2.2rem;
+      }
+
+      .app-card {
+        padding: 1.2rem 1rem;
+      }
+
+      .app-hero__actions .btn {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .app-filter__controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .app-metric {
+        flex: 1 1 100%;
+      }
+
+      .app-ticket {
+        border-radius: 16px;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .app-screen--padded {
+        padding: 1rem 0 2rem;
+      }
+
+      .app-hero__title {
+        font-size: 1.35rem;
+      }
+
+      .app-ticket__footer {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .app-ticket__cta {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+
+  <div class="row justify-content-center">
+    <div class="col-xl-9 col-lg-10 col-12">
+      <div class="app-screen app-screen--padded">
+
+        <!-- Hero -->
+        <section class="app-card app-hero">
+          <div class="app-hero__head">
+            <span class="app-chip"><i class="bx bx-support"></i> Support centre</span>
+            <h1 class="app-hero__title">My Support Tickets</h1>
+            <p class="app-hero__subtitle">Track updates, check statuses, and raise new requests with a mobile-first experience.</p>
+          </div>
+          <div class="app-hero__actions">
+            <a href="{% url 'employees:create_ticket' %}" class="btn btn-light btn-sm text-primary fw-semibold">
+              <i class="bx bx-plus me-1"></i>Request Support Ticket
+            </a>
+            <a href="{% url 'employees:employee_tickets' %}" class="btn btn-light btn-sm text-primary fw-semibold">
+              <i class="bx bx-list-check me-1"></i>My Tickets
+            </a>
+          </div>
+        </section>
+
+        <!-- Metrics -->
+        <section class="app-metrics">
+          <div class="app-metric">
+            <span class="app-metric__icon" style="background: rgba(99, 102, 241, 0.16); color: #4338ca;">
+              <i class="bx bx-list-ul"></i>
+            </span>
+            <div class="app-metric__data">
+              <span class="app-metric__value">{{ total_tickets }}</span>
+              <span class="app-metric__label">Total tickets</span>
+            </div>
+          </div>
+
+          <div class="app-metric">
+            <span class="app-metric__icon" style="background: rgba(59, 130, 246, 0.18); color: #1d4ed8;">
+              <i class="bx bx-time"></i>
+            </span>
+            <div class="app-metric__data">
+              <span class="app-metric__value">{{ open_tickets }}</span>
+              <span class="app-metric__label">Open</span>
+            </div>
+          </div>
+
+          <div class="app-metric">
+            <span class="app-metric__icon" style="background: rgba(251, 191, 36, 0.2); color: #b45309;">
+              <i class="bx bx-loader-circle"></i>
+            </span>
+            <div class="app-metric__data">
+              <span class="app-metric__value">{{ in_progress_tickets }}</span>
+              <span class="app-metric__label">In progress</span>
+            </div>
+          </div>
+
+          <div class="app-metric">
+            <span class="app-metric__icon" style="background: rgba(34, 197, 94, 0.18); color: #15803d;">
+              <i class="bx bx-check-circle"></i>
+            </span>
+            <div class="app-metric__data">
+              <span class="app-metric__value">{{ resolved_tickets }}</span>
+              <span class="app-metric__label">Resolved</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Filters -->
+        <section class="app-filter">
+          <div class="d-flex align-items-center gap-2">
+            <span class="app-chip" style="background: rgba(79, 70, 229, 0.12); color: #4338ca;">
+              <i class="bx bx-filter-alt"></i> Filters
+            </span>
+            {% if selected_status or selected_priority %}
+              <small class="text-muted">Active filters applied</small>
+            {% else %}
+              <small class="text-muted">Choose a status or priority to narrow down results</small>
+            {% endif %}
+          </div>
+          <form method="get" class="app-filter__controls">
+            <select name="status" class="form-select">
+              <option value="">All status</option>
+              {% for status_code, status_label in status_choices %}
+                <option value="{{ status_code }}" {% if selected_status == status_code %}selected{% endif %}>
+                  {{ status_label }}
+                </option>
+              {% endfor %}
+            </select>
+
+            <select name="priority" class="form-select">
+              <option value="">All priority</option>
+              {% for priority_code, priority_label in priority_choices %}
+                <option value="{{ priority_code }}" {% if selected_priority == priority_code %}selected{% endif %}>
+                  {{ priority_label }}
+                </option>
+              {% endfor %}
+            </select>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="bx bx-search"></i>
+              </button>
+              {% if selected_status or selected_priority %}
+                <a href="{% url 'employees:employee_tickets' %}" class="btn btn-outline-secondary">
+                  <i class="bx bx-reset"></i>
+                </a>
+              {% endif %}
+            </div>
+          </form>
+        </section>
+
+        {% if tickets %}
+          <!-- Ticket List -->
+          <section class="app-card app-list">
+            <h3 class="app-list__title"><i class="bx bx-message-dots"></i> Active tickets</h3>
+            {% for ticket in tickets %}
+              <article class="app-ticket">
+                <div class="app-ticket__header">
+                  <div class="app-ticket__meta">
+                    <span class="app-ticket__number">{{ ticket.ticket_number }}</span>
+                    <span class="app-ticket__time"><i class="bx bx-time-five"></i>{{ ticket.created_at|date:"d M Y, H:i" }}</span>
+                  </div>
+                  <div class="app-badges">
+                    <span class="app-pill" style="background: rgba(99, 102, 241, 0.12); color: #4338ca;">
+                      <i class="bx {{ ticket.category_icon }}"></i>{{ ticket.get_category_display }}
+                    </span>
+                    <span class="app-pill bg-{{ ticket.priority_color }} text-white">
+                      <i class="bx bx-trending-up"></i>{{ ticket.get_priority_display }}
+                    </span>
+                    <span class="app-pill bg-{{ ticket.status_color }} text-white">
+                      <i class="bx bx-circle"></i>{{ ticket.get_status_display }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="app-ticket__body">
+                  <p class="app-ticket__subject">{{ ticket.subject }}</p>
+                  {% if ticket.description %}
+                    <p class="app-ticket__desc">{{ ticket.description|truncatewords:18 }}</p>
+                  {% endif %}
+                </div>
+
+                <div class="app-ticket__footer">
+                  {% if ticket.updated_at|date:"Y-m-d H:i" != ticket.created_at|date:"Y-m-d H:i" %}
+                    <span class="app-pill app-pill--neutral"><i class="bx bx-bell"></i>Updated</span>
+                  {% endif %}
+                  <a href="{% url 'employees:ticket_detail' ticket.pk %}" class="btn btn-primary app-ticket__cta">
+                    <i class="bx bx-show"></i> Details
+                  </a>
+                </div>
+              </article>
+            {% endfor %}
+          </section>
+
+          {% if page_obj.has_other_pages %}
+            <nav aria-label="Ticket pagination" class="app-pagination">
+              <ul class="pagination justify-content-center gap-2">
+                {% if page_obj.has_previous %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_priority %}&priority={{ selected_priority }}{% endif %}">
+                      <i class="bx bx-chevron-left"></i>
+                    </a>
+                  </li>
+                {% endif %}
+
+                <li class="page-item active">
+                  <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+
+                {% if page_obj.has_next %}
+                  <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_priority %}&priority={{ selected_priority }}{% endif %}">
+                      <i class="bx bx-chevron-right"></i>
+                    </a>
+                  </li>
+                {% endif %}
+              </ul>
+            </nav>
+          {% endif %}
+        {% else %}
+
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

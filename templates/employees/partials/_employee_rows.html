@@ -1,0 +1,94 @@
+{% for employee in employees %}
+<tr class="employee-row">
+  <td data-label="Employee">
+    <div class="employee-identity d-flex align-items-center">
+      <div class="employee-avatar avatar avatar-sm me-3 position-relative">
+        {% if employee.profile_picture %}
+          <img src="{{ employee.profile_picture.url }}" alt="Profile" class="rounded-circle">
+        {% else %}
+          <div class="avatar-initial bg-label-primary rounded-circle fw-semibold">
+            {{ employee.name|first|upper }}
+          </div>
+        {% endif %}
+        <span class="status-indicator {% if employee.user.is_active %}bg-success{% else %}bg-dark{% endif %}"></span>
+      </div>
+      <div>
+        <h6 class="mb-0 employee-name">{{ employee.full_name }}</h6>
+        <small class="text-muted employee-email"><i class="icon-base bx bx-envelope me-1"></i>{{ employee.email }}</small>
+      </div>
+    </div>
+  </td>
+  <td data-label="Contact">
+    <div class="employee-contact">
+      <span class="fw-medium d-flex align-items-center gap-2">
+        <i class="icon-base bx bx-phone text-primary"></i>{{ employee.contact }}
+      </span>
+      {% if employee.aadhar_card_number %}
+        <small class="text-muted">Aadhar: {{ employee.aadhar_card_number|slice:":4" }}****{{ employee.aadhar_card_number|slice:"-4:" }}</small>
+      {% endif %}
+    </div>
+  </td>
+  <td data-label="Account">
+    <div class="employee-finance">
+      {% if employee.account_number %}
+        <span class="fw-medium d-block">Acct: {{ employee.account_number|slice:":4" }}****{{ employee.account_number|slice:"-4:" }}</span>
+      {% endif %}
+      <small class="text-muted">IFSC: {{ employee.ifsc_code }}</small>
+    </div>
+  </td>
+  <td data-label="Status">
+    <div class="d-flex flex-wrap gap-1 employee-tags">
+      {% if employee.user.is_staff %}
+        <span class="badge rounded-pill bg-label-primary">Staff</span>
+      {% else %}
+        <span class="badge rounded-pill bg-label-secondary">User</span>
+      {% endif %}
+      {% if employee.user.is_active %}
+        <span class="badge rounded-pill bg-label-success">Active</span>
+      {% else %}
+        <span class="badge rounded-pill bg-label-danger">Inactive</span>
+      {% endif %}
+      {% if employee.face_registered %}
+        <span class="badge rounded-pill bg-label-success" title="Face Recognition Registered">
+          <i class="icon-base bx bx-face"></i>
+        </span>
+      {% endif %}
+    </div>
+  </td>
+  <td data-label="Created">
+    <div class="employee-meta">
+      <span class="fw-medium d-block">{{ employee.created_at|date:"M d, Y" }}</span>
+      <small class="text-muted">{{ employee.created_at|timesince }} ago</small>
+    </div>
+  </td>
+  <td data-label="Actions">
+    <div class="dropdown employee-actions">
+      <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+        <i class="icon-base bx bx-dots-vertical-rounded icon-24px"></i>
+      </button>
+      <div class="dropdown-menu dropdown-menu-end">
+        <a class="dropdown-item" href="{% url 'employees:employee_detail' employee.pk %}">
+          <i class="icon-base bx bx-show me-1"></i> View Details
+        </a>
+        <a class="dropdown-item" href="{% url 'employees:employee_update' employee.pk %}">
+          <i class="icon-base bx bx-edit-alt me-1"></i> Edit
+        </a>
+        <div class="dropdown-divider"></div>
+        <form method="post" action="{% url 'employees:employee_toggle_status' employee.pk %}" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          {% if employee.user.is_active %}
+            <button type="submit" class="dropdown-item text-warning" onclick="return confirm('Are you sure you want to deactivate this employee? They will not be able to login.')">
+              <i class="icon-base bx bx-user-x me-1"></i> Deactivate
+            </button>
+          {% else %}
+            <button type="submit" class="dropdown-item text-success" onclick="return confirm('Are you sure you want to activate this employee? They will be able to login again.')">
+              <i class="icon-base bx bx-user-check me-1"></i> Activate
+            </button>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </td>
+</tr>
+{% endfor %}

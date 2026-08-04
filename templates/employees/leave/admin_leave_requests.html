@@ -1,0 +1,421 @@
+{% extends layout_path %}
+{% load humanize %}
+
+{% block title %}Leave Requests | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .leave-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    text-transform: capitalize;
+  }
+  .status-chip.pending { background: rgba(250, 204, 21, 0.2); color: #b45309; }
+  .status-chip.approved { background: rgba(34, 197, 94, 0.2); color: #166534; }
+  .status-chip.rejected { background: rgba(239, 68, 68, 0.2); color: #9f1239; }
+  .filters-card .card-body { gap: 1rem; }
+  
+  /* Summary Cards */
+  .summary-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+  }
+  
+  .summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
+  
+  .summary-card__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  
+  .summary-card__content {
+    flex: 1;
+  }
+  
+  .summary-card__label {
+    display: block;
+    font-size: 0.85rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+  }
+  
+  .summary-card__value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1f2937;
+  }
+  
+  /* Summary Card Variants */
+  .summary-card--total .summary-card__icon {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+  }
+  
+  .summary-card--pending .summary-card__icon {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+  }
+  
+  .summary-card--pending .summary-card__value {
+    color: #b45309;
+  }
+  
+  .summary-card--approved .summary-card__icon {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+  }
+  
+  .summary-card--approved .summary-card__value {
+    color: #166534;
+  }
+  
+  .summary-card--rejected .summary-card__icon {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+  }
+  
+  .summary-card--rejected .summary-card__value {
+    color: #9f1239;
+  }
+  
+  @media (max-width: 768px) {
+    .summary-card {
+      padding: 1.25rem;
+    }
+    
+    .summary-card__icon {
+      width: 40px;
+      height: 40px;
+      font-size: 1.25rem;
+    }
+    
+    .summary-card__value {
+      font-size: 1.5rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="leave-header">
+          <div>
+            <h4 class="card-title mb-1"><i class="bx bx-calendar-event me-2"></i>Leave Requests</h4>
+            <p class="text-muted mb-0">Review pending requests, approve or reject, and keep employees informed.</p>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'employees:admin_dashboard' %}" class="btn btn-outline-primary"><i class="bx bx-arrow-back me-1"></i>Dashboard</a>
+          </div>
+        </div>
+      </div>
+      <div class="card-body pt-0 border-top">
+        <div class="row gy-3 gx-3 align-items-end">
+          <form method="get" class="row gy-3 gx-3 align-items-end">
+            <div class="col-sm-3">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select">
+                <option value="">All</option>
+                {% for value, label in status_choices %}
+                  <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-3">
+              <label class="form-label">Employee</label>
+              <input type="text" name="employee" value="{{ employee_query }}" class="form-control" placeholder="Name or email">
+            </div>
+            <div class="col-sm-3">
+              <label class="form-label">Start after</label>
+              <input type="date" name="requested_after" value="{{ requested_after }}" class="form-control">
+            </div>
+            <div class="col-sm-3">
+              <label class="form-label">End before</label>
+              <input type="date" name="requested_before" value="{{ requested_before }}" class="form-control">
+            </div>
+            <div class="col-12 col-sm-auto d-flex gap-2">
+              <button type="submit" class="btn btn-primary"><i class="bx bx-filter-alt"></i> Apply</button>
+              {% if filters_active %}
+                <a href="{% url 'employees:admin_leave_requests' %}" class="btn btn-link">Reset</a>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="row g-3">
+      <div class="col-sm-6 col-lg-3">
+        <div class="summary-card summary-card--total">
+          <div class="summary-card__icon">
+            <i class="bx bx-list-check"></i>
+          </div>
+          <div class="summary-card__content">
+            <span class="summary-card__label">Total Requests</span>
+            <h4 class="summary-card__value">{{ summary.total|default:0 }}</h4>
+          </div>
+        </div>
+      </div>
+      <!-- <div class="col-sm-6 col-lg-3">
+        <div class="summary-card summary-card--pending">
+          <div class="summary-card__icon">
+            <i class="bx bx-time-five"></i>
+          </div>
+          <div class="summary-card__content">
+            <span class="summary-card__label">Pending</span>
+            <h4 class="summary-card__value">{{ summary.pending|default:0 }}</h4>
+          </div>
+        </div>
+      </div> -->
+      <div class="col-sm-6 col-lg-3">
+        <div class="summary-card summary-card--approved">
+          <div class="summary-card__icon">
+            <i class="bx bx-check-circle"></i>
+          </div>
+          <div class="summary-card__content">
+            <span class="summary-card__label">Approved</span>
+            <h4 class="summary-card__value">{{ summary.approved|default:0 }}</h4>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="summary-card summary-card--rejected">
+          <div class="summary-card__icon">
+            <i class="bx bx-x-circle"></i>
+          </div>
+          <div class="summary-card__content">
+            <span class="summary-card__label">Rejected</span>
+            <h4 class="summary-card__value">{{ summary.rejected|default:0 }}</h4>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        {% if leave_requests %}
+          <div class="table-responsive">
+            <table class="table table-hover table-nowrap mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Employee</th>
+                  <th>Dates</th>
+                  <th>Days</th>
+                  <th>Status</th>
+                  <th>Reason</th>
+                  <th>Verification</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for leave in leave_requests %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="avatar avatar-sm bg-label-primary text-white">{{ leave.employee.name|slice:':1'|upper }}</div>
+                        <div>
+                          <div class="fw-semibold">{{ leave.employee.full_name }}</div>
+                          <div class="text-muted small">{{ leave.employee.email }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="fw-semibold">{{ leave.start_date|date:"d M Y" }} – {{ leave.end_date|date:"d M Y" }}</div>
+                      <small class="text-muted">Submitted {{ leave.created_at|naturaltime }}</small>
+                    </td>
+                    <td>{{ leave.total_days }}</td>
+                    <td>
+                      <span class="status-chip {{ leave.status }}">{{ leave.get_status_display }}</span>
+                    </td>
+                    <td style="max-width: 260px;">
+                      <div class="small text-muted">{{ leave.reason }}</div>
+                    </td>
+                    <td>
+                      <div class="d-flex flex-column gap-1">
+                        <span class="badge bg-label-primary">{{ leave.get_verification_status_display }}</span>
+                        {% if leave.verification_deadline %}
+                          <small class="text-muted">Deadline {{ leave.verification_deadline|date:"d M Y" }}</small>
+                        {% endif %}
+                        {% if leave.verification_documents.all %}
+                          <button type="button"
+                                  class="btn btn-sm btn-outline-primary"
+                                  data-leave-docs
+                                  data-leave-id="{{ leave.id }}"
+                                  data-leave-title="{{ leave.employee.full_name }} ({{ leave.start_date|date:"d M" }})">
+                            <i class="bx bx-show"></i> View ({{ leave.verification_documents.count }})
+                          </button>
+                        {% else %}
+                          <small class="text-muted">No documents yet</small>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td class="text-end">
+                      <div class="btn-group-vertical gap-1" role="group" style="min-width: 120px;">
+                        {% if leave.status == 'pending' %}
+                          <form method="post" action="" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="leave_id" value="{{ leave.id }}">
+                            <input type="hidden" name="action" value="approve">
+                            <button type="submit" class="btn btn-sm btn-success w-100 mb-1" aria-label="Approve leave request">
+                              <i class="bx bx-check"></i> Approve
+                            </button>
+                          </form>
+                          <button class="btn btn-sm btn-outline-danger w-100 mb-1" data-bs-toggle="collapse" data-bs-target="#reject-{{ leave.id }}" aria-label="Reject leave request">
+                            <i class="bx bx-x"></i> Reject
+                          </button>
+                        {% else %}
+                          {% if leave.status != 'rejected' %}
+                            <button class="btn btn-sm btn-outline-danger w-100 mb-1" data-bs-toggle="collapse" data-bs-target="#reject-{{ leave.id }}">
+                              <i class="bx bx-x"></i> Reject
+                            </button>
+                          {% endif %}
+                        {% endif %}
+                        {% if leave.receipt %}
+                          <a class="btn btn-sm btn-outline-primary w-100" href="{{ leave.receipt.url }}" target="_blank" rel="noopener">
+                            <i class="bx bx-link-external"></i> Legacy Document
+                          </a>
+                        {% endif %}
+                      </div>
+                      <div class="collapse mt-2" id="reject-{{ leave.id }}">
+                        <form method="post" action="">
+                          {% csrf_token %}
+                          <input type="hidden" name="leave_id" value="{{ leave.id }}">
+                          <input type="hidden" name="action" value="reject">
+                          <textarea name="admin_comment" class="form-control mb-2" rows="2" placeholder="Reason for rejection (optional)"></textarea>
+                          <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-sm btn-light" data-bs-toggle="collapse" data-bs-target="#reject-{{ leave.id }}">Cancel</button>
+                            <button type="submit" class="btn btn-sm btn-danger">Reject</button>
+                          </div>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-center py-5 text-muted">
+            <i class="bx bx-calendar-exclamation fs-1 d-block mb-2"></i>
+            <p class="mb-0">No leave requests found. Employees can submit requests from their dashboard.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const docButtons = document.querySelectorAll('[data-leave-docs]');
+  docButtons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const leaveId = btn.dataset.leaveId;
+      const title = btn.dataset.leaveTitle || 'Leave documents';
+      try {
+        const response = await fetch(`/leaves/${leaveId}/documents/`);
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Unable to fetch documents');
+
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+          <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">${title}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                ${renderDocTable(data.documents)}
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        const modalInstance = new bootstrap.Modal(modal);
+        modalInstance.show();
+        modal.addEventListener('hidden.bs.modal', () => modal.remove());
+      } catch (error) {
+        console.error(error);
+        alert('Unable to load documents. Please try again.');
+      }
+    });
+  });
+
+  function renderDocTable(documents) {
+    if (!documents.length) {
+      return '<p class="text-muted mb-0">No verification documents uploaded yet.</p>';
+    }
+    const rows = documents.map(doc => `
+      <tr>
+        <td>${doc.name}</td>
+        <td>${doc.uploaded_at}</td>
+        <td>
+          <a href="${doc.url}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">
+            <i class="bx bx-show"></i> View
+          </a>
+        </td>
+      </tr>
+    `).join('');
+    return `
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Uploaded</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+});
+</script>
+{% endblock %}

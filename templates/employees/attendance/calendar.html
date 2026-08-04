@@ -1,0 +1,4037 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}My Attendance Calendar | Employee Portal{% endblock %}
+
+{% block content %}
+
+<div class="am-screen" data-employee-id="{{ employee.id }}">
+  <!-- <header class="am-hero">
+ 
+    <div class="am-hero__nav" role="group" aria-label="Month navigation">
+      <a href="?year={{ prev_year }}&month={{ prev_month }}" class="am-nav-btn" aria-label="Previous month">
+        <i class="bx bx-chevron-left"></i>
+      </a>
+      <button type="button" class="am-nav-btn am-nav-btn--today" aria-label="Go to current month" onclick="window.location.href='?year={{ current_date.year }}&month={{ current_date.month }}'">
+        <i class="bx bx-current-location"></i>
+        <span>Today</span>
+      </button>
+      <a href="?year={{ next_year }}&month={{ next_month }}" class="am-nav-btn" aria-label="Next month">
+        <i class="bx bx-chevron-right"></i>
+      </a>
+    </div>
+
+    <div class="am-hero__year">
+      <label for="am-year-select" class="am-select__label">Year</label>
+      <select id="am-year-select" class="am-select" onchange="window.location.href='?year='+this.value+'&month={{ month }}'">
+        {% for y in year_range %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </header> -->
+
+  <div class="am-month-picker" data-active-month="{{ month }}">
+    <button type="button"
+            class="am-month-picker__trigger"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-label="Select month">
+      <span class="am-month-picker__label">Month</span>
+      <span class="am-month-picker__value">{{ month_name }}</span>
+      <i class="bx bx-chevron-down am-month-picker__icon" aria-hidden="true"></i>
+    </button>
+    <div class="am-month-picker__panel" role="dialog" aria-modal="true" aria-label="Select month">
+      <div class="am-month-picker__search">
+        <i class="bx bx-search am-month-picker__search-icon" aria-hidden="true"></i>
+        <label for="am-month-search" class="visually-hidden">Filter months</label>
+        <input type="search" id="am-month-search" class="am-month-picker__search-input" placeholder="Search month" autocomplete="off">
+      </div>
+      <ul class="am-month-picker__list" role="listbox">
+        {% for m in months_list %}
+          <li class="am-month-picker__item" role="option" aria-selected="{% if m.number == month %}true{% else %}false{% endif %}">
+            <a href="?year={{ year }}&month={{ m.number }}"
+               class="am-month-picker__option {% if m.number == month %}am-month-picker__option--active{% endif %}"
+               data-month="{{ m.number }}"
+               data-label="{{ m.name|lower }} {{ m.abbr|lower }}">
+              <span class="am-month-picker__option-name">{{ m.name }}</span>
+              <span class="am-month-picker__option-abbr">{{ m.abbr }}</span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="am-month-picker__backdrop" aria-hidden="true"></div>
+  </div>
+
+  <section class="am-stats" aria-label="Attendance summary">
+    <article class="am-stat am-stat--present">
+      <span class="am-stat__label">Present </span>
+      <span class="am-stat__value" id="stat-present-full">{{ present_days }}</span>
+    </article>
+    <article class="am-stat am-stat--half">
+      <span class="am-stat__label">Half Day</span>
+      <span class="am-stat__value" id="stat-present-half">{{ half_day_days }}</span>
+    </article>
+    <article class="am-stat am-stat--absent">
+      <span class="am-stat__label">Absent</span>
+      <span class="am-stat__value" id="stat-absent">{{ absent_days }}</span>
+    </article>
+    <article class="am-stat am-stat--holiday">
+      <span class="am-stat__label">Holidays</span>
+      <span class="am-stat__value" id="stat-holidays">{{ holidays_count }}</span>
+    </article>
+    <article class="am-stat am-stat--paid-leave">
+      <span class="am-stat__label">Paid Leave</span>
+      <span class="am-stat__value" id="stat-paid-leave">{{ paid_leave_count }}</span>
+    </article>
+    <!-- <article class="am-stat am-stat--sandwich-leave">
+      <span class="am-stat__label">Sandwich Leave</span>
+      <span class="am-stat__value" id="stat-sandwich-leave">{{ sandwich_leave_count }}</span>
+    </article> -->
+  </section>
+
+  <section class="am-calendar" aria-label="Attendance calendar">
+    <div class="am-calendar__weekdays" role="row">
+      <span class="am-calendar__weekday" role="columnheader">Sun</span>
+      <span class="am-calendar__weekday" role="columnheader">Mon</span>
+      <span class="am-calendar__weekday" role="columnheader">Tue</span>
+      <span class="am-calendar__weekday" role="columnheader">Wed</span>
+      <span class="am-calendar__weekday" role="columnheader">Thu</span>
+      <span class="am-calendar__weekday" role="columnheader">Fri</span>
+      <span class="am-calendar__weekday" role="columnheader">Sat</span>
+    </div>
+    <div class="am-calendar__grid" role="grid">
+      {% for week in calendar_data %}
+        {% for day in week %}
+          {% if day %}
+            {% with attendance=day.attendance %}
+              <button type="button"
+                      class="am-calendar__cell {% if day.is_today %}am-calendar__cell--today{% endif %} {% if day.is_future %}am-calendar__cell--future{% endif %} {% if day.status %}am-calendar__cell--{{ day.status }}{% endif %} {% if day.is_paid_leave %}am-calendar__cell--paid-leave{% endif %} {% if day.is_sandwich_leave %}am-calendar__cell--sandwich-leave{% endif %} am-calendar__cell--interactive"
+                      role="gridcell"
+                      aria-label="{{ day.date|date:'F j, Y' }} - {{ day.status|default:'no data' }}"
+                      data-date="{{ day.date|date:'Y-m-d' }}"
+                      data-status="{{ day.status|default:'none' }}"
+                      data-missing-punch="{{ day.missing_punch|yesno:'true,false' }}">
+                <span class="am-calendar__date">{{ day.day }}</span>
+                {% if day.missing_punch %}
+                <i class="bx bx-error-circle am-calendar__alert-icon" title="Missing punch-in or punch-out"></i>
+                {% endif %}
+              </button>
+            {% endwith %}
+          {% else %}
+            <div class="am-calendar__cell am-calendar__cell--empty" role="gridcell" aria-hidden="true"></div>
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Holiday Table Section -->
+  <!-- <div id="holiday-table-container" class="holiday-table-section"> -->
+    <!-- Holiday table will be dynamically inserted here -->
+  <!-- </div> -->
+
+  <!-- Attendance Color Legend -->
+ <ul class="legend-inline-list">
+
+  <li class="legend-inline-item">
+    <span class="legend-dot present-color"></span> Present
+  </li>
+
+  <li class="legend-inline-item">
+    <span class="legend-dot half-color"></span> Half Day
+  </li>
+
+  <li class="legend-inline-item">
+    <span class="legend-dot absent-color"></span> Absent
+  </li>
+
+  <li class="legend-inline-item">
+    <span class="legend-dot holiday-color"></span> Holiday
+  </li>
+
+  <li class="legend-inline-item">
+    <span class="legend-dot paid-leave-color"></span> Paid Leave
+  </li>
+
+  <!-- <li class="legend-inline-item">
+    <span class="legend-dot late-color"></span> Late
+  </li> -->
+
+</ul>
+
+
+<!-- Attendance Detail Modal -->
+<div class="modal fade" id="attendanceModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable attendance-modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white">
+          <i class="bx bx-calendar-check me-2"></i>Attendance Details
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          id="attendanceModalCloseBtn"
+          data-bs-dismiss="modal"
+          aria-label="Close"></button>
+      </div>
+      <div class="modal-body attendance-modal-body">
+        <!-- Normal details layout -->
+        <div id="attendance-modal-has-record">
+          <!-- Date Card -->
+          <div class="attendance-date-card">
+            <h6 class="attendance-date-card__date" id="modal-date">Monday, March 11, 2024</h6>
+          </div>
+
+          <!-- Check-in and Check-out Cards Side by Side -->
+          <div class="attendance-entry-grid">
+            <!-- Check-in Card -->
+            <div class="attendance-entry-card attendance-entry-card--checkin">
+              <div class="attendance-entry-card__photo-wrapper">
+                <button type="button"
+                        class="attendance-entry-photo"
+                        data-photo-type="checkin"
+                        data-photo-target="checkin"
+                        aria-label="View full check-in photo">
+                  <img id="modal-checkin-photo" class="attendance-entry-photo__img d-none" alt="Check-in capture">
+                  <div id="modal-checkin-photo-placeholder" class="attendance-entry-photo__placeholder">
+                    <i class="bx bx-image-alt"></i>
+                    <span>Photo not captured</span>
+                  </div>
+                </button>
+              </div>
+              <div class="attendance-entry-card__content">
+                <p class="attendance-entry-card__label">Check-In</p>
+                <p id="modal-checkin" class="attendance-entry-card__time"></p>
+                <small id="modal-checkin-timestamp" class="attendance-entry-card__timestamp">Not recorded</small>
+              </div>
+            </div>
+
+            <!-- Check-out Card -->
+            <div class="attendance-entry-card attendance-entry-card--checkout">
+              <div class="attendance-entry-card__photo-wrapper">
+                <button type="button"
+                        class="attendance-entry-photo"
+                        data-photo-type="checkout"
+                        data-photo-target="checkout"
+                        aria-label="View full check-out photo">
+                  <img id="modal-checkout-photo" class="attendance-entry-photo__img d-none" alt="Check-out capture">
+                  <div id="modal-checkout-photo-placeholder" class="attendance-entry-photo__placeholder">
+                    <i class="bx bx-image-alt"></i>
+                    <span>Photo not captured</span>
+                  </div>
+                </button>
+              </div>
+              <div class="attendance-entry-card__content">
+                <p class="attendance-entry-card__label">Check-Out</p>
+                <p id="modal-checkout" class="attendance-entry-card__time"></p>
+                <small id="modal-checkout-timestamp" class="attendance-entry-card__timestamp">Not recorded</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Duration Card -->
+          <div class="attendance-duration-card">
+            <div class="attendance-duration-card__label">Total Working Duration</div>
+            <div class="attendance-duration-card__value" id="modal-duration">—</div>
+          </div>
+
+          <!-- Status and Notes -->
+          <!-- <div class="attendance-status-section">
+            <div class="attendance-modal-meta__status" id="modal-status" style="display: block; margin:0 auto;" ></div>
+            <p id="modal-status-note" class="attendance-modal-meta__note mb-0"></p>
+          </div> -->
+
+          <!-- Comments Section -->
+          <div class="row g-2 attendance-modal-grid">
+            <div class="col-12">
+              <div class="am-comment-card attendance-modal-comment-card">
+                <div class="am-comment-card__header">
+                  <div>
+                    <h6 class="am-comment-card__title mb-0">Day Comments</h6>
+                    <small class="text-muted" id="modal-comment-date">Share notes with your manager</small>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" id="modal-comment-refresh" title="Refresh comments">
+                      <i class='bx bx-refresh'></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="am-comment-card__body">
+                  <div class="am-comment-thread" id="modal-comment-thread" aria-live="polite"></div>
+                  <form class="am-comment-form" id="modal-comment-form">
+                    <div class="am-comment-form__field">
+                      <textarea class="form-control" id="modal-comment-input" rows="3" placeholder="Add your comment for this day..." maxlength="500" required></textarea>
+                      <div class="am-comment-form__hint"><small id="modal-comment-hint">Visible to admin</small></div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" id="modal-comment-cancel">Cancel</button>
+                      <button type="submit" class="btn btn-sm btn-primary" id="modal-comment-submit">
+                        <span class="am-comment-submit__label">Save Comment</span>
+                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state when there is no attendance for the date -->
+        <div id="attendance-modal-empty-state" class="text-center py-5 d-none">
+          <div class="mb-3">
+            <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light text-muted"
+                  style="width:72px;height:72px;">
+              <i class="bx bx-calendar-x" style="font-size:2rem;"></i>
+            </span>
+          </div>
+          <h6 class="fw-semibold mb-1">No attendance available for this date</h6>
+          <p class="text-muted mb-0" style="font-size:0.9rem;">
+            You have no check-in or check-out recorded for the selected day.
+          </p>
+        </div>
+      </div>
+      <!-- <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div> -->
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="attendancePhotoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content am-photo-modal">
+      <button type="button" class="btn-close am-photo-modal__close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="am-photo-modal__body">
+        <img id="attendance-photo-full" class="am-photo-modal__img" alt="Attendance photo preview">
+      </div>
+      <div class="am-photo-modal__footer">
+        <p id="attendance-photo-caption" class="am-photo-modal__caption mb-0"></p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_css %}
+<style>
+:root {
+  --am-surface: #ffffff;
+  --am-muted: #64748b;
+  --am-muted-strong: #475569;
+  --am-border: rgba(15, 23, 42, 0.08);
+  --am-border-strong: rgba(15, 23, 42, 0.12);
+  --am-shadow-lg: 0 24px 48px rgba(15, 23, 42, 0.18);
+  --am-shadow-md: 0 14px 30px rgba(15, 23, 42, 0.12);
+  --am-shadow-sm: 0 10px 20px rgba(15, 23, 42, 0.1);
+  --am-radius-lg: 26px;
+  --am-radius-md: 18px;
+  --am-radius-sm: 14px;
+  --am-accent: #2563eb;
+  --am-accent-alt: #7c3aed;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  white-space: nowrap;
+}
+
+.am-screen {
+  width: min(100%, 360px);
+  margin: 0 auto;
+  padding: 1.35rem 1rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  position: relative;
+  color: #0f172a;
+}
+
+.am-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 0% -10%, rgba(37, 99, 235, 0.2), transparent 55%),
+              radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.22), transparent 45%);
+  opacity: 0.65;
+  z-index: -2;
+}
+
+.am-screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.82), rgba(248, 250, 252, 0.98));
+  z-index: -1;
+}
+
+@media (min-width: 600px) {
+  .am-screen {
+    width: min(100%, 720px);
+    padding: 2.1rem 1.8rem 2.6rem;
+    gap: 1.6rem;
+  }
+}
+
+.am-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--am-accent), var(--am-accent-alt));
+  border-radius: var(--am-radius-lg);
+  padding: 1.7rem 1.5rem 1.9rem;
+  color: #ffffff;
+  display: grid;
+  gap: 1.05rem;
+  box-shadow: var(--am-shadow-lg);
+  transform: translateY(12px);
+  opacity: 0;
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.am-hero--loaded {
+  opacity: 1;
+  transform: none;
+}
+
+.am-hero::after {
+  content: '';
+  position: absolute;
+  inset: -38% -14% 25% 40%;
+  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.28), transparent 68%);
+  z-index: 0;
+}
+
+.am-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.am-hero__overline {
+  font-size: 0.75rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.am-hero__title {
+  font-size: clamp(1.65rem, 3.5vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.am-hero__subtitle {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  max-width: 32ch;
+  opacity: 0.9;
+}
+
+.am-hero__nav {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.am-nav-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(15, 23, 42, 0.18);
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.am-nav-btn i {
+  font-size: 1.1rem;
+}
+
+.am-nav-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.24);
+}
+
+.am-nav-btn--today {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.65));
+  color: #0f172a;
+  border-color: transparent;
+}
+
+.am-nav-btn--pressed {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.am-hero__year {
+  display: grid;
+  gap: 0.35rem;
+  align-items: start;
+}
+
+.am-select__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.am-select {
+  border-radius: 14px;
+  border: none;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 8px 16px rgba(15, 23, 42, 0.18);
+}
+
+.am-month-picker {
+  position: relative;
+  z-index: 10;
+}
+
+.am-month-picker__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--am-radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  box-shadow: var(--am-shadow-sm);
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.am-month-picker__trigger:focus,
+.am-month-picker__trigger:hover {
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+}
+
+.am-month-picker__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--am-muted);
+}
+
+.am-month-picker__value {
+  flex: 1;
+  text-align: right;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.am-month-picker__icon {
+  font-size: 1.2rem;
+  color: var(--am-muted);
+  transition: transform 0.2s ease;
+}
+
+.am-month-picker__trigger[aria-expanded="true"] .am-month-picker__icon {
+  transform: rotate(180deg);
+}
+
+.am-month-picker__panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: var(--am-radius-md);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  max-height: min(60vh, 420px);
+  z-index: 20;
+}
+
+.am-month-picker__panel--open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.am-month-picker__search {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--am-radius-sm);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.am-month-picker__search-icon {
+  font-size: 1.1rem;
+  color: var(--am-muted);
+}
+
+.am-month-picker__search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+}
+
+.am-month-picker__search-input::placeholder {
+  color: rgba(100, 116, 139, 0.7);
+}
+
+.am-month-picker__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  max-height: calc(min(60vh, 420px) - 3.25rem);
+  -webkit-overflow-scrolling: touch;
+}
+
+.am-month-picker__item {
+  margin: 0.15rem 0;
+}
+
+.am-month-picker__item--hidden {
+  display: none;
+}
+
+.am-month-picker__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--am-radius-sm);
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.am-month-picker__option:hover,
+.am-month-picker__option:focus {
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.am-month-picker__option--active {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(124, 58, 237, 0.12));
+  color: var(--am-accent);
+}
+
+.am-month-picker__option-name {
+  font-weight: 600;
+}
+
+.am-month-picker__option-abbr {
+  font-size: 0.78rem;
+  color: var(--am-muted);
+}
+
+.am-month-picker__backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.am-month-picker__backdrop--active {
+  pointer-events: auto;
+}
+
+.am-month-picker__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.am-month-picker__list::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.6);
+  border-radius: 999px;
+}
+
+.am-month-picker__list::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6);
+  border-radius: 999px;
+}
+
+.am-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  width: 100%;
+  font-style: bold;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .am-stats {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.4rem;
+  }
+}
+
+.am-stat {
+  position: relative;
+  background: var(--am-surface);
+  padding: 0.65rem 0.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--am-border);
+  box-shadow: 0 4px 8px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: center;
+  overflow: hidden;
+  min-height: 70px;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.am-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.1);
+}
+
+.am-stat::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: multiply;
+  opacity: 0.1;
+}
+
+.am-stat--visible {
+  opacity: 1;
+  transform: none;
+}
+
+.am-stat__label {
+  font-size: 0.52rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--am-muted);
+}
+
+.am-stat__value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.am-stat--working::after {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.65), transparent 70%);
+}
+/* ===========================
+   PRESENT (FULL DAY) – DARK GREEN
+   =========================== */
+   .am-stat--present {
+  background: linear-gradient(160deg, rgb(159, 255, 129), rgb(28, 142, 26));
+  border-color: rgba(73, 255, 27, 0.984);
+  padding: revert-layer;
+}
+.am-stat--present .am-stat__label,
+.am-stat--present .am-stat__value {
+  color: #0c0c0c; /* Deep forest green */
+}
+
+/* ===========================
+   PRESENT (HALF DAY) – DARK YELLOW
+   =========================== */
+.am-stat--half {
+  background: linear-gradient(160deg, rgb(255, 255, 111), rgb(219, 232, 67));
+  border-color: rgb(255, 238, 0);
+}
+.am-stat--half .am-stat__label,
+.am-stat--half .am-stat__value {
+  color: #030303; /* Deep golden brown */
+}
+
+/* ===========================
+   ABSENT – DARK RED
+   =========================== */
+.am-stat--absent {
+  background: linear-gradient(160deg, rgb(255, 114, 114), rgb(255, 103, 103));
+  border-color: rgb(245, 0, 0);
+}
+.am-stat--absent .am-stat__label,
+.am-stat--absent .am-stat__value {
+  color: rgb(0, 0, 0); /* Deep blood-red */
+}
+
+/* ===========================
+   HOLIDAYS – DARK GREY
+   =========================== */
+.am-stat--holiday {
+  background: linear-gradient(160deg, rgba(53, 50, 50, 0.705), rgba(42, 41, 41, 0.25));
+  border-color: rgba(107, 101, 101, 0.528);
+  padding: revert-layer;
+}
+.am-stat--holiday .am-stat__label,
+.am-stat--holiday .am-stat__value {
+  color: #000000; /* Almost black */
+}
+
+/* ===========================
+   PAID LEAVE – DARK PURPLE
+   =========================== */
+.am-stat--paid-leave {
+  background: linear-gradient(160deg, rgba(98, 115, 248, 0.956), rgb(111, 99, 216));
+  border-color: rgb(42, 26, 213);
+}
+.am-stat--paid-leave .am-stat__label,
+.am-stat--paid-leave .am-stat__value {
+  color: #000000; /* Deep violet */
+}
+
+/* ===========================
+   SANDWICH LEAVE – DARK BLUE
+   =========================== */
+.am-stat--sandwich-leave {
+  background: linear-gradient(160deg, rgba(246, 6, 6, 0.968), rgb(251, 5, 5));
+  border-color: rgb(255, 5, 5);
+}
+.am-stat--sandwich-leave .am-stat__label,
+.am-stat--sandwich-leave .am-stat__value {
+  color: #f6f7f9; /* Deep royal blue */
+}
+
+@media (min-width: 600px) {
+  .am-stats {
+    gap: 0.75rem;
+  }
+
+  .am-stat {
+    flex: 1 1 0;
+    max-width: none;
+    padding: 0.85rem 0.75rem;
+    border-radius: 14px;
+  }
+
+  .am-stat__value {
+    font-size: 1.8rem;
+  }
+}
+
+.am-calendar {
+  background: var(--am-surface);
+  border-radius: var(--am-radius-lg);
+  padding: 0.75rem;
+  box-shadow: var(--am-shadow-md);
+  border: 1px solid var(--am-border);
+  display: grid;
+  gap: 0.6rem;
+}
+
+.am-calendar__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+  color: var(--am-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.am-calendar__weekday {
+  font-weight: 600;
+}
+
+.am-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
+.am-calendar__cell {
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  aspect-ratio: 1 / 1;
+  padding: 0.4rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.am-calendar__cell--interactive {
+  cursor: pointer;
+}
+
+.am-calendar__cell--interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--am-shadow-sm);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.am-calendar__cell--selected {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+  border-color: rgba(37, 99, 235, 0.6);
+}
+
+.am-calendar__cell--today {
+  border: 1.5px solid rgba(37, 99, 235, 0.55);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+
+.am-calendar__cell--future {
+  opacity: 0.55;
+}
+
+.am-calendar__cell--empty {
+  border: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.am-calendar__date {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.am-calendar__cell--present {
+  background: rgb(49, 184, 98);
+  border-color: rgba(38, 182, 91, 0.987);
+  color: #efefef;
+}
+
+.am-calendar__cell--halfday {
+  background: rgb(255, 255, 16);
+  border-color: rgba(244, 248, 23, 0.972);
+  color: #000000;
+}
+
+.am-calendar__cell--checked-in {
+  background: rgb(252, 252, 19);
+  border-color: rgba(244, 248, 16, 0.985);
+  color: #fffdfb;
+}
+
+.am-calendar__cell--absent {
+  background: rgb(255, 13, 13);
+  border-color: rgb(246, 18, 18);
+  color: #fffafa;
+}
+
+.am-calendar__cell--holiday {
+  background: #5d5e5f !important;
+  color: white !important;
+  border-color: rgba(103, 104, 104, 0.675);
+}
+
+.am-calendar__cell--paid-leave {
+  position: relative;
+}
+
+.am-calendar__cell--paid-leave::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 12px 12px 0;
+  border-color: transparent #8b5cf6 transparent transparent;
+}
+
+.am-calendar__cell--sandwich-leave {
+  position: relative;
+}
+
+.am-calendar__cell--sandwich-leave::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 12px 12px 0;
+  border-color: transparent #3b82f6 transparent transparent;
+}
+
+.am-calendar__alert-icon {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  font-size: 0.75rem;
+  color: #ef4444;
+  opacity: 0.8;
+}
+
+/* Holiday Table Styles */
+.holiday-table-section {
+  margin-top: 2rem;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.holiday-table-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.holiday-table-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.holiday-table-title i {
+  margin-right: 0.5rem;
+  color: #0f172a;
+  opacity: 0.8;
+}
+
+.holiday-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+.holiday-table th,
+.holiday-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.holiday-table th {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  background: rgba(249, 250, 251, 0.5);
+}
+
+.holiday-table td {
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.holiday-table tr:last-child td {
+  border-bottom: none;
+}
+
+.holiday-table tr:hover {
+  background: rgba(249, 250, 251, 0.5);
+}
+
+.holiday-date {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.holiday-day {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.holiday-reason {
+  color: #374151;
+  font-weight: 500;
+}
+
+.holiday-empty {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  padding: 2rem;
+}
+
+/* Attendance Color Legend Styles */
+.attendance-legend-section {
+  margin-top: 2rem;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.legend-container {
+  max-width: 100%;
+}
+
+.legend-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(59, 130, 246, 0.1);
+}
+
+.legend-header i {
+  font-size: 1.5rem;
+  color: #3b82f6;
+  margin-right: 0.75rem;
+}
+
+.legend-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.legend-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.legend-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  margin-right: 0.75rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.legend-color {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+}
+
+/* Color Definitions */
+.present-color {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: inset 0 2px 4px rgba(34, 197, 94, 0.3);
+}
+
+.half-color {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  box-shadow: inset 0 2px 4px rgba(251, 191, 36, 0.3);
+}
+
+.absent-color {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: inset 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.holiday-color {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  box-shadow: inset 0 2px 4px rgba(107, 114, 128, 0.3);
+}
+
+.paid-leave-color {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  box-shadow: inset 0 2px 4px rgba(139, 92, 246, 0.3);
+}
+
+.late-color {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  box-shadow: inset 0 2px 4px rgba(249, 115, 22, 0.3);
+}
+
+.legend-box i {
+  font-size: 1.25rem;
+  color: #ffffff;
+  z-index: 1;
+  position: relative;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.legend-info {
+  flex: 1;
+}
+
+.legend-title {
+  display: block;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+}
+
+.legend-desc {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.3;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .holiday-table-section {
+    padding: 1rem;
+    margin-top: 1rem;
+  }
+  
+  .holiday-table-title {
+    font-size: 1.1rem;
+  }
+  
+  .holiday-table th,
+  .holiday-table td {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+  }
+  
+  .holiday-table {
+    font-size: 0.8rem;
+  }
+  
+  /* Attendance Legend Responsive */
+  .attendance-legend-section {
+    padding: 1rem;
+    margin-top: 1rem;
+  }
+  
+  .legend-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+  }
+  
+  .legend-header i {
+    font-size: 1.25rem;
+  }
+  
+  .legend-header h3 {
+    font-size: 1.1rem;
+  }
+  
+  .legend-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .legend-item {
+    padding: 0.6rem;
+  }
+  
+  .legend-box {
+    width: 40px;
+    height: 40px;
+    margin-right: 0.6rem;
+  }
+  
+  .legend-box i {
+    font-size: 1rem;
+  }
+  
+  .legend-title {
+    font-size: 0.9rem;
+  }
+  
+  .legend-desc {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .legend-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .legend-item {
+    padding: 0.5rem;
+  }
+  
+  .legend-box {
+    width: 35px;
+    height: 35px;
+  }
+}
+
+.am-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.am-summary__item {
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 14px;
+  padding: 0.75rem 0.85rem;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.05);
+}
+
+.am-entry-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  border-radius: 16px;
+  padding: 0.75rem 0.85rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.06));
+  border: 1px solid rgba(59, 130, 246, 0.14);
+  max-width: min(100%, 340px);
+  margin-inline: auto;
+}
+
+.am-entry-card + .am-entry-card {
+  margin-top: 0.6rem;
+}
+
+.am-entry-card--checkout {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(16, 185, 129, 0.05));
+  border-color: rgba(34, 197, 94, 0.18);
+}
+
+.am-entry-card__info {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.am-entry-card__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.am-entry-card__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  margin-bottom: 0.15rem;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.am-entry-card__time {
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.am-entry-card__timestamp {
+  display: block;
+  color: #334155;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+
+.am-entry-card__meta {
+  color: #475569;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+
+.am-entry-card__media {
+  flex: 0 0 auto;
+}
+
+.am-entry-photo {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.am-entry-photo__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+
+.am-entry-photo__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #1e40af;
+  font-size: 0.58rem;
+  gap: 0.2rem;
+  padding: 0.35rem;
+}
+
+.am-entry-photo__placeholder i {
+  font-size: 1.05rem;
+  opacity: 0.55;
+}
+
+@media (max-width: 420px) {
+  .am-entry-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .am-entry-card__media {
+    width: 100%;
+  }
+
+  .am-entry-card {
+    max-width: 100%;
+    padding: 0.85rem 1rem;
+  }
+
+  .am-entry-photo {
+    width: 100%;
+    height: 150px;
+  }
+}
+
+.am-entry-photo:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.18);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.am-entry-photo:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.65);
+  outline-offset: 3px;
+}
+
+.am-entry-photo:disabled,
+.am-entry-photo--empty,
+.am-entry-photo:disabled:hover {
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.am-entry-photo:disabled {
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+
+.am-entry-photo:disabled .am-entry-photo__placeholder,
+.am-entry-photo--empty .am-entry-photo__placeholder {
+  color: rgba(30, 64, 175, 0.65);
+}
+
+
+.attendance-modal-dialog {
+  max-width: 480px;
+  width: calc(100% - 1.75rem);
+  margin: 1.5rem auto;
+}
+
+.attendance-modal-dialog .modal-content {
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
+}
+
+.attendance-modal-body {
+  padding: 1.35rem 1.5rem 1.5rem;
+}
+
+.attendance-modal-grid {
+  --bs-gutter-x: 1.25rem;
+  --bs-gutter-y: 1.35rem;
+}
+
+.attendance-modal-meta {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.attendance-modal-meta__profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.attendance-modal-meta__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.12));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1e3a8a;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 1rem;
+}
+
+.attendance-modal-meta__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attendance-modal-meta__profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.attendance-modal-meta__employee-name {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.attendance-modal-meta__date {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.attendance-modal-meta__status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.attendance-modal-meta__note {
+  font-size: 0.85rem;
+  color: rgba(15, 23, 42, 0.7);
+}
+
+.attendance-modal-meta__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  max-width: 220px;
+}
+
+.attendance-modal-meta__summary-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(15, 23, 42, 0.6);
+  margin-bottom: 0;
+}
+
+.attendance-modal-meta__summary-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+@media (max-width: 991.98px) {
+  .attendance-modal-body {
+    padding: 1.25rem 1.25rem 1.4rem;
+  }
+
+  .attendance-modal-grid {
+    --bs-gutter-x: 1.05rem;
+    --bs-gutter-y: 1.1rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .attendance-modal-dialog {
+    width: calc(100% - 1.25rem);
+    margin: 1.2rem auto;
+  }
+
+  #attendanceModal .modal-content {
+    border-radius: 18px;
+  }
+
+  #attendanceModal .modal-header,
+  #attendanceModal .modal-footer {
+    padding: 0.85rem 1rem;
+  }
+
+  .attendance-modal-body {
+    padding: 1.15rem 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+
+  .attendance-modal-meta__summary {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .attendance-modal-meta__summary-value {
+    font-size: 0.9rem;
+  }
+
+  .am-entry-card {
+    padding: 0.9rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .am-entry-card__media {
+    width: 96px;
+    max-width: 96px;
+  }
+
+  .am-entry-photo {
+    width: 100%;
+    height: 120px;
+  }
+
+  .attendance-modal-comment-card .am-comment-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .attendance-modal-comment-card .am-comment-thread {
+    max-height: 210px;
+  }
+}
+
+.am-comment-card {
+  background: rgba(248, 250, 252, 0.96);
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 1rem 1.15rem;
+  box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.4);
+}
+
+.am-comment-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.am-comment-card__title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.am-comment-card__body {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.am-comment-thread {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.am-comment-thread__empty {
+  text-align: center;
+  padding: 1.1rem 0.5rem;
+  color: rgba(15, 23, 42, 0.6);
+  font-size: 0.85rem;
+}
+
+.am-comment-item {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 0.75rem 0.85rem;
+  position: relative;
+}
+
+.am-comment-item--admin {
+  border-left: 3px solid rgba(37, 99, 235, 0.55);
+}
+
+.am-comment-item--employee {
+  border-left: 3px solid rgba(16, 185, 129, 0.7);
+}
+
+.am-comment-item__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.55);
+  margin-bottom: 0.35rem;
+}
+
+.am-comment-item__text {
+  font-size: 0.85rem;
+  color: #0f172a;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.am-comment-item__actions {
+  margin-top: 0.45rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.am-comment-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.am-comment-form__hint {
+  margin-top: 0.4rem;
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.am-comment-thread::-webkit-scrollbar {
+  width: 6px;
+}
+
+.am-comment-thread::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6);
+  border-radius: 999px;
+}
+
+.am-comment-thread::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.6);
+  border-radius: 999px;
+}
+
+.am-photo-modal {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.am-photo-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  background: rgba(15, 23, 42, 0.65);
+  border-radius: 999px;
+  filter: invert(1);
+}
+
+.am-photo-modal__body {
+  padding: 1.25rem;
+  background: radial-gradient(circle at top, rgba(59, 130, 246, 0.35), transparent 52%),
+              radial-gradient(circle at bottom, rgba(14, 165, 233, 0.28), transparent 55%);
+}
+
+.am-photo-modal__img {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 14px;
+  box-shadow: 0 24px 48px rgba(8, 47, 73, 0.45);
+  background: #1e293b;
+}
+
+.am-photo-modal__footer {
+  padding: 0.85rem 1.25rem 1.25rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.am-photo-modal__caption {
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.am-legend {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--am-radius-md);
+  padding: 1.05rem 1.1rem;
+  box-shadow: var(--am-shadow-sm);
+  border: 1px solid var(--am-border);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.am-section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--am-muted-strong);
+}
+
+.am-legend__items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 0.65rem;
+}
+
+.am-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--am-radius-sm);
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--am-muted-strong);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.am-legend__dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.am-legend__item--present .am-legend__dot { background: #22c55e; }
+.am-legend__item--half .am-legend__dot { background: #38bdf8; }
+.am-legend__item--checked-in .am-legend__dot { background: #facc15; }
+.am-legend__item--absent .am-legend__dot { background: #ef4444; }
+.am-legend__item--holiday .am-legend__dot { background: #8b5cf6; }
+.am-legend__item--future .am-legend__dot { background: rgba(148, 163, 184, 0.45); }
+
+.am-legend__label {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+@media (min-width: 768px) {
+  .am-hero {
+    padding: 2.1rem 2rem 2.2rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+  }
+
+  .am-hero__subtitle {
+    max-width: 36ch;
+  }
+
+  .am-hero__nav {
+    order: 2;
+    grid-column: 1 / -1;
+  }
+
+  .am-hero__year {
+    justify-self: end;
+    text-align: right;
+  }
+
+  .am-stats {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .am-calendar {
+    padding: 1.4rem 1.5rem 1.6rem;
+  }
+
+  .am-calendar__cell {
+    min-height: 88px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .am-hero,
+  .am-stat {
+    transition: none;
+  }
+
+  .am-nav-btn:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .am-calendar__cell--interactive:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* New Modal Layout Styles */
+.attendance-modal-body {
+  padding: 1rem 1rem 1.25rem !important;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* Date Card */
+.attendance-date-card {
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.95), rgba(243, 244, 246, 0.95));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  margin-bottom: 0.25rem;
+}
+
+.attendance-date-card__date {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #0f172a;
+  margin: 0;
+}
+
+/* Entry Grid - Side by Side */
+.attendance-entry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Entry Card */
+.attendance-entry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.95), rgba(243, 244, 246, 0.95));
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.legend-inline-list {
+  list-style: none;
+  padding: 12px 18px;
+  margin: 0;
+  display: flex;
+  gap: 20px;           /* spacing between items */
+  align-items: center;
+  flex-wrap: wrap;      /* allows wrap ONLY in small screens */
+}
+
+.legend-inline-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* Colors same as your calendar */
+.present-color     { background: #22c55e; }
+.half-color        { background: #facc15; }
+.absent-color      { background: #ef4444; }
+.holiday-color     { background: #6b7280; }
+.paid-leave-color  { background: #6366f1; }
+.late-color        { background: #f97316; }
+
+.attendance-entry-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+}
+
+.attendance-entry-card--checkin {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(37, 99, 235, 0.04));
+  border-color: rgba(59, 130, 246, 0.15);
+}
+
+.attendance-entry-card--checkout {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(16, 185, 129, 0.04));
+  border-color: rgba(34, 197, 94, 0.15);
+}
+
+/* Photo Wrapper */
+.attendance-entry-card__photo-wrapper {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+/* Entry Photo */
+.attendance-entry-photo {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s ease;
+}
+
+.attendance-entry-photo:hover {
+  transform: scale(1.02);
+}
+
+.attendance-entry-photo__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attendance-entry-photo__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #1e40af;
+  font-size: 0.65rem;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  width: 100%;
+  height: 100%;
+}
+
+.attendance-entry-photo__placeholder i {
+  font-size: 1.2rem;
+  opacity: 0.6;
+}
+
+/* Entry Card Content */
+.attendance-entry-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: center;
+}
+
+.attendance-entry-card__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #0f172a;
+  font-weight: 600;
+  margin: 0;
+}
+
+.attendance-entry-card__time {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.attendance-entry-card__timestamp {
+  font-size: 0.7rem;
+  display: none;
+  color: #64748b;
+  letter-spacing: 0.02em;
+}
+
+/* Duration Card */
+.attendance-duration-card {
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.95), rgba(243, 244, 246, 0.95));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 0.65rem 0.85rem;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  margin-bottom: 0.25rem;
+}
+
+.attendance-duration-card__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+
+.attendance-duration-card__value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+/* Status Section */
+.attendance-status-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+.legend-bullet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  padding-left: 6px;
+}
+
+.legend-bullet-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  font-size: 14px;
+  height: 30px; /* your requested height */
+}
+
+.bullet-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Color mapping – use your same calendar colors */
+.present-color  { background: #22c55e; }
+.half-color     { background: #facc15; }
+.absent-color   { background: #ef4444; }
+.holiday-color  { background: #6b7280; }
+.paid-leave-color { background: #6366f1; }
+.late-color       { background: #f97316; }
+
+.bullet-desc {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.attendance-modal-meta__status {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.attendance-modal-meta__note {
+  font-size: 0.8rem;
+  display: block;
+  margin: 0 auto;
+  color: rgba(15, 23, 42, 0.65);
+  line-height: 1.4;
+}
+
+/* Comment Card Adjustments */
+.attendance-modal-comment-card {
+  margin-top: 0 !important;
+}
+
+.am-comment-card {
+  background: rgba(248, 250, 252, 0.96);
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 0.85rem;
+  box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.4);
+}
+
+.am-comment-card__header {
+  margin-bottom: 0.65rem;
+}
+
+.am-comment-card__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.am-comment-thread {
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.am-comment-form__field {
+  margin-bottom: 0.5rem;
+}
+
+.am-comment-form__field textarea {
+  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 575.98px) {
+  .attendance-modal-body {
+    padding: 0.9rem 0.9rem 1rem !important;
+    gap: 0.7rem;
+  }
+
+  .attendance-date-card {
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .attendance-date-card__date {
+    font-size: 1rem;
+  }
+
+  .attendance-entry-grid {
+    gap: 0.55rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .attendance-entry-card {
+    padding: 0.65rem;
+    gap: 0.4rem;
+  }
+
+  .attendance-entry-card__label {
+    font-size: 0.65rem;
+  }
+
+  .attendance-entry-card__time {
+    font-size: 0.9rem;
+  }
+
+  .attendance-entry-card__timestamp {
+    font-size: 0.65rem;
+  }
+
+  .attendance-duration-card {
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .attendance-duration-card__label {
+    font-size: 0.65rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .attendance-duration-card__value {
+    font-size: 0.9rem;
+  }
+
+  .am-comment-card {
+    padding: 0.75rem;
+  }
+
+  .am-comment-card__header {
+    margin-bottom: 0.55rem;
+  }
+
+  .am-comment-card__title {
+    font-size: 0.85rem;
+  }
+
+  .am-comment-thread {
+    max-height: 150px;
+  }
+
+  .am-comment-form__field textarea {
+    font-size: 0.8rem;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .d-flex.justify-content-end.gap-2 {
+    gap: 0.4rem !important;
+  }
+
+  .btn-sm {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .attendance-entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-entry-card {
+    padding: 0.6rem;
+  }
+
+  .attendance-date-card__date {
+    font-size: 0.95rem;
+  }
+}
+
+/* ===========================
+   MISSING STATUS COLORS - BLUE (PAID LEAVE)
+   =========================== */
+.am-calendar__cell--paid-leave {
+  background: rgb(37, 99, 235) !important;
+  border-color: rgba(37, 99, 235, 0.987) !important;
+  color: #ffffff !important;
+  position: relative;
+}
+
+.am-calendar__cell--paid-leave::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 12px 12px 0;
+  border-color: transparent #8b5cf6 transparent transparent;
+}
+
+/* ===========================
+   MISSING STATUS COLORS - SANDWICH LEAVE
+   =========================== */
+.am-calendar__cell--sandwich-leave {
+  background: rgb(239, 68, 68) !important;
+  border-color: rgb(220, 38, 38) !important;
+  color: #ffffff !important;
+  position: relative;
+}
+
+.am-calendar__cell--sandwich-leave::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 12px 12px 0;
+  border-color: transparent #3b82f6 transparent transparent;
+}
+</style>
+{% endblock %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'js/attendance-calendar-manager.js' %}"></script>
+<script src="{% static 'js/attendance-modal.js' %}"></script>
+{% endblock %}
+
+{% block page_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const hero = document.querySelector('.am-hero');
+  if (hero) {
+    window.requestAnimationFrame(() => hero.classList.add('am-hero--loaded'));
+  }
+
+  const statCards = document.querySelectorAll('.am-stat');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('am-stat--visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+
+    statCards.forEach(card => observer.observe(card));
+  } else {
+    statCards.forEach(card => card.classList.add('am-stat--visible'));
+  }
+
+  const monthPicker = document.querySelector('.am-month-picker');
+  if (monthPicker) {
+    const trigger = monthPicker.querySelector('.am-month-picker__trigger');
+    const panel = monthPicker.querySelector('.am-month-picker__panel');
+    const list = panel ? panel.querySelector('.am-month-picker__list') : null;
+    const backdrop = monthPicker.querySelector('.am-month-picker__backdrop');
+    const searchInput = panel ? panel.querySelector('.am-month-picker__search-input') : null;
+    if (!trigger) {
+      console.warn('Month picker trigger not found, skipping month picker initialization.');
+    } else {
+      const getItems = () => (list ? Array.from(list.querySelectorAll('.am-month-picker__item')) : []);
+
+      const filterMonths = (term = '') => {
+        const value = term.trim().toLowerCase();
+        getItems().forEach(item => {
+          const option = item.querySelector('.am-month-picker__option');
+          if (!option) {
+            return;
+          }
+          const label = option.dataset.label || option.textContent.toLowerCase();
+          const matches = !value || label.includes(value);
+          item.classList.toggle('am-month-picker__item--hidden', !matches);
+        });
+      };
+
+      const openPicker = () => {
+        trigger.setAttribute('aria-expanded', 'true');
+        if (panel) {
+          panel.classList.add('am-month-picker__panel--open');
+          panel.setAttribute('aria-hidden', 'false');
+        }
+        if (backdrop) {
+          backdrop.classList.add('am-month-picker__backdrop--active');
+        }
+        filterMonths('');
+        if (searchInput) {
+          searchInput.value = '';
+        }
+        window.requestAnimationFrame(() => {
+          if (searchInput) {
+            searchInput.focus();
+          }
+          const activeOption = list ? list.querySelector('.am-month-picker__option--active') : null;
+          if (activeOption) {
+            activeOption.scrollIntoView({ block: 'center' });
+          }
+        });
+      };
+
+      const closePicker = () => {
+        trigger.setAttribute('aria-expanded', 'false');
+        if (panel) {
+          panel.classList.remove('am-month-picker__panel--open');
+          panel.setAttribute('aria-hidden', 'true');
+        }
+        if (backdrop) {
+          backdrop.classList.remove('am-month-picker__backdrop--active');
+        }
+      };
+
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
+        if (isExpanded) {
+          closePicker();
+        } else {
+          openPicker();
+        }
+      });
+
+      if (backdrop) {
+        backdrop.addEventListener('click', closePicker);
+      }
+
+      monthPicker.addEventListener('keyup', (event) => {
+        if (event.key === 'Escape') {
+          closePicker();
+          trigger.focus();
+        }
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!monthPicker.contains(event.target)) {
+          closePicker();
+        }
+      });
+
+      if (searchInput) {
+        searchInput.addEventListener('input', (event) => {
+          filterMonths(event.target.value);
+          const firstVisible = getItems().find(item => !item.classList.contains('am-month-picker__item--hidden'));
+          if (firstVisible) {
+            const focusTarget = firstVisible.querySelector('.am-month-picker__option');
+            if (focusTarget && typeof focusTarget.focus === 'function') {
+              focusTarget.focus({ preventScroll: false });
+            }
+          }
+        });
+      }
+    }
+  }
+
+  const interactiveCells = document.querySelectorAll('.am-calendar__cell--interactive');
+  let lastSelectedCell = null;
+
+  interactiveCells.forEach(cell => {
+    cell.addEventListener('click', () => {
+      // Visual selected state
+      if (lastSelectedCell && lastSelectedCell !== cell) {
+        lastSelectedCell.classList.remove('am-calendar__cell--selected');
+      }
+      cell.classList.add('am-calendar__cell--selected');
+      lastSelectedCell = cell;
+
+      // Open attendance detail modal when helper JS is available
+      const date = cell.dataset.date;
+      const screenRoot = document.querySelector('.am-screen');
+      const employeeId = screenRoot ? screenRoot.dataset.employeeId : null;
+      if (typeof loadAttendanceDetails === 'function' && employeeId && date) {
+        loadAttendanceDetails(employeeId, date);
+      }
+    });
+  });
+
+  const attendanceModal = document.getElementById('attendanceModal');
+  const photoModalEl = document.getElementById('attendancePhotoModal');
+  const photoModalImg = document.getElementById('attendance-photo-full');
+  const photoModalCaption = document.getElementById('attendance-photo-caption');
+  const photoModalInstance = photoModalEl ? new bootstrap.Modal(photoModalEl, { backdrop: true }) : null;
+  const photoThumbs = [];
+  const isAdminUser = "{{ request.user.is_superuser|yesno:'true,false' }}" === 'true';
+  const commentThread = document.getElementById('modal-comment-thread');
+  const commentForm = document.getElementById('modal-comment-form');
+  const commentInput = document.getElementById('modal-comment-input');
+  const commentSubmit = document.getElementById('modal-comment-submit');
+  const commentSubmitLabel = commentSubmit ? commentSubmit.querySelector('.am-comment-submit__label') : null;
+  const commentSpinner = commentSubmit ? commentSubmit.querySelector('.spinner-border') : null;
+  const commentCancel = document.getElementById('modal-comment-cancel');
+  const commentRefreshBtn = document.getElementById('modal-comment-refresh');
+  const commentDateLabel = document.getElementById('modal-comment-date');
+  const commentHintText = document.getElementById('modal-comment-hint');
+  const statusNoteEl = document.getElementById('modal-status-note');
+  const commentListUrl = "{% url 'employees:attendance_comments_list' %}";
+  const commentCreateUrl = "{% url 'employees:attendance_comments_create' %}";
+  const commentDeleteTemplate = "{% url 'employees:attendance_comments_delete' 0 %}";
+  const emptyCommentMessage = isAdminUser ? 'No comments yet. Add a note for the employee.' : 'No comments yet. Add your note for the admin.';
+
+  let currentCommentDate = null;
+  let currentEmployeeId = null;
+  let existingEmployeeCommentId = null;
+  let existingEmployeeCommentText = '';
+
+  function buildCommentDeleteUrl(id) {
+    return commentDeleteTemplate.replace(/0(?=\/delete\/$)/, String(id));
+  }
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+      return parts.pop().split(';').shift();
+    }
+    return null;
+  }
+
+  function renderEmptyThread(message) {
+    if (!commentThread) return;
+    commentThread.innerHTML = '';
+    const emptyState = document.createElement('div');
+    emptyState.className = 'am-comment-thread__empty';
+    emptyState.textContent = message;
+    commentThread.appendChild(emptyState);
+  }
+
+  function setCommentFormInteractivity(enabled) {
+    if (commentInput) commentInput.disabled = !enabled;
+    if (commentSubmit) commentSubmit.disabled = !enabled;
+    if (commentCancel) commentCancel.disabled = !enabled || !existingEmployeeCommentId;
+    if (commentRefreshBtn) commentRefreshBtn.disabled = !enabled || !currentCommentDate;
+  }
+
+  function setCommentLoading(isLoading) {
+    if (!commentSubmit) return;
+    if (commentSpinner) {
+      commentSpinner.classList.toggle('d-none', !isLoading);
+    }
+    if (commentSubmitLabel) {
+      commentSubmitLabel.classList.toggle('d-none', isLoading);
+    }
+    setCommentFormInteractivity(!isLoading);
+  }
+
+  function updateSubmitLabel(text) {
+    if (commentSubmitLabel) {
+      commentSubmitLabel.textContent = text;
+    }
+  }
+
+  function updateCancelVisibility() {
+    if (!commentCancel) return;
+    commentCancel.classList.toggle('d-none', !existingEmployeeCommentId);
+    commentCancel.disabled = !existingEmployeeCommentId;
+  }
+
+  function formatCommentTimestamp(isoString) {
+    if (!isoString) {
+      return '';
+    }
+    const parsed = new Date(isoString);
+    if (Number.isNaN(parsed.getTime())) {
+      return '';
+    }
+    return parsed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  function createCommentElement(comment) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'am-comment-item ' + (comment.is_admin_comment ? 'am-comment-item--admin' : 'am-comment-item--employee');
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'am-comment-item__meta';
+
+    const author = document.createElement('span');
+    if (comment.is_admin_comment) {
+      author.textContent = comment.created_by_display || 'Admin';
+    } else if (isAdminUser) {
+      author.textContent = comment.employee_name || 'Employee';
+    } else if (comment.is_mine) {
+      author.textContent = 'You';
+    } else {
+      author.textContent = comment.created_by_display || 'Employee';
+    }
+
+    const timestamp = document.createElement('span');
+    timestamp.textContent = formatCommentTimestamp(comment.updated_at) || '';
+
+    metaRow.appendChild(author);
+    metaRow.appendChild(timestamp);
+    wrapper.appendChild(metaRow);
+
+    const text = document.createElement('p');
+    text.className = 'am-comment-item__text mb-0';
+    text.textContent = comment.comment;
+    wrapper.appendChild(text);
+
+    if (!comment.is_admin_comment && !isAdminUser && comment.is_mine) {
+      const actions = document.createElement('div');
+      actions.className = 'am-comment-item__actions';
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn btn-sm btn-link text-danger px-0';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', () => handleDelete(comment.id));
+
+      actions.appendChild(deleteBtn);
+      wrapper.appendChild(actions);
+    }
+
+    return wrapper;
+  }
+
+  function resetCommentFormState() {
+    existingEmployeeCommentId = null;
+    existingEmployeeCommentText = '';
+    if (commentInput) {
+      commentInput.value = '';
+    }
+    updateSubmitLabel('Save Comment');
+    updateCancelVisibility();
+  }
+
+  function handleCommentLoadSuccess(comments) {
+    if (!commentThread) {
+      return;
+    }
+
+    resetCommentFormState();
+    commentThread.innerHTML = '';
+
+    if (!comments || !comments.length) {
+      renderEmptyThread(emptyCommentMessage);
+      setCommentFormInteractivity(true);
+      return;
+    }
+
+    comments.forEach((comment) => {
+      const element = createCommentElement(comment);
+      commentThread.appendChild(element);
+
+      if (!isAdminUser && comment.is_mine && !comment.is_admin_comment && existingEmployeeCommentId === null) {
+        existingEmployeeCommentId = comment.id;
+        existingEmployeeCommentText = comment.comment;
+        if (commentInput) {
+          commentInput.value = comment.comment;
+        }
+        updateSubmitLabel('Update Comment');
+      }
+    });
+
+    updateCancelVisibility();
+    setCommentFormInteractivity(true);
+  }
+
+  function loadComments() {
+    if (!commentThread || !currentCommentDate || !currentEmployeeId) {
+      return;
+    }
+
+    renderEmptyThread('Loading comments…');
+    setCommentFormInteractivity(false);
+
+    const params = new URLSearchParams({ date: currentCommentDate });
+    params.append('employee_id', currentEmployeeId);
+
+    fetch(`${commentListUrl}?${params.toString()}`, {
+      headers: { 'Accept': 'application/json' }
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to load comments');
+        }
+        return response.json();
+      })
+      .then((data) => {
+        handleCommentLoadSuccess(data.comments || []);
+      })
+      .catch((error) => {
+        console.error(error);
+        renderEmptyThread('Unable to load comments right now.');
+        setCommentFormInteractivity(true);
+      });
+  }
+
+  function handleCommentSubmit(event) {
+    event.preventDefault();
+    if (!commentInput || !currentCommentDate || !currentEmployeeId) {
+      return;
+    }
+
+    const value = commentInput.value.trim();
+    if (!value) {
+      commentInput.focus();
+      return;
+    }
+
+    setCommentLoading(true);
+
+    const formData = new URLSearchParams();
+    formData.append('employee_id', currentEmployeeId);
+    formData.append('date', currentCommentDate);
+    formData.append('comment', value);
+
+    fetch(commentCreateUrl, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken') || '',
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      },
+      body: formData.toString()
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to save comment');
+        }
+        return response.json();
+      })
+      .then((data) => {
+        existingEmployeeCommentId = data.comment?.id || null;
+        existingEmployeeCommentText = data.comment?.comment || '';
+        loadComments();
+      })
+      .catch((error) => {
+        console.error(error);
+        renderEmptyThread('Unable to save comment. Please try again.');
+      })
+      .finally(() => {
+        setCommentLoading(false);
+      });
+  }
+
+  function handleDelete(commentId) {
+    if (!commentId) {
+      return;
+    }
+    if (!confirm('Delete your comment for this day?')) {
+      return;
+    }
+
+    setCommentLoading(true);
+
+    fetch(buildCommentDeleteUrl(commentId), {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken') || '',
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      }
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to delete comment');
+        }
+        return response.json();
+      })
+      .then(() => {
+        resetCommentFormState();
+        loadComments();
+      })
+      .catch((error) => {
+        console.error(error);
+        renderEmptyThread('');
+      })
+
+  // Attach comment form event listeners
+  if (commentForm) {
+    commentForm.addEventListener('submit', handleCommentSubmit);
+  }
+
+  // Cancel button closes the modal completely
+  if (commentCancel) {
+    commentCancel.addEventListener('click', () => {
+      const modal = bootstrap.Modal.getInstance(attendanceModal);
+      if (modal) {
+        modal.hide();
+      }
+    });
+  }
+
+  // Refresh button reloads comments
+  if (commentRefreshBtn) {
+    commentRefreshBtn.addEventListener('click', () => {
+      loadComments();
+    });
+  }
+
+  if (attendanceModal) {
+    const statusMap = {
+      present: { badge: 'bg-success', icon: 'bx bx-check-circle', label: 'Present' },
+      halfday: { badge: 'bg-info', icon: 'bx bx-time-five', label: 'Half Day' },
+      'checked-in': { badge: 'bg-warning', icon: 'bx bx-time', label: 'Checked-in only' },
+      absent: { badge: 'bg-danger', icon: 'bx bx-x-circle', label: 'Absent' },
+      holiday: { badge: 'bg-purple', icon: 'bx bx-calendar', label: 'Holiday' },
+      future: { badge: 'bg-secondary', icon: 'bx bx-calendar-event', label: 'Upcoming day' },
+      none: { badge: 'bg-secondary', icon: 'bx bx-notepad', label: 'No attendance' }
+    };
+
+    const ATTENDANCE_API_URL = '/api/attendance';
+
+    attendanceModal.addEventListener('show.bs.modal', function(event) {
+      const trigger = event.relatedTarget;
+      if (!trigger) {
+        return;
+      }
+
+      const rawDate = trigger.getAttribute('data-date');
+      currentCommentDate = rawDate || null;
+      currentEmployeeId = trigger.getAttribute('data-employee-id') || null;
+
+      const modalDateEl = document.getElementById('modal-date');
+      const checkinEl = document.getElementById('modal-checkin');
+      const checkoutEl = document.getElementById('modal-checkout');
+      const durationEl = document.getElementById('modal-duration');
+      const statusEl = document.getElementById('modal-status');
+      const checkinTimestampEl = document.getElementById('modal-checkin-timestamp');
+      const checkoutTimestampEl = document.getElementById('modal-checkout-timestamp');
+      const checkinPhotoEl = document.getElementById('modal-checkin-photo');
+      const checkoutPhotoEl = document.getElementById('modal-checkout-photo');
+      const checkinPhotoPlaceholder = document.getElementById('modal-checkin-photo-placeholder');
+      const checkoutPhotoPlaceholder = document.getElementById('modal-checkout-photo-placeholder');
+
+      // Reset UI to a clean loading state for each open
+      const fallbackDateLabel = rawDate || '—';
+      if (modalDateEl) {
+        modalDateEl.textContent = fallbackDateLabel;
+      }
+      if (checkinEl) checkinEl.textContent = '—';
+      if (checkoutEl) checkoutEl.textContent = '—';
+      if (durationEl) durationEl.textContent = '—';
+      if (checkinTimestampEl) checkinTimestampEl.textContent = 'Loading…';
+      if (checkoutTimestampEl) checkoutTimestampEl.textContent = 'Loading…';
+      if (statusEl) {
+        statusEl.innerHTML = '<span class="badge bg-secondary"><i class="bx bx-time-five me-1"></i>Loading…</span>';
+      }
+      if (statusNoteEl) {
+        statusNoteEl.textContent = '';
+      }
+
+      const setPhotoDisplay = (photoUrl, imgEl, placeholderEl) => {
+        if (!imgEl || !placeholderEl) {
+          return false;
+        }
+
+        if (photoUrl) {
+          imgEl.src = photoUrl;
+          imgEl.classList.remove('d-none');
+          placeholderEl.classList.add('d-none');
+          return true;
+        }
+
+        imgEl.classList.add('d-none');
+        imgEl.removeAttribute('src');
+        placeholderEl.classList.remove('d-none');
+        return false;
+      };
+
+      const applyFormattedDate = (dateStr) => {
+        if (!modalDateEl || !dateStr) {
+          return;
+        }
+        // Parse date string (YYYY-MM-DD format)
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const parsed = new Date(year, month - 1, day);
+        
+        if (!Number.isNaN(parsed.getTime())) {
+          modalDateEl.textContent = parsed.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        } else {
+          modalDateEl.textContent = dateStr;
+        }
+      };
+
+      const applyStatus = (statusValue) => {
+        const key = (statusValue || '').toLowerCase();
+        let mappedKey = 'none';
+        if (key === 'present' || key === 'present_full') mappedKey = 'present';
+        else if (key === 'absent') mappedKey = 'absent';
+        else if (key === 'halfday' || key === 'half day' || key === 'present_half') mappedKey = 'halfday';
+        else if (key === 'checked-in' || key === 'checked in') mappedKey = 'checked-in';
+        else if (key === 'holiday') mappedKey = 'holiday';
+
+        const statusMeta = statusMap[mappedKey] || statusMap.none;
+        if (statusEl) {
+          statusEl.innerHTML = `<span class="badge ${statusMeta.badge}"><i class="${statusMeta.icon} me-1"></i>${statusMeta.label}</span>`;
+        }
+      };
+
+      const formatTimeFromISO = (iso) => {
+        if (!iso) return null;
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return null;
+        try {
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+          // Fallback
+          return iso;
+        }
+      };
+
+      const absentMessage = 'No attendance found for this date.';
+
+      // Load comments for this date/employee as before
+      if (!currentCommentDate || !currentEmployeeId) {
+        renderEmptyThread('Comments unavailable for this day.');
+        setCommentFormInteractivity(false);
+      } else {
+        setCommentFormInteractivity(true);
+        loadComments();
+      }
+
+      if (commentDateLabel) {
+        commentDateLabel.textContent = fallbackDateLabel ? `Comments for ${fallbackDateLabel}` : 'Day Comments';
+      }
+
+      // Fetch attendance details from backend API
+      if (!rawDate) {
+        if (statusNoteEl) {
+          statusNoteEl.textContent = 'No date selected.';
+        }
+        return;
+      }
+
+      if (!currentEmployeeId) {
+        currentEmployeeId = document.querySelector('[data-employee-id]')?.dataset.employeeId || 
+                           document.querySelector('.am-screen')?.dataset.employeeId;
+      }
+
+      if (!currentEmployeeId) {
+        console.error('Employee ID not found');
+        if (statusNoteEl) {
+          statusNoteEl.textContent = 'Unable to load attendance details. Please refresh the page.';
+        }
+        return;
+      }
+
+      const url = `${ATTENDANCE_API_URL}/${encodeURIComponent(currentEmployeeId)}/${encodeURIComponent(rawDate)}/`;
+
+      fetch(url, { 
+        headers: { 
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+      })
+        .then((response) => {
+          if (!response.ok) {
+            return response.json().then(err => {
+              throw new Error(err.error || `HTTP error! status: ${response.status}`);
+            });
+          }
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Server returned non-JSON response');
+          }
+          return response.json();
+        })
+        .then((data) => {
+          const apiDate = data.date || rawDate;
+          applyFormattedDate(apiDate);
+
+          // Backward compatibility (legacy shape) and new v2 shape mapping
+          let statusValue = data.status || (data.attendance && data.attendance.status) || '';
+          applyStatus(statusValue);
+
+          let checkinTimeText = null;
+          let checkoutTimeText = null;
+          let checkinPhotoUrl = null;
+          let checkoutPhotoUrl = null;
+          let durationText = '—';
+
+          if (data.checkin || data.checkout) {
+            // Legacy API shape
+            const checkinData = data.checkin || {};
+            const checkoutData = data.checkout || {};
+            checkinTimeText = checkinData.time || null;
+            checkoutTimeText = checkoutData.time || null;
+            checkinPhotoUrl = checkinData.image || null;
+            checkoutPhotoUrl = checkoutData.image || null;
+            durationText = data.duration || '—';
+          } else {
+            // New v2 API shape
+            checkinTimeText = formatTimeFromISO(data.check_in_time);
+            checkoutTimeText = formatTimeFromISO(data.check_out_time);
+            checkinPhotoUrl = data.check_in_photo_url || null;
+            checkoutPhotoUrl = data.check_out_photo_url || null;
+            durationText = data.total_duration_display || '—';
+          }
+
+          const isAbsent = !checkinTimeText || !checkoutTimeText || (statusValue && String(statusValue).toLowerCase().includes('absent'));
+
+          if (isAbsent) {
+            if (checkinEl) checkinEl.textContent = 'Not recorded';
+            if (checkoutEl) checkoutEl.textContent = 'Not recorded';
+            if (durationEl) durationEl.textContent = '—';
+            if (checkinTimestampEl) checkinTimestampEl.textContent = 'Not recorded';
+            if (checkoutTimestampEl) checkoutTimestampEl.textContent = 'Not recorded';
+            setPhotoDisplay(null, checkinPhotoEl, checkinPhotoPlaceholder);
+            setPhotoDisplay(null, checkoutPhotoEl, checkoutPhotoPlaceholder);
+            if (statusNoteEl) {
+              statusNoteEl.textContent = absentMessage;
+            }
+          } else {
+            if (checkinEl) checkinEl.textContent = checkinTimeText || '—';
+            if (checkoutEl) checkoutEl.textContent = checkoutTimeText || '—';
+            if (durationEl) durationEl.textContent = durationText || '—';
+            if (checkinTimestampEl) checkinTimestampEl.textContent = checkinTimeText || 'Not recorded';
+            if (checkoutTimestampEl) checkoutTimestampEl.textContent = checkoutTimeText || 'Not recorded';
+
+            const hasCheckinPhoto = setPhotoDisplay(checkinPhotoUrl, checkinPhotoEl, checkinPhotoPlaceholder);
+            const hasCheckoutPhoto = setPhotoDisplay(checkoutPhotoUrl, checkoutPhotoEl, checkoutPhotoPlaceholder);
+
+            if (checkinPhotoEl) {
+              checkinPhotoEl.dataset.fullUrl = hasCheckinPhoto ? checkinPhotoUrl : '';
+              checkinPhotoEl.dataset.caption = hasCheckinPhoto ? (checkinTimeText ? `Check-in photo · ${checkinTimeText}` : 'Check-in photo') : '';
+            }
+            if (checkoutPhotoEl) {
+              checkoutPhotoEl.dataset.fullUrl = hasCheckoutPhoto ? checkoutPhotoUrl : '';
+              checkoutPhotoEl.dataset.caption = hasCheckoutPhoto ? (checkoutTimeText ? `Check-out photo · ${checkoutTimeText}` : 'Check-out photo') : '';
+            }
+
+            if (statusNoteEl) {
+              statusNoteEl.textContent = '';
+            }
+          }
+        })
+        .catch((error) => {
+          console.error('Error loading attendance details:', error);
+          if (statusNoteEl) {
+            statusNoteEl.textContent = `Unable to load attendance details: ${error.message || 'Please try again.'}`;
+          }
+          if (checkinTimestampEl) checkinTimestampEl.textContent = 'Not recorded';
+          if (checkoutTimestampEl) checkoutTimestampEl.textContent = 'Not recorded';
+          setPhotoDisplay(null, checkinPhotoEl, checkinPhotoPlaceholder);
+          setPhotoDisplay(null, checkoutPhotoEl, checkoutPhotoPlaceholder);
+          
+          // Show error badge
+          if (statusEl) {
+            statusEl.innerHTML = '<span class="badge bg-danger"><i class="bx bx-error me-1"></i>Error loading data</span>';
+          }
+        });
+    });
+  }
+
+  const handleThumbnailClick = (event) => {
+    const target = event.currentTarget;
+    if (!target || !photoModalInstance) {
+      return;
+    }
+
+    const nestedImg = target.querySelector('img');
+    const fullUrl = nestedImg ? nestedImg.dataset.fullUrl : '';
+    const caption = nestedImg ? nestedImg.dataset.caption : '';
+
+    if (!fullUrl) {
+      return;
+    }
+
+    if (photoModalImg) {
+      photoModalImg.src = fullUrl;
+    }
+    if (photoModalCaption) {
+      photoModalCaption.textContent = caption || 'Attendance photo';
+    }
+
+    photoModalInstance.show();
+  };
+
+  const resetPhotoModal = () => {
+    if (photoModalImg) {
+      photoModalImg.removeAttribute('src');
+    }
+    if (photoModalCaption) {
+      photoModalCaption.textContent = '';
+    }
+  };
+
+  if (photoModalEl && photoModalInstance) {
+    photoModalEl.addEventListener('hidden.bs.modal', resetPhotoModal);
+  }
+
+  const observeThumbnails = () => {
+    photoThumbs.forEach((thumb) => {
+      thumb.removeEventListener('click', handleThumbnailClick);
+      thumb.addEventListener('click', handleThumbnailClick);
+    });
+  };
+
+  observeThumbnails();
+
+  if (attendanceModal) {
+    const observer = new MutationObserver(() => {
+      observeThumbnails();
+    });
+
+    observer.observe(attendanceModal, { subtree: true, attributes: true, attributeFilter: ['class'] });
+
+    attendanceModal.addEventListener('hidden.bs.modal', () => {
+      resetCommentFormState();
+      renderEmptyThread(emptyCommentMessage);
+      currentCommentDate = null;
+      currentEmployeeId = null;
+      setCommentFormInteractivity(false);
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+      return;
+    }
+
+    const currentMonth = Number('{{ month|escapejs }}');
+    const currentYear = Number('{{ year|escapejs }}');
+
+    if (e.key === 'ArrowLeft') {
+      const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+      const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+      window.location.href = `?year=${prevYear}&month=${prevMonth}`;
+    } else if (e.key === 'ArrowRight') {
+      const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+      const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+      window.location.href = `?year=${nextYear}&month=${nextMonth}`;
+    }
+  });
+});
+</script>
+{% endblock %}
+
+{% block extra_page_js %}
+<script>
+// ============================================
+// CONSOLIDATED ATTENDANCE CALENDAR JAVASCRIPT
+// ============================================
+
+// Global configuration (accessible immediately)
+const ATTENDANCE_CALENDAR_CONFIG = {
+  EMPLOYEE_ID: "{{ employee.id }}",
+  ATTENDANCE_DETAILS_URL: "{% url 'employees:attendance_details' 'DATE_PLACEHOLDER' %}",
+  COMMENT_LIST_URL: "{% url 'employees:attendance_comments_list' %}",
+  COMMENT_CREATE_URL: "{% url 'employees:attendance_comments_create' %}",
+  COMMENT_DELETE_TEMPLATE: "{% url 'employees:attendance_comments_delete' 0 %}",
+  ATTENDANCE_API_BASE: '/api/attendance'
+};
+
+// Global state
+let attendanceCalendarState = {
+  currentCommentDate: null,
+  currentEmployeeId: "{{ employee.id }}",
+  existingEmployeeCommentId: null,
+  existingEmployeeCommentText: ''
+};
+
+// ============================================
+// GLOBAL FUNCTIONS (must be defined before IIFE)
+// ============================================
+
+/**
+ * Load attendance details for a specific date and populate the modal
+ * This function MUST be defined globally before the IIFE so inline onclick handlers can access it
+ * @param {string} selectedDate - Date in YYYY-MM-DD format
+ */
+window.loadAttendance = function(selectedDate) {
+  // Check if config is available
+  if (!ATTENDANCE_CALENDAR_CONFIG || !ATTENDANCE_CALENDAR_CONFIG.ATTENDANCE_DETAILS_URL) {
+    console.error('Attendance calendar config not loaded yet');
+    return;
+  }
+  
+  const modal = document.getElementById('attendanceModal');
+  if (!modal) {
+    console.error('Attendance modal not found');
+    return;
+  }
+  
+  // Show loading state
+  const checkinEl = document.getElementById('modal-checkin');
+  const checkoutEl = document.getElementById('modal-checkout');
+  const durationEl = document.getElementById('modal-duration');
+  const modalDateEl = document.getElementById('modal-date');
+  
+  if (checkinEl) checkinEl.textContent = 'Loading...';
+  if (checkoutEl) checkoutEl.textContent = 'Loading...';
+  if (durationEl) durationEl.textContent = 'Loading...';
+  if (modalDateEl) modalDateEl.textContent = 'Loading...';
+  
+  // Build URL
+  const url = ATTENDANCE_CALENDAR_CONFIG.ATTENDANCE_DETAILS_URL.replace('DATE_PLACEHOLDER', selectedDate);
+  
+  // Get CSRF token
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  }
+  
+  // Fetch attendance details
+  fetch(url, {
+    headers: { 
+      'Accept': 'application/json', 
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRFToken': getCookie('csrftoken') || ''
+    },
+    credentials: 'same-origin'
+  })
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(err => {
+          throw new Error(err.error || `HTTP ${response.status}`);
+        }).catch(() => {
+          throw new Error(`HTTP ${response.status}`);
+        });
+      }
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned non-JSON response');
+      }
+      return response.json();
+    })
+    .then(data => {
+      // Use the populateModal function from the IIFE scope if available, otherwise do it inline
+      if (window._populateAttendanceModal) {
+        window._populateAttendanceModal(data);
+      } else {
+        // Fallback: populate directly
+        populateAttendanceModalInline(data);
+      }
+      
+      // Update global state
+      attendanceCalendarState.currentCommentDate = selectedDate;
+      attendanceCalendarState.currentEmployeeId = ATTENDANCE_CALENDAR_CONFIG.EMPLOYEE_ID;
+      
+      // Show the modal first
+      const modalInstance = new bootstrap.Modal(modal);
+      modalInstance.show();
+      
+      // Load comments after modal is shown (triggered by event listener in IIFE)
+      setTimeout(() => {
+        const event = new CustomEvent('attendanceModalOpened', { 
+          detail: { 
+            date: selectedDate,
+            employeeId: ATTENDANCE_CALENDAR_CONFIG.EMPLOYEE_ID
+          } 
+        });
+        document.dispatchEvent(event);
+      }, 300);
+    })
+    .catch(error => {
+      console.error('Error loading attendance details:', error);
+      
+      // Show error state
+      if (checkinEl) checkinEl.textContent = 'Not recorded';
+      if (checkoutEl) checkoutEl.textContent = 'Not recorded';
+      if (durationEl) durationEl.textContent = '—';
+      if (modalDateEl) modalDateEl.textContent = 'Error loading data';
+      
+      const statusNoteEl = document.getElementById('modal-status-note');
+      if (statusNoteEl) {
+        statusNoteEl.textContent = `Unable to load attendance details: ${error.message || 'Please try again.'}`;
+      }
+      
+      const statusEl = document.getElementById('modal-status');
+      if (statusEl) {
+        statusEl.innerHTML = '<span class="badge bg-danger"><i class="bx bx-error me-1"></i>Error</span>';
+      }
+      
+      // Still show modal with error
+      const modalInstance = new bootstrap.Modal(modal);
+      modalInstance.show();
+    });
+};
+
+// Inline modal population (fallback)
+function populateAttendanceModalInline(data) {
+  // Date
+  const modalDateEl = document.getElementById('modal-date');
+  if (modalDateEl) {
+    modalDateEl.textContent = data.weekday || data.date || '—';
+  }
+  
+  // Check-in
+  const checkinEl = document.getElementById('modal-checkin');
+  const checkinTimestampEl = document.getElementById('modal-checkin-timestamp');
+  const checkinPhotoEl = document.getElementById('modal-checkin-photo');
+  const checkinPhotoPlaceholder = document.getElementById('modal-checkin-photo-placeholder');
+  
+  if (checkinEl) {
+    checkinEl.textContent = data.checkin_time || 'Not recorded';
+  }
+  if (checkinTimestampEl) {
+    checkinTimestampEl.textContent = data.checkin_timestamp || '—';
+  }
+  
+  if (data.checkin_photo) {
+    if (checkinPhotoEl) {
+      checkinPhotoEl.src = data.checkin_photo;
+      checkinPhotoEl.style.display = 'block';
+    }
+    if (checkinPhotoPlaceholder) {
+      checkinPhotoPlaceholder.style.display = 'none';
+    }
+  } else {
+    if (checkinPhotoEl) checkinPhotoEl.style.display = 'none';
+    if (checkinPhotoPlaceholder) checkinPhotoPlaceholder.style.display = 'block';
+  }
+  
+  // Check-out
+  const checkoutEl = document.getElementById('modal-checkout');
+  const checkoutTimestampEl = document.getElementById('modal-checkout-timestamp');
+  const checkoutPhotoEl = document.getElementById('modal-checkout-photo');
+  const checkoutPhotoPlaceholder = document.getElementById('modal-checkout-photo-placeholder');
+  
+  if (checkoutEl) {
+    checkoutEl.textContent = data.checkout_time || 'Not recorded';
+  }
+  if (checkoutTimestampEl) {
+    checkoutTimestampEl.textContent = data.checkout_timestamp || '—';
+  }
+  
+  if (data.checkout_photo) {
+    if (checkoutPhotoEl) {
+      checkoutPhotoEl.src = data.checkout_photo;
+      checkoutPhotoEl.style.display = 'block';
+    }
+    if (checkoutPhotoPlaceholder) {
+      checkoutPhotoPlaceholder.style.display = 'none';
+    }
+  } else {
+    if (checkoutPhotoEl) checkoutPhotoEl.style.display = 'none';
+    if (checkoutPhotoPlaceholder) checkoutPhotoPlaceholder.style.display = 'block';
+  }
+  
+  // Duration
+  const durationEl = document.getElementById('modal-duration');
+  if (durationEl) {
+    durationEl.textContent = data.duration || '—';
+  }
+  
+  // Status
+  const statusEl = document.getElementById('modal-status');
+  if (statusEl && data.status) {
+    const statusClass = data.status === 'Present' ? 'bg-success' : 
+                       data.status === 'Half Day' ? 'bg-warning' : 
+                       data.status === 'Absent' ? 'bg-danger' : 'bg-secondary';
+    statusEl.innerHTML = `<span class="badge ${statusClass}">${data.status}</span>`;
+  }
+}
+
+(function() {
+  'use strict';
+  
+  // Configuration (from global)
+  const EMPLOYEE_ID = ATTENDANCE_CALENDAR_CONFIG.EMPLOYEE_ID;
+  const ATTENDANCE_DETAILS_URL = ATTENDANCE_CALENDAR_CONFIG.ATTENDANCE_DETAILS_URL;
+  const COMMENT_LIST_URL = ATTENDANCE_CALENDAR_CONFIG.COMMENT_LIST_URL;
+  const COMMENT_CREATE_URL = ATTENDANCE_CALENDAR_CONFIG.COMMENT_CREATE_URL;
+  const COMMENT_DELETE_TEMPLATE = ATTENDANCE_CALENDAR_CONFIG.COMMENT_DELETE_TEMPLATE;
+  const ATTENDANCE_API_BASE = ATTENDANCE_CALENDAR_CONFIG.ATTENDANCE_API_BASE;
+  
+  // State (from global)
+  let currentCommentDate = attendanceCalendarState.currentCommentDate;
+  let currentEmployeeId = attendanceCalendarState.currentEmployeeId;
+  let existingEmployeeCommentId = attendanceCalendarState.existingEmployeeCommentId;
+  let existingEmployeeCommentText = attendanceCalendarState.existingEmployeeCommentText;
+  
+  // ============================================
+  // UTILITY FUNCTIONS
+  // ============================================
+  
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  }
+  
+  function buildAttendanceDetailsUrl(date) {
+    return ATTENDANCE_DETAILS_URL.replace('DATE_PLACEHOLDER', date);
+  }
+  
+  function buildCommentDeleteUrl(id) {
+    return COMMENT_DELETE_TEMPLATE.replace(/0(?=\/delete\/$)/, String(id));
+  }
+  
+  // ============================================
+  // ATTENDANCE DETAILS MODAL - POPULATE FUNCTION
+  // ============================================
+  
+  /**
+   * Populate modal with attendance data
+   * @param {Object} data - Attendance data from API
+   */
+  function populateModal(data) {
+    // Date
+    const modalDateEl = document.getElementById('modal-date');
+    if (modalDateEl) {
+      modalDateEl.textContent = data.weekday || data.date || '—';
+    }
+    
+    // Check-in
+    const checkinEl = document.getElementById('modal-checkin');
+    const checkinTimestampEl = document.getElementById('modal-checkin-timestamp');
+    const checkinPhotoEl = document.getElementById('modal-checkin-photo');
+    const checkinPhotoPlaceholder = document.getElementById('modal-checkin-photo-placeholder');
+    
+    if (checkinEl) {
+      checkinEl.textContent = data.checkin_time || 'Not recorded';
+    }
+    if (checkinTimestampEl) {
+      checkinTimestampEl.textContent = data.checkin_timestamp || 'Not recorded';
+    }
+    
+    // Handle check-in photo
+    if (data.checkin_photo && checkinPhotoEl && checkinPhotoPlaceholder) {
+      checkinPhotoEl.src = data.checkin_photo;
+      checkinPhotoEl.classList.remove('d-none');
+      checkinPhotoPlaceholder.classList.add('d-none');
+      // Store photo URL for full-screen modal
+      checkinPhotoEl.dataset.fullUrl = data.checkin_photo;
+      checkinPhotoEl.dataset.caption = `Check-in photo · ${data.checkin_time || ''}`;
+    } else if (checkinPhotoEl && checkinPhotoPlaceholder) {
+      checkinPhotoEl.classList.add('d-none');
+      checkinPhotoPlaceholder.classList.remove('d-none');
+      checkinPhotoEl.removeAttribute('src');
+    }
+    
+    // Check-out
+    const checkoutEl = document.getElementById('modal-checkout');
+    const checkoutTimestampEl = document.getElementById('modal-checkout-timestamp');
+    const checkoutPhotoEl = document.getElementById('modal-checkout-photo');
+    const checkoutPhotoPlaceholder = document.getElementById('modal-checkout-photo-placeholder');
+    
+    if (checkoutEl) {
+      checkoutEl.textContent = data.checkout_time || 'Not recorded';
+    }
+    if (checkoutTimestampEl) {
+      checkoutTimestampEl.textContent = data.checkout_timestamp || 'Not recorded';
+    }
+    
+    // Handle check-out photo
+    if (data.checkout_photo && checkoutPhotoEl && checkoutPhotoPlaceholder) {
+      checkoutPhotoEl.src = data.checkout_photo;
+      checkoutPhotoEl.classList.remove('d-none');
+      checkoutPhotoPlaceholder.classList.add('d-none');
+      // Store photo URL for full-screen modal
+      checkoutPhotoEl.dataset.fullUrl = data.checkout_photo;
+      checkoutPhotoEl.dataset.caption = `Check-out photo · ${data.checkout_time || ''}`;
+    } else if (checkoutPhotoEl && checkoutPhotoPlaceholder) {
+      checkoutPhotoEl.classList.add('d-none');
+      checkoutPhotoPlaceholder.classList.remove('d-none');
+      checkoutPhotoEl.removeAttribute('src');
+    }
+    
+    // Duration
+    const durationEl = document.getElementById('modal-duration');
+    if (durationEl) {
+      durationEl.textContent = data.duration || '—';
+    }
+    
+    // Status
+    const statusEl = document.getElementById('modal-status');
+    if (statusEl) {
+      const statusMap = {
+        'Present': { badge: 'bg-success', icon: 'bx-check-circle', label: 'Present' },
+        'Half Day': { badge: 'bg-warning', icon: 'bx-time-five', label: 'Half Day' },
+        'Absent': { badge: 'bg-danger', icon: 'bx-x-circle', label: 'Absent' },
+        'Holiday': { badge: 'bg-secondary', icon: 'bx-calendar', label: 'Holiday' },
+        'Paid Leave': { badge: 'bg-danger', icon: 'bx-calendar-check', label: 'Paid Leave' },
+        'Sandwich Leave': { badge: 'bg-info', icon: 'bx-calendar-x', label: 'Sandwich Leave' },
+        'Checked In Only': { badge: 'bg-warning', icon: 'bx-time', label: 'Checked In Only' }
+      };
+      const status = data.status || 'Absent';
+      const statusMeta = statusMap[status] || statusMap.Absent;
+      statusEl.innerHTML = `<span class="badge ${statusMeta.badge}"><i class="${statusMeta.icon} me-1"></i>${statusMeta.label}</span>`;
+    }
+    
+    // Update comment date label
+    const commentDateLabel = document.getElementById('modal-comment-date');
+    if (commentDateLabel) {
+      commentDateLabel.textContent = `Comments for ${data.weekday || data.date || ''}`;
+    }
+  }
+  
+  // ============================================
+  // PHOTO MODAL
+  // ============================================
+  
+  function showPhotoModal(photoUrl, caption) {
+    const photoImg = document.getElementById('attendance-photo-full');
+    const photoCaption = document.getElementById('attendance-photo-caption');
+    const photoModalEl = document.getElementById('attendancePhotoModal');
+    
+    if (photoImg) photoImg.src = photoUrl;
+    if (photoCaption) photoCaption.textContent = caption || 'Attendance photo';
+    
+    if (photoModalEl) {
+      const modal = new bootstrap.Modal(photoModalEl);
+      modal.show();
+    }
+  }
+  
+  // ============================================
+  // COMMENTS HANDLING
+  // ============================================
+  
+  function loadComments() {
+    const commentThread = document.getElementById('modal-comment-thread');
+    if (!commentThread || !currentCommentDate || !currentEmployeeId) return;
+    
+    const params = new URLSearchParams({
+      date: currentCommentDate,
+      employee_id: currentEmployeeId
+    });
+    
+    fetch(`${COMMENT_LIST_URL}?${params.toString()}`, {
+      headers: { 'Accept': 'application/json' }
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Failed to load comments');
+        return response.json();
+      })
+      .then(data => {
+        handleCommentLoadSuccess(data.comments || []);
+      })
+      .catch(error => {
+        console.error('Error loading comments:', error);
+        renderEmptyThread('Unable to load comments.');
+      });
+  }
+  
+  function handleCommentLoadSuccess(comments) {
+    const commentThread = document.getElementById('modal-comment-thread');
+    if (!commentThread) return;
+    
+    resetCommentFormState();
+    commentThread.innerHTML = '';
+    
+    if (!comments || comments.length === 0) {
+      renderEmptyThread('No comments yet. Add your note for the admin.');
+      return;
+    }
+    
+    comments.forEach(comment => {
+      const element = createCommentElement(comment);
+      commentThread.appendChild(element);
+      
+      // Track employee's own comment for editing
+      if (!comment.is_admin_comment && comment.is_mine && existingEmployeeCommentId === null) {
+        existingEmployeeCommentId = comment.id;
+        existingEmployeeCommentText = comment.comment;
+        const commentInput = document.getElementById('modal-comment-input');
+        if (commentInput) commentInput.value = comment.comment;
+        const submitLabel = document.querySelector('.am-comment-submit__label');
+        if (submitLabel) submitLabel.textContent = 'Update Comment';
+      }
+    });
+  }
+  
+  function createCommentElement(comment) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'am-comment-item ' + (comment.is_admin_comment ? 'am-comment-item--admin' : 'am-comment-item--employee');
+    
+    const metaRow = document.createElement('div');
+    metaRow.className = 'am-comment-item__meta';
+    
+    const author = document.createElement('span');
+    if (comment.is_admin_comment) {
+      author.textContent = comment.created_by || 'Admin';
+    } else if (comment.is_mine) {
+      author.textContent = 'You';
+    } else {
+      author.textContent = comment.created_by || 'Employee';
+    }
+    
+    const timestamp = document.createElement('span');
+    if (comment.updated_at || comment.created_at) {
+      const dateStr = comment.updated_at || comment.created_at;
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        timestamp.textContent = date.toLocaleString();
+      }
+    }
+    
+    metaRow.appendChild(author);
+    metaRow.appendChild(timestamp);
+    wrapper.appendChild(metaRow);
+    
+    const text = document.createElement('p');
+    text.className = 'am-comment-item__text mb-0';
+    text.textContent = comment.comment || '';
+    wrapper.appendChild(text);
+    
+    // Add delete button for employee's own comments
+    if (!comment.is_admin_comment && comment.is_mine) {
+      const actions = document.createElement('div');
+      actions.className = 'am-comment-item__actions';
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn btn-sm btn-link text-danger px-0';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', () => handleDeleteComment(comment.id));
+      actions.appendChild(deleteBtn);
+      wrapper.appendChild(actions);
+    }
+    
+    return wrapper;
+  }
+  
+  function handleDeleteComment(commentId) {
+    if (!commentId || !confirm('Delete your comment for this day?')) {
+      return;
+    }
+    
+    fetch(buildCommentDeleteUrl(commentId), {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken') || '',
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      }
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Failed to delete comment');
+        return response.json();
+      })
+      .then(() => {
+        resetCommentFormState();
+        loadComments();
+      })
+      .catch(error => {
+        console.error('Error deleting comment:', error);
+        alert('Failed to delete comment. Please try again.');
+      });
+  }
+  
+  function renderEmptyThread(message) {
+    const commentThread = document.getElementById('modal-comment-thread');
+    if (!commentThread) return;
+    commentThread.innerHTML = `<div class="am-comment-thread__empty">${message}</div>`;
+  }
+  
+  function resetCommentFormState() {
+    existingEmployeeCommentId = null;
+    existingEmployeeCommentText = '';
+    const commentInput = document.getElementById('modal-comment-input');
+    if (commentInput) commentInput.value = '';
+    const submitLabel = document.querySelector('.am-comment-submit__label');
+    if (submitLabel) submitLabel.textContent = 'Save Comment';
+  }
+  
+  function handleCommentSubmit(event) {
+    event.preventDefault();
+    const commentInput = document.getElementById('modal-comment-input');
+    if (!commentInput || !currentCommentDate || !currentEmployeeId) return;
+    
+    const value = commentInput.value.trim();
+    if (!value) {
+      commentInput.focus();
+      return;
+    }
+    
+    const formData = new URLSearchParams();
+    formData.append('employee_id', currentEmployeeId);
+    formData.append('date', currentCommentDate);
+    formData.append('comment', value);
+    
+    const submitBtn = document.getElementById('modal-comment-submit');
+    const spinner = submitBtn ? submitBtn.querySelector('.spinner-border') : null;
+    if (submitBtn) submitBtn.disabled = true;
+    if (spinner) spinner.classList.remove('d-none');
+    
+    fetch(COMMENT_CREATE_URL, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken') || '',
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      },
+      body: formData.toString()
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Failed to save comment');
+        return response.json();
+      })
+      .then(data => {
+        existingEmployeeCommentId = data.comment?.id || null;
+        loadComments();
+      })
+      .catch(error => {
+        console.error('Error saving comment:', error);
+        renderEmptyThread('Unable to save comment. Please try again.');
+      })
+      .finally(() => {
+        if (submitBtn) submitBtn.disabled = false;
+        if (spinner) spinner.classList.add('d-none');
+      });
+  }
+  
+  // ============================================
+  // CALENDAR DATA LOADING
+  // ============================================
+  
+  // REMOVED: Duplicate loadCalendarData function
+  // Calendar loading is handled by attendance-calendar-loader.js
+  // which uses Django API as single source of truth
+  
+  // REMOVED: Duplicate update functions that caused color flickering
+  // Calendar colors are now handled by attendance-calendar-loader.js
+  // which uses Django API as single source of truth
+  
+  // ============================================
+  // INITIALIZATION
+  // ============================================
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    // Attach event listeners to calendar cells using event delegation
+    // This avoids the need for inline onclick handlers
+    const calendarGrid = document.querySelector('.am-calendar__grid');
+    if (calendarGrid) {
+      calendarGrid.addEventListener('click', function(e) {
+        const cell = e.target.closest('.am-calendar__cell--interactive');
+        if (cell && cell.dataset.date) {
+          const date = cell.dataset.date;
+          if (window.loadAttendance) {
+            window.loadAttendance(date);
+          } else {
+            console.error('loadAttendance function not available');
+          }
+        }
+      });
+    }
+    
+    // Initialize month picker
+    const monthPicker = document.querySelector('.am-month-picker');
+    if (monthPicker) {
+      const trigger = monthPicker.querySelector('.am-month-picker__trigger');
+      const panel = monthPicker.querySelector('.am-month-picker__panel');
+      const backdrop = monthPicker.querySelector('.am-month-picker__backdrop');
+      
+      if (trigger && panel) {
+        trigger.addEventListener('click', function(e) {
+          e.preventDefault();
+          const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
+          if (isExpanded) {
+            trigger.setAttribute('aria-expanded', 'false');
+            panel.classList.remove('am-month-picker__panel--open');
+            if (backdrop) backdrop.classList.remove('am-month-picker__backdrop--active');
+          } else {
+            trigger.setAttribute('aria-expanded', 'true');
+            panel.classList.add('am-month-picker__panel--open');
+            if (backdrop) backdrop.classList.add('am-month-picker__backdrop--active');
+          }
+        });
+        
+        if (backdrop) {
+          backdrop.addEventListener('click', function() {
+            trigger.setAttribute('aria-expanded', 'false');
+            panel.classList.remove('am-month-picker__panel--open');
+            backdrop.classList.remove('am-month-picker__backdrop--active');
+          });
+        }
+      }
+      
+      // Add month option click handlers
+      const monthOptions = monthPicker.querySelectorAll('.am-month-picker__option');
+      monthOptions.forEach(option => {
+        option.addEventListener('click', function(e) {
+          e.preventDefault();
+          const month = parseInt(this.dataset.month);
+          const year = parseInt(this.dataset.year) || new Date().getFullYear();
+          
+          // Close picker
+          if (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+            if (panel) panel.classList.remove('am-month-picker__panel--open');
+            if (backdrop) backdrop.classList.remove('am-month-picker__backdrop--active');
+          }
+          
+          // Update URL
+          const newUrl = `?year=${year}&month=${month}`;
+          window.history.pushState({}, '', newUrl);
+          
+          // Reload calendar with new month
+          loadCalendarData(year, month);
+          // Also load holiday table for new month
+          loadHolidayTable(year, month);
+        });
+      });
+    }
+    
+    // Load holiday table function
+    function loadHolidayTable(year, month) {
+      const amScreen = document.querySelector('.am-screen');
+      const employeeId = amScreen ? amScreen.dataset.employeeId : null;
+      if (!employeeId) {
+        console.error('Employee ID not found');
+        return;
+      }
+      
+      const container = document.getElementById('holiday-table-container');
+      if (!container) {
+        console.error('Holiday table container not found');
+        return;
+      }
+      
+      // Show loading state
+      container.innerHTML = '<div class="text-center p-3"><i class="bx bx-loader-alt bx-spin"></i> Loading holidays...</div>';
+      
+      // Fetch holiday data
+      console.log(`[DEBUG] Fetching holidays for employee ${employeeId}, month ${year}-${month}`);
+      fetch(`/api/attendance/${employeeId}/holidays/?year=${year}&month=${month}`)
+        .then(response => {
+          console.log('[DEBUG] Holiday API response status:', response.status);
+          return response.json();
+        })
+        .then(data => {
+          console.log('[DEBUG] Holiday API response:', data);
+          if (data.success && data.holidays && data.holidays.length > 0) {
+            console.log(`[DEBUG] Rendering ${data.holidays.length} holidays`);
+            renderHolidayTable(data.holidays);
+          } else {
+            console.log('[DEBUG] No holidays found, rendering empty table');
+            renderEmptyHolidayTable();
+          }
+        })
+        .catch(error => {
+          console.error('[DEBUG] Error loading holidays:', error);
+          renderEmptyHolidayTable();
+        });
+    }
+    
+    function renderHolidayTable(holidays) {
+      const container = document.getElementById('holiday-table-container');
+      
+      // Format date function
+      const formatDate = (dateStr) => {
+        const date = new Date(dateStr);
+        const options = { day: 'numeric', month: 'long', year: 'numeric' };
+        return date.toLocaleDateString('en-US', options);
+      };
+      
+      let tableHTML = `
+        <div class="holiday-table-header">
+          <h3 class="holiday-table-title">
+            <i class="bx bx-calendar-event"></i>
+            Holidays This Month
+          </h3>
+        </div>
+        <table class="holiday-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Day</th>
+              <th>Holiday Name / Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      holidays.forEach(holiday => {
+        tableHTML += `
+          <tr>
+            <td class="holiday-date">${formatDate(holiday.date)}</td>
+            <td class="holiday-day">${holiday.day}</td>
+            <td class="holiday-reason">${holiday.reason}</td>
+          </tr>
+        `;
+      });
+      
+      tableHTML += `
+          </tbody>
+        </table>
+      `;
+      
+      container.innerHTML = tableHTML;
+    }
+    
+    function renderEmptyHolidayTable() {
+      const container = document.getElementById('holiday-table-container');
+      container.innerHTML = `
+        <div class="holiday-table-header">
+          <h3 class="holiday-table-title">
+            <i class="bx bx-calendar-event"></i>
+            Holidays This Month
+          </h3>
+        </div>
+        <table class="holiday-table">
+          <tbody>
+            <tr>
+              <td class="holiday-empty" colspan="3">No holidays this month</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+    }
+    
+    // Load calendar data on page load
+    const urlParams = new URLSearchParams(window.location.search);
+    const year = parseInt(urlParams.get('year')) || new Date().getFullYear();
+    const month = parseInt(urlParams.get('month')) || new Date().getMonth() + 1;
+    loadCalendarData(year, month);
+    // Also load holiday table on page load
+    loadHolidayTable(year, month);
+    
+    // Attendance modal cleanup on close
+    const attendanceModal = document.getElementById('attendanceModal');
+    if (attendanceModal) {
+      attendanceModal.addEventListener('hidden.bs.modal', function() {
+        resetCommentFormState();
+        renderEmptyThread('No comments yet. Add your note for the admin.');
+        currentCommentDate = null;
+      });
+    }
+    
+    // Photo click handlers (delegated event listener)
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('.attendance-entry-photo')) {
+        const photoBtn = e.target.closest('.attendance-entry-photo');
+        const img = photoBtn.querySelector('img');
+        if (img && img.src && !img.classList.contains('d-none')) {
+          e.preventDefault();
+          const fullUrl = img.dataset.fullUrl || img.src;
+          const caption = img.dataset.caption || 'Attendance photo';
+          showPhotoModal(fullUrl, caption);
+        }
+      }
+    });
+    
+    // Comment form
+    const commentForm = document.getElementById('modal-comment-form');
+    if (commentForm) {
+      commentForm.addEventListener('submit', handleCommentSubmit);
+    }
+    
+    // Comment refresh button
+    const refreshBtn = document.getElementById('modal-comment-refresh');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', loadComments);
+    }
+    
+    // Comment cancel button
+    const cancelBtn = document.getElementById('modal-comment-cancel');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() {
+        resetCommentFormState();
+      });
+    }
+  });
+  
+  // loadCalendarData is already globally available from attendance-calendar-loader.js
+  
+  // Expose loadComments globally for loadAttendance to use
+  window._loadAttendanceComments = loadComments;
+  
+  // Listen for attendance modal opened event to load comments
+  document.addEventListener('attendanceModalOpened', function(event) {
+    const { date, employeeId } = event.detail;
+    if (date && employeeId) {
+      currentCommentDate = date;
+      currentEmployeeId = employeeId;
+      loadComments();
+    }
+  });
+  
+  // Debug: Log initial stats from Django view
+  const presentStat = document.querySelector('#stat-present-full');
+  const halfStat = document.querySelector('#stat-present-half');
+  const absentStat = document.querySelector('#stat-absent');
+  const holidaysStat = document.querySelector('#stat-holidays');
+  const paidLeaveStat = document.querySelector('#stat-paid-leave');
+  
+  if (presentStat && halfStat && absentStat) {
+    console.log('📊 Initial stats from Django view:', {
+      present: presentStat.textContent,
+      halfDay: halfStat.textContent,
+      absent: absentStat.textContent,
+      holidays: holidaysStat ? holidaysStat.textContent : 'N/A',
+      paidLeave: paidLeaveStat ? paidLeaveStat.textContent : 'N/A',
+      source: 'Django view (month-wise)'
+    });
+  }
+})();
+</script>
+<!-- attendance-calendar-unified.js removed as it was overriding month-wise stats -->
+{% endblock %}

@@ -1,0 +1,689 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Employees | Dovix CRM{% endblock %}
+
+{% block vendor_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'vendor/libs/flatpickr/flatpickr.css' %}"/>
+  <style>
+    :root {
+      --employee-hero-gradient: linear-gradient(135deg, #5a66ff, #47c6ff);
+      --employee-card-shadow: 0 24px 52px rgba(31, 70, 120, 0.18);
+    }
+
+    .employee-list-card {
+      border-radius: 24px;
+      box-shadow: var(--employee-card-shadow);
+      transform: translateY(12px);
+      animation: cardRise 0.6s ease-out forwards;
+      overflow: visible !important;
+      position: relative;
+    }
+
+    .employee-card-hero {
+      padding: clamp(1.75rem, 1vw + 1.45rem, 2.75rem);
+      background: var(--employee-hero-gradient);
+      overflow: hidden;
+    }
+
+    .employee-card-hero-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .employee-card-hero-decoration {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.4), transparent 45%),
+                  radial-gradient(circle at 82% 32%, rgba(255, 255, 255, 0.25), transparent 55%),
+                  radial-gradient(circle at 50% 90%, rgba(255, 255, 255, 0.15), transparent 65%);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      animation: floatBadge 3.2s ease-in-out infinite;
+    }
+
+    .hero-add-btn {
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .hero-add-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 30px rgba(255, 255, 255, 0.25);
+    }
+
+    .hero-meta {
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .employee-search-container {
+      border-radius: 18px;
+      box-shadow: 0 10px 22px rgba(44, 82, 130, 0.12);
+      overflow: hidden;
+      background: #fff;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .employee-search-container:focus-within {
+      box-shadow: 0 18px 40px rgba(74, 144, 255, 0.25);
+    }
+
+    .employee-search-input {
+      border: none;
+      height: 56px;
+      font-size: 1rem;
+    }
+
+    .employee-search-input:focus {
+      box-shadow: none;
+    }
+
+    .search-icon {
+      font-size: 1.2rem;
+    }
+
+    .search-spinner {
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .animate-spin {
+      opacity: 1;
+      transform: rotate(0deg);
+      animation: spinnerRotate 0.7s linear infinite;
+    }
+
+    .insight-chip {
+      background: #f6f9ff;
+      border: 1px solid rgba(90, 102, 255, 0.18);
+    }
+
+    .employee-table-wrapper {
+      position: relative;
+      border-radius: 20px;
+      background: #fff;
+      padding: clamp(1.25rem, 0.9rem + 1.2vw, 1.75rem) clamp(1.6rem, 1.15rem + 1.8vw, 2.4rem);
+      box-shadow: 0 16px 44px rgba(20, 46, 85, 0.12);
+      transition: box-shadow 0.35s ease;
+      overflow: visible;
+    }
+
+    .employee-table-wrapper:hover {
+      box-shadow: 0 18px 52px rgba(25, 56, 91, 0.16);
+    }
+
+    .employee-table-responsive {
+      border-radius: 16px;
+      overflow: visible;
+      position: relative;
+      padding-right: 0.75rem;
+    }
+
+    .employee-table {
+      width: 100%;
+    }
+
+    .employee-table thead th:last-child,
+    .employee-table tbody td:last-child {
+      min-width: 140px;
+      white-space: nowrap;
+      padding-right: 1.75rem;
+    }
+
+    .employee-table thead th {
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      color: #7381a7;
+      border-bottom-width: 1px;
+      background: linear-gradient(135deg, rgba(227, 234, 255, 0.48), rgba(255, 255, 255, 0.9));
+    }
+
+    .employee-table tbody tr {
+      position: relative;
+      z-index: 1;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+    }
+
+    .employee-row:hover,
+    .employee-row:focus-within {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(71, 95, 158, 0.15);
+      background-color: rgba(230, 237, 255, 0.4);
+    }
+
+    .employee-row:hover {
+      z-index: 5;
+    }
+
+    .employee-row:focus-within {
+      z-index: 6;
+    }
+
+    .row-fade-in {
+      animation: rowFadeIn 0.45s ease forwards;
+    }
+
+    .employee-avatar {
+      box-shadow: 0 8px 18px rgba(95, 127, 255, 0.25);
+    }
+
+    .status-indicator {
+      position: absolute;
+      bottom: -2px;
+      right: -1px;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+    }
+
+    .employee-name {
+      font-weight: 600;
+      color: #223057;
+    }
+
+    .employee-email {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .employee-contact small,
+    .employee-finance small,
+    .employee-meta small {
+      display: block;
+      margin-top: 0.15rem;
+    }
+
+    .employee-tags .badge {
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .employee-actions {
+      position: relative;
+    }
+
+    .employee-actions .dropdown-menu {
+      border-radius: 12px;
+      box-shadow: 0 18px 40px rgba(56, 65, 100, 0.18);
+      z-index: 1200;
+      min-width: 190px;
+      margin-top: 0.35rem;
+      transform-origin: top right;
+    }
+
+    .employee-actions .dropdown-item:hover {
+      background: rgba(90, 102, 255, 0.08);
+      color: #5560f2;
+    }
+
+    .empty-state {
+      border-radius: 20px;
+      background: #f8faff;
+      border: 1px dashed rgba(92, 122, 255, 0.45);
+      max-width: 540px;
+      margin: 0 auto;
+      animation: emptyPop 0.5s ease;
+    }
+
+    .empty-illustration {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      position: relative;
+      background: linear-gradient(135deg, rgba(90, 102, 255, 0.15), rgba(71, 198, 255, 0.2));
+    }
+
+    .pulse-circle {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(90, 102, 255, 0.35);
+      animation: pulseRing 2.2s ease-out infinite;
+    }
+
+    .feedback-pop {
+      animation: feedbackPop 0.4s ease;
+    }
+
+    @keyframes cardRise {
+      from {
+        opacity: 0;
+        transform: translateY(48px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes floatBadge {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    @keyframes spinnerRotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes rowFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes emptyPop {
+      from {
+        opacity: 0;
+        transform: scale(0.92);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes pulseRing {
+      0% {
+        transform: scale(0.7);
+        opacity: 0.8;
+      }
+      70% {
+        transform: scale(1.1);
+        opacity: 0;
+      }
+      100% {
+        transform: scale(1.2);
+        opacity: 0;
+      }
+    }
+
+    @keyframes feedbackPop {
+      0% {
+        transform: translateY(4px);
+        opacity: 0;
+      }
+      60% {
+        transform: translateY(-1px);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 992px) {
+      .employee-card-hero {
+        border-radius: 22px 22px 0 0;
+      }
+
+      .hero-actions {
+        text-align: center;
+      }
+
+      .insight-chip {
+        margin-top: 0.75rem;
+      }
+
+      .employee-table-wrapper {
+        padding: 1.4rem;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .employee-list-card {
+        border-radius: 20px;
+      }
+
+      .employee-search-input {
+        height: 50px;
+        font-size: 0.95rem;
+      }
+
+      .employee-table-wrapper {
+        padding: 1rem;
+      }
+
+      .employee-table thead {
+        display: none;
+      }
+
+      .employee-table tbody tr {
+        display: block;
+        border-radius: 16px;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        box-shadow: 0 12px 30px rgba(44, 86, 148, 0.15);
+      }
+
+      .employee-table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px dashed rgba(110, 120, 167, 0.18);
+        padding: 0.55rem 0;
+      }
+
+      .employee-table tbody td:last-child {
+        border-bottom: none;
+      }
+
+      .employee-table tbody td::before {
+        content: attr(data-label);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #7a85b2;
+        letter-spacing: 0.05em;
+        margin-right: 1rem;
+      }
+
+      .employee-actions .dropdown-toggle {
+        margin-left: auto;
+      }
+    }
+  </style>
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+  {{ block.super }}
+  <script src="{% static 'vendor/libs/flatpickr/flatpickr.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-12">
+      <div class="card employee-list-card border-0 shadow-lg">
+        <div class="card-header border-0 p-0">
+          <div class="employee-card-hero position-relative text-white">
+            <div class="employee-card-hero-content d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+              <div>
+                <span class="badge rounded-pill bg-white text-primary-emphasis fw-semibold mb-2 hero-badge">
+                  <i class="icon-base bx bx-group me-1"></i>
+                  Team Directory
+                </span>
+                <h5 class="card-title m-0 fw-semibold display-6 fs-3">All Employees</h5>
+                <small class="text-white-50">Manage all employees in the system</small>
+              </div>
+              <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2 hero-cta">
+                <div class="d-flex align-items-center gap-2 text-white-50 small fw-semibold bg-black bg-opacity-10 px-3 py-2 rounded-pill shadow-sm hero-meta">
+                  <i class="icon-base bx bx-user-pin"></i>
+                  <span class="text-white">
+                    {% if page_obj %}
+                      {{ page_obj.paginator.count }} total
+                    {% else %}
+                      {{ employees|length }} total
+                    {% endif %}
+                  </span>
+                </div>
+                <a href="{% url 'employees:employee_create' %}" class="btn btn-light hero-add-btn rounded-pill px-4 fw-semibold shadow-sm">
+                  <i class="icon-base bx bx-plus me-1"></i>Add Employee
+                </a>
+              </div>
+            </div>
+            <div class="employee-card-hero-decoration"></div>
+          </div>
+        </div>
+
+        <div class="card-body pt-4 pb-4 pb-lg-5">
+          <div class="row g-3 align-items-center hero-actions mb-4">
+            <div class="col-lg-8">
+              <div class="employee-search-container position-relative">
+                 
+                <input type="text" id="employee-search-input" class="form-control form-control-lg ps-5 pe-5 employee-search-input"
+                       placeholder="          Search employees..." value="{{ request.GET.search|default:'' }}"
+                       autocomplete="off">
+                <div id="employee-search-spinner" class="search-spinner position-absolute end-0 top-50 translate-middle-y me-3 d-none">
+                  <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                </div>
+              </div>
+              <div id="employee-search-feedback" class="text-muted small mt-2"></div>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+              <div class="insight-chip d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm text-muted small fw-semibold">
+                <i class="icon-base bx bx-bolt-circle text-primary"></i>
+                Smart search updates results in real time
+              </div>
+            </div>
+          </div>
+          <div id="employee-table-wrapper" class="employee-table-wrapper">
+          {% if employees %}
+            <div class="table-responsive employee-table-responsive">
+              <table class="table table-hover align-middle employee-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Contact</th>
+                    <th>Account</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="employee-table-body">
+                  {% include 'employees/partials/_employee_rows.html' with employees=employees %}
+                </tbody>
+              </table>
+            </div>
+
+            {% if is_paginated %}
+              <nav aria-label="Employee pagination" class="mt-4">
+                <ul class="pagination justify-content-center">
+                  {% if page_obj.has_previous %}
+                    <li class="page-item">
+                      <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        <i class="icon-base bx bx-chevron-left"></i>
+                      </a>
+                    </li>
+                  {% endif %}
+
+                  {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                      <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                      <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                      </li>
+                    {% endif %}
+                  {% endfor %}
+
+                  {% if page_obj.has_next %}
+                    <li class="page-item">
+                      <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        <i class="icon-base bx bx-chevron-right"></i>
+                      </a>
+                    </li>
+                  {% endif %}
+                </ul>
+              </nav>
+            {% endif %}
+          {% else %}
+            <div class="empty-state text-center py-5">
+              <div class="empty-illustration mx-auto mb-4">
+                <div class="pulse-circle"></div>
+                <i class="icon-base bx bx-user-plus icon-48px text-primary"></i>
+              </div>
+              <h5 class="text-primary mb-2">No employees found</h5>
+              {% if request.GET.search %}
+                <p class="text-muted mb-4">No employees match "<span id="search-query">{{ request.GET.search }}</span>"</p>
+                <a href="{% url 'employees:employee_list' %}" class="btn btn-outline-primary rounded-pill px-4">Clear Search</a>
+              {% else %}
+                <p class="text-muted mb-4">Start by adding your first employee to the system.</p>
+                <a href="{% url 'employees:employee_create' %}" class="btn btn-primary rounded-pill px-4">Add First Employee</a>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const searchInput = document.getElementById('employee-search-input');
+      const tableWrapper = document.getElementById('employee-table-wrapper');
+      let tableBody = document.getElementById('employee-table-body');
+      const spinner = document.getElementById('employee-search-spinner');
+      const feedback = document.getElementById('employee-search-feedback');
+      let controller = null;
+      let debounceTimeout = null;
+
+      function setLoading(isLoading) {
+        if (isLoading) {
+          spinner.classList.remove('d-none');
+          spinner.classList.add('animate-spin');
+        } else {
+          spinner.classList.add('d-none');
+          spinner.classList.remove('animate-spin');
+        }
+      }
+
+      function ensureTableStructure() {
+        tableBody = document.getElementById('employee-table-body');
+
+        if (!tableBody) {
+          tableWrapper.innerHTML = `
+            <div class="table-responsive employee-table-responsive">
+              <table class="table table-hover align-middle employee-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Contact</th>
+                    <th>Account</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="employee-table-body"></tbody>
+              </table>
+            </div>
+          `;
+          tableBody = document.getElementById('employee-table-body');
+        }
+
+        return tableBody;
+      }
+
+      function renderRows(html) {
+        const body = ensureTableStructure();
+        if (!body) return;
+        body.innerHTML = html;
+        body.querySelectorAll('.employee-row').forEach(row => {
+          row.classList.add('row-fade-in');
+        });
+      }
+
+      function renderEmptyState(query) {
+        const body = ensureTableStructure();
+        if (!body) return;
+        body.innerHTML = `
+          <tr class="employee-row-empty">
+            <td colspan="6" class="py-5 text-center">
+              <div class="text-muted">
+                <i class="icon-base bx bx-user-plus icon-48px d-block mb-3"></i>
+                <h5 class="text-muted mb-1">No employees found</h5>
+                <p class="text-muted mb-0">No employees match "${query}".</p>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+
+      function hideFeedback() {
+        feedback.textContent = '';
+      }
+
+      function showFeedback(message, isError = false) {
+        feedback.textContent = message;
+        feedback.classList.toggle('text-danger', isError);
+        feedback.classList.toggle('text-muted', !isError);
+      }
+
+      async function fetchEmployees(query) {
+        if (controller) {
+          controller.abort();
+        }
+        controller = new AbortController();
+
+        try {
+          setLoading(true);
+          hideFeedback();
+
+          const params = new URLSearchParams();
+          if (query) {
+            params.append('q', query);
+          }
+
+          const response = await fetch(`{% url 'employees:employee_live_search' %}?${params.toString()}`, {
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            signal: controller.signal
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch employees');
+          }
+
+          const data = await response.json();
+
+          if (data.success) {
+            if (data.html && data.html.trim() !== '') {
+              renderRows(data.html);
+
+              if (data.count !== undefined) {
+                const message = `${data.count} employee${data.count === 1 ? '' : 's'} found.`;
+                showFeedback(message);
+                feedback.classList.add('feedback-pop');
+                setTimeout(() => feedback.classList.remove('feedback-pop'), 600);
+              }
+            } else {
+              renderEmptyState(query || '');
+            }
+          } else {
+            showFeedback(data.error || 'Unable to load employees', true);
+          }
+        } catch (error) {
+          if (error.name !== 'AbortError') {
+            console.error(error);
+            showFeedback('Error loading employees. Please try again.', true);
+          }
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      function handleInput() {
+        const query = searchInput.value.trim();
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+          fetchEmployees(query);
+        }, 300);
+      }
+
+      if (searchInput) {
+        searchInput.addEventListener('input', handleInput);
+      }
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,858 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Support Tickets | Employee Portal{% endblock %}
+
+{% block content %}
+  <style>
+    :root {
+      --app-radius: 18px;
+      --app-soft-bg: #f4f6fb;
+      --app-card-bg: #ffffff;
+      --app-border: rgba(17, 24, 39, 0.06);
+      --app-muted: #6b7280;
+      --app-shadow: 0 16px 40px rgba(15, 23, 42, 0.1);
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+    }
+
+    body {
+      background: var(--app-soft-bg);
+    }
+
+    .app-screen {
+      display: flex;
+      flex-direction: column;
+      gap: 1.4rem;
+      padding-bottom: 2.6rem;
+    }
+
+    .app-screen--padded {
+      padding: 1.6rem 0 2.6rem;
+    }
+
+    .app-card {
+      background: var(--app-card-bg);
+      border-radius: var(--app-radius);
+      border: 1px solid var(--app-border);
+      box-shadow: var(--app-shadow);
+      padding: 1.45rem;
+    }
+
+    .app-hero {
+      overflow: hidden;
+      position: relative;
+      color: #f8fafc;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      display: grid;
+      gap: 1rem;
+      border-radius: var(--app-radius);
+    }
+
+    .app-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.28), transparent 55%);
+      pointer-events: none;
+    }
+
+    .app-hero__head {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .app-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.38rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: rgba(15, 23, 42, 0.18);
+      color: rgba(248, 250, 252, 0.9);
+    }
+
+    .app-hero__title {
+      font-size: 1.6rem;
+      margin: 0;
+    }
+
+    .app-hero__subtitle {
+      font-size: 0.9rem;
+      opacity: 0.85;
+      margin: 0;
+      max-width: 520px;
+    }
+
+    /* TABS STYLING */
+    .app-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 2px solid var(--app-border);
+      background: var(--app-card-bg);
+      border-radius: var(--app-radius) var(--app-radius) 0 0;
+      padding: 0.75rem 1.45rem;
+      overflow-x: auto;
+    }
+
+    .app-tab {
+      padding: 0.75rem 1.2rem;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--app-muted);
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .app-tab:hover {
+      color: var(--primary);
+    }
+
+    .app-tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .app-tab i {
+      font-size: 1.1rem;
+    }
+
+    .app-tab-content {
+      display: none;
+    }
+
+    .app-tab-content.active {
+      display: block;
+    }
+
+    .app-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px));
+      gap: 1rem;
+      background: transparent;
+      border-radius: var(--app-radius);
+      border: none;
+      padding: 0;
+      box-shadow: none;
+      margin-bottom: 1.5rem;
+    }
+
+    .app-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 1.25rem;
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid rgba(17, 24, 39, 0.05);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .app-metric:hover {
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .app-metric__icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 1.4rem;
+    }
+
+    .app-metric__data {
+      display: grid;
+      gap: 0.25rem;
+      width: 100%;
+    }
+
+    .app-metric__value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1;
+      color: #1f2937;
+    }
+
+    .app-metric__label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--app-muted);
+      font-weight: 600;
+    }
+
+    /* FORM STYLING */
+    .app-form {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .app-field {
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .app-field__label {
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--app-muted);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .app-field__label i {
+      font-size: 1rem;
+      color: var(--primary);
+    }
+
+    .app-field__label .app-required {
+      color: #ef4444;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .app-field__input {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #f8f9ff;
+      border-radius: 16px;
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      padding: 0.75rem 0.9rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .app-field__input:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 12px 28px rgba(99, 102, 241, 0.18);
+      background: #fff;
+    }
+
+    .app-field__input--textarea {
+      align-items: flex-start;
+    }
+
+    .app-control {
+      border: none;
+      background: transparent;
+      width: 100%;
+      padding: 0;
+      font-size: 0.95rem;
+      color: #111827;
+      box-shadow: none !important;
+    }
+
+    .app-control:focus {
+      outline: none;
+    }
+
+    select.app-control {
+      cursor: pointer;
+    }
+
+    textarea.app-control {
+      min-height: 150px;
+      resize: vertical;
+      padding-top: 0.1rem;
+    }
+
+    /* TICKET LIST STYLING */
+    .app-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .app-list__title {
+      font-size: 1.05rem;
+      margin-bottom: 0.4rem;
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .app-ticket {
+      border: 1px solid rgba(15, 23, 42, 0.05);
+      border-radius: 16px;
+      padding: 1.05rem 1.1rem;
+      display: grid;
+      gap: 0.75rem;
+      background: #fff;
+      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.25s ease;
+      cursor: pointer;
+    }
+
+    .app-ticket:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+    }
+
+    .app-ticket__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.6rem;
+    }
+
+    .app-ticket__meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .app-ticket__number {
+      font-weight: 700;
+      color: var(--primary);
+      font-size: 0.95rem;
+    }
+
+    .app-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .app-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .app-pill--neutral {
+      background: rgba(99, 102, 241, 0.12);
+      color: #4338ca;
+    }
+
+    .app-ticket__body {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .app-ticket__subject {
+      font-weight: 600;
+      font-size: 0.98rem;
+      margin: 0;
+      color: #1f2937;
+    }
+
+    .app-ticket__desc {
+      margin: 0;
+      font-size: 0.78rem;
+      color: var(--app-muted);
+    }
+
+    .app-ticket__footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .app-ticket__time {
+      font-size: 0.72rem;
+      color: var(--app-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .app-ticket__cta {
+      border-radius: 999px;
+      padding-inline: 1rem;
+      font-size: 0.78rem;
+    }
+
+    .app-empty {
+      text-align: center;
+      padding: 2.4rem 1rem;
+      background: #fff;
+      border-radius: var(--app-radius);
+      border: 1px dashed rgba(148, 163, 184, 0.35);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    .app-empty i {
+      font-size: 2.6rem;
+      color: rgba(99, 102, 241, 0.5);
+    }
+
+    .app-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .app-actions__btn {
+      border-radius: 999px;
+      padding: 0.65rem 1.4rem;
+      font-weight: 600;
+      font-size: 0.88rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .app-actions__btn--primary {
+      box-shadow: 0 12px 28px rgba(99, 102, 241, 0.25);
+    }
+
+    @media (max-width: 992px) {
+      .app-card {
+        padding: 1.25rem 1.15rem;
+      }
+
+      .app-metrics {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app-screen--padded {
+        padding: 1.2rem 0.75rem 2.2rem;
+      }
+
+      .app-card {
+        padding: 1.2rem 1rem;
+      }
+
+      .app-tabs {
+        padding: 0.75rem 1rem;
+      }
+
+      .app-tab {
+        padding: 0.6rem 0.9rem;
+        font-size: 0.85rem;
+      }
+
+      .app-metrics {
+        grid-template-columns: repeat(4, 4fr);
+        gap: 0.05rem;
+        margin-bottom: 1rem;
+      }
+
+      .app-metric {
+        padding: 1rem;
+        gap: 0.5rem;
+      }
+
+      .app-metric__icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+      }
+
+      .app-metric__value {
+        font-size: 1.25rem;
+      }
+
+      .app-metric__label {
+        font-size: 0.7rem;
+      }
+
+      .app-ticket__footer {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .app-ticket__cta {
+        width: 100%;
+        text-align: center;
+      }
+
+      .app-actions {
+        justify-content: center;
+      }
+
+      .app-actions__btn {
+        flex: 1 1 100%;
+        justify-content: center;
+      }
+    }
+    @media (max-width: 480px) {
+      .app-screen--padded {
+        padding: 1rem 0.5rem 2rem;
+      }
+
+      .app-metrics {
+        grid-template-columns: fr;
+        gap: 0.05rem;
+        margin-bottom: -1rem;
+      }
+
+      .app-metric {
+        padding: 0.9rem;
+        gap: 0.4rem;
+      }
+
+      .app-metric__icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+      }
+
+      .app-metric__value {
+        font-size: 1.1rem;
+      }
+
+      .app-metric__label {
+        font-size: 0.65rem;
+      }
+
+      .app-card {
+        padding: 1rem 0.75rem;
+      }
+
+      .app-tabs {
+        padding: 0.5rem 0.75rem;
+        gap: 0.25rem;
+      }
+
+      .app-tab {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.75rem;
+      }
+
+      .app-tab i {
+        font-size: 0.9rem;
+      }
+
+      .app-field {
+        gap: 0.4rem;
+      }
+
+      .app-field__label {
+        font-size: 0.7rem;
+      }
+
+      .app-field__input {
+        padding: 0.6rem 0.75rem;
+        border-radius: 12px;
+      }
+
+      .app-control {
+        font-size: 0.9rem;
+      }
+
+      textarea.app-control {
+        min-height: 120px;
+      }
+
+      .app-actions {
+        justify-content: stretch;
+      }
+
+      .app-actions__btn {
+        width: 100%;
+        padding: 0.6rem 1rem;
+        font-size: 0.8rem;
+      }
+
+      .app-ticket {
+        padding: 0.85rem;
+        gap: 0.5rem;
+      }
+
+      .app-ticket__number {
+        font-size: 0.85rem;
+      }
+
+      .app-ticket__subject {
+        font-size: 0.9rem;
+      }
+
+      .app-ticket__desc {
+        font-size: 0.75rem;
+      }
+
+      .app-ticket__footer {
+        gap: 0.4rem;
+      }
+
+      .app-pill {
+        font-size: 0.65rem;
+        padding: 0.25rem 0.6rem;
+      }
+
+      .app-empty {
+        padding: 1.5rem 1rem;
+      }
+
+      .app-empty i {
+        font-size: 2rem;
+      }
+    }
+
+    /* @media (max-width: 576px) {
+      .app-screen--padded {
+        padding: 1rem 0 2rem;
+      }
+
+      .app-hero__title {
+        font-size: 1.35rem;
+      }
+
+      .app-tab {
+        padding: 0.5rem 0.7rem;
+        font-size: 0.75rem;
+      }
+
+      .app-tab i {
+        font-size: 0.9rem;
+      }
+    } */
+  </style>
+
+<div class="app-screen app-screen--padded">
+  <!-- METRICS SECTION -->
+  <section class="app-metrics">
+    <div class="app-metric">
+      <span class="app-metric__icon" style="background: rgba(99, 102, 241, 0.16); color: #4338ca;">
+        <i class="bx bx-list-ul"></i>
+      </span>
+      <div class="app-metric__data">
+        <span class="app-metric__value">{{ total_tickets }}</span>
+        <span class="app-metric__label">Total Tickets</span>
+      </div>
+    </div>
+
+    <div class="app-metric">
+      <span class="app-metric__icon" style="background: rgba(59, 130, 246, 0.18); color: #1d4ed8;">
+        <i class="bx bx-time"></i>
+      </span>
+      <div class="app-metric__data">
+        <span class="app-metric__value">{{ open_tickets }}</span>
+        <span class="app-metric__label">Open</span>
+      </div>
+    </div>
+
+    <div class="app-metric">
+      <span class="app-metric__icon" style="background: rgba(251, 191, 36, 0.2); color: #b45309;">
+        <i class="bx bx-loader-circle"></i>
+      </span>
+      <div class="app-metric__data">
+        <span class="app-metric__value">{{ in_progress_tickets }}</span>
+        <span class="app-metric__label">In Progress</span>
+      </div>
+    </div>
+
+    <div class="app-metric">
+      <span class="app-metric__icon" style="background: rgba(34, 197, 94, 0.18); color: #15803d;">
+        <i class="bx bx-check-circle"></i>
+      </span>
+      <div class="app-metric__data">
+        <span class="app-metric__value">{{ resolved_tickets }}</span>
+        <span class="app-metric__label">Resolved</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TABS SECTION -->
+  <section class="app-card" style="padding: 0; border-radius: var(--app-radius);">
+    <!-- Tab Headers -->
+    <div class="app-tabs">
+      <button class="app-tab active" data-tab="request-tab">
+        <i class="bx bx-plus-circle"></i>
+        <span>Request Ticket</span>
+      </button>
+      <button class="app-tab" data-tab="history-tab">
+        <i class="bx bx-list-check"></i>
+        <span>My Tickets History</span>
+      </button>
+    </div>
+
+    <!-- Tab Content -->
+    <div style="padding: 1.45rem;">
+
+      <!-- REQUEST TICKET TAB -->
+      <div id="request-tab" class="app-tab-content active">
+        <form method="post" enctype="multipart/form-data" class="app-form">
+          {% csrf_token %}
+
+          <div class="app-field">
+            <label for="subject" class="app-field__label">
+              <i class="bx bx-edit-alt"></i>
+              <span>Subject / Title</span>
+              <span class="app-required">*</span>
+            </label>
+            <div class="app-field__input">
+              <input type="text"
+                     class="app-control"
+                     id="subject"
+                     name="subject"
+                     placeholder="Brief title for your issue"
+                     required>
+            </div>
+          </div>
+
+          <div class="app-field">
+            <label for="category" class="app-field__label">
+              <i class="bx bx-category"></i>
+              <span>Category</span>
+              <span class="app-required">*</span>
+            </label>
+            <div class="app-field__input">
+              <select class="app-control" id="category" name="category" required>
+                <option value="">Select a category</option>
+                {% for category_code, category_label in category_choices %}
+                  <option value="{{ category_code }}">{{ category_label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="app-field">
+            <label for="description" class="app-field__label">
+              <i class="bx bx-detail"></i>
+              <span>Description</span>
+              <span class="app-required">*</span>
+            </label>
+            <div class="app-field__input app-field__input--textarea">
+              <textarea class="app-control"
+                        id="description"
+                        name="description"
+                        rows="8"
+                        placeholder="Describe your issue in detail. The more information you provide, the faster we can help."
+                        required></textarea>
+            </div>
+          </div>
+
+          <div class="app-field">
+            <label for="attachment" class="app-field__label">
+              <i class="bx bx-paperclip"></i>
+              <span>Attachment (Optional)</span>
+            </label>
+            <div class="app-field__input">
+              <input type="file"
+                     class="app-control"
+                     id="attachment"
+                     name="attachment"
+                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.zip">
+            </div>
+            <small class="text-muted">Max file size: 10MB. Supported: PDF, DOC, DOCX, JPG, PNG, GIF, ZIP</small>
+          </div>
+
+          <div class="app-actions">
+            <button type="submit" class="btn btn-primary app-actions__btn app-actions__btn--primary">
+              <i class="bx bx-send"></i> Submit Ticket
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- HISTORY TAB -->
+      <div id="history-tab" class="app-tab-content">
+        {% if tickets %}
+          <section class="app-list">
+            <h3 class="app-list__title"><i class="bx bx-message-dots"></i> Your Tickets</h3>
+            {% for ticket in tickets %}
+              <article class="app-ticket" onclick="window.location.href='{% url 'employees:ticket_detail' ticket.pk %}'">
+                <div class="app-ticket__header">
+                  <div class="app-ticket__meta">
+                    <span class="app-ticket__number">{{ ticket.ticket_number }}</span>
+                    <span class="app-ticket__time"><i class="bx bx-time-five"></i>{{ ticket.created_at|date:"d M Y, H:i" }}</span>
+                  </div>
+                  <div class="app-badges">
+                    <span class="app-pill" style="background: rgba(99, 102, 241, 0.12); color: #4338ca;">
+                      <i class="bx {{ ticket.category_icon }}"></i>{{ ticket.get_category_display }}
+                    </span>
+                    <span class="app-pill bg-{{ ticket.status_color }} text-white">
+                      <i class="bx bx-circle"></i>{{ ticket.get_status_display }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="app-ticket__body">
+                  <p class="app-ticket__subject">{{ ticket.subject }}</p>
+                  {% if ticket.description %}
+                    <p class="app-ticket__desc">{{ ticket.description|truncatewords:18 }}</p>
+                  {% endif %}
+                </div>
+
+                <div class="app-ticket__footer">
+                  <div>
+                    <span class="app-pill app-pill--neutral"><i class="bx bx-calendar"></i>Created: {{ ticket.created_at|date:"d M Y" }}</span>
+                    {% if ticket.updated_at|date:"Y-m-d" != ticket.created_at|date:"Y-m-d" %}
+                      <span class="app-pill app-pill--neutral"><i class="bx bx-bell"></i>Updated: {{ ticket.updated_at|date:"d M Y" }}</span>
+                    {% endif %}
+                  </div>
+                  <a href="{% url 'employees:ticket_detail' ticket.pk %}" class="btn btn-primary btn-sm app-ticket__cta">
+                    <i class="bx bx-show"></i> View Details
+                  </a>
+                </div>
+              </article>
+            {% endfor %}
+          </section>
+        {% else %}
+          <div class="app-empty">
+            <i class="bx bx-inbox"></i>
+            <h3 style="margin: 0.5rem 0 0.25rem; color: #1f2937;">No tickets yet</h3>
+            <p style="margin: 0; color: var(--app-muted);">You haven't created any support tickets yet. Click the "Request Ticket" tab to get started.</p>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </section>
+</div>
+
+  <script>
+    // Tab switching functionality
+    document.querySelectorAll('.app-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        const tabName = this.dataset.tab;
+
+        // Remove active class from all tabs and contents
+        document.querySelectorAll('.app-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.app-tab-content').forEach(c => c.classList.remove('active'));
+
+        // Add active class to clicked tab and corresponding content
+        this.classList.add('active');
+        document.getElementById(tabName).classList.add('active');
+
+        // Store active tab in localStorage
+        localStorage.setItem('supportTicketTab', tabName);
+      });
+    });
+
+    // Restore active tab on page load
+    window.addEventListener('load', function() {
+      const savedTab = localStorage.getItem('supportTicketTab');
+      if (savedTab) {
+        const tab = document.querySelector(`[data-tab="${savedTab}"]`);
+        if (tab) {
+          tab.click();
+        }
+      }
+    });
+  </script>
+{% endblock %}

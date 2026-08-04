@@ -1,0 +1,2066 @@
+{% extends 'layout/layout_vertical.html' %}
+
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}Admin Dashboard | Dovix CRM{% endblock %}
+
+{% block vendor_css %}
+  {{ block.super }}
+  <!-- Load critical CSS first -->
+  <style>
+    /* Critical CSS - Load above the fold styles here */
+    :root {
+      --primary-color: #7367F0;
+      --light: #F8F7FA;
+      --dark: #283046;
+      --border-radius-md: 0.75rem;
+      --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.08);
+      --transition-base: all 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
+    }
+    
+    /* Critical layout styles */
+    body { background-color: var(--light); color: var(--dark); }
+    .card { 
+      background: white; 
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 1rem;
+    }
+    /* Add other critical styles that affect initial render */
+  </style>
+  
+  <!-- Defer non-critical CSS -->
+  <link rel="preload" href="{% static 'vendor/libs/apex-charts/apex-charts.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="{% static 'vendor/libs/apex-charts/apex-charts.css' %}"></noscript>
+  
+  <link rel="preload" href="{% static 'vendor/libs/perfect-scrollbar/perfect-scrollbar.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="{% static 'vendor/libs/perfect-scrollbar/perfect-scrollbar.css' %}"></noscript>
+  
+  <!-- Load animate.css only if user hasn't set reduced motion -->
+  <script>
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css';
+      link.media = 'print';
+      link.onload = function() { this.media = 'all'; };
+      document.head.appendChild(link);
+    }
+  </script>
+  <style>
+    /* Move critical CSS to the head and keep only non-critical styles here */
+    :root {
+      /* Color System */
+      --primary-color: #7367F0;
+      --primary-light: #EAE8FD;
+      --success-color: #28C76F;
+      --warning-color: #FF9F43;
+      --danger-color: #EA5455;
+      --info-color: #00CFE8;
+      --dark: #283046;
+      --light: #F8F7FA;
+      --gray-100: #F2F2F6;
+      --gray-200: #E4E6EF;
+      --gray-300: #B4B7BD;
+      --gray-400: #A1A5B7;
+      --gray-500: #6F6B7D;
+      
+      /* Shadows & Elevation */
+      --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.05);
+      --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.08);
+      --shadow-md: 0 4px 15px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12);
+      --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.15);
+      
+      /* Transitions */
+      --transition-base: all 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
+      --transition-transform: transform 0.3s cubic-bezier(0.25, 0.8, 0.5, 1);
+      
+      /* Border Radius */
+      --border-radius-sm: 0.5rem;
+      --border-radius-md: 0.75rem;
+      --border-radius-lg: 1rem;
+      --border-radius-xl: 1.5rem;
+      
+      /* Spacing */
+      --spacer: 1rem;
+    }
+    
+    /* Use will-change for elements that will be animated */
+    .card, .btn, .stat-card {
+      will-change: transform, box-shadow;
+    }
+    
+    /* Base Styles */
+    body {
+      background-color: var(--light);
+      color: var(--dark);
+      line-height: 1.6;
+    }
+    
+    /* Card Styles */
+    .card {
+      border: none;
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition-base);
+      overflow: hidden;
+      background: white;
+      margin-bottom: var(--spacer);
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .card.hover-card {
+      transition: var(--transition-base);
+    }
+    
+    .card.hover-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    /* Stat Cards */
+    .stat-card {
+      border-left: 4px solid var(--primary-color);
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition-base);
+    }
+    
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+      opacity: 0;
+      transition: var(--transition-base);
+    }
+    
+    .stat-card:hover::before {
+      opacity: 1;
+    }
+    
+    .stat-card .card-body {
+      padding: 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .stat-card .icon-wrapper {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--border-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 1rem;
+      background: rgba(115, 103, 240, 0.1);
+      color: var(--primary-color);
+      transition: var(--transition-base);
+    }
+    
+    .stat-card:hover .icon-wrapper {
+      transform: scale(1.05);
+      background: var(--primary-color);
+      color: white;
+    }
+    
+    .stat-card .icon-wrapper i {
+      font-size: 1.75rem;
+    }
+    
+    .stat-card h3 {
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+    
+    .stat-card .stat-trend {
+      display: flex;
+      align-items: center;
+      font-size: 0.875rem;
+    }
+    
+    .stat-card .stat-trend i {
+      margin-right: 0.25rem;
+    }
+    
+    /* Welcome Card */
+    .welcome-card {
+      background: linear-gradient(135deg, var(--primary-color) 0%, #9C8CF9 100%);
+      border: none;
+      border-radius: var(--border-radius-lg);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 4px 20px rgba(115, 103, 240, 0.3);
+      transition: var(--transition-base);
+    }
+    
+    .welcome-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px rgba(115, 103, 240, 0.4);
+    }
+    
+    .welcome-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+      pointer-events: none;
+      animation: rotate 20s linear infinite;
+    }
+    
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Buttons */
+    .welcome-card .btn-light {
+      background: rgba(255, 255, 255, 0.95);
+      border: none;
+      font-weight: 600;
+      padding: 0.625rem 1.5rem;
+      border-radius: var(--border-radius-sm);
+      transition: var(--transition-base);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+    }
+    
+    .welcome-card .btn-light:hover {
+      background: white;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .welcome-card .btn-light::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 5px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.5);
+      opacity: 0;
+      border-radius: 100%;
+      transform: scale(1, 1) translate(-50%, -50%);
+      transform-origin: 50% 50%;
+    }
+    
+    .welcome-card .btn-light:focus:not(:active)::after {
+      animation: ripple 1s ease-out;
+    }
+    
+    @keyframes ripple {
+      0% {
+        transform: scale(0, 0);
+        opacity: 0.5;
+      }
+      100% {
+        transform: scale(40, 40);
+        opacity: 0;
+      }
+    }
+    
+    .welcome-card .btn-outline-light {
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 0.5rem 1.25rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+    }
+    
+    .welcome-card .btn-outline-light:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .welcome-illustration {
+      position: relative;
+      animation: float 6s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    /* Tables */
+    .table {
+      margin-bottom: 0;
+    }
+    
+    .table thead th {
+      border-top: none;
+      border-bottom: 1px solid var(--gray-200);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+      color: var(--gray-500);
+      padding: 1rem 1.5rem;
+      white-space: nowrap;
+    }
+    
+    .table tbody td {
+      padding: 1rem 1.5rem;
+      vertical-align: middle;
+      border-color: var(--gray-100);
+      transition: var(--transition-base);
+    }
+    
+    .table tbody tr {
+      transition: var(--transition-base);
+    }
+    
+    .table tbody tr:hover {
+      background-color: rgba(115, 103, 240, 0.03);
+    }
+    
+    .table tbody tr:hover td {
+      transform: translateX(4px);
+    }
+    
+    /* Status Badges */
+    .badge {
+      font-weight: 500;
+      padding: 0.4em 0.8em;
+      font-size: 0.8em;
+      letter-spacing: 0.3px;
+      border-radius: 50rem;
+      text-transform: capitalize;
+    }
+    
+    .badge-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    
+    /* Responsive Utilities */
+    @media (max-width: 768px) {
+      .welcome-card .col-md-8 {
+        margin-bottom: 1.5rem;
+      }
+      
+      .stat-card .d-flex {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .stat-card .icon-wrapper {
+        margin: 0 auto 1rem;
+      }
+      
+      .table-responsive {
+        border: none;
+      }
+      
+      .table thead {
+        display: none;
+      }
+      
+      .table tbody tr {
+        display: block;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--border-radius-sm);
+        overflow: hidden;
+      }
+      
+      .table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border: none;
+        border-bottom: 1px solid var(--gray-100);
+      }
+      
+      .table tbody td:before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--gray-500);
+        margin-right: 1rem;
+        text-transform: capitalize;
+        font-size: 0.8rem;
+      }
+      
+      .table tbody tr:last-child td:last-child {
+        border-bottom: none;
+      }
+    }
+    /* Loading Animation */
+    @keyframes shine {
+      to {
+        background-position: 200% center;
+      }
+    }
+    
+    .card.loading {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card.loading::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.1) 20%,
+        rgba(255, 255, 255, 0.2) 60%,
+        rgba(255, 255, 255, 0)
+      );
+      animation: shine 2s infinite;
+      z-index: 2;
+    }
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: var(--gray-100);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: var(--primary-color);
+      border-radius: 4px;
+      transition: all 0.3s ease;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary-dark);
+    }
+    
+    /* Custom Checkbox and Radio */
+    .form-check-input:checked {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+    
+    /* Custom Form Controls */
+    .form-control:focus, .form-select:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.25rem rgba(115, 103, 240, 0.25);
+    }
+    
+    /* Print Styles */
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      
+      .card {
+        border: 1px solid #dee2e6 !important;
+        box-shadow: none !important;
+      }
+      
+      .table-responsive {
+        overflow: visible !important;
+      }
+    }
+  </style>
+  
+  <!-- Preload Animations -->
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"></noscript>
+  
+  <!-- Preload Font Awesome -->
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"></noscript>
+{% endblock vendor_css %}
+
+{% block vendor_js %}
+  {{ block.super }}
+  <!-- Defer non-critical JS -->
+  <script>
+    // Load scripts with better performance
+    function loadScript(src, callback) {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.defer = true;
+      if (callback) script.onload = callback;
+      document.body.appendChild(script);
+    }
+    
+    // Load non-critical scripts after page load
+    window.addEventListener('load', function() {
+      // Load ApexCharts only if charts are in viewport
+      if (document.querySelector('.apexcharts-canvas')) {
+        loadScript("{% static 'vendor/libs/apex-charts/apexcharts.js' %}", function() {
+          // Initialize charts here if needed
+        });
+      }
+      
+      // Load perfect scrollbar only if needed
+      if (document.querySelector('.ps')) {
+        loadScript("{% static 'vendor/libs/perfect-scrollbar/perfect-scrollbar.min.js' %}");
+      }
+      
+      // Load GSAP only if animations are needed and user hasn't set reduced motion
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js', function() {
+          // Initialize GSAP animations here
+        });
+      }
+    });
+  </script>
+  
+  <script>
+    // Initialize ApexCharts when document is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // Optimized scroll animation with requestAnimationFrame
+      const animateOnScroll = () => {
+        const elements = document.querySelectorAll('[data-aos]');
+        if (!elements.length) return;
+        
+        // Use a single RAF for all animations
+        let ticking = false;
+        
+        const updateElements = () => {
+          const windowHeight = window.innerHeight;
+          const windowTop = window.scrollY;
+          const windowBottom = windowTop + windowHeight;
+          
+          elements.forEach(element => {
+            if (element._animated) return;
+            
+            const elementRect = element.getBoundingClientRect();
+            const elementTop = elementRect.top + windowTop;
+            const elementBottom = elementTop + elementRect.height;
+            
+            // Check if element is in viewport with 100px offset
+            if (elementBottom > windowTop + 100 && elementTop < windowBottom - 100) {
+              const animation = element.getAttribute('data-aos') || 'fade-up';
+              const delay = parseInt(element.getAttribute('data-aos-delay') || '0', 10);
+              const duration = parseInt(element.getAttribute('data-aos-duration') || '400', 10);
+              
+              element.style.transition = 'opacity ' + duration + 'ms ease, transform ' + duration + 'ms ease';
+              element.style.transitionDelay = delay + 'ms';
+              
+              // Use requestAnimationFrame for smooth animation
+              requestAnimationFrame(() => {
+                element.style.opacity = '1';
+                element.style.transform = 'translateY(0)';
+                element._animated = true;
+              });
+            }
+          });
+          
+          ticking = false;
+        };
+        
+        const onScroll = () => {
+          if (!ticking) {
+            window.requestAnimationFrame(updateElements);
+            ticking = true;
+          }
+        };
+        
+        // Initial setup
+        elements.forEach(element => {
+          element.style.opacity = '0';
+          element.style.transform = 'translateY(20px)';
+          element.style.willChange = 'opacity, transform';
+        });
+        
+        // Throttled scroll event
+        window.addEventListener('scroll', onScroll, { passive: true });
+        
+        // Initial check
+        updateElements();
+        
+        // Cleanup function
+        return () => {
+          window.removeEventListener('scroll', onScroll);
+        };
+      };
+      
+      // Run animations when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', animateOnScroll);
+      } else {
+        animateOnScroll();
+      }
+        
+      // Initialize tooltips
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+      
+      // Add hover effect to cards
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+          this.style.transform = 'translateY(-5px)';
+          this.style.transition = 'all 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+          this.style.transform = 'translateY(0)';
+        });
+      });
+      
+      // Initialize attendance chart if element exists
+      const attendanceChartEl = document.getElementById('attendanceChart');
+      if (attendanceChartEl) {
+        const weekAttendanceCounts = JSON.parse('{{ week_attendance_counts_json|escapejs }}');
+        const weekAttendanceLabels = JSON.parse('{{ week_attendance_labels_json|escapejs }}');
+        const options = {
+          series: [{
+            name: 'Check-ins',
+            data: weekAttendanceCounts
+          }],
+          chart: {
+            height: 300,
+            type: 'area',
+            fontFamily: 'Inter, sans-serif',
+            toolbar: { show: false },
+            zoom: { enabled: false },
+            animations: {
+              enabled: true,
+              easing: 'easeinout',
+              speed: 800,
+              animateGradually: { enabled: true, delay: 150 },
+              dynamicAnimation: { enabled: true, speed: 350 }
+            }
+          },
+          colors: ['var(--primary-color)'],
+          dataLabels: { enabled: false },
+          stroke: { curve: 'smooth', width: 3, lineCap: 'round' },
+          fill: {
+            type: 'gradient',
+            gradient: {
+              shadeIntensity: 1,
+              opacityFrom: 0.7,
+              opacityTo: 0.3,
+              stops: [0, 90, 100]
+            }
+          },
+          xaxis: {
+            categories: weekAttendanceLabels,
+            labels: {
+              style: { colors: '#6c757d', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+            },
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+          },
+          yaxis: {
+            min: 0,
+            labels: {
+              style: { colors: '#6c757d', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+            }
+          },
+          tooltip: {
+            enabled: true,
+            x: { show: false },
+            y: {
+              formatter: function (val) {
+                return val + ' ' + (val === 1 ? 'employee' : 'employees');
+              }
+            },
+            marker: { show: false }
+          },
+          grid: {
+            show: true,
+            borderColor: '#f1f1f1',
+            strokeDashArray: 3,
+            position: 'back',
+            xaxis: { lines: { show: false } },
+            yaxis: { lines: { show: true } },
+            padding: { top: 0, right: 10, bottom: 0, left: 10 }
+          },
+          markers: {
+            size: 5,
+            strokeWidth: 2,
+            strokeOpacity: 1,
+            strokeColors: '#fff',
+            colors: ['var(--primary-color)'],
+            hover: { size: 7 }
+          }
+        };
+        
+        const chart = new ApexCharts(attendanceChartEl, options);
+        chart.render();
+      }
+    });
+  </script>
+{% endblock vendor_js %}
+
+{% block content %}
+  <!-- Simplified Loading Indicator -->
+  <div id="loadingIndicator" class="position-fixed top-0 start-0 w-100 h-3 bg-light" style="z-index: 9999; overflow: hidden;">
+    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%; height: 100%;"></div>
+  </div>
+  
+  <script>
+    // Hide loading indicator when everything is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      // Hide loading indicator immediately if page is cached
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      if (loadingIndicator) {
+        loadingIndicator.style.opacity = '0';
+        setTimeout(() => {
+          loadingIndicator.style.display = 'none';
+        }, 300);
+      }
+    });
+    
+    // Fallback in case the page takes too long to load
+    setTimeout(function() {
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      if (loadingIndicator) {
+        loadingIndicator.style.opacity = '0';
+        setTimeout(() => {
+          loadingIndicator.style.display = 'none';
+        }, 300);
+      }
+    }, 3000); // 3 second timeout as fallback
+  </script>
+
+  <div class="row">
+    <!-- Welcome Message -->
+    <div class="col-12 mb-4" data-aos="fade-up" data-aos-duration="800">
+      <div class="welcome-card">
+        <div class="d-flex align-items-start row g-0">
+          <div class="col-lg-7 p-4 p-md-5">
+            <div class="card-body p-0">
+              <h2 class="text-white mb-3 animate__animated animate__fadeInUp">👋 Welcome Back, Admin!</h2>
+              <p class="text-white-75 mb-4 animate__animated animate__fadeInUp animate__delay-1s" style="font-size: 1.1rem;">
+                Manage your workforce efficiently with real-time insights and powerful tools.<br/>
+                Your command center for all HR operations.
+              </p>
+              <div class="d-flex gap-3 flex-wrap animate__animated animate__fadeInUp animate__delay-1s">
+                <a href="{% url 'employees:employee_create' %}" class="btn btn-light" data-bs-toggle="tooltip" title="Add new employee to the system">
+                  <i class="bx bx-user-plus me-1"></i>Add Employee
+                </a>
+                <a href="{% url 'employees:admin_attendance_calendar' %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="View attendance calendar">
+                  <i class="bx bx-calendar me-1"></i>Calendar
+                </a>
+                <a href="{% url 'employees:admin_tickets' %}" class="btn btn-outline-light position-relative" data-bs-toggle="tooltip" title="View support tickets">
+                  <i class="bx bx-support me-1"></i>Tickets
+                  {% if open_tickets > 0 %}
+                  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem;">
+                    {{ open_tickets }}
+                  </span>
+                  {% endif %}
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-5 d-none d-lg-flex align-items-center justify-content-center">
+            <div class="welcome-illustration">
+              <img src="{% static 'img/illustrations/man-with-laptop.png' %}" height="220" alt="Admin Dashboard" class="img-fluid"/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="col-xl-3 col-md-6 col-12 mb-4" data-aos="fade-up" data-aos-delay="100">
+      <div class="card h-100 stat-card border-start border-3 border-primary">
+        <a href="{% url 'employees:employee_list' %}" class="text-decoration-none text-dark">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="icon-wrapper bg-soft-primary">
+                <i class="bx bx-group text-primary"></i>
+              </div>
+              <div class="flex-grow-1">
+                <span class="d-block text-muted small mb-1">Total Employees</span>
+                <h3 class="mb-1">{{ total_employees }}</h3>
+                <div class="stat-trend text-success">
+                  <i class='bx bxs-up-arrow-alt'></i> {{ active_employees }} Active
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-top d-flex align-items-center justify-content-between py-2">
+            <span class="small text-muted">View all employees</span>
+            <i class='bx bx-chevron-right text-muted'></i>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 col-12 mb-4" data-aos="fade-up" data-aos-delay="200">
+      <div class="card h-100 stat-card border-start border-3 border-success">
+        <a href="{% url 'employees:attendance_list' %}" class="text-decoration-none text-dark">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="icon-wrapper bg-soft-success">
+                <i class="bx bx-check-circle text-success"></i>
+              </div>
+              <div class="flex-grow-1">
+                <span class="d-block text-muted small mb-1">Today's Check-ins</span>
+                <h3 class="mb-1">{{ today_checkins }}</h3>
+                <div class="stat-trend text-success">
+                  <i class='bx bx-time'></i> {{ today_checkouts }} Checked Out
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-top d-flex align-items-center justify-content-between py-2">
+            <span class="small text-muted">View attendance</span>
+            <i class='bx bx-chevron-right text-muted'></i>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 col-12 mb-4" data-aos="fade-up" data-aos-delay="300">
+      <div class="card h-100 stat-card border-start border-3 border-info">
+        <a href="{% url 'employees:admin_tickets' %}" class="text-decoration-none text-dark">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="icon-wrapper bg-soft-warning">
+                <i class="bx bx-support text-warning"></i>
+              </div>
+              <div class="flex-grow-1">
+                <span class="d-block text-muted small mb-1">Open Tickets</span>
+                <h3 class="mb-1">{{ open_tickets }}</h3>
+                <div class="stat-trend text-warning">
+                  <i class='bx bx-error-circle'></i> {{ urgent_tickets }} Urgent
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-top d-flex align-items-center justify-content-between py-2">
+            <span class="small text-muted">View all tickets</span>
+            <i class='bx bx-chevron-right text-muted'></i>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 col-12 mb-4" data-aos="fade-up" data-aos-delay="400">
+      <a href="#attendance-comments-card" class="text-decoration-none text-dark">
+        <div class="card h-100 stat-card border-start border-3 border-info">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="icon-wrapper bg-soft-primary">
+                <i class="bx bx-message-dots text-primary"></i>
+              </div>
+              <div class="flex-grow-1">
+                <span class="d-block text-muted small mb-1">Day Comments</span>
+                <h3 class="mb-1" id="comment-stat-total">{{ comment_threads_total }}</h3>
+                <div class="stat-trend text-info">
+                  <i class='bx bx-reply'></i>
+                  <span id="comment-stat-reply">{{ comment_threads_needing_reply }}</span> need reply
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-top d-flex align-items-center justify-content-between py-2">
+            <span class="small text-muted">Open conversation center</span>
+            <i class='bx bx-chevron-right text-muted'></i>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-xl-3 col-md-6 col-12 mb-4" data-aos="fade-up" data-aos-delay="500">
+      <div class="card h-100 stat-card border-start border-3 border-warning">
+        <a href="{% url 'employees:admin_leave_requests' %}" class="text-decoration-none text-dark">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="icon-wrapper bg-soft-warning">
+                <i class="bx bx-time text-warning"></i>
+              </div>
+              <div class="flex-grow-1">
+                <span class="d-block text-muted small mb-1">Pending Leave Requests</span>
+                <h3 class="mb-1">{{ pending_leave_requests }}</h3>
+                <div class="stat-trend text-warning">
+                  <i class='bx bx-calendar-event'></i> {{ total_leave_requests }} Total
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-top d-flex align-items-center justify-content-between py-2">
+            <span class="small text-muted">Review leave queue</span>
+            <i class='bx bx-chevron-right text-muted'></i>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Compliance Documents Card -->
+    <div class="col-xl-3 col-md-6 col-12 mb-4" data-aos="fade-up" data-aos-delay="600">
+      <div class="card h-100 stat-card border-start border-3 border-secondary">
+        <a href="{% url 'employees:employee_list' %}" class="text-decoration-none text-dark">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="icon-wrapper bg-soft-secondary">
+                <i class="bx bx-file-find text-secondary"></i>
+              </div>
+              <div class="flex-grow-1">
+                <span class="d-block text-muted small mb-1">Compliance Documents</span>
+                <h3 class="mb-1">{{ total_employees }}</h3>
+                <div class="stat-trend text-secondary">
+                  <i class='bx bx-folder-open'></i> Manage Employee Documents
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent border-top d-flex align-items-center justify-content-between py-2">
+            <span class="small text-muted">View compliance documents</span>
+            <i class='bx bx-chevron-right text-muted'></i>
+          </div>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="row align-items-stretch mb-4" id="attendance-comments-card" data-aos="fade-up" data-aos-delay="150">
+    <div class="col-xl-5 col-lg-6 mb-4">
+      <div class="card h-100 comment-thread-card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div>
+            <h5 class="card-title m-0 mb-1">Attendance Conversations</h5>
+            <small class="text-muted">Employee notes shared for review</small>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="comment-thread-refresh" title="Refresh threads">
+              <i class='bx bx-refresh'></i>
+            </button>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="comment-thread-list-wrapper">
+            <div class="comment-thread-empty text-center p-4" id="comment-thread-empty">No attendance comments yet.</div>
+            <div class="list-group list-group-flush comment-thread-list" id="comment-thread-list" role="listbox"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-7 col-lg-6 mb-4">
+      <div class="card h-100 comment-thread-detail" id="comment-thread-detail-card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div>
+            <h5 class="card-title m-0 mb-1" id="comment-chat-heading">Select a conversation</h5>
+            <small class="text-muted" id="comment-chat-subtitle">Choose a thread to view messages.</small>
+          </div>
+          <span class="badge bg-label-info d-none" id="comment-chat-status-badge"></span>
+        </div>
+        <div class="card-body">
+          <div class="comment-chat-thread" id="comment-chat-thread" aria-live="polite">
+            <div class="text-muted text-center small py-4" id="comment-chat-empty">No conversation selected.</div>
+          </div>
+          <form id="comment-chat-form" class="comment-chat-form mt-3" novalidate>
+            <input type="hidden" name="employee_id" id="comment-chat-employee-id">
+            <input type="hidden" name="date" id="comment-chat-date">
+            <div class="mb-2">
+              <label for="comment-chat-input" class="form-label small text-muted">Your reply</label>
+              <textarea class="form-control" id="comment-chat-input" rows="3" maxlength="500" placeholder="Type a reply for this day..." disabled></textarea>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <small class="text-muted" id="comment-chat-hint">Replies are visible to the employee.</small>
+              <span class="text-danger small d-none" id="comment-chat-error"></span>
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="comment-chat-cancel" disabled>Reset</button>
+              <button type="submit" class="btn btn-primary btn-sm" id="comment-chat-submit" disabled>
+                <span class="comment-chat-submit-label">Send Reply</span>
+                <span class="spinner-border spinner-border-sm d-none" id="comment-chat-spinner" role="status" aria-hidden="true"></span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activity Section -->
+  <div class="row">
+    <!-- Recent Employees -->
+    <div class="col-xl-6 col-lg-12 col-md-12 mb-4" data-aos="fade-up" data-aos-delay="200">
+      <div class="card h-100 hover-card">
+        <div class="card-header d-flex align-items-center justify-content-between pb-3">
+          <div>
+            <h5 class="card-title m-0 mb-1">Recent Employees</h5>
+            <small class="text-muted">Latest additions to your team</small>
+          </div>
+          <a href="{% url 'employees:employee_list' %}" class="btn btn-sm btn-outline-primary">
+            View All <i class="bx bx-chevron-right"></i>
+          </a>
+        </div>
+        <div class="card-body">
+          {% if recent_employees %}
+            {% for employee in recent_employees %}
+              <a href="{% url 'employees:employee_detail' employee.id %}" class="text-decoration-none">
+                <div class="d-flex align-items-center mb-3 p-2 rounded hover-item">
+                  <div class="avatar avatar-sm me-3">
+                    {% if employee.profile_picture %}
+                      <img src="{{ employee.profile_picture.url }}" alt="Profile" class="rounded-circle">
+                    {% else %}
+                      <div class="avatar-initial bg-label-primary rounded-circle">
+                        {{ employee.name|first|upper }}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="flex-grow-1">
+                    <h6 class="mb-0">{{ employee.name }}</h6>
+                    <small class="text-muted">{{ employee.email }}</small>
+                  </div>
+                  <div class="text-end">
+                    <span class="badge bg-label-success">New</span>
+                    <small class="d-block text-muted mt-1">{{ employee.created_at|timesince }} ago</small>
+                  </div>
+                </div>
+              </a>
+            {% endfor %}
+          {% else %}
+            <div class="text-center py-5">
+              <i class="bx bx-user-plus" style="font-size: 48px; color: #ddd;"></i>
+              <p class="text-muted mb-3 mt-2">No employees yet</p>
+              <a href="{% url 'employees:employee_create' %}" class="btn btn-primary btn-sm">
+                <i class="bx bx-plus me-1"></i>Add First Employee
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Today's Attendance -->
+    <div class="col-xl-6 col-lg-12 col-md-12 mb-4">
+      <div class="card h-100 hover-card">
+        <div class="card-header d-flex align-items-center justify-content-between pb-3">
+          <div>
+            <h5 class="card-title m-0 mb-1">Today's Check-ins</h5>
+            <small class="text-muted">Real-time attendance tracking</small>
+          </div>
+          <a href="{% url 'employees:attendance_list' %}" class="btn btn-sm btn-outline-success">
+            View All <i class="bx bx-chevron-right"></i>
+          </a>
+        </div>
+        <div class="card-body">
+          {% if today_attendance %}
+            {% for attendance in today_attendance %}
+              <a href="{% url 'employees:employee_detail' attendance.employee.id %}" class="text-decoration-none">
+                <div class="d-flex align-items-center mb-3 p-2 rounded hover-item">
+                  <div class="avatar avatar-sm me-3">
+                    {% if attendance.employee.profile_picture %}
+                      <img src="{{ attendance.employee.profile_picture.url }}" alt="Profile" class="rounded-circle">
+                    {% else %}
+                      <div class="avatar-initial bg-label-success rounded-circle">
+                        {{ attendance.employee.name|first|upper }}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="flex-grow-1">
+                    <h6 class="mb-0">{{ attendance.employee.name }}</h6>
+                    <small class="text-muted">{{ attendance.employee.email }}</small>
+                  </div>
+                  <div class="text-end">
+                    <span class="badge bg-success">
+                      <i class="bx bx-check"></i> {{ attendance.check_in_time|date:"H:i" }}
+                    </span>
+                    {% if attendance.check_out_time %}
+                      <small class="d-block text-muted mt-1">Out: {{ attendance.check_out_time|date:"H:i" }}</small>
+                    {% else %}
+                      <small class="d-block text-warning mt-1">Active</small>
+                    {% endif %}
+                  </div>
+                </div>
+              </a>
+            {% endfor %}
+          {% else %}
+            <div class="text-center py-5">
+              <i class="bx bx-time-five" style="font-size: 48px; color: #ddd;"></i>
+              <p class="text-muted mb-2 mt-2">No check-ins today</p>
+              <small class="text-muted">Employees can check-in from their dashboard</small>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Password Reset Requests -->
+    {% if recent_password_requests %}
+    <div class="col-12 mb-4">
+      <div class="card hover-card border-danger" style="border-width: 2px;">
+        <div class="card-header d-flex align-items-center justify-content-between pb-3 bg-danger text-white">
+          <div>
+            <h5 class="card-title m-0 mb-1 text-white">
+              <i class="bx bx-key me-2"></i>Pending Password Reset Requests
+            </h5>
+            <small class="text-white opacity-75">Employees waiting for password reset</small>
+          </div>
+          <a href="{% url 'employees:password_reset_requests' %}" class="btn btn-sm btn-light">
+            View All <i class="bx bx-chevron-right"></i>
+          </a>
+        </div>
+        <div class="card-body">
+          {% for request in recent_password_requests %}
+            <a href="{% url 'employees:process_password_reset' request.id %}" class="text-decoration-none">
+              <div class="d-flex align-items-center mb-3 p-3 rounded hover-item border" style="border-color: #dc3545 !important;">
+                <div class="avatar avatar-md me-3">
+                  {% if request.employee.profile_picture %}
+                    <img src="{{ request.employee.profile_picture.url }}" alt="Profile" class="rounded-circle">
+                  {% else %}
+                    <div class="avatar-initial bg-label-danger rounded-circle">
+                      {{ request.employee.name|first|upper }}
+                    </div>
+                  {% endif %}
+                </div>
+                <div class="flex-grow-1">
+                  <h6 class="mb-0">{{ request.employee.name }}</h6>
+                  <small class="text-muted">{{ request.email }}</small>
+                  {% if request.reason %}
+                    <p class="mb-0 mt-1 text-muted small">
+                      <i class="bx bx-info-circle"></i> {{ request.reason|truncatewords:15 }}
+                    </p>
+                  {% endif %}
+                </div>
+                <div class="text-end">
+                  <span class="badge bg-danger">
+                    <i class="bx bx-time-five"></i> Pending
+                  </span>
+                  <small class="d-block text-muted mt-1">{{ request.created_at|timesince }} ago</small>
+                  <button class="btn btn-sm btn-primary mt-2">
+                    <i class="bx bx-edit"></i> Process
+                  </button>
+                </div>
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="row">
+    <div class="col-12 mb-4" data-aos="fade-up" data-aos-delay="300">
+      <div class="card hover-card">
+        <div class="card-header d-flex align-items-center justify-content-between pb-3">
+          <div>
+            <h5 class="card-title m-0 mb-1">Recent Leave Requests</h5>
+            <small class="text-muted">Latest submissions awaiting review</small>
+          </div>
+          <a href="{% url 'employees:admin_leave_requests' %}" class="btn btn-sm btn-outline-warning">
+            Manage Leave <i class="bx bx-chevron-right"></i>
+          </a>
+        </div>
+        <div class="card-body">
+          {% if recent_leave_requests %}
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Employee</th>
+                    <th>Dates</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for leave in recent_leave_requests %}
+                    <tr>
+                      <td>
+                        <div class="d-flex align-items-center gap-2">
+                          <div class="avatar avatar-sm bg-label-primary text-white">
+                            {{ leave.employee.name|slice:':1'|upper }}
+                          </div>
+                          <div>
+                            <div class="fw-semibold">{{ leave.employee.full_name }}</div>
+                            <div class="text-muted small">{{ leave.employee.email }}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="fw-semibold">{{ leave.start_date|date:"d M" }} – {{ leave.end_date|date:"d M" }}</div>
+                        <small class="text-muted">{{ leave.total_days }} days</small>
+                      </td>
+                      <td>
+                        <span class="badge bg-label-{% if leave.status == 'approved' %}success{% elif leave.status == 'rejected' %}danger{% else %}warning{% endif %}">
+                          {{ leave.get_status_display }}
+                        </span>
+                      </td>
+                      <td>
+                        <div class="fw-semibold">{{ leave.created_at|date:"d M, h:i A" }}</div>
+                        <small class="text-muted">{{ leave.created_at|naturaltime }}</small>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="text-center py-5">
+              <i class="bx bx-calendar-x" style="font-size: 48px; color: #ddd;"></i>
+              <p class="text-muted mb-2 mt-2">No leave requests yet</p>
+              <small class="text-muted">Employees can submit requests from their dashboard</small>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="row">
+    <div class="col-12 mb-4" data-aos="fade-up" data-aos-delay="400">
+      <div class="card">
+        <div class="card-header pb-3">
+          <h5 class="card-title m-0 mb-1">Quick Actions</h5>
+          <small class="text-muted">Frequently used administrative tasks</small>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-xl-3 col-md-6 col-sm-6">
+              <a href="{% url 'employees:employee_create' %}" class="text-decoration-none">
+                <div class="card action-card h-100">
+                  <div class="card-body text-center p-4">
+                    <div class="avatar mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <div class="avatar-initial bg-label-primary rounded">
+                        <i class="bx bx-user-plus" style="font-size: 28px;"></i>
+                      </div>
+                    </div>
+                    <h6 class="mb-1">Add Employee</h6>
+                    <small class="text-muted">Create new account</small>
+                  </div>
+                </div>
+              </a>
+            </div>
+            <div class="col-xl-3 col-md-6 col-sm-6">
+              <a href="{% url 'employees:employee_list' %}" class="text-decoration-none">
+                <div class="card action-card h-100">
+                  <div class="card-body text-center p-4">
+                    <div class="avatar mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <div class="avatar-initial bg-label-success rounded">
+                        <i class="bx bx-group" style="font-size: 28px;"></i>
+                      </div>
+                    </div>
+                    <h6 class="mb-1">Manage Employees</h6>
+                    <small class="text-muted">View & edit details</small>
+                  </div>
+                </div>
+              </a>
+            </div>
+            <div class="col-xl-3 col-md-6 col-sm-6">
+              <a href="{% url 'employees:admin_attendance_logs' %}" class="text-decoration-none">
+                <div class="card action-card h-100">
+                  <div class="card-body text-center p-4">
+                    <div class="avatar mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <div class="avatar-initial bg-label-info rounded">
+                        <i class="bx bx-list-ul" style="font-size: 28px;"></i>
+                      </div>
+                    </div>
+                    <h6 class="mb-1">Activity Logs</h6>
+                    <small class="text-muted">View all activities</small>
+                  </div>
+                </div>
+              </a>
+            </div>
+            <div class="col-xl-3 col-md-6 col-sm-6">
+              <a href="{% url 'employees:superadmin_profile' %}" class="text-decoration-none">
+                <div class="card action-card h-100">
+                  <div class="card-body text-center p-4">
+                    <div class="avatar mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <div class="avatar-initial bg-label-warning rounded">
+                        <i class="bx bx-user-circle" style="font-size: 28px;"></i>
+                      </div>
+                    </div>
+                    <h6 class="mb-1">My Profile</h6>
+                    <small class="text-muted">Account settings</small>
+                  </div>
+                </div>
+              </a>
+            </div>
+            <div class="col-xl-3 col-md-6 col-sm-6">
+              <a href="{% url 'employees:holidays_calendar' %}" class="text-decoration-none">
+                <div class="card action-card h-100">
+                  <div class="card-body text-center p-4">
+                    <div class="avatar mx-auto mb-3" style="width: 60px; height: 60px;">
+                      <div class="avatar-initial bg-label-danger rounded">
+                        <i class="bx bx-calendar-heart" style="font-size: 28px;"></i>
+                      </div>
+                    </div>
+                    <h6 class="mb-1">Holidays Calendar</h6>
+                    <small class="text-muted">Manage company holidays</small>
+                  </div>
+                </div>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
+
+{% block page_css %}
+<style>
+/* Stat Cards Hover Effect */
+.stat-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.stat-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.stat-card:active {
+  transform: translateY(-4px);
+}
+
+/* Action Cards Hover Effect */
+.action-card {
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.action-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  border-color: rgba(103, 126, 234, 0.3);
+}
+
+.action-card:hover .avatar-initial {
+  transform: scale(1.1);
+  transition: transform 0.3s ease;
+}
+
+/* Hover Card Effect */
+.hover-card {
+  transition: all 0.3s ease;
+}
+
+.hover-card:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Hover Item Effect */
+.hover-item {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.hover-item:hover {
+  background-color: rgba(103, 126, 234, 0.05);
+  transform: translateX(5px);
+}
+
+/* Gradient Animation */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.bg-gradient-primary {
+  background-size: 200% 200%;
+  animation: gradient 15s ease infinite;
+}
+
+/* Card Entry Animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.stat-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.stat-card:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.stat-card:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.stat-card:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+/* Badge Pulse Animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.badge-success {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Smooth Scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Avatar Hover */
+.avatar:hover {
+  transform: scale(1.1);
+  transition: transform 0.3s ease;
+}
+
+/* Button Enhancements */
+.btn {
+  transition: all 0.3s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Attendance conversation center */
+.comment-thread-card,
+.comment-thread-detail {
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.comment-thread-list-wrapper {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.comment-thread-empty {
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+
+.comment-thread-list .list-group-item {
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.comment-thread-list .list-group-item:hover {
+  background: rgba(115, 103, 240, 0.08);
+}
+
+.comment-thread-list .list-group-item.active {
+  background: rgba(115, 103, 240, 0.18);
+  border-color: rgba(115, 103, 240, 0.35);
+  color: var(--dark);
+  box-shadow: inset 0 0 0 1px rgba(115, 103, 240, 0.18);
+}
+
+.comment-thread-list .thread-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin-bottom: 0.35rem;
+}
+
+.comment-thread-list .thread-title {
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 0.25rem;
+}
+
+.comment-thread-list .thread-preview {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.comment-chat-thread {
+  min-height: 220px;
+  max-height: 340px;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.comment-chat-message {
+  border-radius: 14px;
+  padding: 0.75rem 0.9rem;
+  max-width: 85%;
+  position: relative;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.comment-chat-message--employee {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #0f172a;
+  justify-self: flex-start;
+}
+
+.comment-chat-message--admin {
+  background: rgba(115, 103, 240, 0.18);
+  border: 1px solid rgba(115, 103, 240, 0.35);
+  color: #111827;
+  justify-self: flex-end;
+}
+
+.comment-chat-message__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: rgba(17, 24, 39, 0.55);
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.comment-chat-message__body {
+  font-size: 0.87rem;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.comment-chat-thread::-webkit-scrollbar,
+.comment-thread-list-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.comment-chat-thread::-webkit-scrollbar-thumb,
+.comment-thread-list-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6);
+  border-radius: 999px;
+}
+
+.comment-chat-thread::-webkit-scrollbar-track,
+.comment-thread-list-wrapper::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.6);
+  border-radius: 999px;
+}
+
+.comment-thread-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@media (max-width: 992px) {
+  .comment-chat-thread {
+    max-height: none;
+  }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .stat-card:hover {
+    transform: translateY(-4px);
+  }
+  
+  .action-card:hover {
+    transform: translateY(-3px);
+  }
+}
+</style>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    // Initialize ApexCharts
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize tooltips
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+          trigger: 'hover',
+          placement: 'top',
+          container: 'body',
+          animation: true
+        });
+      });
+      
+      // Add loading class to cards
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(card => {
+        card.classList.add('loading');
+        setTimeout(() => {
+          card.classList.remove('loading');
+        }, 100);
+      });
+      
+      // Add staggered animation to cards
+      cards.forEach((card, index) => {
+        card.style.animationDelay = (index * 0.1) + 's';
+      });
+      
+      // Optional: Remove auto-refresh or increase interval
+      // Uncomment if you want auto-refresh
+      // setInterval(function() {
+      //   location.reload();
+      // }, 60000); // Refresh every 60 seconds instead of 30
+      // Add ripple effect to stat cards
+      const statCards = document.querySelectorAll('.stat-card');
+      statCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+          const ripple = document.createElement('span');
+          ripple.classList.add('ripple');
+          this.appendChild(ripple);
+          
+          const rect = this.getBoundingClientRect();
+          const size = Math.max(rect.width, rect.height);
+          const x = e.clientX - rect.left - size / 2;
+          const y = e.clientY - rect.top - size / 2;
+          
+          ripple.style.width = ripple.style.height = size + 'px';
+          ripple.style.left = x + 'px';
+          ripple.style.top = y + 'px';
+          
+          setTimeout(() => ripple.remove(), 600);
+        });
+      });
+    });
+    
+    // Optional: Remove auto-refresh or increase interval
+    // Uncomment if you want auto-refresh
+    // setInterval(function() {
+    //   location.reload();
+    // }, 60000); // Refresh every 60 seconds instead of 30
+  </script>
+  <script>
+    (function() {
+      const threadsEndpoint = "{% url 'employees:attendance_comments_threads' %}";
+      const commentListEndpoint = "{% url 'employees:attendance_comments_list' %}";
+      const commentCreateEndpoint = "{% url 'employees:attendance_comments_create' %}";
+      const pollIntervalMs = 15000;
+      const maxPreviewLength = 120;
+      const initialThreads = JSON.parse('{{ comment_threads_initial_json|escapejs }}' || '[]');
+      const threadsLimit = {{ comment_threads_limit|default:10 }};
+
+      const threadListEl = document.getElementById('comment-thread-list');
+      const threadEmptyEl = document.getElementById('comment-thread-empty');
+      const threadRefreshBtn = document.getElementById('comment-thread-refresh');
+      const statTotalEl = document.getElementById('comment-stat-total');
+      const statReplyEl = document.getElementById('comment-stat-reply');
+      const chatHeadingEl = document.getElementById('comment-chat-heading');
+      const chatSubtitleEl = document.getElementById('comment-chat-subtitle');
+      const chatStatusBadge = document.getElementById('comment-chat-status-badge');
+      const chatThreadEl = document.getElementById('comment-chat-thread');
+      const chatEmptyEl = document.getElementById('comment-chat-empty');
+      const chatForm = document.getElementById('comment-chat-form');
+      const chatInput = document.getElementById('comment-chat-input');
+      const chatSubmit = document.getElementById('comment-chat-submit');
+      const chatSubmitLabel = chatSubmit ? chatSubmit.querySelector('.comment-chat-submit-label') : null;
+      const chatSpinner = document.getElementById('comment-chat-spinner');
+      const chatCancel = document.getElementById('comment-chat-cancel');
+      const chatHint = document.getElementById('comment-chat-hint');
+      const chatError = document.getElementById('comment-chat-error');
+      const chatEmployeeIdInput = document.getElementById('comment-chat-employee-id');
+      const chatDateInput = document.getElementById('comment-chat-date');
+
+      if (!threadListEl || !chatForm) {
+        return;
+      }
+
+      let threads = Array.isArray(initialThreads) ? initialThreads : [];
+      let pollingTimer = null;
+      let selectedKey = null;
+      let isFetchingThreads = false;
+      let isPosting = false;
+
+      function buildThreadKey(employeeId, date) {
+        return `${employeeId}|${date}`;
+      }
+
+      function abbreviate(text, maxLength) {
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return `${text.slice(0, maxLength - 1)}…`;
+      }
+
+      function formatTimestamp(isoString) {
+        if (!isoString) return '';
+        const parsed = new Date(isoString);
+        if (Number.isNaN(parsed.getTime())) return '';
+        return parsed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      }
+
+      function updateStats(total, needingReply) {
+        if (statTotalEl) statTotalEl.textContent = total;
+        if (statReplyEl) statReplyEl.textContent = needingReply;
+      }
+
+      function renderThreadList() {
+        threadListEl.innerHTML = '';
+        const total = threads.length;
+        const needingReply = threads.filter(thread => thread.needs_admin_reply).length;
+        updateStats(total, needingReply);
+
+        if (!threads.length) {
+          if (threadEmptyEl) {
+            threadEmptyEl.classList.remove('d-none');
+          }
+          return;
+        }
+
+        if (threadEmptyEl) {
+          threadEmptyEl.classList.add('d-none');
+        }
+
+        threads.forEach(thread => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'list-group-item list-group-item-action';
+          item.dataset.employeeId = thread.employee_id;
+          item.dataset.date = thread.date;
+          item.dataset.key = buildThreadKey(thread.employee_id, thread.date);
+
+          const needsReplyBadge = thread.needs_admin_reply ? `<span class="badge bg-label-warning comment-thread-badge">Needs reply</span>` : '';
+          const employeeSnippet = thread.employee_comment?.comment || '';
+          const adminSnippet = thread.admin_comment?.comment || '';
+          const previewSource = employeeSnippet || adminSnippet;
+
+          item.innerHTML = `
+            <div class="thread-meta">
+              <span>${thread.employee_name}</span>
+              <span>${formatTimestamp(thread.last_activity)}</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="thread-title">${thread.date_display}</span>
+              ${needsReplyBadge}
+            </div>
+            <div class="thread-preview">${abbreviate(previewSource, maxPreviewLength)}</div>
+          `;
+
+          if (item.dataset.key === selectedKey) {
+            item.classList.add('active');
+          }
+
+          threadListEl.appendChild(item);
+        });
+      }
+
+      function setChatLoading(isLoading) {
+        if (chatSubmit) chatSubmit.disabled = isLoading;
+        if (chatInput) chatInput.disabled = isLoading;
+        if (chatCancel) chatCancel.disabled = isLoading || !chatInput?.value;
+        if (chatSpinner) chatSpinner.classList.toggle('d-none', !isLoading);
+        if (chatSubmitLabel) chatSubmitLabel.classList.toggle('d-none', isLoading);
+      }
+
+      function resetChatView() {
+        if (chatHeadingEl) chatHeadingEl.textContent = 'Select a conversation';
+        if (chatSubtitleEl) chatSubtitleEl.textContent = 'Choose a thread to view messages.';
+        if (chatStatusBadge) chatStatusBadge.classList.add('d-none');
+        if (chatThreadEl) {
+          chatThreadEl.innerHTML = '';
+          if (chatEmptyEl) chatThreadEl.appendChild(chatEmptyEl);
+        }
+        if (chatInput) {
+          chatInput.value = '';
+          chatInput.disabled = true;
+        }
+        if (chatSubmit) chatSubmit.disabled = true;
+        if (chatCancel) chatCancel.disabled = true;
+        if (chatEmployeeIdInput) chatEmployeeIdInput.value = '';
+        if (chatDateInput) chatDateInput.value = '';
+        selectedKey = null;
+      }
+
+      function renderChatMessages(comments, threadMeta) {
+        if (!chatThreadEl) return;
+        chatThreadEl.innerHTML = '';
+
+        if (!comments.length) {
+          const empty = document.createElement('div');
+          empty.className = 'text-muted text-center small py-4';
+          empty.textContent = 'No messages yet for this day.';
+          chatThreadEl.appendChild(empty);
+          return;
+        }
+
+        comments.forEach(comment => {
+          const message = document.createElement('div');
+          message.className = 'comment-chat-message ' + (comment.is_admin_comment ? 'comment-chat-message--admin' : 'comment-chat-message--employee');
+
+          const metaRow = document.createElement('div');
+          metaRow.className = 'comment-chat-message__meta';
+          const author = comment.is_admin_comment ? (comment.created_by_display || 'Admin') : (comment.created_by_display || threadMeta.employee_name || 'Employee');
+          metaRow.innerHTML = `<span>${author}</span><span>${formatTimestamp(comment.updated_at)}</span>`;
+
+          const body = document.createElement('p');
+          body.className = 'comment-chat-message__body mb-0';
+          body.textContent = comment.comment;
+
+          message.appendChild(metaRow);
+          message.appendChild(body);
+          chatThreadEl.appendChild(message);
+        });
+
+        chatThreadEl.scrollTop = chatThreadEl.scrollHeight;
+      }
+
+      function setChatMetadata(thread) {
+        if (chatHeadingEl) chatHeadingEl.textContent = thread.date_display;
+        if (chatSubtitleEl) chatSubtitleEl.textContent = `Conversation with ${thread.employee_name}`;
+        if (chatStatusBadge) {
+          if (thread.needs_admin_reply) {
+            chatStatusBadge.textContent = 'Needs reply';
+            chatStatusBadge.classList.remove('d-none');
+          } else {
+            chatStatusBadge.classList.add('d-none');
+          }
+        }
+        if (chatHint) chatHint.textContent = 'Replies are visible to the employee.';
+        if (chatError) {
+          chatError.textContent = '';
+          chatError.classList.add('d-none');
+        }
+        if (chatInput) {
+          chatInput.disabled = false;
+          chatInput.value = thread.admin_comment?.comment || '';
+          chatInput.focus();
+        }
+        if (chatSubmit) chatSubmit.disabled = false;
+        if (chatCancel) chatCancel.disabled = false;
+        if (chatEmployeeIdInput) chatEmployeeIdInput.value = thread.employee_id;
+        if (chatDateInput) chatDateInput.value = thread.date;
+      }
+
+      function selectThread(thread) {
+        selectedKey = buildThreadKey(thread.employee_id, thread.date);
+        Array.from(threadListEl.children).forEach(child => {
+          child.classList.toggle('active', child.dataset.key === selectedKey);
+        });
+      }
+
+      function handleThreadClick(event) {
+        const target = event.target.closest('.list-group-item');
+        if (!target) return;
+
+        const employeeId = target.dataset.employeeId;
+        const date = target.dataset.date;
+        if (!employeeId || !date) return;
+
+        const thread = threads.find(t => t.employee_id === Number(employeeId) && t.date === date);
+        if (!thread) return;
+
+        selectThread(thread);
+        setChatMetadata(thread);
+        loadThreadMessages(thread);
+      }
+
+      function loadThreadMessages(thread) {
+        if (!thread) return;
+        const params = new URLSearchParams({
+          employee_id: thread.employee_id,
+          date: thread.date,
+        });
+
+        setChatLoading(true);
+
+        fetch(`${commentListEndpoint}?${params.toString()}`, {
+          headers: { 'Accept': 'application/json' },
+        }).then(response => {
+          if (!response.ok) throw new Error('Failed to load messages');
+          return response.json();
+        }).then(data => {
+          const comments = Array.isArray(data.comments) ? data.comments : [];
+          renderChatMessages(comments, thread);
+        }).catch(() => {
+          if (chatError) {
+            chatError.textContent = 'Unable to load messages right now.';
+            chatError.classList.remove('d-none');
+          }
+        }).finally(() => setChatLoading(false));
+      }
+
+      function getCsrfToken() {
+        const value = `; ${document.cookie}`;
+        const parts = value.split('; csrftoken=');
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+      }
+
+      function submitReply(event) {
+        event.preventDefault();
+        if (!chatForm || !chatInput || !chatSubmit || isPosting) return;
+
+        const employeeId = chatEmployeeIdInput?.value;
+        const date = chatDateInput?.value;
+        const commentText = chatInput.value.trim();
+
+        if (!employeeId || !date || !commentText) {
+          if (chatError) {
+            chatError.textContent = 'Message cannot be empty.';
+            chatError.classList.remove('d-none');
+          }
+          chatInput.focus();
+          return;
+        }
+
+        isPosting = true;
+        setChatLoading(true);
+
+        const payload = new URLSearchParams();
+        payload.append('employee_id', employeeId);
+        payload.append('date', date);
+        payload.append('comment', commentText);
+
+        fetch(commentCreateEndpoint, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          },
+          body: payload.toString(),
+        }).then(response => {
+          if (!response.ok) throw new Error('Failed to save reply');
+          return response.json();
+        }).then(() => {
+          chatInput.value = commentText;
+          refreshThreads(true);
+        }).catch(() => {
+          if (chatError) {
+            chatError.textContent = 'Unable to send reply. Please try again.';
+            chatError.classList.remove('d-none');
+          }
+        }).finally(() => {
+          setChatLoading(false);
+          isPosting = false;
+        });
+      }
+
+      function refreshThreads(forceSelect) {
+        if (isFetchingThreads) return;
+        isFetchingThreads = true;
+
+        const params = new URLSearchParams({ limit: threadsLimit });
+
+        fetch(`${threadsEndpoint}?${params.toString()}`, {
+          headers: { 'Accept': 'application/json' },
+        }).then(response => {
+          if (!response.ok) throw new Error('Failed to load threads');
+          return response.json();
+        }).then(data => {
+          threads = Array.isArray(data.threads) ? data.threads : [];
+          renderThreadList();
+
+          if (forceSelect && selectedKey) {
+            const [employeeId, date] = selectedKey.split('|');
+            const thread = threads.find(t => String(t.employee_id) === employeeId && t.date === date);
+            if (thread) {
+              selectThread(thread);
+              setChatMetadata(thread);
+              loadThreadMessages(thread);
+            } else {
+              resetChatView();
+            }
+          }
+
+          if (data.totals) {
+            updateStats(data.totals.total ?? threads.length, data.totals.needs_admin_reply ?? 0);
+          }
+        }).catch(() => {
+          if (threadEmptyEl) {
+            threadEmptyEl.textContent = 'Unable to load conversations right now.';
+            threadEmptyEl.classList.remove('d-none');
+          }
+        }).finally(() => {
+          isFetchingThreads = false;
+        });
+      }
+
+      function startPolling() {
+        stopPolling();
+        pollingTimer = window.setInterval(() => refreshThreads(false), pollIntervalMs);
+      }
+
+      function stopPolling() {
+        if (pollingTimer) {
+          window.clearInterval(pollingTimer);
+          pollingTimer = null;
+        }
+      }
+
+      function handleCancel(event) {
+        event.preventDefault();
+        if (!chatInput) return;
+        const thread = threads.find(t => buildThreadKey(t.employee_id, t.date) === selectedKey);
+        if (thread) {
+          chatInput.value = thread.admin_comment?.comment || '';
+        } else {
+          chatInput.value = '';
+        }
+      }
+
+      threadListEl.addEventListener('click', handleThreadClick);
+      if (chatForm) chatForm.addEventListener('submit', submitReply);
+      if (chatCancel) chatCancel.addEventListener('click', handleCancel);
+      if (threadRefreshBtn) threadRefreshBtn.addEventListener('click', () => refreshThreads(true));
+
+      renderThreadList();
+      startPolling();
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          stopPolling();
+        } else {
+          refreshThreads(false);
+          startPolling();
+        }
+      });
+
+      window.addEventListener('beforeunload', stopPolling);
+    })();
+  </script>
+{% endblock %}

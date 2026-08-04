@@ -1,0 +1,142 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Leave Verification | Employee Portal{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .lv-shell {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0.75rem 0 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .lv-card {
+    border-radius: 22px;
+    border: 1px solid rgba(99,102,241,0.2);
+    background: #fff;
+    box-shadow: 0 22px 40px rgba(15,23,42,0.12);
+    padding: 1.5rem 1.4rem 1.7rem;
+  }
+  .lv-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #0f172a;
+  }
+  .lv-form-group {
+    margin-bottom: 1rem;
+  }
+  .lv-form-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(15,23,42,0.75);
+    margin-bottom: 0.35rem;
+    display: block;
+  }
+  .lv-btn {
+    border-radius: 18px;
+    width: 100%;
+    padding: 0.9rem;
+    font-weight: 600;
+  }
+  .lv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+  .lv-list-item {
+    border-radius: 16px;
+    border: 1px solid rgba(148,163,184,0.2);
+    background: #f9fafb;
+    padding: 0.85rem 1rem;
+  }
+  .lv-list-item h6 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lv-shell">
+  <div class="lv-card">
+    <div class="d-flex align-items-start gap-2 mb-3">
+      <div>
+        <span class="badge bg-label-primary mb-2"><i class="bx bx-file me-1"></i> Leave verification</span>
+        <h1 class="lv-title">Upload supporting documents</h1>
+        <p class="mb-0 text-muted small">Submit medical certificates or receipts within 3 days of submitting your leave.</p>
+      </div>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} mb-3" role="alert">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% if pending_leaves %}
+      <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        <div class="lv-form-group">
+          <label for="{{ form.leave.id_for_label }}">Select leave</label>
+          {{ form.leave }}
+          {% for error in form.leave.errors %}
+            <div class="text-danger small mt-1">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <div class="lv-form-group">
+          <label for="{{ form.receipt.id_for_label }}">Upload document</label>
+          {{ form.receipt }}
+          {% for error in form.receipt.errors %}
+            <div class="text-danger small mt-1">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <div class="lv-form-group">
+          <label for="{{ form.notes.id_for_label }}">Notes (optional)</label>
+          {{ form.notes }}
+          {% for error in form.notes.errors %}
+            <div class="text-danger small mt-1">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary lv-btn">
+          <i class="bx bx-upload me-1"></i>Submit document
+        </button>
+      </form>
+    {% else %}
+      <div class="alert alert-info mb-0">
+        <i class="bx bx-check-circle me-1"></i> You have no leave requests requiring verification right now.
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="lv-card">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h4 class="lv-title mb-0">Pending leave summary</h4>
+      <span class="badge bg-label-secondary">{{ pending_leaves|length }} total</span>
+    </div>
+    {% if pending_leaves %}
+      <div class="lv-list">
+        {% for leave in pending_leaves %}
+          <div class="lv-list-item">
+            <h6>{{ leave.get_leave_type_display }} • {{ leave.start_date|date:"d M" }}{% if leave.start_date != leave.end_date %} – {{ leave.end_date|date:"d M" }}{% endif %}</h6>
+            <p class="text-muted small mb-1">Status: {{ leave.get_verification_status_display }}</p>
+            {% if leave.verification_deadline %}
+              <small class="text-muted">Submit by {{ leave.verification_deadline|date:"d M, Y" }} ({{ leave.verification_deadline|timeuntil }} left)</small>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">All caught up!</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

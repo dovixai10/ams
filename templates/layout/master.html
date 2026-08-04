@@ -1,0 +1,65 @@
+{% load static %}
+
+<!DOCTYPE html>
+
+<html lang="en" class="layout-menu-fixed" dir="ltr" data-bs-theme="light" data-assets-path="{% static '/' %}" data-base-url="/" data-framework="django" data-template="vertical-menu-front-light-light">
+
+
+<head>
+  <title>{% block title %}{% endblock title %}</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <!-- Add Meta -->
+  <!-- remove while creating package  -->
+  <!-- Og Meta -->
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="description" content="Employee Management System - Manage employees, attendance, and HR processes" />
+  <meta name="keywords" content="employee management, attendance, HR system, Django" />
+  <meta property="og:title" content="Employee Management System" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://example.com" />
+  <meta property="og:image" content="{% static 'img/logo.png' %}" />
+  <meta property="og:description" content="Complete Employee Management System with attendance tracking" />
+  <meta property="og:site_name" content="Employee Management" />
+  <!-- Canonical SEO -->
+  <link rel="canonical" href="https://example.com">
+  <!-- remove while creating package end  -->
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" type="image/x-icon" href="{% static 'img/favicon/favicon.ico' %}" />
+
+  <!-- Include the styles partial -->
+  {% include is_front|yesno:"./partials/styles_front.html,./partials/styles.html" %}
+
+  {% block vendor_css %}{% endblock vendor_css %}
+
+  <!--Page CSS-->
+  {% block page_css %}{% endblock page_css %}
+
+
+  <!-- Include the scripts partial (required ) -->
+  {% include is_front|yesno:"./partials/scripts_includes_front.html,./partials/scripts_includes.html" %}
+
+</head>
+
+<body class="{% block body_classes %}{% endblock body_classes %}">
+  <!-- beautify ignore:end -->
+
+  {% block layout %}
+  {% endblock layout %}
+
+  {% if not hide_mobile_nav %}
+    {% include 'layout/partials/navbar/_mobile_navbar.html' %}
+  {% endif %}
+
+  {% include is_front|yesno:"./partials/scripts_front.html,./partials/scripts.html" %}
+
+  <!--Vendors Javascript-->
+  {% block vendor_js %} {% endblock vendor_js %}
+
+  <!--Page Javascript-->
+  {% block page_js %} {% endblock page_js %}
+
+</body>
+
+</html>

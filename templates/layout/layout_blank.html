@@ -1,0 +1,12 @@
+{% extends 'layout/master.html' %}
+
+{% block body_classes %}layout-blank-body{% endblock body_classes %}
+
+{% block layout %}
+<main class="layout-blank wrapper container-fluid px-0 py-0 min-vh-100 d-flex flex-column">
+  <div class="layout-blank__content flex-grow-1 w-100">
+    {% block content %}
+    {% endblock content %}
+  </div>
+</main>
+{% endblock layout %}

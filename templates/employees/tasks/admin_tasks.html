@@ -1,0 +1,260 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Task Board | Admin{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+
+  /* MAIN GRID */
+  .task-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* TOP FLEX ROW */
+  .task-top-row {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 992px) {
+    .task-top-row {
+      flex-direction: row;
+    }
+  }
+
+  /* LEFT & RIGHT PANELS */
+  .task-insights {
+    flex: 1;
+    min-width: 280px;
+  }
+
+  .task-new {
+    flex: 1;
+    min-width: 300px;
+  }
+
+  /* TASK OVERVIEW FULL WIDTH */
+  .task-overview {
+    width: 100%;
+  }
+
+  /* Stickiness removed for better side-by-side behavior */
+  .task-pane {
+    position: static !important;
+  }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="task-layout">
+
+  <!-- ============================
+        TOP ROW (2 PANELS SIDE BY SIDE)
+  ============================= -->
+  <div class="task-top-row">
+
+    <!-- LEFT: TASK INSIGHTS -->
+    <div class="task-insights">
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex flex-column gap-3">
+            <div>
+              <span class="badge bg-primary bg-opacity-10 text-primary">Overview</span>
+              <h4 class="mt-2 mb-0">Task Insights</h4>
+              <p class="text-muted small mb-0">{{ total_tasks }} total · {{ overdue_count }} overdue</p>
+            </div>
+
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex gap-2 flex-wrap">
+                {% for entry in status_summary %}
+                <div class="flex-fill bg-{{ entry.style }} bg-opacity-10 border border-{{ entry.style }} border-opacity-25 rounded-3 p-2">
+                  <div class="text-muted text-uppercase small">{{ entry.label }}</div>
+                  <div class="fs-5 fw-semibold text-{{ entry.style }}">{{ entry.count }}</div>
+                </div>
+                {% endfor %}
+              </div>
+
+              <div class="d-flex gap-2 flex-wrap">
+                {% for entry in priority_summary %}
+                <div class="flex-fill bg-{{ entry.style }} bg-opacity-10 border border-{{ entry.style }} border-opacity-25 rounded-3 p-2">
+                  <div class="text-muted text-uppercase small">{{ entry.label }}</div>
+                  <div class="fs-6 fw-semibold text-{{ entry.style }}">{{ entry.count }}</div>
+                </div>
+                {% endfor %}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: ASSIGN NEW TASK -->
+    <div class="task-new">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h5 class="mb-0">Assign New Task</h5>
+          <span class="badge bg-primary bg-opacity-10 text-primary">Admin</span>
+        </div>
+
+        <div class="card-body">
+          <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+
+            <div class="mb-3">
+              <label class="form-label">Title</label>
+              {{ task_form.title }}
+              {% if task_form.title.errors %}
+              <div class="invalid-feedback d-block">{{ task_form.title.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Description</label>
+              {{ task_form.description }}
+              {% if task_form.description.errors %}
+              <div class="invalid-feedback d-block">{{ task_form.description.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Assign to</label>
+                {{ task_form.assigned_to }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Due date</label>
+                {{ task_form.due_date }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Priority</label>
+                {{ task_form.priority }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Status</label>
+                {{ task_form.status }}
+              </div>
+            </div>
+
+            <div class="d-grid mt-4">
+              <button type="submit" class="btn btn-primary">
+                <i class="bx bx-task"></i><span class="ms-1">Create Task</span>
+              </button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ============================
+          BOTTOM: TASK LIST (FULL WIDTH)
+  ============================= -->
+  <div class="task-overview">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between gap-3">
+          <div>
+            <h5 class="mb-0">Tasks Overview</h5>
+            <small class="text-muted">Monitor progress and update statuses in real time.</small>
+          </div>
+
+          <form method="get" class="d-flex flex-column flex-sm-row gap-2 gap-sm-3">
+            <select class="form-select task-filter-select" name="status" onchange="this.form.submit()">
+              <option value="">All statuses</option>
+              {% for value, label in status_choices %}
+              <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+
+            <select class="form-select task-filter-select" name="priority" onchange="this.form.submit()">
+              <option value="">All priorities</option>
+              {% for value, label in priority_choices %}
+              <option value="{{ value }}" {% if selected_priority == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+
+            <select class="form-select task-filter-select" name="assigned_to" onchange="this.form.submit()">
+              <option value="">All employees</option>
+              {% for emp in employees %}
+              <option value="{{ emp.pk }}" {% if selected_assignee|default:'' == emp.pk|stringformat:'s' %}selected{% endif %}>
+                {{ emp.full_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </form>
+        </div>
+      </div>
+
+      <!-- Existing Task List (no changes made) -->
+       <!-- Task List -->
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Title</th>
+              <th>Assigned To</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Due Date</th>
+              <th>Last Update</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task in tasks %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ task.title }}</div>
+                {% if task.is_overdue %}
+                  <span class="badge bg-danger bg-opacity-10 text-danger">Overdue</span>
+                {% endif %}
+              </td>
+              <td>{{ task.assigned_to.full_name }}</td>
+              <td>
+                <span class="badge bg-{{ task.priority_badge }} bg-opacity-10 text-{{ task.priority_badge }}">
+                  {{ task.get_priority_display }}
+                </span>
+              </td>
+              <td>
+                <span class="badge bg-{{ task.status_badge }} bg-opacity-10 text-{{ task.status_badge }}">
+                  {{ task.get_status_display }}
+                </span>
+              </td>
+              <td>{{ task.due_date|date:"d M Y"|default:"—" }}</td>
+              <td>
+                {% if task.latest_update %}
+                  <small class="text-muted">{{ task.latest_update.created_at|date:"d M, H:i" }} by {{ task.latest_update.updated_by }}</small>
+                {% else %}
+                  <small class="text-muted">—</small>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{% url 'employees:admin_task_detail' task.pk %}" class="btn btn-sm btn-outline-primary">
+                  <i class="bx bx-detail"></i> View
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">No tasks match the current filters.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {{ block.super }}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

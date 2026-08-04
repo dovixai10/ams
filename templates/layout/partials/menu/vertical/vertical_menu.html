@@ -1,0 +1,160 @@
+<aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+
+  {% if not navbar_full %}
+  <div class="app-brand demo">
+    <a href="{% url 'employees:admin_dashboard' %}" class="app-brand-link">
+      <span class="app-brand-logo demo">
+        {% include 'partials/logo.html' %}
+      </span>
+    </a>
+    <a href="javascript:void(0);" class="layout-menu-toggle menu-link ms-auto d-block d-xl-none">
+      <i class="bx bx-chevron-left"></i>
+    </a>
+  </div>
+  {% endif %}
+
+  <ul class="menu-inner py-1">
+
+    <!-- Dashboard -->
+    <li class="menu-item {% if 'dashboard' in request.resolver_match.url_name %}active{% endif %}">
+      <a href="{% url 'employees:admin_dashboard' %}" class="menu-link">
+        <i class="menu-icon bx bx-home-smile"></i>
+        <div class="text-truncate">Dashboard</div>
+      </a>
+    </li>
+
+
+    <!-- ===============================
+           EMPLOYEE MANAGEMENT GROUP
+    =================================-->
+    <li class="menu-item menu-item-open">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-user"></i>
+        <div>Employees</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item"><a href="{% url 'employees:employee_list' %}" class="menu-link"><div>All Employees</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:employee_create' %}" class="menu-link"><div>Onboarding</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:dynamic_id_card_generator' %}" class="menu-link"><div>ID'S studio</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:asset_management' %}" class="menu-link"><div>Asset Management</div></a></li>
+      </ul>
+    </li>
+
+
+    <!-- ===============================
+           ATTENDANCE GROUP
+    =================================-->
+    <li class="menu-item menu-item-open">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-time"></i>
+        <div>Attendance</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item"><a href="{% url 'employees:attendance_list' %}" class="menu-link"><div>Attendance List</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:admin_attendance_calendar' %}" class="menu-link"><div>Attendance Calendar</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:admin_attendance_logs' %}" class="menu-link"><div>Activity Logs</div></a></li>
+          <li class="menu-item {% if 'leave/manage' in request.path %}active{% endif %}">
+      <a href="{% url 'employees:admin_leave_requests' %}" class="menu-link">
+        <div>Leave Requests</div>
+      </a>
+    </li>
+        <!-- <li class="menu-item {% if 'manual-attendance' in request.path %}active{% endif %}"><a href="{% url 'employees:manual_attendance' %}" class="menu-link"></i><div>Manual Attendance</div></a></li> -->
+        <li class="menu-item {% if 'adjust-paid-leave' in request.path %}active{% endif %}"><a href="{% url 'employees:adjust_paid_leave' %}" class="menu-link"></i><div>Adjust Paid Leave</div></a></li>
+      </ul>
+    </li>
+    <li class="menu-item {% if 'manual-attendance' in request.path %}active{% endif %}">
+    <a href="{% url 'employees:manual_attendance' %}" class="menu-link">
+        <i class="menu-icon bx bx-calendar-check"></i>
+        <div>Manual Attendance</div>
+    </a>
+</li>
+
+
+
+
+    <!-- ===============================
+           TASKS & WORKFLOWS GROUP
+    =================================-->
+    <li class="menu-item menu-item-open">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-task"></i>
+        <div>Tasks & Workflows</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item"><a href="{% url 'employees:admin_tasks' %}" class="menu-link"><div>Task Board</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:admin_face_update_requests' %}" class="menu-link"><div>Face Update Requests</div></a></li>
+      </ul>
+    </li>
+
+
+    <!-- ===============================
+           FINANCE GROUP
+    =================================-->
+    <li class="menu-item menu-item-open">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-money"></i>
+        <div>Finance</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item"><a href="{% url 'employees:employee_salary' %}" class="menu-link"><div>Employee Salary</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:admin_loans' %}" class="menu-link"><div>Loan Requests</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:admin_reimbursements' %}" class="menu-link"><div>Reimbursements</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:admin_salary_slips' %}" class="menu-link"><div>Payslips</div></a></li>
+      </ul>
+    </li>
+
+
+    <!-- ===============================
+           SUPPORT GROUP
+    =================================-->
+    <li class="menu-item menu-item-open">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-support"></i>
+        <div>Support</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item"><a href="{% url 'employees:admin_tickets' %}" class="menu-link"><div>Support Tickets</div></a></li>
+      </ul>
+    </li>
+
+
+    <!-- ===============================
+           COMPANY MANAGEMENT GROUP
+    =================================-->
+    <li class="menu-item menu-item-open">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-book"></i>
+        <div>Company Settings</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item"><a href="{% url 'employees:holidays_calendar' %}" class="menu-link"><div>Holidays Calendar</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:admin_rules' %}" class="menu-link"><div>Rules & Regulations</div></a></li>
+      </ul>
+    </li>
+
+
+    <!-- ===============================
+           SHIFT MANAGEMENT GROUP
+    =================================-->
+    <li class="menu-item menu-item-open">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-time-five"></i>
+        <div>Shift Management</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item"><a href="{% url 'employees:admin_shifts' %}" class="menu-link"><div>Custom Shifts</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:shift_assignment' %}" class="menu-link"><div>Shift Assignment</div></a></li>
+      </ul>
+    </li>
+
+
+    <!-- Profile -->
+    <li class="menu-item {% if '/admin-profile/' in request.path %}active{% endif %}">
+      <a href="{% url 'employees:superadmin_profile' %}" class="menu-link">
+        <i class="menu-icon bx bx-user-circle"></i>
+        <div>My Profile</div>
+      </a>
+    </li>
+
+  </ul>
+</aside>

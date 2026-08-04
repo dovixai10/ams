@@ -1,0 +1,589 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}Employee Salary Management | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .form-section {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .form-section h5 {
+    margin-bottom: 1.5rem;
+    color: #1f2937;
+    font-weight: 600;
+  }
+
+  .form-subheading {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #6366f1;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 1.25rem 0 0.75rem;
+  }
+
+  .form-subheading:first-of-type {
+    margin-top: 0;
+  }
+
+  .section-title {
+    font-weight: 600;
+    color: #1f2937;
+    margin: 2rem 0 1rem;
+  }
+
+  .salary-item {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .salary-info {
+    flex: 1;
+    min-width: 260px;
+  }
+
+  .salary-employee {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+  }
+
+  .salary-meta {
+    font-size: 0.85rem;
+    color: #6b7280;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .badge-mode {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4f46e5;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .badge-active {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: #ecfdf5;
+    color: #10b981;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-inactive {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: #fef2f2;
+    color: #ef4444;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-effective {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4f46e5;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .badge-no-profile {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .salary-amounts {
+    display: flex;
+    gap: 2rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .amount-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .amount-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
+
+  .amount-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .attendance-block {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    min-width: 260px;
+  }
+
+  .attendance-block .amount-label {
+    margin-bottom: 0.1rem;
+  }
+
+  .attendance-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+
+  .btn-groups {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .btn-group .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .btn-sms {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    color: white;
+  }
+
+  .btn-outline {
+    background: #ffffff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+  }
+
+  .btn-outline:hover {
+    background: #eef2ff;
+  }
+
+  .btn-danger {
+    background: #ef4444;
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+
+  @media (max-width: 768px) {
+    .salary-item {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .btn-groups .btn{
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .salary-amounts {
+      margin-top: 1rem;
+      gap: 1.25rem;
+    }
+  }
+  
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="card">
+      <div class="card-header bg-gradient-primary text-white">
+        <h4 class="card-title text-white mb-1">
+          <i class="bx bx-wallet me-2"></i>Employee Salary Management
+        </h4>
+          <p class="mb-0 opacity-75">Manage Employee Salary</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+    
+        <!-- Create / Update Salary Entry Form -->
+        <div class="form-section">
+          <h5>
+            {% if edit_salary %}
+              Edit Salary Entry ({{ edit_salary.employee.full_name }}, effective {{ edit_salary.effective_from|date:"d M Y" }})
+            {% else %}
+              Add Salary Entry <small class="text-muted fw-normal">(a raise/change adds a new dated entry — it never overwrites older ones)</small>
+            {% endif %}
+          </h5>
+          <form method="POST" action="{% url 'employees:employee_salary' %}" class="row g-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="{% if edit_salary %}update{% else %}create{% endif %}">
+            {% if edit_salary %}
+              <input type="hidden" name="salary_id" value="{{ edit_salary.id }}">
+            {% endif %}
+    
+            <div class="col-md-6">
+              <label class="form-label">Employee</label>
+              <select name="employee_id" class="form-control" required {% if edit_salary %}disabled{% endif %}>
+                <option value="">Select Employee</option>
+                {% for emp in employees %}
+                  <option value="{{ emp.id }}"
+                    {% if edit_salary and edit_salary.employee_id == emp.id %}selected{% endif %}>
+                    {{ emp.full_name }} ({{ emp.email }})
+                  </option>
+                {% endfor %}
+              </select>
+              {% if edit_salary %}
+                <input type="hidden" name="employee_id" value="{{ edit_salary.employee_id }}">
+                <div class="form-text">Employee can't be changed on an existing entry — delete and re-add if it's wrong.</div>
+              {% endif %}
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">Effective From</label>
+              <input type="date" name="effective_from" class="form-control"
+                     value="{{ edit_salary.effective_from|date:'Y-m-d'|default:'' }}" required>
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">Payment Mode</label>
+              <select name="payment_mode" class="form-control" required>
+                {% for value, label in payment_mode_choices %}
+                  <option value="{{ value }}"
+                    {% if edit_salary.payment_mode == value %}selected{% endif %}>
+                    {{ label }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+    
+            <div class="col-12 form-subheading">Earnings</div>
+    
+            <div class="col-md-3">
+              <label class="form-label">Basic Salary (₹)</label>
+              <input type="number" name="basic_salary" class="form-control" step="0.01"
+                     value="{{ edit_salary.basic_salary|default:'0' }}" required>
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">HRA (₹)</label>
+              <input type="number" name="hra" class="form-control" step="0.01"
+                     value="{{ edit_salary.hra|default:'0' }}">
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">DA (₹)</label>
+              <input type="number" name="da" class="form-control" step="0.01"
+                     value="{{ edit_salary.da|default:'0' }}">
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">Conveyance Allowance (₹)</label>
+              <input type="number" name="conveyance_allowance" class="form-control" step="0.01"
+                     value="{{ edit_salary.conveyance_allowance|default:'0' }}">
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">Medical Allowance (₹)</label>
+              <input type="number" name="medical_allowance" class="form-control" step="0.01"
+                     value="{{ edit_salary.medical_allowance|default:'0' }}">
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">Special Allowance (₹)</label>
+              <input type="number" name="special_allowance" class="form-control" step="0.01"
+                     value="{{ edit_salary.special_allowance|default:'0' }}">
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">Bonus (₹)</label>
+              <input type="number" name="bonus" class="form-control" step="0.01"
+                     value="{{ edit_salary.bonus|default:'0' }}">
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">Overtime Rate / Hour (₹)</label>
+              <input type="number" name="overtime_rate_per_hour" class="form-control" step="0.01"
+                     value="{{ edit_salary.overtime_rate_per_hour|default:'0' }}">
+            </div>
+    
+            <div class="col-12 form-subheading">Fixed Monthly Deductions</div>
+    
+            <div class="col-md-3">
+              <label class="form-label">PF (₹)</label>
+              <input type="number" name="pf" class="form-control" step="0.01"
+                     value="{{ edit_salary.pf|default:'0' }}">
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">ESI (₹)</label>
+              <input type="number" name="esi" class="form-control" step="0.01"
+                     value="{{ edit_salary.esi|default:'0' }}">
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">Professional Tax (₹)</label>
+              <input type="number" name="professional_tax" class="form-control" step="0.01"
+                     value="{{ edit_salary.professional_tax|default:'0' }}">
+            </div>
+    
+            <div class="col-md-3">
+              <label class="form-label">TDS (₹)</label>
+              <input type="number" name="tds" class="form-control" step="0.01"
+                     value="{{ edit_salary.tds|default:'0' }}">
+            </div>
+    
+            <div class="col-12 form-subheading">Other</div>
+    
+            <div class="col-md-4 d-flex align-items-center">
+              <div class="form-check mt-4">
+                <input type="checkbox" name="is_active" class="form-check-input" id="is_active"
+                       {% if edit_salary.is_active or not edit_salary %}checked{% endif %}>
+                <label class="form-check-label" for="is_active">Mark as Current Entry</label>
+              </div>
+            </div>
+    
+            <div class="col-md-8">
+              <label class="form-label">Remarks</label>
+              <textarea name="remarks" class="form-control" rows="1">{{ edit_salary.remarks|default:'' }}</textarea>
+            </div>
+    
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <i class="bx bx-plus me-1"></i>
+                {% if edit_salary %}Save Changes to This Entry{% else %}Add Salary Entry{% endif %}
+              </button>
+              {% if edit_salary %}
+                <a href="{% url 'employees:employee_salary' %}" class="btn-sms btn-outline">Cancel</a>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+    
+        <!-- Filters + Excel Download -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3">
+          <h5 class="mb-0">{{ month_name }} {{ year }}</h5>
+    
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <!-- Employee Filter -->
+            <select id="employeeFilter" class="form-select form-select-sm" style="width:auto; min-width:180px;"
+                    onchange="updateSalaryFilters()">
+              <option value="">All Employees</option>
+              {% for emp in employees %}
+                <option value="{{ emp.id }}" {% if selected_employee and selected_employee.id == emp.id %}selected{% endif %}>
+                  {{ emp.full_name }}
+                </option>
+              {% endfor %}
+            </select>
+    
+            <!-- Quick Month Selector -->
+            <div class="btn-group" role="group">
+              {% for m in months_list %}
+                <a href="?year={{ year }}&month={{ m.number }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}"
+                   class="btn btn-sm {% if m.number == month %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                   title="{{ m.name }}">
+                  {{ m.abbr }}
+                </a>
+              {% endfor %}
+            </div>
+    
+            <!-- Year Selector -->
+            <select class="form-select form-select-sm" style="width:auto;"
+                    onchange="window.location.href='?year='+this.value+'&month={{ month }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}'">
+              {% for y in year_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+            </select>
+
+            <!-- Navigation Arrows -->
+            <div class="btn-group" role="group">
+              <a href="?year={{ prev_year }}&month={{ prev_month }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bx bx-chevron-left"></i>
+              </a>
+              <a href="?year={{ current_date.year }}&month={{ current_date.month }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}" class="btn btn-sm btn-outline-secondary" title="Today">
+                <i class="bx bx-calendar-event"></i>
+              </a>
+              <a href="?year={{ next_year }}&month={{ next_month }}{% if selected_employee %}&employee={{ selected_employee.id }}{% endif %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bx bx-chevron-right"></i>
+              </a>
+            </div>
+    
+            <!-- Excel Download -->
+            <button class="btn btn-sm" onclick="downloadSalaryReport()"
+                    style="background:linear-gradient(135deg,#696CFF,#8B5CF6); color:#fff; border:none;">
+              <i class="bx bx-download me-1"></i>Download Excel Report
+            </button>
+          </div>
+        </div>
+    
+        <!-- Monthly Payable Summary (effective-date aware) -->
+        <h6 class="section-title">
+          <i class="bx bx-calculator me-1"></i>Payable Salary — {{ month_name }} {{ year }}
+        </h6>
+        <div>
+          {% if monthly_summary %}
+            {% for row in monthly_summary %}
+              <div class="salary-item">
+                <div class="salary-info">
+                  <div class="salary-employee">{{ row.employee.full_name }}</div>
+                  {% if row.calc %}
+                    <div class="salary-meta">
+                      <span class="badge-effective">
+                        Using entry effective {{ row.calc.effective_from|date:"d M Y" }}
+                      </span>
+                      <span class="badge-mode">{{ row.calc.salary_profile.get_payment_mode_display }}</span>
+                    </div>
+                    <div class="salary-amounts">
+                      <div class="amount-badge">
+                        <span class="amount-label">Gross</span>
+                        <span class="amount-value">₹{{ row.calc.salary_profile.gross_salary|floatformat:2|intcomma }}</span>
+                      </div>
+                      <div class="amount-badge">
+                        <span class="amount-label">Net (before attendance)</span>
+                        <span class="amount-value">₹{{ row.calc.salary_profile.net_salary_before_attendance|floatformat:2|intcomma }}</span>
+                      </div>
+                    </div>
+                  {% comment %} {% else %}
+                    <span class="badge-no-profile">No salary entry effective for this month</span> {% endcomment %}
+                  {% endif %}
+                </div>
+    
+                {% if row.calc %}
+                  <div class="attendance-block">
+                    <div class="amount-label mb-2">Attendance — {{ month_name }} {{ year }}</div>
+                    <div class="attendance-grid">
+                      <div class="amount-badge">
+                        <span class="amount-label">Working Days</span>
+                        <span class="amount-value">{{ row.calc.working_days }}</span>
+                      </div>
+                      <div class="amount-badge">
+                        <span class="amount-label">Present</span>
+                        <span class="amount-value">{{ row.calc.present_days }}</span>
+                      </div>
+                      <div class="amount-badge">
+                        <span class="amount-label">LWP</span>
+                        <span class="amount-value" style="color:#ef4444;">{{ row.calc.lwp_days }}</span>
+                      </div>
+                    </div>
+                    <div class="salary-amounts mt-2">
+                      <div class="amount-badge">
+                        <span class="amount-label">LWP Deduction</span>
+                        <span class="amount-value" style="color:#ef4444;">₹{{ row.calc.lwp_deduction|floatformat:2|intcomma }}</span>
+                      </div>
+                      <div class="amount-badge">
+                        <span class="amount-label">Payable Salary</span>
+                        <span class="amount-value" style="color:#10b981;">₹{{ row.calc.payable_salary|floatformat:2|intcomma }}</span>
+                      </div>
+                    </div>
+                  </div>
+    
+                <div class="btn-groups">
+    <a href="{% url 'employees:employee_salary' %}?edit={{ row.calc.salary_profile.id }}" class="btn-sms btn-outline">
+      <i class="bx bx-edit me-1"></i>Edit
+    </a>
+    <form method="POST" action="{% url 'employees:employee_salary' %}"
+          onsubmit="return confirm('Delete this salary entry?');" style="display:inline;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete">
+      <input type="hidden" name="salary_id" value="{{ row.calc.salary_profile.id }}">
+      <button type="submit" class="btn-sms btn-danger">
+        <i class="bx bx-trash me-1"></i>Delete
+      </button>
+    </form>
+  </div>
+{% else %}
+  <span class="badge-no-profile">No salary entry effective for this month — nothing to edit</span>
+{% endif %}
+
+
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="alert alert-info">
+              <i class="bx bx-info-circle me-2"></i>No employees found.
+            </div>
+          {% endif %}
+        </div>
+
+    
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+  function downloadSalaryReport() {
+    const employeeSelect = document.getElementById('employeeFilter');
+    const employeeId = employeeSelect ? employeeSelect.value : '';
+    let url = "{% url 'employees:employee_salary_excel_report' %}"
+        + "?year={{ year }}&month={{ month }}";
+    if (employeeId) {
+      url += "&employee=" + employeeId;
+    }
+    window.location.href = url;
+  }
+
+  function updateSalaryFilters() {
+    const employeeSelect = document.getElementById('employeeFilter');
+    if (!employeeSelect) return;
+
+    const employeeId = employeeSelect.value;
+    const url = new URL(window.location.href);
+
+    if (employeeId) {
+      url.searchParams.set('employee', employeeId);
+    } else {
+      url.searchParams.delete('employee');
+    }
+    window.location.href = url.toString();
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,481 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Break Analytics | Admin Portal{% endblock %}
+
+{% block content %}
+<div class="admin-breaks-shell">
+  <header class="admin-breaks-hero">
+    <div class="hero-top">
+      <div>
+        <h1>Break Analytics Dashboard</h1>
+        <p>Monitor break utilisation across the organisation. Adjust filters to spot trends and unblock teams.</p>
+      </div>
+      <form method="get" class="filters" aria-label="Break filters">
+        <div class="filters__row">
+          <div class="filters__field">
+            <label for="id_start" class="form-label">From</label>
+            <input type="date" id="id_start" name="start" value="{{ start_date_str }}" class="form-control">
+          </div>
+          <div class="filters__field">
+            <label for="id_end" class="form-label">To</label>
+            <input type="date" id="id_end" name="end" value="{{ end_date_str }}" class="form-control">
+          </div>
+        </div>
+        <div class="filters__row">
+          <div class="filters__field">
+            <label for="id_employee" class="form-label">Employee</label>
+            <select id="id_employee" name="employee" class="form-select">
+              <option value="">All employees</option>
+              {% for emp in employee_options %}
+                <option value="{{ emp.id }}" {% if selected_employee and emp.id == selected_employee.id %}selected{% endif %}>{{ emp.full_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="filters__field filters__field--actions">
+            <button type="submit" class="btn btn-primary"><i class='bx bx-filter-alt'></i> Apply</button>
+            <a href="{% url 'employees:admin_breaks' %}" class="btn btn-outline-secondary"><i class='bx bx-reset'></i> Reset</a>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="hero-stats">
+      <article class="hero-card">
+        <span class="hero-card__label">Total break time</span>
+        <span class="hero-card__value">{{ total_break_display }}</span>
+        <span class="hero-card__meta">In selected window</span>
+      </article>
+      <article class="hero-card">
+        <span class="hero-card__label">Average session</span>
+        <span class="hero-card__value">{{ average_break_display }}</span>
+        <span class="hero-card__meta">{{ break_entries|length }} session{{ break_entries|length|pluralize }}</span>
+      </article>
+      <article class="hero-card">
+        <span class="hero-card__label">Completed breaks</span>
+        <span class="hero-card__value">{{ completed_break_count }}</span>
+        <span class="hero-card__meta">{{ active_break_count }} active now</span>
+      </article>
+    </div>
+  </header>
+
+  <section class="admin-breaks-section" aria-label="Active breaks overview">
+    <header class="section-head">
+      <h2>Currently active</h2>
+      <span class="section-meta">Live feed</span>
+    </header>
+    {% if active_breaks_global %}
+      <div class="active-list">
+        {% for br in active_breaks_global %}
+          <article class="active-card">
+            <div class="active-card__header">
+              <div class="avatar avatar-sm">
+                {% if br.employee.profile_picture %}
+                  <img src="{{ br.employee.profile_picture.url }}" alt="{{ br.employee.full_name }}">
+                {% else %}
+                  <span class="avatar-initial rounded-circle">{{ br.employee.name|slice:':1'|upper }}</span>
+                {% endif %}
+              </div>
+              <div>
+                <h3>{{ br.employee.full_name }}</h3>
+                <p>{{ br.attendance.date|date:"d M, D" }}</p>
+              </div>
+            </div>
+            <div class="active-card__body">
+              <span class="active-card__duration">{{ br.duration_display }}</span>
+              {% if br.reason %}<p class="active-card__reason">{{ br.reason }}</p>{% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-inline">No ongoing breaks right now.</p>
+    {% endif %}
+  </section>
+
+  <section class="admin-breaks-section" aria-label="Employee ranking">
+    <header class="section-head">
+      <h2>Employee spotlight</h2>
+      <span class="section-meta">Top break durations</span>
+    </header>
+    {% if summary_list %}
+      <div class="summary-table">
+        <div class="summary-table__header">
+          <span>Employee</span>
+          <span>Breaks</span>
+          <span>Active</span>
+          <span>Total time</span>
+          <span>Average</span>
+        </div>
+        {% for entry in summary_list %}
+          <div class="summary-table__row">
+            <span class="summary-table__employee">
+              <strong>{{ entry.employee.full_name }}</strong>
+            </span>
+            <span>{{ entry.break_count }}</span>
+            <span>{{ entry.active_count }}</span>
+            <span>{{ entry.total_display }}</span>
+            <span>{{ entry.average_display }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-inline">No break activity recorded in this window.</p>
+    {% endif %}
+  </section>
+
+  <section class="admin-breaks-section" aria-label="Daily summary">
+    <header class="section-head">
+      <h2>Daily trend</h2>
+      <span class="section-meta">{{ start_date|date:"d M" }} – {{ end_date|date:"d M" }}</span>
+    </header>
+    {% if daily_break_summary %}
+      <ul class="daily-summary">
+        {% for item in daily_break_summary %}
+          <li class="daily-summary__item">
+            <span class="daily-summary__date">{{ item.date|date:"d M, D" }}</span>
+            <span class="daily-summary__count">{{ item.count }} break{{ item.count|pluralize }}</span>
+            <span class="daily-summary__duration">{{ item.display }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-inline">No daily data for the selected range.</p>
+    {% endif %}
+  </section>
+
+  <section class="admin-breaks-section" aria-label="Break log">
+    <header class="section-head">
+      <h2>Break log</h2>
+      <span class="section-meta">{{ break_entries|length }} entries</span>
+    </header>
+    {% if break_entries %}
+      <div class="break-log">
+        {% for br in break_entries %}
+          <article class="log-item">
+            <div class="log-item__header">
+              <div class="avatar avatar-sm">
+                {% if br.employee.profile_picture %}
+                  <img src="{{ br.employee.profile_picture.url }}" alt="{{ br.employee.full_name }}">
+                {% else %}
+                  <span class="avatar-initial rounded-circle">{{ br.employee.name|slice:':1'|upper }}</span>
+                {% endif %}
+              </div>
+              <div class="log-item__info">
+                <h3>{{ br.employee.full_name }}</h3>
+                <span>{{ br.start_time|date:"d M, H:i" }}</span>
+              </div>
+              <span class="log-item__duration">{{ br.duration_display }}</span>
+            </div>
+            <div class="log-item__meta">
+              <span class="badge bg-label-primary">{{ br.attendance.date|date:"D" }}</span>
+              {% if br.reason %}<span class="badge bg-label-secondary">{{ br.reason }}</span>{% endif %}
+              {% if br.end_time %}
+                <span class="badge bg-label-success">Completed</span>
+              {% else %}
+                <span class="badge bg-label-warning">Active</span>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-inline">Break log is empty for the current filters.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block page_css %}
+<style>
+:root {
+  --admin-surface: #ffffff;
+  --admin-border: rgba(15, 23, 42, 0.08);
+  --admin-muted: #64748b;
+  --admin-accent: #2563eb;
+  --admin-shadow: 0 20px 48px rgba(15, 23, 42, 0.13);
+}
+
+.admin-breaks-shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.75rem 1.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.85rem;
+}
+
+.admin-breaks-hero {
+  background: linear-gradient(130deg, rgba(13, 148, 136, 0.95), rgba(37, 99, 235, 0.95));
+  color: #fff;
+  border-radius: 26px;
+  padding: 1.75rem;
+  box-shadow: var(--admin-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
+.hero-top {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.hero-top h1 {
+  font-size: clamp(1.55rem, 4vw, 2.1rem);
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.hero-top p {
+  font-size: 0.95rem;
+  max-width: 46ch;
+  opacity: 0.9;
+}
+
+.filters {
+  display: grid;
+  gap: 1rem;
+  background: rgba(15, 23, 42, 0.22);
+  padding: 1rem;
+  border-radius: 18px;
+  backdrop-filter: blur(6px);
+}
+
+.filters__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+}
+
+.filters__field--actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.hero-card {
+  background: rgba(15, 23, 42, 0.25);
+  border-radius: 20px;
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  backdrop-filter: blur(8px);
+}
+
+.hero-card__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.85;
+}
+
+.hero-card__value {
+  font-size: 1.65rem;
+  font-weight: 700;
+}
+
+.admin-breaks-section {
+  background: var(--admin-surface);
+  border-radius: 22px;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid var(--admin-border);
+  box-shadow: var(--admin-shadow);
+  display: grid;
+  gap: 1rem;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.section-head h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.section-meta {
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+}
+
+.active-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.active-card {
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.active-card__header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.active-card__header h3 {
+  font-size: 1rem;
+  margin-bottom: 0.15rem;
+}
+
+.active-card__body {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.active-card__duration {
+  font-weight: 700;
+}
+
+.active-card__reason {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
+.summary-table {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.summary-table__header,
+.summary-table__row {
+  display: grid;
+  grid-template-columns: 2fr repeat(4, minmax(80px, 1fr));
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.summary-table__header {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--admin-muted);
+}
+
+.summary-table__row {
+  background: rgba(37, 99, 235, 0.05);
+  border-radius: 14px;
+  padding: 0.65rem 0.85rem;
+}
+
+.daily-summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.daily-summary__item {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.65rem;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 16px;
+  padding: 0.75rem 1rem;
+}
+
+.daily-summary__duration {
+  font-weight: 600;
+}
+
+.break-log {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.log-item {
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.log-item__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.log-item__info {
+  flex: 1;
+  display: grid;
+}
+
+.log-item__info h3 {
+  font-size: 1rem;
+  margin-bottom: 0.15rem;
+}
+
+.log-item__duration {
+  font-weight: 700;
+}
+
+.log-item__meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.empty-inline {
+  text-align: center;
+  color: var(--admin-muted);
+  padding: 0.75rem;
+}
+
+@media (max-width: 920px) {
+  .admin-breaks-shell {
+    padding: 1.4rem 1.1rem 2rem;
+  }
+
+  .admin-breaks-hero {
+    border-radius: 20px;
+    padding: 1.45rem;
+  }
+
+  .summary-table__header,
+  .summary-table__row {
+    grid-template-columns: 2fr repeat(2, minmax(80px, 1fr));
+    grid-template-areas:
+      "employee employee"
+      "breaks total"
+      "active average";
+  }
+}
+
+@media (max-width: 768px) {
+  .filters__field--actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .active-card__body {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .log-item__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+</style>
+{% endblock %}

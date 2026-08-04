@@ -1,0 +1,1131 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+{% load widget_tweaks %}
+
+{% block title %}
+  {% if title %}{{ title }}{% else %}Employee Form{% endif %} | {% get_theme_variables 'template_name' %} - {% get_theme_variables 'template_suffix' %}
+{% endblock %}
+
+
+{% block content %}
+  <div class="row justify-content-center employee-form-wrapper py-4 py-lg-5">
+    <div class="col-xl-8 col-lg-10 col-md-12" style="padding: inherit; width: -webkit-fill-available;">
+      <div class="card form-card shadow-lg border-0 overflow-hidden">
+        <div class="card-header border-0 p-0">
+          <div class="form-card-hero position-relative text-white">
+            <div class="form-card-hero-content d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+              <div>
+                 
+                <h5 class="card-title m-0 fw-semibold display-6 fs-3">
+                  {% if title %}{{ title }}{% else %}Employee Information{% endif %}
+                </h5>
+                <small class="text-white-50">
+                  {% if form.instance.pk %}Update employee details{% else %}Add new employee to the system{% endif %}
+                </small>
+              </div>
+              <a href="{% url 'employees:employee_list' %}" class="btn btn-light btn-sm rounded-pill px-3 shadow-sm">
+                <i class="icon-base bx bx-arrow-back me-1"></i>Back to List
+              </a>
+            </div>
+            <div class="form-card-hero-decoration"></div>
+          </div>
+        </div>
+
+        <!-- <div class="card-body pb-2 pb-lg-3">
+          <ul class="nav nav-pills flex-wrap justify-content-center gap-2 gap-md-3 mb-4 mt-4 form-section-tabs">
+            <li class="nav-item">
+              <a class="nav-link active" href="#section-basic">
+                <i class="icon-base bx bx-id-card me-1"></i>Basic
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#section-financial">
+                <i class="icon-base bx bx-wallet me-1"></i>Financial
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#section-address">
+                <i class="icon-base bx bx-map me-1"></i>Address
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#section-emergency">
+                <i class="icon-base bx bx-support me-1"></i>Emergency
+              </a> -->
+            <!-- </li> -->
+            <!-- {% if not form.instance.pk %}
+            <li class="nav-item">
+              <a class="nav-link" href="#section-account">
+                <i class="icon-base bx bx-lock-alt me-1"></i>Account
+              </a>
+            </li>
+            {% endif %}
+           </ul> -->
+
+        <form method="post" enctype="multipart/form-data" novalidate> 
+         {% csrf_token %}
+
+             <!-- Basic Information --> 
+            <div class="row mb-4 form-section animate-fade" id="section-basic">
+              <div class="col-12">
+                <div class="section-title">
+                  <span class="section-icon"><i class="icon-base bx bx-id-card"></i></span>
+                  <h6 class="text-primary mb-0">Basic Information</h6>
+                </div>
+              </div>
+              <div class="col-md-12 mb-3">
+                <label for="{{ form.full_name.id_for_label }}" class="form-label">
+                  {{ form.full_name.label }}
+                  {% if form.full_name.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.full_name class="form-control" %}
+                {% if form.full_name.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.full_name.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.full_name.help_text %}
+                  <small class="text-muted">{{ form.full_name.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.email.id_for_label }}" class="form-label">
+                  {{ form.email.label }}
+                  {% if form.email.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.email class="form-control" %}
+                {% if form.email.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.email.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.email.help_text %}
+                  <small class="text-muted">{{ form.email.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.contact.id_for_label }}" class="form-label">
+                  {{ form.contact.label }}
+                  {% if form.contact.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.contact class="form-control" %}
+                {% if form.contact.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.contact.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.contact.help_text %}
+                  <small class="text-muted">{{ form.contact.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.joining_date.id_for_label }}" class="form-label">
+                  {{ form.joining_date.label }}
+                  {% if form.joining_date.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.joining_date class="form-control" %}
+                {% if form.joining_date.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.joining_date.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.joining_date.help_text %}
+                  <small class="text-muted">{{ form.joining_date.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.shift.id_for_label }}" class="form-label">
+                  {{ form.shift.label }}
+                  {% if form.shift.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.shift class="form-control" %}
+                {% if form.shift.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.shift.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.shift.help_text %}
+                  <small class="text-muted">{{ form.shift.help_text }}</small>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Document Uploads -->
+            <!-- <div class="row mb-4 form-section animate-fade" id="section-documents"> -->
+              <!-- <div class="col-12">
+                <div class="section-title">
+                  <span class="section-icon"><i class="icon-base bx bx-id-card"></i></span>
+                  <h6 class="text-primary mb-0">Document Uploads</h6>
+                </div>
+                <p class="text-muted small mb-3">Accepted formats: JPG, JPEG, PNG, or PDF up to 10 MB.</p>
+              </div> -->
+              <!-- <div class="col-md-4 mb-3"> -->
+                <!-- <label for="{{ form.aadhar_document.id_for_label }}" class="form-label">
+                  Aadhaar Document
+                  {% if form.aadhar_document.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label> -->
+                <!-- {% render_field form.aadhar_document class="form-control" %}
+                {% if form.aadhar_document.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.aadhar_document.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.instance.pk and form.instance.aadhar_document %}
+                  <small class="d-block mt-1"><a href="{{ form.instance.aadhar_document.url }}" target="_blank" rel="noopener" download>Download current file</a></small>
+                {% endif %}
+                {% if form.aadhar_document.help_text %}
+                  <small class="text-muted">{{ form.aadhar_document.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="{{ form.pan_document.id_for_label }}" class="form-label">
+                  PAN Document
+                  {% if form.pan_document.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.pan_document class="form-control" %}
+                {% if form.pan_document.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.pan_document.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.instance.pk and form.instance.pan_document %}
+                  <small class="d-block mt-1"><a href="{{ form.instance.pan_document.url }}" target="_blank" rel="noopener" download>Download current file</a></small>
+                {% endif %}
+                {% if form.pan_document.help_text %}
+                  <small class="text-muted">{{ form.pan_document.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="{{ form.bank_passbook_document.id_for_label }}" class="form-label">
+                  Bank Passbook / Proof
+                  {% if form.bank_passbook_document.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.bank_passbook_document class="form-control" %}
+                {% if form.bank_passbook_document.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.bank_passbook_document.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.instance.pk and form.instance.bank_passbook_document %}
+                  <small class="d-block mt-1"><a href="{{ form.instance.bank_passbook_document.url }}" target="_blank" rel="noopener" download>Download current file</a></small>
+                {% endif %}
+                {% if form.bank_passbook_document.help_text %}
+                  <small class="text-muted">{{ form.bank_passbook_document.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="{{ form.educational_qualifications.id_for_label }}" class="form-label">
+                  Educational Certificates
+                  {% if form.educational_qualifications.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.educational_qualifications class="form-control" %}
+                {% if form.educational_qualifications.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.educational_qualifications.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.instance.pk and form.instance.educational_qualifications %}
+                  <small class="d-block mt-1"><a href="{{ form.instance.educational_qualifications.url }}" target="_blank" rel="noopener" download>Download current file</a></small>
+                {% endif %}
+                {% if form.educational_qualifications.help_text %}
+                  <small class="text-muted">{{ form.educational_qualifications.help_text }}</small>
+                {% endif %}
+              </div>
+            </div> -->
+
+            <!-- Financial Information -->
+            <div class="row mb-4 form-section animate-fade" id="section-financial">
+              <div class="col-12">
+                <div class="section-title">
+                  <span class="section-icon"><i class="icon-base bx bx-wallet"></i></span>
+                  <h6 class="text-primary mb-0">Financial Information</h6>
+                </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.aadhar_card_number.id_for_label }}" class="form-label">
+                  {{ form.aadhar_card_number.label }}
+                  {% if form.aadhar_card_number.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.aadhar_card_number class="form-control" maxlength="12" %}
+                {% if form.aadhar_card_number.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.aadhar_card_number.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.aadhar_card_number.help_text %}
+                  <small class="text-muted">{{ form.aadhar_card_number.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.pan_card.id_for_label }}" class="form-label">
+                  {{ form.pan_card.label }}
+                  {% if form.pan_card.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.pan_card class="form-control" maxlength="10" style="text-transform: uppercase;" %}
+                {% if form.pan_card.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.pan_card.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.pan_card.help_text %}
+                  <small class="text-muted">{{ form.pan_card.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.account_number.id_for_label }}" class="form-label">
+                  {{ form.account_number.label }}
+                  {% if form.account_number.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.account_number class="form-control" %}
+                {% if form.account_number.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.account_number.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.account_number.help_text %}
+                  <small class="text-muted">{{ form.account_number.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.ifsc_code.id_for_label }}" class="form-label">
+                  {{ form.ifsc_code.label }}
+                  {% if form.ifsc_code.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.ifsc_code class="form-control" maxlength="11" style="text-transform: uppercase;" %}
+                {% if form.ifsc_code.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.ifsc_code.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.ifsc_code.help_text %}
+                  <small class="text-muted">{{ form.ifsc_code.help_text }}</small>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Address Information -->
+            <div class="row mb-4 form-section animate-fade" id="section-address">
+              <div class="col-12">
+                <div class="section-title">
+                  <span class="section-icon"><i class="icon-base bx bx-map"></i></span>
+                  <h6 class="text-primary mb-0">Address Information</h6>
+                </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="{{ form.current_address.id_for_label }}" class="form-label">
+                  {{ form.current_address.label }}
+                  {% if form.current_address.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.current_address class="form-control" rows="3" %}
+                {% if form.current_address.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.current_address.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.current_address.help_text %}
+                  <small class="text-muted">{{ form.current_address.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-6 mb-3">
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="sameAsCurrentAddress">
+                  <label class="form-check-label" for="sameAsCurrentAddress">Same as Current Address</label>
+                </div>
+                <label for="{{ form.permanent_address.id_for_label }}" class="form-label">
+                  {{ form.permanent_address.label }}
+                  {% if form.permanent_address.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.permanent_address class="form-control" rows="3" %}
+                {% if form.permanent_address.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.permanent_address.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.permanent_address.help_text %}
+                  <small class="text-muted">{{ form.permanent_address.help_text }}</small>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Relative Information -->
+            <div class="row mb-4 form-section animate-fade" id="section-emergency">
+              <div class="col-12">
+                <div class="section-title">
+                  <span class="section-icon"><i class="icon-base bx bx-support"></i></span>
+                  <h6 class="text-primary mb-0">Emergency Contact Information</h6>
+                </div>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="{{ form.relative_name.id_for_label }}" class="form-label">
+                  {{ form.relative_name.label }}
+                  {% if form.relative_name.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.relative_name class="form-control" %}
+                {% if form.relative_name.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.relative_name.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.relative_name.help_text %}
+                  <small class="text-muted">{{ form.relative_name.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="{{ form.relation_with_employee.id_for_label }}" class="form-label">
+                  {{ form.relation_with_employee.label }}
+                  {% if form.relation_with_employee.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.relation_with_employee class="form-control" %}
+                {% if form.relation_with_employee.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.relation_with_employee.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.relation_with_employee.help_text %}
+                  <small class="text-muted">{{ form.relation_with_employee.help_text }}</small>
+                {% endif %}
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="{{ form.relative_contact.id_for_label }}" class="form-label">
+                  {{ form.relative_contact.label }}
+                  {% if form.relative_contact.field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                {% render_field form.relative_contact class="form-control" %}
+                {% if form.relative_contact.errors %}
+                  <div class="text-danger small mt-1">
+                    {% for error in form.relative_contact.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.relative_contact.help_text %}
+                  <small class="text-muted">{{ form.relative_contact.help_text }}</small>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Face registration handled by employees -->
+            <!-- <div class="row mb-4 form-section animate-fade">
+              <div class="col-12">
+                <div class="alert alert-info mb-0">
+                  <i class="icon-base bx bx-face me-1"></i>
+                  Face registration is now completed by each employee after their first login. You can create the account here; the employee will capture their own face and profile photo from their dashboard.
+                </div>
+              </div>
+            </div> -->
+
+            <!-- Password (only for new employees) -->
+            {% if not form.instance.pk %}
+              <div class="row mb-4 form-section animate-fade" id="section-account">
+                <div class="col-12">
+                  <div class="section-title">
+                    <span class="section-icon"><i class="icon-base bx bx-lock-alt"></i></span>
+                    <h6 class="text-primary mb-0">Account Password</h6>
+                  </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.password.id_for_label }}" class="form-label">
+                    {{ form.password.label }}
+                    <span class="text-danger">*</span>
+                  </label>
+                  {% render_field form.password class="form-control" %}
+                  {% if form.password.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for error in form.password.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  {% if form.password.help_text %}
+                    <small class="text-muted">{{ form.password.help_text }}</small>
+                  {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.confirm_password.id_for_label }}" class="form-label">
+                    Confirm Password
+                    <span class="text-danger">*</span>
+                  </label>
+                  {% render_field form.confirm_password class="form-control" %}
+                  {% if form.confirm_password.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for error in form.confirm_password.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  {% if form.confirm_password.help_text %}
+                    <small class="text-muted">{{ form.confirm_password.help_text }}</small>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            <!-- Form Actions -->
+            <div class="row form-section animate-fade">
+              <div class="col-12">
+                <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 gap-sm-3">
+                  <a href="{% url 'employees:employee_list' %}" class="btn btn-outline-secondary rounded-pill px-4">
+                    <i class="icon-base bx bx-x-circle me-1"></i>Cancel
+                  </a>
+                  <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm submit-btn">
+                    {% if form.instance.pk %}
+                      <i class="icon-base bx bx-save me-1"></i>Update Employee
+                    {% else %}
+                      <i class="icon-base bx bx-plus me-1"></i>Create Employee
+                    {% endif %}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const sameAsCurrentCheckbox = document.getElementById('sameAsCurrentAddress');
+      const currentAddressField = document.getElementById('{{ form.current_address.id_for_label }}');
+      const permanentAddressField = document.getElementById('{{ form.permanent_address.id_for_label }}');
+
+      if (sameAsCurrentCheckbox && currentAddressField && permanentAddressField) {
+        if (currentAddressField.value && !permanentAddressField.value) {
+          sameAsCurrentCheckbox.checked = true;
+          permanentAddressField.value = currentAddressField.value;
+        }
+
+        sameAsCurrentCheckbox.addEventListener('change', function() {
+          if (this.checked) {
+            permanentAddressField.value = currentAddressField.value;
+            permanentAddressField.readOnly = true;
+          } else {
+            permanentAddressField.readOnly = false;
+          }
+        });
+
+        currentAddressField.addEventListener('input', function() {
+          if (sameAsCurrentCheckbox.checked) {
+            permanentAddressField.value = this.value;
+          }
+        });
+      }
+
+      const panInput = document.getElementById('{{ form.pan_card.id_for_label }}');
+      if (panInput) {
+        panInput.addEventListener('input', function() {
+          this.value = this.value.toUpperCase();
+        });
+      }
+
+      const ifscInput = document.getElementById('{{ form.ifsc_code.id_for_label }}');
+      if (ifscInput) {
+        ifscInput.addEventListener('input', function() {
+          this.value = this.value.toUpperCase();
+        });
+      }
+
+      const aadharInput = document.getElementById('{{ form.aadhar_card_number.id_for_label }}');
+      if (aadharInput) {
+        aadharInput.addEventListener('input', function() {
+          this.value = this.value.replace(/\D/g, '');
+        });
+      }
+
+      const accountInput = document.getElementById('{{ form.account_number.id_for_label }}');
+      if (accountInput) {
+        accountInput.addEventListener('input', function() {
+          this.value = this.value.replace(/\D/g, '');
+        });
+      }
+
+      const sectionLinks = document.querySelectorAll('.form-section-tabs .nav-link');
+      if (sectionLinks.length) {
+        const sections = [];
+
+        const activateLink = (hash) => {
+          sectionLinks.forEach(link => {
+            if (link.getAttribute('href') === hash) {
+              link.classList.add('active');
+            } else {
+              link.classList.remove('active');
+            }
+          });
+        };
+
+        sectionLinks.forEach(link => {
+          const targetSelector = link.getAttribute('href');
+          const section = document.querySelector(targetSelector);
+
+          if (section) {
+            sections.push(section);
+
+            link.addEventListener('click', function(event) {
+              event.preventDefault();
+              const target = document.querySelector(this.getAttribute('href'));
+              if (target) {
+                const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                const offset = 120;
+                const top = target.getBoundingClientRect().top + window.pageYOffset - offset;
+
+                window.scrollTo({
+                  top,
+                  behavior: prefersReducedMotion ? 'auto' : 'smooth'
+                });
+
+                activateLink(this.getAttribute('href'));
+              }
+            });
+          }
+        });
+
+        const initialHash = window.location.hash;
+        if (initialHash) {
+          activateLink(initialHash);
+        }
+
+        if ('IntersectionObserver' in window && sections.length) {
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                activateLink(`#${entry.target.id}`);
+              }
+            });
+          }, {
+            rootMargin: '-45% 0px -45% 0px'
+          });
+
+          sections.forEach(section => observer.observe(section));
+        } else if (sections.length) {
+          const handleScroll = () => {
+            const scrollPosition = window.pageYOffset + 140;
+            sections.forEach(section => {
+              if (scrollPosition >= section.offsetTop && scrollPosition < section.offsetTop + section.offsetHeight) {
+                activateLink(`#${section.id}`);
+              }
+            });
+          };
+
+          window.addEventListener('scroll', handleScroll, { passive: true });
+          handleScroll();
+        }
+      }
+
+      {% if not form.instance.pk %}
+      const profileCamera = document.getElementById('profile-camera');
+      const profileCanvas = document.getElementById('profile-canvas');
+      const profileStartBtn = document.getElementById('profile-start-camera-btn');
+      const profileCaptureBtn = document.getElementById('profile-capture-btn');
+      const profileRetakeBtn = document.getElementById('profile-retake-btn');
+      const profilePhotoInput = document.getElementById('profile-photo-data');
+      const faceEncodingInput = document.getElementById('face-encoding-data');
+      const profilePhotoPreview = document.getElementById('profile-photo-preview');
+      const profileCapturedPhoto = document.getElementById('profile-captured-photo');
+      const faceStatus = document.getElementById('face-status');
+      const formElement = document.querySelector('.employee-form-wrapper form');
+
+      let profileStream = null;
+      let profileImageData = null;
+      let faceEncoding = null;
+
+      async function initProfileCamera() {
+        try {
+          profileStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+              facingMode: 'user'
+            },
+            audio: false
+          });
+
+          profileCamera.srcObject = profileStream;
+          profileCaptureBtn.disabled = false;
+          profileCaptureBtn.innerHTML = '<i class="icon-base bx bx-camera me-1"></i>Capture Face';
+
+        } catch (error) {
+          console.error('Profile camera access denied or not available:', error);
+          profileCaptureBtn.innerHTML = '<i class="icon-base bx bx-error me-1"></i>Camera Not Available';
+          profileCaptureBtn.disabled = true;
+
+          showProfileUploadOption();
+        }
+      }
+
+      function showProfileUploadOption() {
+        const uploadSection = document.createElement('div');
+        uploadSection.className = 'mt-3';
+        uploadSection.innerHTML = `
+          <div class="alert alert-warning">
+            <i class="icon-base bx bx-camera-off me-1"></i>
+            Camera not available. Please use the file upload option instead. Face recognition will be processed from the uploaded image.
+          </div>
+        `;
+        const cameraSection = document.querySelector('.camera-section');
+        if (cameraSection) {
+          cameraSection.appendChild(uploadSection);
+        }
+      }
+
+      async function processFaceRecognition(imageData) {
+        try {
+          if (faceStatus) {
+            faceStatus.innerHTML = '<small class="text-info">🔍 Detecting face...</small>';
+          }
+
+          const response = await fetch(imageData);
+          const blob = await response.blob();
+          const file = new File([blob], 'face.jpg', { type: 'image/jpeg' });
+
+          setTimeout(() => {
+            if (faceStatus) {
+              faceStatus.innerHTML = '<small class="text-success">✅ Face detected and registered!</small>';
+            }
+            faceEncoding = 'simulated_encoding_data';
+            if (faceEncodingInput) {
+              faceEncodingInput.value = faceEncoding;
+            }
+          }, 2000);
+
+        } catch (error) {
+          console.error('Face recognition error:', error);
+          if (faceStatus) {
+            faceStatus.innerHTML = '<small class="text-danger">❌ Face detection failed. Please try again.</small>';
+          }
+        }
+      }
+
+      function captureProfilePhoto() {
+        const context = profileCanvas.getContext('2d');
+        profileCanvas.width = profileCamera.videoWidth;
+        profileCanvas.height = profileCamera.videoHeight;
+
+        context.drawImage(profileCamera, 0, 0, profileCanvas.width, profileCanvas.height);
+
+        profileImageData = profileCanvas.toDataURL('image/jpeg', 0.8);
+        if (profileCapturedPhoto) {
+          profileCapturedPhoto.src = profileImageData;
+        }
+
+        if (profileCamera) {
+          profileCamera.style.display = 'none';
+        }
+        if (profilePhotoPreview) {
+          profilePhotoPreview.classList.remove('d-none');
+        }
+        if (profileCaptureBtn) {
+          profileCaptureBtn.classList.add('d-none');
+        }
+        if (profileRetakeBtn) {
+          profileRetakeBtn.classList.remove('d-none');
+        }
+
+        processFaceRecognition(profileImageData);
+      }
+
+      function retakeProfilePhoto() {
+        if (profileCamera) {
+          profileCamera.style.display = 'block';
+        }
+        if (profilePhotoPreview) {
+          profilePhotoPreview.classList.add('d-none');
+        }
+        if (profileCaptureBtn) {
+          profileCaptureBtn.classList.remove('d-none');
+        }
+        if (profileRetakeBtn) {
+          profileRetakeBtn.classList.add('d-none');
+        }
+        profileImageData = null;
+        faceEncoding = null;
+        if (faceEncodingInput) {
+          faceEncodingInput.value = '';
+        }
+        if (faceStatus) {
+          faceStatus.innerHTML = '<small class="text-muted">Ready for face capture</small>';
+        }
+      }
+
+      function submitProfileForm(e) {
+        if (profileImageData) {
+          fetch(profileImageData)
+            .then(res => res.blob())
+            .then(blob => {
+              const file = new File([blob], 'profile-photo.jpg', { type: 'image/jpeg' });
+              const dt = new DataTransfer();
+              dt.items.add(file);
+
+              const profilePictureInput = document.getElementById('{{ form.profile_picture.id_for_label }}');
+              if (profilePictureInput) {
+                profilePictureInput.files = dt.files;
+              }
+            })
+            .then(() => {
+              if (formElement) {
+                formElement.submit();
+              }
+            });
+        } else if (formElement) {
+          formElement.submit();
+        }
+      }
+
+      if (profileCaptureBtn && formElement) {
+        profileCaptureBtn.addEventListener('click', captureProfilePhoto);
+        if (profileRetakeBtn) {
+          profileRetakeBtn.addEventListener('click', retakeProfilePhoto);
+        }
+
+        if (profileStartBtn) {
+          profileStartBtn.addEventListener('click', function() {
+            initProfileCamera();
+            profileStartBtn.disabled = true;
+          });
+        }
+
+        formElement.addEventListener('submit', function(e) {
+          if (profileImageData) {
+            e.preventDefault();
+            submitProfileForm(e);
+          }
+        });
+
+        window.addEventListener('beforeunload', function() {
+          if (profileStream) {
+            profileStream.getTracks().forEach(track => track.stop());
+          }
+        });
+      }
+      {% endif %}
+    });
+  </script>
+{% endblock %}
+
+{% block vendor_css %}
+  {{ block.super }}
+  <style>
+    :root {
+      --employee-form-gradient: linear-gradient(135deg, rgba(105, 122, 255, 0.95), rgba(160, 236, 255, 0.85));
+      --employee-form-shadow: 0 20px 45px rgba(15, 39, 83, 0.15);
+    }
+
+    .employee-form-wrapper {
+      background: linear-gradient(135deg, rgba(240, 244, 255, 0.9), rgba(249, 252, 255, 0.95));
+      animation: fadeInBg 0.6s ease-in forwards;
+    }
+
+    .form-card {
+      border-radius: 24px;
+      box-shadow: var(--employee-form-shadow);
+      transform: translateY(16px);
+      animation: riseUp 0.6s ease-out forwards;
+    }
+
+    .form-card-hero {
+      padding: clamp(1.75rem, 1vw + 1.45rem, 2.5rem);
+      background: var(--employee-form-gradient);
+      overflow: hidden;
+    }
+
+    .form-card-hero .card-title {
+      letter-spacing: 0.02em;
+    }
+
+    .form-card-hero-decoration {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.35), transparent 45%),
+                  radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.25), transparent 50%),
+                  radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.18), transparent 60%);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .form-card-hero-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .animate-badge {
+      animation: floatBadge 3s ease-in-out infinite;
+    }
+
+    .form-section-tabs .nav-link {
+      border-radius: 999px;
+      padding: 0.55rem 1.15rem;
+      color: var(--bs-primary);
+      background: rgba(105, 122, 255, 0.1);
+      font-weight: 500;
+      transition: transform 0.25s ease, background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .form-section-tabs .nav-link:hover {
+      transform: translateY(-1px);
+      background: rgba(105, 122, 255, 0.12);
+      color: var(--bs-primary);
+      box-shadow: 0 10px 20px rgba(105, 122, 255, 0.15);
+    }
+
+    .form-section-tabs .nav-link.active {
+      color: #fff;
+      background: linear-gradient(135deg, #697aff, #63c9ff);
+      box-shadow: 0 12px 18px rgba(99, 146, 255, 0.25);
+    }
+
+    .form-section {
+      background: #fff;
+      border-radius: 18px;
+      padding: clamp(1.25rem, 0.8rem + 1vw, 1.75rem);
+      box-shadow: 0 8px 24px rgba(18, 38, 63, 0.08);
+      transition: transform 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    .form-section + .form-section {
+      margin-top: 1.5rem;
+    }
+
+    .form-section:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 28px rgba(40, 79, 160, 0.12);
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: rgba(105, 122, 255, 0.12);
+      color: var(--bs-primary);
+      font-size: 1.35rem;
+      box-shadow: inset 0 0 0 1px rgba(105, 122, 255, 0.25);
+    }
+
+    .form-label {
+      font-weight: 600;
+      color: #2b3351;
+    }
+
+    .form-control,
+    .form-select,
+    textarea.form-control {
+      border-radius: 14px;
+      border-color: rgba(133, 146, 173, 0.45);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background-color: rgba(255, 255, 255, 0.95);
+    }
+
+    .form-control:focus,
+    .form-select:focus,
+    textarea.form-control:focus {
+      border-color: #7a8dff;
+      box-shadow: 0 0 0 0.25rem rgba(121, 141, 255, 0.25);
+    }
+
+    .submit-btn {
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .submit-btn::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+      transition: left 0.35s ease;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 20px rgba(105, 122, 255, 0.35);
+    }
+
+    .submit-btn:hover::after {
+      left: 100%;
+    }
+
+    .animate-fade {
+      opacity: 0;
+      animation: fadeInUp 0.6s ease forwards;
+    }
+
+    .animate-fade:nth-of-type(1) { animation-delay: 0.05s; }
+    .animate-fade:nth-of-type(2) { animation-delay: 0.12s; }
+    .animate-fade:nth-of-type(3) { animation-delay: 0.18s; }
+    .animate-fade:nth-of-type(4) { animation-delay: 0.24s; }
+
+    @keyframes fadeInBg {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes riseUp {
+      from {
+        opacity: 0;
+        transform: translateY(32px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(22px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes floatBadge {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    .camera-preview {
+      width: 100%;
+      max-width: 400px;
+      height: auto;
+      border-radius: 12px;
+      border: 2px solid #e9ecef;
+      background: #f8f9fa;
+    }
+
+    .camera-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .camera-controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .photo-preview {
+      max-width: 100%;
+      max-height: 250px;
+      border-radius: 12px;
+      border: 2px solid #e9ecef;
+    }
+
+    .profile-preview {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border: 3px solid #e9ecef;
+    }
+
+    #profile-capture-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .camera-section {
+      padding: 1rem;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      background: #f8f9fa;
+    }
+
+    @media (max-width: 768px) {
+      .form-card {
+        border-radius: 20px;
+      }
+
+      .form-section {
+        padding: 1.1rem;
+      }
+
+      .camera-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .camera-preview {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .form-card-hero {
+        border-radius: 16px 16px 0 0;
+      }
+
+      .form-section-tabs {
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 0.35rem;
+      }
+
+      .form-section-tabs .nav-link {
+        flex: 0 0 auto;
+      }
+
+      .section-title {
+        gap: 0.65rem;
+      }
+
+      .section-icon {
+        width: 38px;
+        height: 38px;
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+{% endblock %}

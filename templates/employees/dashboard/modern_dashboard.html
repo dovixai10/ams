@@ -1,0 +1,133 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Employee Dashboard{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/modern-dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container" id="dashboardContainer">
+  <!-- Greeting Card -->
+  <div class="greeting-card fade-in" id="greetingCard">
+    <div class="greeting-content">
+      <div class="greeting-header">
+        <div class="greeting-text">
+          <h1 id="greetingText">Good Morning</h1>
+          <p id="employeeName">Loading...</p>
+          <div class="greeting-time" id="currentTime"></div>
+        </div>
+        <div class="greeting-icon" id="greetingIcon">🌅</div>
+      </div>
+      <div class="greeting-weather" id="weatherBox" style="display: none;">
+        <div class="weather-item">
+          <span class="weather-label">Temperature</span>
+          <span class="weather-value" id="weatherTemp">--°C</span>
+        </div>
+        <div class="weather-item">
+          <span class="weather-label">Condition</span>
+          <span class="weather-value" id="weatherCondition">--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shift Details Box -->
+  <div class="shift-box fade-in" id="shiftBox">
+    <div class="box-header">
+      <i class="bx bx-time-five"></i>
+      <h3>Your Shift</h3>
+    </div>
+    <div class="shift-times">
+      <div class="time-item">
+        <div class="time-label">Start Time</div>
+        <div class="time-value" id="shiftStart">09:00 AM</div>
+      </div>
+      <div class="time-item">
+        <div class="time-label">End Time</div>
+        <div class="time-value" id="shiftEnd">06:00 PM</div>
+      </div>
+    </div>
+    <div class="shift-status" id="shiftStatus">
+      <div class="shift-status-text" id="shiftStatusText">Loading shift status...</div>
+    </div>
+    <div class="shift-buttons" id="shiftButtons">
+      <button class="btn btn-checkin" id="checkinBtn" onclick="handleCheckIn()">
+        <i class="bx bx-log-in"></i> Check In
+      </button>
+      <button class="btn btn-checkout" id="checkoutBtn" onclick="handleCheckOut()">
+        <i class="bx bx-log-out"></i> Check Out
+      </button>
+    </div>
+  </div>
+
+  <!-- Attendance Summary -->
+  <div class="attendance-summary fade-in" id="attendanceSummary" style="display: none;">
+    <div class="attendance-status" id="attendanceStatus">All set for today</div>
+    <h3>Today's Attendance</h3>
+    <div class="attendance-times">
+      <div class="attendance-time">
+        <div class="attendance-time-label">Check In</div>
+        <div class="attendance-time-value" id="attendanceCheckIn">--:-- --</div>
+      </div>
+      <div class="attendance-time">
+        <div class="attendance-time-label">Check Out</div>
+        <div class="attendance-time-value" id="attendanceCheckOut">--:-- --</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Points Display -->
+  <div class="points-display fade-in" id="pointsDisplay">
+    <div class="points-label">This Month's Points</div>
+    <div class="points-value" id="pointsValue">0</div>
+    <div class="points-subtitle">Keep up the good work!</div>
+  </div>
+
+  <!-- Tasks Box -->
+  <div class="tasks-box fade-in" id="tasksBox">
+    <div class="box-header">
+      <i class="bx bx-check-square"></i>
+      <h3>Today's Tasks</h3>
+    </div>
+    <div id="tasksList">
+      <div class="empty-state">
+        <i class="bx bx-inbox"></i>
+        <p>No tasks for today</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts Box -->
+  <div class="alerts-box fade-in" id="alertsBox">
+    <div class="box-header">
+      <i class="bx bx-bell"></i>
+      <h3>Important Alerts</h3>
+    </div>
+    <div id="alertsList">
+      <div class="empty-state">
+        <i class="bx bx-check-circle"></i>
+        <p>All set! No alerts.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Performers -->
+  <div class="performers-box fade-in" id="performersBox">
+    <div class="box-header">
+      <i class="bx bx-trophy"></i>
+      <h3>Top Performers</h3>
+    </div>
+    <div id="performersList">
+      <div class="empty-state">
+        <i class="bx bx-star"></i>
+        <p>Loading performers...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'js/modern-dashboard.js' %}"></script>
+{% endblock %}

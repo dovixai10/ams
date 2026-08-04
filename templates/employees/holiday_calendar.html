@@ -1,0 +1,693 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}Holiday Calendar - Employee Management System{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+:root {
+  --app-radius: 18px;
+  --app-card-bg: #ffffff;
+  --app-muted: #6c7383;
+  --app-border: rgba(17, 24, 39, 0.06);
+  --app-shadow: 0 14px 40px rgba(15, 23, 42, 0.12);
+}
+
+body {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 55%, #e0e7ff 100%);
+}
+
+.layout-wrapper,
+.layout-page,
+.content-wrapper {
+  background: transparent !important;
+}
+
+.container-p-y {
+  padding-top: 0.5rem !important;
+  padding-bottom: 1.5rem !important;
+}
+
+/* Holiday Calendar Styles */
+.holiday-calendar-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 80px;
+}
+
+/* Font consistency with project */
+.holiday-calendar-wrapper,
+.holiday-calendar-wrapper * {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Header Section */
+.holiday-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+  margin-bottom: 3rem;
+  flex-wrap: wrap;
+}
+
+.holiday-header-content {
+  flex: 1;
+  min-width: 250px;
+}
+
+.holiday-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  letter-spacing: -0.5px;
+}
+
+.holiday-title i {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 2.5rem;
+}
+
+.holiday-subtitle {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 400;
+}
+
+/* Year Filter */
+.holiday-filter {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.year-filter-form {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.filter-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.year-select {
+  padding: 0.625rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background-color: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.year-select:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.year-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Holidays Container */
+.holidays-container {
+  margin-bottom: 3rem;
+}
+
+.holidays-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Holiday Card */
+.holiday-card {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.holiday-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+}
+
+/* Date Box */
+.holiday-date-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 75px;
+  padding: 1.25rem 0.75rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 12px;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+}
+
+.holiday-day {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+.holiday-month {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-top: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  opacity: 0.95;
+}
+
+/* Holiday Info */
+.holiday-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  /* gap: 0.65rem; */
+}
+
+.holiday-name {
+  font-size: 1.025rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.holiday-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.425rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  width: fit-content;
+  transition: all 0.2s ease;
+}
+
+.holiday-badge i {
+  font-size: 0.95rem;
+}
+
+/* Badge Colors */
+.holiday-badge-national {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.08));
+  color: #1e40af;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.holiday-badge-office {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(139, 92, 246, 0.08));
+  color: #5b21b6;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.holiday-badge-festival {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.12), rgba(251, 146, 60, 0.08));
+  color: #b45309;
+  border: 1px solid rgba(251, 146, 60, 0.2);
+}
+
+.holiday-description {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.holiday-date-display {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  font-size: 4.5rem;
+  color: #d1d5db;
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+}
+
+.empty-state-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 0.5rem 0;
+}
+
+.empty-state-text {
+  font-size: 1rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+/* Statistics Section */
+.holiday-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.stat-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  font-size: 1.65rem;
+  flex-shrink: 0;
+}
+
+.stat-icon-total {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08));
+  color: #1e40af;
+}
+
+.stat-icon-national {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08));
+  color: #1e40af;
+}
+
+.stat-icon-office {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.08));
+  color: #5b21b6;
+}
+
+.stat-icon-festival {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(251, 146, 60, 0.08));
+  color: #b45309;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 0.35rem;
+  font-weight: 500;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .holiday-calendar-wrapper {
+    padding: 1.5rem 1rem 80px;
+  }
+
+  .holiday-header {
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .holiday-title {
+    font-size: 2rem;
+  }
+
+  .holiday-title i {
+    font-size: 2.2rem;
+  }
+
+  .holidays-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .holiday-card {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .holiday-date-box {
+    min-width: 60px;
+    padding: 0.75rem;
+  }
+
+  .holiday-day {
+    font-size: 1.5rem;
+  }
+
+  .holiday-month {
+    font-size: 0.7rem;
+  }
+
+  .holiday-name {
+    font-size: 1rem;
+  }
+
+  .holiday-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .stat-card {
+    padding: 1rem;
+  }
+
+  .stat-icon {
+    width: 45px;
+    height: 45px;
+    font-size: 1.25rem;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .holiday-calendar-wrapper {
+    padding: 1rem 0.75rem 80px;
+  }
+
+  .holiday-header {
+    gap: 1rem;
+  }
+
+  .holiday-title {
+    font-size: 1.5rem;
+  }
+
+  .holiday-title i {
+    font-size: 1.75rem;
+  }
+
+  .holiday-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .year-filter-form {
+    flex-direction: column;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .filter-label {
+    width: 100%;
+  }
+
+  .year-select {
+    width: 100%;
+  }
+
+  .holiday-card {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .holiday-date-box {
+    min-width: 55px;
+    padding: 0.5rem;
+  }
+
+  .holiday-day {
+    font-size: 1.25rem;
+  }
+
+  .holiday-month {
+    font-size: 0.65rem;
+  }
+
+  .holiday-name {
+    font-size: 0.95rem;
+  }
+
+  .holiday-badge {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.7rem;
+  }
+
+  .holiday-description {
+    font-size: 0.8rem;
+  }
+
+  .holiday-date-display {
+    font-size: 0.75rem;
+  }
+
+  .empty-state {
+    padding: 2rem 1rem;
+  }
+
+  .empty-state-icon {
+    font-size: 3rem;
+  }
+
+  .empty-state-title {
+    font-size: 1.25rem;
+  }
+
+  .empty-state-text {
+    font-size: 0.9rem;
+  }
+
+  .holiday-stats {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .stat-card {
+    padding: 0.75rem;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="holiday-calendar-wrapper">
+  <!-- Header Section -->
+  <div class="holiday-header">
+    <div class="holiday-header-content">
+      <div class="holiday-header-text">
+        <h1 class="holiday-title">
+          <i class="bx bx-calendar-event"></i>
+          Holiday Calendar
+        </h1>
+        <p class="holiday-subtitle">All upcoming company & national holidays</p>
+      </div>
+    </div>
+
+    <!-- Year Filter -->
+    <div class="holiday-filter">
+      <form method="GET" id="yearFilterForm" class="year-filter-form">
+        <label for="yearSelect" class="filter-label">Filter by Year:</label>
+        <select id="yearSelect" name="year" class="year-select">
+          {% for year in available_years %}
+            <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>
+              {{ year }}
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+  </div>
+
+  <!-- Holidays Grid/List -->
+  <div class="holidays-container">
+    {% if holidays %}
+      <div class="holidays-grid">
+        {% for holiday in holidays %}
+          <div class="holiday-card" data-type="{{ holiday.type }}">
+            <!-- Date Box -->
+            <div class="holiday-date-box">
+              <div class="holiday-day">
+                {{ holiday.date|date:"d" }}
+              </div>
+              <div class="holiday-month">
+                {{ holiday.date|date:"M" }}
+              </div>
+            </div>
+
+            <!-- Holiday Info -->
+            <div class="holiday-info">
+              <h3 class="holiday-name">{{ holiday.name }}</h3>
+              
+              <!-- Type Badge -->
+              <div class="holiday-badge holiday-badge-{{ holiday.type }}">
+                {% if holiday.type == 'national' %}
+                  <i class="bx bx-flag"></i> National Holiday
+                {% elif holiday.type == 'office' %}
+                  <i class="bx bx-building"></i> Office Holiday
+                {% elif holiday.type == 'festival' %}
+                  <i class="bx bx-gift"></i> Festival
+                {% else %}
+                  <i class="bx bx-calendar"></i> Holiday
+                {% endif %}
+              </div>
+
+              <!-- Description -->
+              {% if holiday.description %}
+                <p class="holiday-description">{{ holiday.description }}</p>
+              {% endif %}
+
+              <!-- Date Display -->
+              <div class="holiday-date-display">
+                {{ holiday.date|date:"l, j F Y" }}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <!-- Empty State -->
+      <div class="empty-state">
+        <div class="empty-state-icon">
+          <i class="bx bx-calendar-x"></i>
+        </div>
+        <h3 class="empty-state-title">No Holidays Found</h3>
+        <p class="empty-state-text">No holidays scheduled for {{ selected_year }}</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Statistics Section -->
+  {% if holidays %}
+    <!-- <div class="holiday-stats">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-total">
+          <i class="bx bx-calendar"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ holidays|length }}</div>
+          <div class="stat-label">Total Holidays</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-national">
+          <i class="bx bx-flag"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ national_count }}</div>
+          <div class="stat-label">National Holidays</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-office">
+          <i class="bx bx-building"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ office_count }}</div>
+          <div class="stat-label">Office Holidays</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-festival">
+          <i class="bx bx-gift"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ festival_count }}</div>
+          <div class="stat-label">Festivals</div>
+        </div>
+      </div>
+    </div> -->
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+  // Auto-submit year filter form on change
+  document.addEventListener('DOMContentLoaded', function() {
+    const yearSelect = document.getElementById('yearSelect');
+    const yearFilterForm = document.getElementById('yearFilterForm');
+
+    if (yearSelect) {
+      yearSelect.addEventListener('change', function() {
+        yearFilterForm.submit();
+      });
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}Face Update Requests | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .face-requests-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.78rem;
+  }
+  .status-pill.pending { background: rgba(234, 179, 8, 0.18); color: #b45309; }
+  .status-pill.approved { background: rgba(34, 197, 94, 0.18); color: #166534; }
+  .status-pill.rejected { background: rgba(244, 63, 94, 0.18); color: #be123c; }
+  .status-pill.completed { background: rgba(59, 130, 246, 0.18); color: #1d4ed8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="face-requests-header">
+          <div>
+            <h4 class="card-title mb-1"><i class="bx bx-face me-2"></i>Face Update Requests</h4>
+            <p class="text-muted mb-0">Review and approve employee face re-registration requests.</p>
+          </div>
+          <a href="{% url 'employees:admin_dashboard' %}" class="btn btn-outline-primary"><i class="bx bx-arrow-back me-1"></i>Back to Dashboard</a>
+        </div>
+      </div>
+      <div class="card-body border-top">
+        <form method="get" class="row gy-2 gx-3 align-items-end">
+          <div class="col-sm-4 col-md-3">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+              <option value="">All statuses</option>
+              {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-4 col-md-3">
+            <label class="form-label">Employee</label>
+            <input type="text" name="employee" value="{{ request.GET.employee }}" class="form-control" placeholder="Search by name or email">
+          </div>
+          <div class="col-sm-4 col-md-3">
+            <label class="form-label">Requested after</label>
+            <input type="date" name="requested_after" class="form-control" value="{{ request.GET.requested_after }}">
+          </div>
+          <div class="col-sm-4 col-md-3">
+            <label class="form-label">Requested before</label>
+            <input type="date" name="requested_before" class="form-control" value="{{ request.GET.requested_before }}">
+          </div>
+          <div class="col-12 col-sm-auto">
+            <button type="submit" class="btn btn-primary"><i class="bx bx-filter-alt"></i> Apply</button>
+            {% if request.GET %}
+              <a href="{% url 'employees:admin_face_update_requests' %}" class="btn btn-link">Reset</a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        {% if requests %}
+          <div class="table-responsive">
+            <table class="table table-hover table-nowrap mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Employee</th>
+                  <th>Status</th>
+                  <th>Requested</th>
+                  <th>Reviewed</th>
+                  <th>Reason</th>
+                  <th>Admin comment</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for face_request in requests %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="avatar avatar-sm bg-label-primary text-white">
+                          {{ face_request.employee.name|slice:":1"|upper }}
+                        </div>
+                        <div>
+                          <div class="fw-semibold">{{ face_request.employee.name }}</div>
+                          <div class="text-muted small">{{ face_request.employee.email }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="status-pill {{ face_request.status }}">
+                        <i class="bx bx-face"></i>
+                        {{ face_request.get_status_display }}
+                      </span>
+                    </td>
+                    <td>
+                      <div class="small fw-semibold">{{ face_request.requested_at|date:"M j, Y h:i A" }}</div>
+                      <div class="text-muted small">{{ face_request.requested_at|naturaltime }}</div>
+                    </td>
+                    <td>
+                      {% if face_request.reviewed_at %}
+                        <div class="small fw-semibold">{{ face_request.reviewed_at|date:"M j, Y h:i A" }}</div>
+                        <div class="text-muted small">{{ face_request.reviewed_at|naturaltime }}</div>
+                        {% if face_request.reviewed_by %}
+                          <div class="text-muted small"><i class="bx bx-user-circle me-1"></i>{{ face_request.reviewed_by.get_full_name|default:face_request.reviewed_by.username }}</div>
+                        {% endif %}
+                      {% else %}
+                        <span class="badge bg-label-warning">Pending</span>
+                      {% endif %}
+                    </td>
+                    <td class="small" style="max-width: 240px;">
+                      {% if face_request.reason %}
+                        {{ face_request.reason|truncatechars:120 }}
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="small" style="max-width: 240px;">
+                      {% if face_request.admin_comment %}
+                        {{ face_request.admin_comment|truncatechars:120 }}
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      {% if face_request.status == 'pending' %}
+                        <div class="d-flex justify-content-end gap-2">
+                          <form method="post" action="{% url 'employees:admin_face_update_requests' %}{% if status_filter %}?status={{ status_filter }}{% endif %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="request_id" value="{{ face_request.id }}">
+                            <input type="hidden" name="action" value="approve">
+                            <button type="submit" class="btn btn-sm btn-success"><i class="bx bx-check me-1"></i>Approve</button>
+                          </form>
+                          <button class="btn btn-sm btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#reject-form-{{ face_request.id }}"><i class="bx bx-x me-1"></i>Reject</button>
+                        </div>
+                        <div class="collapse mt-2" id="reject-form-{{ face_request.id }}">
+                          <form method="post" action="{% url 'employees:admin_face_update_requests' %}{% if status_filter %}?status={{ status_filter }}{% endif %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="request_id" value="{{ face_request.id }}">
+                            <input type="hidden" name="action" value="reject">
+                            <textarea name="admin_comment" class="form-control mb-2" rows="2" placeholder="Reason for rejection (optional)"></textarea>
+                            <div class="d-flex justify-content-end gap-2">
+                              <button type="button" class="btn btn-sm btn-light" data-bs-toggle="collapse" data-bs-target="#reject-form-{{ face_request.id }}">Cancel</button>
+                              <button type="submit" class="btn btn-sm btn-danger">Reject</button>
+                            </div>
+                          </form>
+                        </div>
+                      {% elif face_request.status == 'approved' %}
+                        <span class="badge bg-label-success"><i class="bx bx-check"></i> Approved</span>
+                      {% elif face_request.status == 'rejected' %}
+                        <span class="badge bg-label-danger"><i class="bx bx-x"></i> Rejected</span>
+                      {% else %}
+                        <span class="badge bg-label-primary"><i class="bx bx-badge-check"></i> Completed</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="p-5 text-center text-muted">
+            <i class="bx bx-face fs-1 d-block mb-2"></i>
+            <p class="mb-0">No face update requests found.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

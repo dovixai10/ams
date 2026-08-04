@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Welcome to Dovix EMS</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, rgba(0, 146, 175, 0.1), rgba(4, 4, 4, 0.05));
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #1f2937;
+        min-height: 100vh;
+      }
+      .wrapper {
+        width: 100%;
+        background: linear-gradient(135deg, rgba(0, 146, 175, 0.05), rgba(4, 4, 4, 0.02));
+        padding: 40px 12px;
+      }
+      .container {
+        max-width: 660px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 146, 175, 0.15), 0 8px 20px rgba(4, 4, 4, 0.08);
+        overflow: hidden;
+        border: 1px solid rgba(0, 146, 175, 0.1);
+      }
+      .header {
+        background: linear-gradient(135deg, rgba(0, 146, 175, 0.95), rgba(4, 4, 4, 0.9));
+        padding: 40px;
+        color: #ffffff;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.08)"/><circle cx="20" cy="60" r="0.5" fill="rgba(255,255,255,0.08)"/><circle cx="80" cy="40" r="0.5" fill="rgba(255,255,255,0.08)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        opacity: 0.3;
+      }
+      .logo {
+        width: 140px;
+        height: 70px;
+        margin: 0 auto 24px;
+        background: #ffffff;
+        border-radius: 8px;
+        padding: 10px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+      }
+      .logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 30px;
+        font-weight: 700;
+        position: relative;
+        z-index: 1;
+      }
+      .content {
+        padding: 40px;
+        line-height: 1.7;
+        font-size: 16px;
+      }
+      .content p {
+        margin: 0 0 20px;
+        line-height: 1.7;
+        font-size: 16px;
+      }
+      .credentials-box {
+        background: linear-gradient(135deg, rgba(0, 146, 175, 0.05), rgba(4, 4, 4, 0.02));
+        border-radius: 16px;
+        padding: 28px 32px;
+        margin: 28px 0;
+        border: 1px solid rgba(0, 146, 175, 0.15);
+        box-shadow: 0 4px 12px rgba(0, 146, 175, 0.08);
+      }
+      .credentials-box h2 {
+        margin: 0 0 20px;
+        font-size: 20px;
+        color: rgba(0, 146, 175, 0.9);
+        font-weight: 700;
+      }
+      .credential-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        font-size: 16px;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(0, 146, 175, 0.08);
+      }
+      .credential-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+      }
+      .credential-item span {
+        font-weight: 600;
+        color: #1f2937;
+      }
+      .cta-button {
+        display: inline-block;
+        padding: 16px 32px;
+        background: linear-gradient(135deg, rgba(0, 146, 175, 0.9), rgba(4, 4, 4, 0.85));
+        color: #ffffff !important;
+        text-decoration: none;
+        border-radius: 50px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        font-size: 16px;
+        box-shadow: 0 8px 25px rgba(0, 146, 175, 0.3);
+        margin: 12px 0 32px;
+        transition: all 0.3s ease;
+      }
+      .cta-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 35px rgba(0, 146, 175, 0.4);
+      }
+      .divider {
+        height: 1px;
+        background: linear-gradient(90deg, rgba(0, 146, 175, 0.2), rgba(4, 4, 4, 0.1));
+        margin: 36px 0;
+      }
+      .footer {
+        padding: 0 40px 40px;
+        font-size: 14px;
+        line-height: 1.7;
+        color: #6b7280;
+        background: linear-gradient(135deg, rgba(0, 146, 175, 0.03), rgba(4, 4, 4, 0.02));
+      }
+      .footer p {
+        margin: 0 0 16px;
+      }
+      .footer strong {
+        color: rgba(0, 146, 175, 0.9);
+      }
+      @media only screen and (max-width: 600px) {
+        .container {
+          border-radius: 0;
+        }
+        .header,
+        .content,
+        .footer {
+          padding: 28px 22px;
+        }
+        .credentials-box {
+          padding: 18px;
+        }
+        .credential-item {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .credential-item span {
+          margin-bottom: 6px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="container">
+        <div class="header">
+          <div class="logo">
+            <img src="https://ems.edtimglobalinsurance.com/static/img/layouts/logo.png" alt="DOvix EMS Logo" style="display: block;" />
+          </div>
+          <h1>Welcome to Dovix EMS, {{ employee_name }}!</h1>
+          <p style="margin-top: 16px; font-size: 16px; opacity: 0.9; position: relative; z-index: 1;">
+            We're excited to have you on board. Your employee portal is ready.
+          </p>
+        </div>
+        <div class="content">
+          <p>Hi {{ employee_name }},</p>
+          <p>
+            Your profile has been created in the Dovix EMS employee portal. Use the credentials below to sign in and complete your onboarding. For security, please change your password after the first login.
+          </p>
+          <div class="credentials-box">
+            <h2>Your login credentials</h2>
+            <div class="credential-item">
+              <span>Employee Portal</span>
+              <a href="{{ login_url }}" style="color: rgba(0, 146, 175, 0.9); text-decoration: underline; font-weight: 600;">{{ login_url }}</a>
+            </div>
+            <div class="credential-item">
+              <span>Username</span>
+              <code style="background: linear-gradient(135deg, rgba(0, 146, 175, 0.08), rgba(4, 4, 4, 0.05)); padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(0, 146, 175, 0.15); font-weight: 600;">{{ email }}</code>
+            </div>
+            <div class="credential-item">
+              <span>Temporary Password</span>
+              <code style="background: linear-gradient(135deg, rgba(0, 146, 175, 0.08), rgba(4, 4, 4, 0.05)); padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(0, 146, 175, 0.15); font-weight: 600;">{{ password }}</code>
+            </div>
+          </div>
+          <p style="text-align: center;">
+            <a class="cta-button" href="{{ login_url }}" target="_blank" rel="noopener">Go to Dovix EMS Portal</a>
+          </p>
+          <p>
+            Need help logging in or updating your profile? Reply to this email or reach out to HR at <a href="mailto:info@thekwikster.com" style="color: rgba(0, 146, 175, 0.9); font-weight: 600;">info@thekwikster.com</a>.
+          </p>
+          <div class="divider"></div>
+          <p style="margin-bottom: 8px; font-weight: 600; color: rgba(0, 146, 175, 0.9);">Quick onboarding checklist:</p>
+          <ul style="padding-left: 20px; margin: 0 0 24px 0; color: #4b5563; line-height: 1.8;">
+            <li>Log in and change your password.</li>
+            <li>Upload compliance documents (Aadhaar, PAN, bank proof, education).</li>
+            <li>Complete your personal and emergency contact information.</li>
+          </ul>
+          <p>Welcome again, and we look forward to working with you!</p>
+        </div>
+        <div class="footer">
+          <p><strong>Dovix EMS HR Team</strong></p>
+          <p>Dovix EMS • info@thekwikster.com</p>
+          <p style="font-size: 13px; color: #9ca3af; margin-top: 20px;">
+            This email was sent automatically from the Dovix EMS employee management portal. If you believe you received it in error, please contact HR immediately.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

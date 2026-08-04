@@ -1,0 +1,840 @@
+{% extends layout_path %}
+{% load humanize %}
+
+{% block title %}Leave Requests | Employee Portal{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .leave-container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 1.5rem 0.75rem 3rem;
+  }
+
+  /* Header */
+  .leave-header {
+    margin-bottom: 2rem;
+  }
+
+  .leave-header__title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+  }
+
+  .leave-header__subtitle {
+    font-size: 0.95rem;
+    color: rgba(15, 23, 42, 0.6);
+  }
+
+  /* Tabs */
+  .leave-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    background: rgba(148, 163, 184, 0.12);
+    padding: 0.5rem;
+    border-radius: 12px;
+  }
+
+  .leave-tab {
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: rgba(15, 23, 42, 0.6);
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .leave-tab:hover {
+    background: rgba(99, 102, 241, 0.08);
+    color: #6366f1;
+  }
+
+  .leave-tab.active {
+    background: #fff;
+    color: #6366f1;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+  }
+
+  .leave-tab i {
+    font-size: 1.1rem;
+  }
+
+  /* Tab Content */
+  .leave-tab-content {
+    display: none;
+  }
+
+  .leave-tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Form Card */
+  .leave-form-card {
+    background: #fff;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  }
+
+  .leave-form-card h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .leave-form-card h3 i {
+    font-size: 1.4rem;
+    color: #6366f1;
+  }
+
+  /* Form Fields */
+  .leave-field {
+    margin-bottom: 1.25rem;
+  }
+
+  .leave-field label {
+    display: block;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  .leave-field .text-danger {
+    color: #dc2626;
+    font-weight: 600;
+  }
+
+  .leave-field input,
+  .leave-field textarea,
+  .leave-field select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+  }
+
+  .leave-field input:focus,
+  .leave-field textarea:focus,
+  .leave-field select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  .leave-field textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  /* Leave Type Options */
+  .leave-type-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+
+  .leave-type-option {
+    position: relative;
+  }
+
+  .leave-type-option input[type="radio"] {
+    display: none;
+  }
+
+  .leave-type-option span {
+    display: block;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid rgba(148, 163, 184, 0.3);
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: rgba(15, 23, 42, 0.7);
+    transition: all 0.2s ease;
+  }
+
+  .leave-type-option input[type="radio"]:checked + span {
+    background: #6366f1;
+    color: #fff;
+    border-color: #6366f1;
+  }
+
+  /* Submit Button */
+  .leave-submit {
+    width: 100%;
+    padding: 0.85rem 1.5rem;
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .leave-submit:hover {
+    background: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+
+  .leave-submit:active {
+    transform: translateY(0);
+  }
+
+  /* History List */
+  .leave-history {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .leave-history-card {
+    background: #fff;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 14px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    transition: all 0.2s ease;
+  }
+
+  .leave-history-card:hover {
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
+    border-color: rgba(99, 102, 241, 0.2);
+  }
+
+  .leave-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 1rem;
+  }
+
+  .leave-dates {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .leave-date-box {
+    background: rgba(99, 102, 241, 0.08);
+    color: #6366f1;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .leave-date-separator {
+    color: rgba(15, 23, 42, 0.4);
+    font-weight: 600;
+  }
+
+  .leave-meta {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .leave-badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .leave-badge-full {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1e40af;
+  }
+
+  .leave-badge-first-half {
+    background: rgba(168, 85, 247, 0.1);
+    color: #6d28d9;
+  }
+
+  .leave-badge-second-half {
+    background: rgba(168, 85, 247, 0.1);
+    color: #6d28d9;
+  }
+
+  .leave-status-badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .leave-status-pending {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .leave-status-approved {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .leave-status-rejected {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .leave-history-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .leave-history-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .leave-history-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(15, 23, 42, 0.5);
+  }
+
+  .leave-history-value {
+    font-size: 0.95rem;
+    color: #0f172a;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .leave-history-empty {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 14px;
+    color: rgba(15, 23, 42, 0.5);
+  }
+
+  .leave-history-empty i {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.4;
+  }
+
+  /* Paid Leave Balance */
+  .leave-balance-card {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff;
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+  }
+
+  .leave-balance-label {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    margin-bottom: 0.5rem;
+  }
+
+  .leave-balance-value {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .leave-management-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .leave-management-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .leave-management-header h1 i {
+    color: #2563eb;
+  }
+
+  .paid-leave-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+    flex-shrink: 0;
+  }
+
+  .badge-label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-value {
+    display: inline-block;
+    padding: 5px 14px;
+    background: linear-gradient(135deg, #6366F1, #8B5CF6);
+    color: white;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+    white-space: nowrap;
+  }
+/* --- Mobile Font Resize Fix (Max-width: 480px) --- */
+@media (max-width: 480px) {
+
+  /* Headers */
+  .leave-header__title,
+  .leave-management-header h1 {
+    font-size: 1.25rem !important;
+  }
+
+  .leave-header__subtitle {
+    font-size: 0.8rem !important;
+  }
+
+  /* Tabs */
+  .leave-tab {
+    font-size: 0.8rem !important;
+    padding: 0.6rem !important;
+  }
+
+  /* Form Labels & Inputs */
+  .leave-field label {
+    font-size: 0.85rem !important;
+  }
+
+  .leave-field input,
+  .leave-field textarea,
+  .leave-field select {
+    font-size: 0.85rem !important;
+    padding: 0.6rem 0.75rem !important;
+  }
+
+  /* Leave Type Options */
+  .leave-type-option span {
+    font-size: 0.8rem !important;
+    padding: 0.6rem !important;
+  }
+
+  /* Buttons */
+  .leave-submit {
+    font-size: 0.85rem !important;
+    padding: 0.75rem !important;
+  }
+
+  /* Leave History */
+  .leave-history-value {
+    font-size: 0.85rem !important;
+  }
+
+  .leave-date-box {
+    font-size: 0.75rem !important;
+  }
+
+  .leave-badge,
+  .leave-status-badge {
+    font-size: 0.7rem !important;
+  }
+
+  /* Paid Leave Badge */
+  .badge-label {
+    font-size: 10px !important;
+  }
+
+  .badge-value {
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+  }
+}
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .leave-container {
+      padding: 1rem 0.5rem 2rem;
+    }
+
+    .leave-form-card {
+      padding: 1.5rem;
+    }
+
+    .leave-type-options {
+      grid-template-columns: 1fr;
+    }
+
+    .leave-history-body {
+      grid-template-columns: 1fr;
+    }
+
+    .leave-header__title {
+      font-size: 1.4rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="leave-management-header">
+    <h1>
+      <i class="bx bx-calendar-alt"></i> Leave Management
+    </h1>
+    
+    <!-- Paid Leave Badge -->
+    <div class="paid-leave-badge">
+      <span class="badge-label">Available Paid Leave:</span>
+      <span class="badge-value">{{ paid_leave_balance|floatformat:1 }} Days</span>
+    </div>
+  </div>
+
+  <!-- Paid Leave Balance -->
+  <!-- {% if paid_leave_balance %}
+  <div class="leave-balance-card">
+    <div class="leave-balance-label">Available Paid Leave</div>
+    <div class="leave-balance-value">{{ paid_leave_balance|floatformat:1 }} days</div>
+  </div>
+  {% endif %} -->
+
+  <!-- Tabs -->
+  <div class="leave-tabs">
+    <button type="button" class="leave-tab active" data-target="request" onclick="switchTab(event, 'request')">
+      <i class="bx bx-edit"></i>
+      Request Leave
+    </button>
+    <button type="button" class="leave-tab" data-target="history" onclick="switchTab(event, 'history')">
+      <i class="bx bx-history"></i>
+      History
+    </button>
+  </div>
+
+  <!-- Tab 1: Request Leave Form -->
+  <div id="request" class="leave-tab-content active">
+    <div class="leave-form-card">
+      <h3><i class="bx bx-time-five"></i> New Leave Request</h3>
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger mb-3">{{ form.non_field_errors|striptags }}</div>
+      {% endif %}
+
+      <form method="post" id="leaveRequestForm" novalidate>
+        {% csrf_token %}
+
+        <!-- Start Date -->
+        <div class="leave-field">
+          <label for="id_start_date">Start Date <span class="text-danger">*</span></label>
+          {{ form.start_date }}
+          {% if form.start_date.errors %}
+            <div class="text-danger small mt-1">{{ form.start_date.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <!-- End Date -->
+        <div class="leave-field">
+          <label for="id_end_date">End Date <span class="text-danger">*</span></label>
+          {{ form.end_date }}
+          {% if form.end_date.errors %}
+            <div class="text-danger small mt-1">{{ form.end_date.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Leave Category -->
+        <div class="leave-field">
+          <label for="id_leave_category">Leave Category <span class="text-danger">*</span></label>
+          <select name="leave_category" id="id_leave_category" class="form-control" required>
+            <option value="">-- Select Leave Category --</option>
+            <option value="paid" {% if form.leave_category.value == 'paid' %}selected{% endif %}>Paid Leave (PL)</option>
+            <option value="lwp" {% if form.leave_category.value == 'lwp' %}selected{% endif %}>Leave Without Pay (LWP)</option>
+          </select>
+          {% if form.leave_category.errors %}
+            <div class="text-danger small mt-1">{{ form.leave_category.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Leave Type -->
+        <div class="leave-field">
+          <label>Leave Type <span class="text-danger">*</span></label>
+          <div class="leave-type-options" role="radiogroup">
+            <label class="leave-type-option">
+              <input type="radio" name="leave_type" value="full_day" {% if form.leave_type.value == 'full_day' or not form.leave_type.value %}checked{% endif %} required>
+              <span>Full Day</span>
+            </label>
+            <label class="leave-type-option">
+              <input type="radio" name="leave_type" value="first_half" {% if form.leave_type.value == 'first_half' %}checked{% endif %}>
+              <span>First Half</span>
+            </label>
+            <label class="leave-type-option">
+              <input type="radio" name="leave_type" value="second_half" {% if form.leave_type.value == 'second_half' %}checked{% endif %}>
+              <span>Second Half</span>
+            </label>
+          </div>
+          {% if form.leave_type.errors %}
+            <div class="text-danger small mt-1">{{ form.leave_type.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Reason -->
+        <div class="leave-field">
+          <label for="id_reason">Reason <span class="text-danger">*</span></label>
+          {{ form.reason }}
+          {% if form.reason.errors %}
+            <div class="text-danger small mt-1">{{ form.reason.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="leave-submit" id="submitLeaveBtn">
+          <i class="bx bx-paper-plane"></i> Submit Request
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tab 2: Leave History -->
+  <div id="history" class="leave-tab-content">
+    {% if leave_requests %}
+      <div class="leave-history">
+        {% for leave in leave_requests %}
+          <div class="leave-history-card">
+            <!-- Header with dates and badges -->
+            <div class="leave-history-header">
+              <div class="leave-dates">
+                <div class="leave-date-box">{{ leave.start_date|date:"d M Y" }}</div>
+                {% if leave.start_date != leave.end_date %}
+                  <span class="leave-date-separator">to</span>
+                  <div class="leave-date-box">{{ leave.end_date|date:"d M Y" }}</div>
+                {% endif %}
+              </div>
+              <div class="leave-meta">
+                <span class="leave-badge leave-badge-{{ leave.leave_type }}">
+                  {% if leave.leave_type == 'full_day' %}Full Day
+                  {% elif leave.leave_type == 'first_half' %}First Half
+                  {% else %}Second Half{% endif %}
+                </span>
+                <span class="leave-status-badge leave-status-{{ leave.status }}">
+                  {{ leave.get_status_display }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Body with details -->
+            <div class="leave-history-body">
+              <div class="leave-history-section">
+                <div class="leave-history-label">Days</div>
+                <div class="leave-history-value">{{ leave.total_days }} day{{ leave.total_days|pluralize }}</div>
+              </div>
+
+              <div class="leave-history-section">
+                <div class="leave-history-label">Reason</div>
+                <div class="leave-history-value">{{ leave.reason|linebreaksbr|truncatewords:15 }}</div>
+              </div>
+
+              <div class="leave-history-section">
+                <div class="leave-history-label">Verification</div>
+                <div class="leave-history-value">{{ leave.get_verification_status_display }}</div>
+              </div>
+
+              {% if leave.receipt %}
+                <div class="leave-history-section">
+                  <div class="leave-history-label">Document</div>
+                  <div class="leave-history-value">
+                    <a href="{{ leave.receipt.url }}" target="_blank" class="text-primary" style="text-decoration: none;">
+                      <i class="bx bx-paperclip"></i> View
+                    </a>
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="leave-history-empty">
+        <div><i class="bx bx-inbox"></i></div>
+        <p>No leave requests yet</p>
+        <small>Your leave history will appear here</small>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function switchTab(event, tabName) {
+  event.preventDefault();
+  
+  // Hide all tab contents
+  document.querySelectorAll('.leave-tab-content').forEach(el => {
+    el.classList.remove('active');
+  });
+  
+  // Remove active class from all tabs
+  document.querySelectorAll('.leave-tab').forEach(el => {
+    el.classList.remove('active');
+  });
+  
+  // Show selected tab content
+  document.getElementById(tabName).classList.add('active');
+  
+  // Add active class to clicked tab
+  event.target.closest('.leave-tab').classList.add('active');
+}
+
+// ============================================
+// MULTI-DAY LEAVE HALF-DAY RESTRICTION
+// ============================================
+
+/**
+ * Update leave type options based on date range
+ * - Single day: All options enabled (First Half, Second Half, Full Day)
+ * - Multi-day (>1 day): Only Full Day enabled, half-days disabled
+ */
+function updateLeaveTypeOptions() {
+  const startDateInput = document.querySelector('input[name="start_date"]');
+  const endDateInput = document.querySelector('input[name="end_date"]');
+  const firstHalfOption = document.querySelector('input[value="first_half"]');
+  const secondHalfOption = document.querySelector('input[value="second_half"]');
+  const fullDayOption = document.querySelector('input[value="full_day"]');
+  
+  if (!startDateInput || !endDateInput) return;
+  
+  const startDate = startDateInput.value;
+  const endDate = endDateInput.value;
+  
+  if (!startDate || !endDate) return;
+  
+  // Parse dates (handle timezone issues)
+  const start = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+  
+  // Calculate number of days
+  const timeDiff = end.getTime() - start.getTime();
+  const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+  const totalDays = daysDiff + 1; // +1 because both start and end dates are inclusive
+  
+  if (totalDays === 1) {
+    // ✅ Single day: show all options (First Half, Second Half, Full Day)
+    if (firstHalfOption) {
+      firstHalfOption.disabled = false;
+      firstHalfOption.parentElement.style.opacity = '1';
+      firstHalfOption.parentElement.style.pointerEvents = 'auto';
+      firstHalfOption.parentElement.style.cursor = 'pointer';
+    }
+    if (secondHalfOption) {
+      secondHalfOption.disabled = false;
+      secondHalfOption.parentElement.style.opacity = '1';
+      secondHalfOption.parentElement.style.pointerEvents = 'auto';
+      secondHalfOption.parentElement.style.cursor = 'pointer';
+    }
+    if (fullDayOption) {
+      fullDayOption.disabled = false;
+      fullDayOption.parentElement.style.opacity = '1';
+      fullDayOption.parentElement.style.pointerEvents = 'auto';
+      fullDayOption.parentElement.style.cursor = 'pointer';
+    }
+  } else if (totalDays > 1) {
+    // ❌ Multi-day (>1 day): disable half-day options, force Full Day
+    if (firstHalfOption) {
+      firstHalfOption.disabled = true;
+      firstHalfOption.parentElement.style.opacity = '0.5';
+      firstHalfOption.parentElement.style.pointerEvents = 'none';
+      firstHalfOption.parentElement.style.cursor = 'not-allowed';
+      firstHalfOption.parentElement.title = `Half-day not available for ${totalDays}-day leave`;
+    }
+    if (secondHalfOption) {
+      secondHalfOption.disabled = true;
+      secondHalfOption.parentElement.style.opacity = '0.5';
+      secondHalfOption.parentElement.style.pointerEvents = 'none';
+      secondHalfOption.parentElement.style.cursor = 'not-allowed';
+      secondHalfOption.parentElement.title = `Half-day not available for ${totalDays}-day leave`;
+    }
+    if (fullDayOption) {
+      fullDayOption.disabled = false;
+      fullDayOption.checked = true; // Auto-select Full Day
+      fullDayOption.parentElement.style.opacity = '1';
+      fullDayOption.parentElement.style.pointerEvents = 'auto';
+      fullDayOption.parentElement.style.cursor = 'pointer';
+    }
+  }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize half-day logic
+  updateLeaveTypeOptions();
+  
+  // Add event listeners for date changes
+  const startDateInput = document.querySelector('input[name="start_date"]');
+  const endDateInput = document.querySelector('input[name="end_date"]');
+  
+  if (startDateInput) {
+    startDateInput.addEventListener('change', updateLeaveTypeOptions);
+  }
+  if (endDateInput) {
+    endDateInput.addEventListener('change', updateLeaveTypeOptions);
+  }
+});
+</script>
+{% endblock %}

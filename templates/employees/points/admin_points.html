@@ -1,0 +1,650 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Employee Points Management | Admin{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .points-container {
+    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+  }
+
+  .filter-section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .filter-group label {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.9rem;
+  }
+
+  .filter-group input,
+  .filter-group select {
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
+
+  .filter-group input:focus,
+  .filter-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  .btn-filter {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    align-self: flex-end;
+  }
+
+  .btn-filter:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  .points-table {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  td {
+    padding: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.9rem;
+  }
+
+  tbody tr:hover {
+    background: rgba(102, 126, 234, 0.02);
+  }
+
+  .employee-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .employee-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .employee-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .employee-name {
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .employee-id {
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+
+  .points-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-align: center;
+    min-width: 80px;
+  }
+
+  .points-badge.high {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+
+  .points-badge.medium {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .points-badge.low {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .btn-sm {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .btn-edit {
+    background: #e0e7ff;
+    color: #4f46e5;
+  }
+
+  .btn-edit:hover {
+    background: #c7d2fe;
+  }
+
+  .btn-add {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+
+  .btn-add:hover {
+    background: #bbf7d0;
+  }
+
+  .btn-deduct {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  .btn-deduct:hover {
+    background: #fecaca;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6b7280;
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    color: #d1d5db;
+    margin-bottom: 1rem;
+  }
+
+  .empty-state p {
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .modal-header h5 {
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+  }
+
+  .form-group {
+    margin-bottom: 1.25rem;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.95rem;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  .modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  .btn-secondary {
+    background: #e5e7eb;
+    color: #1f2937;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-secondary:hover {
+    background: #d1d5db;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  .stat-subtitle {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin-top: 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+    .page-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .filter-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .btn-filter {
+      align-self: stretch;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    table {
+      font-size: 0.85rem;
+    }
+
+    th, td {
+      padding: 0.75rem;
+    }
+
+    .employee-cell {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .employee-avatar {
+      width: 32px;
+      height: 32px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="points-container">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="bx bx-trophy me-2"></i>Employee Points Management</h1>
+      <p class="text-muted mb-0">Manage and track employee performance points</p>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Employees</div>
+      <div class="stat-value">{{ total_employees }}</div>
+      <div class="stat-subtitle">Active employees tracked</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Average Points</div>
+      <div class="stat-value">{{ average_points|floatformat:0 }}</div>
+      <div class="stat-subtitle">This month</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Top Performer</div>
+      <div class="stat-value">{{ top_performer_points }}</div>
+      <div class="stat-subtitle">{{ top_performer_name }}</div>
+    </div>
+  </div>
+
+  <!-- Filter Section -->
+  <div class="filter-section">
+    <form method="get" class="filter-grid">
+      <div class="filter-group">
+        <label for="employee">Employee</label>
+        <select name="employee" id="employee">
+          <option value="">All Employees</option>
+          {% for emp in employees %}
+            <option value="{{ emp.id }}" {% if request.GET.employee|stringformat:"s" == emp.id|stringformat:"s" %}selected{% endif %}>
+              {{ emp.full_name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="month">Month</label>
+        <select name="month" id="month">
+          {% for m in months %}
+            <option value="{{ m }}" {% if request.GET.month|stringformat:"s" == m|stringformat:"s" %}selected{% endif %}>
+              {{ m|date:"F Y" }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="sort">Sort By</label>
+        <select name="sort" id="sort">
+          <option value="-points" {% if request.GET.sort == "-points" %}selected{% endif %}>Highest Points</option>
+          <option value="points" {% if request.GET.sort == "points" %}selected{% endif %}>Lowest Points</option>
+          <option value="employee__full_name" {% if request.GET.sort == "employee__full_name" %}selected{% endif %}>Employee Name</option>
+        </select>
+      </div>
+      <button type="submit" class="btn-filter">
+        <i class="bx bx-filter"></i> Filter
+      </button>
+    </form>
+  </div>
+
+  <!-- Points Table -->
+  <div class="points-table">
+    <div class="table-responsive">
+      {% if points_list %}
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Month</th>
+              <th>Points</th>
+              <th>Earned</th>
+              <th>Deducted</th>
+              <th>Last Updated</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for point in points_list %}
+              <tr>
+                <td>
+                  <div class="employee-cell">
+                    <div class="employee-avatar">{{ point.employee.full_name|first }}</div>
+                    <div class="employee-info">
+                      <div class="employee-name">{{ point.employee.full_name }}</div>
+                      <div class="employee-id">ID: {{ point.employee.id }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ point.month|date:"F Y" }}</td>
+                <td>
+                  <div class="points-badge {% if point.points >= 80 %}high{% elif point.points >= 40 %}medium{% else %}low{% endif %}">
+                    {{ point.points }} pts
+                  </div>
+                </td>
+                <td>
+                  <span style="color: #059669; font-weight: 600;">+{{ point.points_earned }}</span>
+                </td>
+                <td>
+                  <span style="color: #dc2626; font-weight: 600;">-{{ point.points_deducted }}</span>
+                </td>
+                <td>{{ point.last_updated|date:"M d, Y" }}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn-sm btn-add" onclick="openAddPointsModal({{ point.id }}, '{{ point.employee.full_name }}')">
+                      <i class="bx bx-plus"></i> Add
+                    </button>
+                    <button class="btn-sm btn-deduct" onclick="openDeductPointsModal({{ point.id }}, '{{ point.employee.full_name }}')">
+                      <i class="bx bx-minus"></i> Deduct
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state">
+          <i class="bx bx-inbox"></i>
+          <p>No points records found</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Add Points Modal -->
+<div class="modal fade" id="addPointsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Points</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="addPointsForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add">
+        <input type="hidden" name="points_id" id="addPointsId">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Employee</label>
+            <input type="text" id="addEmployeeName" readonly style="background: #f3f4f6;">
+          </div>
+          <div class="form-group">
+            <label for="addPointsAmount">Points to Add</label>
+            <input type="number" id="addPointsAmount" name="amount" min="1" max="100" required>
+          </div>
+          <div class="form-group">
+            <label for="addPointsReason">Reason</label>
+            <textarea id="addPointsReason" name="reason" rows="3" placeholder="e.g., Good attendance, Excellent performance..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-primary">Add Points</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Deduct Points Modal -->
+<div class="modal fade" id="deductPointsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Deduct Points</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="deductPointsForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="deduct">
+        <input type="hidden" name="points_id" id="deductPointsId">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Employee</label>
+            <input type="text" id="deductEmployeeName" readonly style="background: #f3f4f6;">
+          </div>
+          <div class="form-group">
+            <label for="deductPointsAmount">Points to Deduct</label>
+            <input type="number" id="deductPointsAmount" name="amount" min="1" max="100" required>
+          </div>
+          <div class="form-group">
+            <label for="deductPointsReason">Reason</label>
+            <textarea id="deductPointsReason" name="reason" rows="3" placeholder="e.g., Absence, Late arrival, Rule violation..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-primary">Deduct Points</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openAddPointsModal(pointsId, employeeName) {
+    document.getElementById('addPointsId').value = pointsId;
+    document.getElementById('addEmployeeName').value = employeeName;
+    document.getElementById('addPointsAmount').value = '';
+    document.getElementById('addPointsReason').value = '';
+    new bootstrap.Modal(document.getElementById('addPointsModal')).show();
+  }
+
+  function openDeductPointsModal(pointsId, employeeName) {
+    document.getElementById('deductPointsId').value = pointsId;
+    document.getElementById('deductEmployeeName').value = employeeName;
+    document.getElementById('deductPointsAmount').value = '';
+    document.getElementById('deductPointsReason').value = '';
+    new bootstrap.Modal(document.getElementById('deductPointsModal')).show();
+  }
+
+  // Form submission
+  document.getElementById('addPointsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    this.submit();
+  });
+
+  document.getElementById('deductPointsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    this.submit();
+  });
+</script>
+{% endblock %}

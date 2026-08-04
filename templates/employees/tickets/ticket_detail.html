@@ -1,0 +1,713 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Ticket {{ ticket.ticket_number }} | Employee Portal{% endblock %}
+
+{% block content %}
+  <style>
+    :root {
+      --app-radius: 18px;
+      --app-border: rgba(15, 23, 42, 0.08);
+      --app-muted: #6b7280;
+      --app-bg: #f4f6fb;
+      --app-card: #ffffff;
+      --app-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+    }
+
+    body {
+      background: var(--app-bg);
+    }
+
+    .ticket-app {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      padding-bottom: 3rem;
+    }
+
+    .ticket-app__container {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.5rem;
+    }
+
+    .ticket-app__stack {
+      display: grid;
+      gap: 1.4rem;
+    }
+
+    .ticket-app__card {
+      background: var(--app-card);
+      border-radius: var(--app-radius);
+      border: 1px solid var(--app-border);
+      box-shadow: var(--app-shadow);
+      padding: 1.4rem 1.6rem;
+    }
+
+    .ticket-hero {
+      position: relative;
+      overflow: hidden;
+      color: #f8fafc;
+      background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+      display: grid;
+      gap: 1rem;
+      padding: 1.8rem 1.9rem;
+    }
+
+    .ticket-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 55%);
+      pointer-events: none;
+    }
+
+    .ticket-hero__content {
+      position: relative;
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .ticket-chip {
+      background: rgba(15, 23, 42, 0.2);
+      color: rgba(248, 250, 252, 0.92);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.4rem 0.98rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .ticket-hero__title {
+      margin: 0;
+      font-size: 1.6rem;
+    }
+
+    .ticket-hero__meta {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .ticket-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+      background: rgba(248, 250, 252, 0.18);
+      color: rgba(248, 250, 252, 0.95);
+    }
+
+    .ticket-hero__actions {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      margin-top: 0.4rem;
+    }
+
+    .ticket-hero__actions .btn {
+      border-radius: 999px;
+      padding-inline: 1.1rem;
+      font-weight: 600;
+    }
+
+    .ticket-summary {
+      display: grid;
+      gap: 1.2rem;
+    }
+
+    .ticket-summary__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .ticket-summary__number {
+      display: grid;
+      gap: 0.2rem;
+      text-align: right;
+    }
+
+    .ticket-summary__number label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(79, 70, 229, 0.7);
+    }
+
+    .ticket-summary__number span {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #4338ca;
+    }
+
+    .ticket-metrics {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+
+    .ticket-metric {
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+      background: rgba(248, 250, 252, 0.95);
+      border-radius: 16px;
+      padding: 0.75rem 0.9rem;
+      border: 1px solid rgba(15, 23, 42, 0.05);
+    }
+
+    .ticket-metric__icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 1.05rem;
+      color: #4338ca;
+      background: rgba(99, 102, 241, 0.12);
+    }
+
+    .ticket-metric__data {
+      display: grid;
+      gap: 0.1rem;
+    }
+
+    .ticket-metric__label {
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--app-muted);
+    }
+
+    .ticket-metric__value {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .ticket-alert {
+      border-radius: 16px;
+      padding: 1rem 1.1rem;
+      border: 1px solid rgba(34, 197, 94, 0.24);
+      background: rgba(34, 197, 94, 0.12);
+      color: #166534;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+
+    .ticket-alert--info {
+      border-color: rgba(59, 130, 246, 0.22);
+      background: rgba(59, 130, 246, 0.12);
+      color: #1d4ed8;
+    }
+
+    .ticket-alert__icon {
+      font-size: 1.2rem;
+      margin-top: 0.15rem;
+    }
+
+    .ticket-section {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .ticket-section__title {
+      font-size: 1.05rem;
+      margin: 0;
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .ticket-text {
+      font-size: 0.9rem;
+      color: #374151;
+      margin: 0;
+      white-space: pre-wrap;
+    }
+
+    .ticket-attachment {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .ticket-attachment__cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border-radius: 999px;
+      padding: 0.6rem 1.2rem;
+    }
+
+    .ticket-comments {
+      display: grid;
+      gap: 1.4rem;
+    }
+
+    .ticket-comments__list {
+      display: grid;
+      gap: 1.2rem;
+    }
+
+    .comment-card {
+      display: grid;
+      gap: 0.65rem;
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      padding: 1rem 1.1rem;
+      background: rgba(248, 250, 252, 0.9);
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    .comment-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .comment-card__author {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .comment-card__meta {
+      font-size: 0.75rem;
+      color: var(--app-muted);
+    }
+
+    .comment-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      background: rgba(248, 113, 113, 0.18);
+      color: #991b1b;
+    }
+
+    .comment-text {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #1f2937;
+      white-space: pre-wrap;
+    }
+
+    .comment-form {
+      display: grid;
+      gap: 0.9rem;
+    }
+
+    .comment-form textarea {
+      border-radius: 18px;
+      width:-webkit-fill-available;
+      border: 1px solid rgba(99, 102, 241, 0.18);
+      background: rgba(248, 250, 252, 0.82);
+      font-size: 0.92rem;
+      padding: 0.85rem 1rem;
+      min-height: 130px;
+    }
+
+    .comment-form button {
+      border-radius: 999px;
+      padding: 0.6rem 1.4rem;
+      font-weight: 600;
+      box-shadow: 0 14px 32px rgba(99, 102, 241, 0.25);
+    }
+
+    .ticket-sidebar {
+      display: grid;
+      gap: 1.4rem;
+    }
+
+    .ticket-sidebar__card {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .sidebar-metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0.85rem;
+      border-radius: 14px;
+      background: rgba(248, 250, 252, 0.9);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+    }
+
+    .sidebar-metric span {
+      font-size: 0.85rem;
+      color: #1f2937;
+      font-weight: 600;
+    }
+
+    .sidebar-metric__icon {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.78rem;
+      color: var(--app-muted);
+    }
+
+    .timeline-list {
+      display: grid;
+      gap: 1rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .timeline-entry {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .timeline-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+      color: #4338ca;
+      background: rgba(99, 102, 241, 0.12);
+    }
+
+    .timeline-body {
+      display: grid;
+      gap: 0.2rem;
+    }
+
+    .timeline-body h6 {
+      margin: 0;
+      font-size: 0.92rem;
+      color: #111827;
+    }
+
+    .timeline-body small {
+      color: var(--app-muted);
+    }
+
+    .help-card {
+      display: grid;
+      gap: 0.6rem;
+      background: linear-gradient(145deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.02));
+      border: 1px solid rgba(99, 102, 241, 0.12);
+      border-radius: 16px;
+      padding: 1.15rem;
+    }
+
+    .help-card h6 {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #3730a3;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .help-card p {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--app-muted);
+    }
+
+    @media (min-width: 992px) {
+      .ticket-app__container {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .ticket-app {
+        gap: 1.2rem;
+      }
+
+      .ticket-app__card {
+        padding: 1.25rem 1.35rem;
+      }
+
+      .ticket-hero {
+        padding: 1.5rem 1.6rem;
+      }
+
+      .ticket-metrics {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+
+      .comment-form button {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .ticket-app__card {
+        padding: 1.1rem 1.2rem;
+      }
+
+      .ticket-hero__title {
+        font-size: 1.4rem;
+      }
+
+      .ticket-metric__icon {
+        width: 36px;
+        height: 36px;
+      }
+
+      .comment-card {
+        padding: 0.9rem 1rem;
+      }
+
+      .ticket-hero__actions {
+        flex-direction: column;
+      }
+
+      .ticket-hero__actions .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+
+  <div class="row justify-content-center">
+    <div class="col-xl-10 col-lg-11 col-12">
+      <div class="ticket-app">
+
+        <section class="ticket-app__card ticket-hero">
+          <div class="ticket-hero__content">
+            <span class="ticket-chip"><i class="bx bx-support"></i> Ticket overview</span>
+            <h1 class="ticket-hero__title">{{ ticket.subject }}</h1>
+            <div class="ticket-hero__meta">
+              <span class="ticket-pill"><i class="bx bx-hash"></i>{{ ticket.ticket_number }}</span>
+              <span class="ticket-pill"><i class="bx bx-layer"></i>{{ ticket.get_category_display }}</span>
+            </div>
+          </div>
+          <div class="ticket-hero__actions">
+            <a href="{% url 'employees:employee_tickets' %}" class="btn btn-outline-light btn-sm">
+              <i class="bx bx-arrow-back"></i> My tickets
+            </a>
+          </div>
+        </section>
+
+        <div class="ticket-app__container">
+          <div class="ticket-app__stack">
+
+            <section class="ticket-app__card ticket-summary">
+              <div class="ticket-summary__header">
+                <div class="ticket-metrics">
+                  <div class="ticket-metric">
+                    <span class="ticket-metric__icon" style="color: #15803d; background: rgba(34, 197, 94, 0.16);">
+                      <i class="bx bx-pulse"></i>
+                    </span>
+                    <div class="ticket-metric__data">
+                      <span class="ticket-metric__label">Status</span>
+                      <span class="ticket-metric__value">{{ ticket.get_status_display }}</span>
+                    </div>
+                  </div>
+                  <div class="ticket-metric">
+                    <span class="ticket-metric__icon" style="color: #b91c1c; background: rgba(248, 113, 113, 0.18);">
+                      <i class="bx bx-error"></i>
+                    </span>
+                    <div class="ticket-metric__data">
+                      <span class="ticket-metric__label">Priority</span>
+                      <span class="ticket-metric__value">{{ ticket.get_priority_display }}</span>
+                    </div>
+                  </div>
+                  <div class="ticket-metric">
+                    <span class="ticket-metric__icon" style="color: #1d4ed8; background: rgba(59, 130, 246, 0.16);">
+                      <i class="bx bx-time"></i>
+                    </span>
+                    <div class="ticket-metric__data">
+                      <span class="ticket-metric__label">Created</span>
+                      <span class="ticket-metric__value">{{ ticket.created_at|date:"d M Y, H:i" }}</span>
+                    </div>
+                  </div>
+                  <!-- <div class="ticket-metric">
+                    <span class="ticket-metric__icon" style="color: #7c3aed; background: rgba(167, 139, 250, 0.18);">
+                      <i class="bx bx-refresh"></i>
+                    </span> -->
+                    <!-- <div class="ticket-metric__data">
+                      <span class="ticket-metric__label">Updated</span>
+                      <span class="ticket-metric__value">{{ ticket.updated_at|date:"d M Y, H:i" }}</span>
+                    </div>
+                  </div> -->
+                </div>
+                <div class="ticket-summary__number">
+                  <label>Ticket</label>
+                  <span>{{ ticket.ticket_number }}</span>
+                </div>
+              </div>
+
+              {% if ticket.resolved_at %}
+                <div class="ticket-alert">
+                  <span class="ticket-alert__icon"><i class="bx bx-check-circle"></i></span>
+                  <div>
+                    <strong>Resolved on {{ ticket.resolved_at|date:"d M Y, H:i" }}</strong>
+                    {% if ticket.resolved_by %}
+                      <div>Handled by {{ ticket.resolved_by.get_full_name|default:ticket.resolved_by.username }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endif %}
+
+              {% if ticket.updated_at|date:"Y-m-d H:i" != ticket.created_at|date:"Y-m-d H:i" %}
+                <!-- <div class="ticket-alert ticket-alert--info">
+                  <span class="ticket-alert__icon"><i class="bx bx-info-circle"></i></span>
+                  <div>
+                    <strong>New activity</strong>
+                    <div>Latest update {{ ticket.updated_at|date:"d M Y, H:i" }}</div>
+                  </div>
+                </div> -->
+              {% endif %}
+            </section>
+
+            <section class="ticket-app__card ticket-section">
+              <h2 class="ticket-section__title"><i class="bx bx-detail"></i> Description</h2>
+              <p class="ticket-text">{{ ticket.description }}</p>
+            </section>
+
+            {% if ticket.attachment %}
+              <section class="ticket-app__card ticket-section ticket-attachment">
+                <h2 class="ticket-section__title"><i class="bx bx-paperclip"></i> Attachment</h2>
+                <a href="{{ ticket.attachment.url }}" target="_blank" class="btn btn-outline-primary ticket-attachment__cta">
+                  <i class="bx bx-download"></i> Download file
+                </a>
+              </section>
+            {% endif %}
+
+            <section class="ticket-app__card ticket-comments">
+              <div class="d-flex justify-content-between align-items-center">
+                <h2 class="ticket-section__title"><i class="bx bx-conversation"></i> Updates & replies</h2>
+                <span class="ticket-chip" style="background: rgba(79, 70, 229, 0.15); color: #4338ca;">{{ comments|length }} entries</span>
+              </div>
+
+              {% if comments %}
+                <div class="ticket-comments__list">
+                  {% for comment in comments %}
+                    <article class="comment-card">
+                      <div class="comment-card__header">
+                        <span class="comment-card__author">
+                          <i class="bx {% if comment.is_admin %}bx-shield{% else %}bx-user-circle{% endif %}"></i>
+                          {{ comment.user.get_full_name|default:comment.user.username }}
+                        </span>
+                        <span class="comment-card__meta">{{ comment.created_at|date:"d M Y, H:i" }}</span>
+                      </div>
+                      {% if comment.is_admin %}
+                        <!-- <span class="comment-chip"><i class="bx bx-badge-check"></i>Admin</span> -->
+                      {% endif %}
+                      <p class="comment-text">{{ comment.comment }}</p>
+                    </article>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="text-center text-muted mb-0">No comments yet. Be the first to respond.</p>
+              {% endif %}
+
+              {% if can_comment %}
+                <div class="comment-form">
+                  <h3 class="ticket-section__title" style="font-size: 0.95rem;"><i class="bx bx-plus"></i> Add your reply</h3>
+                  <form method="post" action="{% url 'employees:add_ticket_comment' ticket.pk %}">
+                    {% csrf_token %}
+                    <textarea name="comment" rows="4" placeholder="Share an update or ask a follow-up question" required></textarea>
+                    <div class="d-flex flex-wrap gap-2">
+                      <button type="submit" class="btn btn-primary">
+                        <i class="bx bx-send"></i> Post comment
+                      </button>
+                      <a href="{% url 'employees:employee_tickets' %}" class="btn btn-outline-secondary">
+                        <i class="bx bx-arrow-back"></i> Back to list
+                      </a>
+                    </div>
+                  </form>
+                </div>
+              {% else %}
+                <div class="ticket-alert ticket-alert--info">
+                  <!-- <span class="ticket-alert__icon"><i class="bx bx-lock"></i></span> -->
+                  <div>
+                    <!-- <strong>Comments disabled</strong> -->
+                    <div>This ticket is resolved. Contact support to reopen if you need to add more information.</div>
+                  </div>
+                </div>
+              {% endif %}
+            </section>
+
+          </div>
+
+          <!-- <aside class="ticket-app__card ticket-sidebar">
+            <section class="ticket-sidebar__card">
+              <h3 class="ticket-section__title" style="font-size: 0.95rem;"><i class="bx bx-category-alt"></i> Quick info</h3>
+              <div class="sidebar-metric">
+                <span>Status</span>
+                <span class="sidebar-metric__icon"><i class="bx bx-pulse"></i>{{ ticket.get_status_display }}</span>
+              </div>
+              <div class="sidebar-metric">
+                <span>Priority</span>
+                <span class="sidebar-metric__icon"><i class="bx bx-error"></i>{{ ticket.get_priority_display }}</span>
+              </div>
+              <div class="sidebar-metric">
+                <span>Category</span>
+                <span class="sidebar-metric__icon"><i class="bx {{ ticket.category_icon }}"></i>{{ ticket.get_category_display }}</span>
+              </div>
+            </section> -->
+<!-- 
+            <section class="ticket-sidebar__card">
+              <h3 class="ticket-section__title" style="font-size: 0.95rem;"><i class="bx bx-timer"></i> Timeline</h3>
+              <ul class="timeline-list">
+                <li class="timeline-entry">
+                  <span class="timeline-icon" style="color: #15803d; background: rgba(34, 197, 94, 0.16);"><i class="bx bx-plus"></i></span>
+                  <div class="timeline-body">
+                    <h6>Ticket created</h6>
+                    <small>{{ ticket.created_at|date:"d M Y, H:i" }}</small>
+                  </div>
+                </li>
+                {% if ticket.status == 'in_progress' %}
+                  <li class="timeline-entry">
+                    <span class="timeline-icon" style="color: #b45309; background: rgba(251, 191, 36, 0.18);"><i class="bx bx-loader-circle"></i></span>
+                    <div class="timeline-body">
+                      <h6>Work in progress</h6>
+                      <small>Our team is on it</small>
+                    </div>
+                  </li>
+                {% endif %}
+                {% if ticket.resolved_at %}
+                  <li class="timeline-entry">
+                    <span class="timeline-icon" style="color: #15803d; background: rgba(34, 197, 94, 0.18);"><i class="bx bx-check"></i></span>
+                    <div class="timeline-body">
+                      <h6>Resolved</h6>
+                      <small>{{ ticket.resolved_at|date:"d M Y, H:i" }}</small>
+                    </div>
+                  </li>
+                {% endif %}
+              </ul>
+            </section> -->
+
+            <!-- <section class="help-card">
+              <h6><i class="bx bx-help-circle"></i> Need help?</h6>
+              <p>Our support crew typically replies within 24 hours. Mark priority as “Urgent” for critical blockers.</p>
+              <p>Prefer speaking to someone? Drop by our helpdesk or ping us on chat.</p>
+            </section>
+          </aside> -->
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+{% endblock %}

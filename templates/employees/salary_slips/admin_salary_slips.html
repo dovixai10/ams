@@ -1,0 +1,223 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}Salary Slip Management | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .form-section {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .form-section h5 {
+    margin-bottom: 1.5rem;
+    color: #1f2937;
+    font-weight: 600;
+  }
+
+  .salary-slip-item {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .slip-info {
+    flex: 1;
+  }
+
+  .slip-employee {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+  }
+
+  .slip-month {
+    font-size: 0.9rem;
+    color: #6b7280;
+  }
+
+  .slip-amounts {
+    display: flex;
+    gap: 2rem;
+    margin-top: 0.5rem;
+  }
+
+  .amount-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .amount-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
+
+  .amount-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .btn-sm {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+
+  .btn-danger {
+    background: #ef4444;
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+
+  @media (max-width: 768px) {
+    .salary-slip-item {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .btn-group {
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .slip-amounts {
+      margin-top: 1rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="card-title mb-0">
+          <i class="bx bx-file-blank me-2"></i>Salary Slip Management
+        </h4>
+      </div>
+      <div class="card-body">
+        <!-- Generate Salary Slip Form -->
+        <div class="form-section">
+          <h5>Generate New Salary Slip</h5>
+          <form method="POST" class="row g-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="generate">
+            
+            <div class="col-md-6">
+              <label class="form-label">Employee</label>
+              <select name="employee_id" class="form-control" required>
+                <option value="">Select Employee</option>
+                {% for emp in employees %}
+                  <option value="{{ emp.id }}">{{ emp.full_name }} ({{ emp.email }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Month</label>
+              <input type="month" name="month" class="form-control" required>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Basic Salary (₹)</label>
+              <input type="number" name="basic_salary" class="form-control" step="0.01" required>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Deductions (₹)</label>
+              <input type="number" name="deductions" class="form-control" step="0.01" value="0">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Net Salary (₹)</label>
+              <input type="number" name="net_salary" class="form-control" step="0.01" required>
+            </div>
+
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <i class="bx bx-plus me-1"></i>Generate Salary Slip
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Salary Slips List -->
+        <div>
+          <h5 class="mb-3">All Salary Slips</h5>
+          {% if salary_slips %}
+            {% for slip in salary_slips %}
+              <div class="salary-slip-item">
+                <div class="slip-info">
+                  <div class="slip-employee">{{ slip.employee.full_name }}</div>
+                  <div class="slip-month">{{ slip.month|date:"F Y" }}</div>
+                  <div class="slip-amounts">
+                    <div class="amount-badge">
+                      <span class="amount-label">Basic</span>
+                      <span class="amount-value">₹{{ slip.basic_salary|floatformat:2 }}</span>
+                    </div>
+                    <div class="amount-badge">
+                      <span class="amount-label">Deductions</span>
+                      <span class="amount-value">₹{{ slip.deductions|floatformat:2 }}</span>
+                    </div>
+                    <div class="amount-badge">
+                      <span class="amount-label">Net</span>
+                      <span class="amount-value" style="color: #10b981;">₹{{ slip.net_salary|floatformat:2 }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="btn-group">
+                  {% if slip.pdf_file %}
+                    <a href="{% url 'employees:download_salary_slip' slip.id %}" class="btn-sm btn-primary">
+                      <i class="bx bx-download"></i>Download
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="alert alert-info">
+              <i class="bx bx-info-circle me-2"></i>No salary slips generated yet.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

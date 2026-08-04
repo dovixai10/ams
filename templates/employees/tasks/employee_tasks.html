@@ -1,0 +1,483 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}My Tasks | Employee{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .app-screen {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .app-hero {
+    background: linear-gradient(135deg, #00f7f0 0%, #812e2e 100%);
+    color: #fff;
+    border-radius: 24px;
+    padding: 2rem 2.2rem;
+    box-shadow: 0 10px 30px rgba(124, 58, 237, 0.2);
+    margin: 0 auto;
+    max-width: 100%;
+  }
+
+  .app-hero__head {
+    gap: 0.75rem;
+  }
+
+  .app-chip {
+    background: rgba(255, 255, 255, 0.18);
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .app-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.85rem;
+    margin-top: 1.2rem;
+    max-width: 100%;
+  }
+
+  .app-metric {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 16px;
+    padding: 1rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .app-metric--pending {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+  }
+
+  .app-metric--in-progress,
+  .app-metric--progress {
+    background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
+    color: #1e40af;
+  }
+
+  .app-metric--completed {
+    background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+    color: #15803d;
+  }
+
+  .app-metric__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    background: rgba(15, 23, 42, 0.12);
+    font-size: 1.5rem;
+  }
+
+  .app-metric--pending .app-metric__icon {
+    background: rgba(146, 64, 14, 0.15);
+    color: #92400e;
+  }
+
+  .app-metric--in-progress .app-metric__icon,
+  .app-metric--progress .app-metric__icon {
+    background: rgba(30, 64, 175, 0.15);
+    color: #1e40af;
+  }
+
+  .app-metric--completed .app-metric__icon {
+    background: rgba(21, 128, 61, 0.15);
+    color: #15803d;
+  }
+
+  .app-metric__value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1;
+    margin: auto;
+  }
+
+  .app-metric__data {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    width: 100%;
+  }
+
+  .app-metric__label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .app-card {
+    border-radius: 24px;
+    border: none;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  }
+
+  .app-task {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
+    border-radius: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  .app-task__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .app-task__title {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .app-task__name {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .app-task__desc {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+
+  .app-task__meta {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .app-task__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .app-task__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+  }
+
+  .app-task__chip--date {
+    background: rgba(14, 165, 233, 0.12);
+    color: #0369a1;
+  }
+
+  .app-task__row--sub {
+    font-size: 0.74rem;
+    color: #94a3b8;
+  }
+
+  .app-task__form select,
+  .app-task__form textarea {
+    background: #f8fafc;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+  }
+
+  .app-task__form textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+
+  .app-task__footer {
+    border-top: 1px dashed rgba(148, 163, 184, 0.35);
+    padding-top: 0.75rem;
+  }
+
+  .app-task__update {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    color: #475569;
+  }
+
+  .app-task__update i {
+    font-size: 1.25rem;
+    color: #4f46e5;
+  }
+
+  @media (min-width: 576px) {
+    .app-task__form .row > div {
+      flex: 1 1 calc(50% - 0.5rem);
+    }
+    .app-task__form .row > div:last-child {
+      flex-basis: 100%;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .app-hero {
+      padding: 1.5rem 1.5rem;
+      margin: 0 0.75rem;
+      border-radius: 20px;
+    }
+
+    .app-hero__title {
+      font-size: 1.3rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .app-hero__subtitle {
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .app-metrics {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.7rem;
+      margin-top: 1rem;
+    }
+
+    .app-metric {
+      padding: 0.9rem 0.8rem;
+      border-radius: 14px;
+      gap: 0.5rem;
+    }
+
+    .app-metric__icon {
+      width: 44px;
+      height: 44px;
+      font-size: 1.3rem;
+    }
+
+    .app-metric__value {
+      font-size: 1.4rem;
+    }
+
+    .app-metric__label {
+      font-size: 0.75rem;
+    }
+
+    .app-card {
+      margin: 0 0.75rem;
+      border-radius: 20px;
+      padding: 1.5rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .app-screen {
+      gap: 1rem;
+    }
+
+    .app-hero {
+      padding: 1.2rem 1.3rem;
+      margin: 0.75rem;
+      border-radius: 18px;
+    }
+
+    .app-hero__head {
+      gap: 0.6rem;
+    }
+
+    .app-hero__title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .app-hero__subtitle {
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+
+    .app-metrics {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem;
+      margin-top: 0.9rem;
+    }
+
+    .app-metric {
+      padding: 0.8rem 0.6rem;
+      border-radius: 12px;
+      gap: 0.4rem;
+    }
+
+    .app-metric__icon {
+      width: 40px;
+      height: 40px;
+      font-size: 1.2rem;
+    }
+
+    .app-metric__value {
+      font-size: 1.3rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .app-metric__label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .app-card {
+      margin: 0.75rem;
+      border-radius: 18px;
+      padding: 1.2rem;
+    }
+
+    .app-task {
+      padding: 1rem 1rem;
+      gap: 0.8rem;
+    }
+
+    .app-task__name {
+      font-size: 0.95rem;
+    }
+
+    .app-task__desc {
+      font-size: 0.8rem;
+    }
+  }
+
+  @media (min-width: 992px) {
+    .app-card {
+      padding: 2rem;
+      margin: auto;
+    }
+    .app-task__desc {
+      max-width: 640px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="app-screen app-screen--padded">
+  <div class="app-card app-hero">
+    <div class="app-hero__head">
+      <span class="app-chip"><i class="bx bx-task"></i> Assigned work</span>
+      <h2 class="app-hero__title">Stay on top of your tasks</h2>
+      <p class="app-hero__subtitle">Update progress, collaborate with your manager, and keep deadlines in sight.</p>
+    </div>
+    <div class="app-hero__actions">
+      <div class="app-metrics">
+        {% for entry in status_summary %}
+          {% if entry.label != "Blocked" %}
+            <div class="app-metric app-metric--{{ entry.style }}">
+              <div class="bxr  bx-timer">
+                {% if entry.style == "pending" %}
+                  <i class="bx bx-time-five"></i>
+                {% elif entry.style == "progress" %}
+                  <i class="bx bx-loader-circle"></i>
+                {% elif entry.style == "completed" %}
+                  <i class="bx bx-check-circle"></i>
+                {% endif %}
+              </div>
+              <div class="app-metric__data">
+                <span class="app-metric__value">{{ entry.count }}</span>
+                <span class="app-metric__label">{{ entry.label }}</span>
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="app-card">
+    <div class="d-flex flex-column flex-sm-row justify-content-between gap-3 align-items-start align-items-sm-center mb-3">
+      <h5 class="mb-0">Tasks in progress</h5>
+      <span class="badge bg-primary bg-opacity-10 text-primary">{{ task_forms|length }} tasks</span>
+    </div>
+
+    {% if task_forms %}
+      <div class="app-list">
+        {% for task, form in task_forms %}
+          <div class="app-task">
+            <div class="app-task__header">
+              <div class="app-task__title">
+                <h6 class="app-task__name">{{ task.title }}</h6>
+                <p class="app-task__desc">{{ task.description|default:'No description provided.' }}</p>
+              </div>
+              <span class="badge bg-{{ task.priority_badge }} text-capitalize">{{ task.get_priority_display }}</span>
+            </div>
+
+            <div class="app-task__meta">
+              <div class="app-task__row">
+                <div class="app-task__chip bg-{{ task.status_badge }} text-white text-capitalize">{{ task.get_status_display }}</div>
+                {% if task.due_date %}
+                  <div class="app-task__chip app-task__chip--date">
+                    <i class="bx bx-calendar me-1"></i>
+                    Due {{ task.due_date|date:'M j, Y' }}
+                  </div>
+                {% endif %}
+              </div>
+              <div class="app-task__row app-task__row--sub">
+                <span><i class="bx bx-calendar-check me-1"></i>{{ task.created_at|date:'M j, Y' }}</span>
+                <span><i class="bx bx-time-five me-1"></i>{% if task.status_updated_at %}{{ task.status_updated_at|timesince }} ago{% else %}Not updated{% endif %}</span>
+              </div>
+            </div>
+
+            <form method="post" action="{% url 'employees:update_task_status' task.pk %}" class="app-task__form">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{% url 'employees:employee_tasks' %}">
+              <div class="row g-3">
+                <div class="col-12">
+                  {{ form.new_status }}
+                </div>
+                <div class="col-12">
+                  {{ form.comment }}
+                </div>
+                <div class="col-12 d-grid">
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bx bx-send"></i>
+                    <span class="ms-1">Update status</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {% if task.latest_update %}
+              <div class="app-task__footer">
+                <div class="app-task__update">
+                  <i class="bx bx-chat"></i>
+                  <div>
+                    <p class="mb-0"><strong>{{ task.latest_update.updated_by.get_full_name|default:task.latest_update.updated_by.username }}</strong> updated to <span class="text-capitalize">{{ task.latest_update.get_new_status_display }}</span></p>
+                    {% if task.latest_update.comment %}
+                      <span class="text-muted small">“{{ task.latest_update.comment }}”</span>
+                    {% endif %}
+                    <div class="text-muted small">{{ task.latest_update.created_at|timesince }} ago</div>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-center text-muted py-5">
+        <!-- <i class="bx bx-task bx-lg d-block mb-2"></i> -->
+        No tasks assigned to you yet.
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

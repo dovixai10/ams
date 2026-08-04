@@ -1,0 +1,502 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Register Face | Employee Management System{% endblock %}
+
+{% block content %}
+  <style>
+    .face-register-page {
+      padding: 1.5rem 0.75rem 2.5rem;
+      background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%);
+      display: flex;
+      justify-content: center;
+    }
+
+    .face-register-card {
+      width: min(880px, 100%);
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 30px 60px rgba(15, 23, 42, 0.16);
+      padding: clamp(1.5rem, 2vw, 2.5rem);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      display: grid;
+      gap: clamp(1.5rem, 2vw, 2.5rem);
+    }
+
+    .face-register-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .face-register-header__badge {
+      align-self: flex-start;
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .face-register-grid {
+      display: grid;
+      gap: clamp(1.25rem, 2vw, 2rem);
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      align-items: start;
+    }
+
+    .camera-shell {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .camera-frame {
+      position: relative;
+      width: clamp(220px, 60vw, 320px);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      border-radius: 50%;
+      background: #0f172a;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.08), 0 18px 40px rgba(15, 23, 42, 0.25);
+    }
+
+    .camera-frame video,
+    .camera-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .camera-frame video {
+      transform: scaleX(-1);
+    }
+
+    .camera-mask {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      pointer-events: none;
+      box-shadow: inset 0 0 0 6px rgba(255, 255, 255, 0.14), inset 0 0 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .camera-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    .camera-actions .btn {
+      border-radius: 999px;
+      padding: 0.55rem 1.2rem;
+      font-weight: 600;
+      min-width: 140px;
+    }
+
+    .camera-status {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #475569;
+      min-height: 1.4em;
+    }
+
+    .tips-list {
+      display: grid;
+      gap: 0.6rem;
+      font-size: 0.9rem;
+      color: #475569;
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .tips-list li i {
+      color: #10b981;
+    }
+
+    .face-register-alert {
+      display: none;
+      border-radius: 16px;
+      padding: 0.85rem 1rem;
+      font-size: 0.9rem;
+    }
+
+    .face-register-alert.is-visible {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    @media (max-width: 768px) {
+      .face-register-card {
+        padding: 1.4rem 1.1rem;
+        border-radius: 50px;
+      }
+
+      .camera-frame {
+        width: min(78vw, 197px);
+      }
+
+      .camera-actions .btn {
+        flex: 1 1 45%;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .face-register-page {
+        padding: 1rem 0;
+      }
+
+      .face-register-card {
+        gap: 1.5rem;
+      }
+
+      .camera-actions {
+        gap: 0.55rem;
+      }
+    }
+  </style>
+
+  <section class="face-register-page">
+    <article class="face-register-card">
+      <header class="face-register-header">
+        <span class="face-register-header__badge {% if has_registered_face %}bg-label-success text-success{% else %}bg-label-warning text-warning{% endif %}">
+          {% if has_registered_face %}<i class="bx bx-check-circle"></i> Face registered{% else %}<i class="bx bx-error"></i> Registration required{% endif %}
+        </span>
+      </header>
+
+      <div class="face-register-grid">
+        <div class="camera-shell">
+          <div class="camera-frame">
+            <video id="face-register-video" autoplay playsinline muted class="d-none"></video>
+            <canvas id="face-register-canvas" class="d-none"></canvas>
+            <img id="face-register-preview" alt="Face preview" class="d-none" />
+            <div class="camera-mask"></div>
+          </div>
+
+          <div class="camera-actions">
+            <button type="button" id="face-start-btn" class="btn btn-outline-primary">
+              <i class="bx bx-video"></i> Start camera
+            </button>
+            <button type="button" id="face-capture-btn" class="btn btn-primary" disabled>
+              <i class="bx bx-camera"></i> Capture
+            </button>
+            <!-- <button type="button" id="face-upload-btn" class="btn btn-outline-secondary">
+              <i class="bx bx-upload"></i> Upload photo
+            </button> -->
+            <button type="button" id="face-retake-btn" class="btn btn-outline-secondary d-none">
+              <i class="bx bx-refresh"></i> Retake
+            </button>
+          </div>
+
+          <div class="camera-status" id="face-camera-status">
+            <i class="bx bx-info-circle"></i> Allow camera access or upload a photo to begin.
+          </div>
+        </div>
+
+        <aside>
+          <div id="face-register-alert" class="face-register-alert" role="alert"></div>
+
+          <button type="button" id="face-submit-btn" class="btn btn-success w-100" disabled>
+            <i class="bx bx-check-circle"></i> Save my face
+          </button>
+        </aside>
+      </div>
+
+      <form id="face-register-form" class="d-none" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" id="face-file-input" accept="image/*" capture="user">
+      </form>
+    </article>
+  </section>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const videoEl = document.getElementById('face-register-video');
+      const canvasEl = document.getElementById('face-register-canvas');
+      const previewEl = document.getElementById('face-register-preview');
+      const previewWrapper = null;
+      const previewImage = null;
+      const startBtn = document.getElementById('face-start-btn');
+      const captureBtn = document.getElementById('face-capture-btn');
+      const uploadBtn = document.getElementById('face-upload-btn');
+      const retakeBtn = document.getElementById('face-retake-btn');
+      const submitBtn = document.getElementById('face-submit-btn');
+      const cameraStatus = document.getElementById('face-camera-status');
+      const alertBox = document.getElementById('face-register-alert');
+      const fileInput = document.getElementById('face-file-input');
+      const formEl = document.getElementById('face-register-form');
+      const csrfToken = formEl.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+      const secureHostnames = new Set(['localhost', '127.0.0.1', '::1']);
+      const isCameraContextSecure = window.isSecureContext || secureHostnames.has(window.location.hostname);
+
+      let stream = null;
+      let capturedFile = null;
+
+      function setAlert(type, message) {
+        if (!message) {
+          alertBox.classList.remove('is-visible');
+          return;
+        }
+        alertBox.className = 'face-register-alert alert alert-' + type + ' is-visible';
+        alertBox.innerHTML = '<i class="bx bx-info-circle"></i> ' + message;
+      }
+
+      function describeCameraError(error) {
+        if (!error) return 'Camera access failed for an unknown reason.';
+        const name = error.name || '';
+        const message = error.message || '';
+        switch (name) {
+          case 'NotAllowedError':
+          case 'PermissionDeniedError':
+            return 'Camera permission was denied. Please allow access in your browser settings or upload a photo instead.';
+          case 'NotFoundError':
+          case 'DevicesNotFoundError':
+            return 'No camera device was found. Connect a camera or upload a photo.';
+          case 'NotReadableError':
+          case 'TrackStartError':
+            return 'The camera is in use by another application. Close it or upload a photo.';
+          case 'OverconstrainedError':
+          case 'ConstraintNotSatisfiedError':
+            return 'Camera settings not supported. We will try a more compatible setup automatically.';
+          case 'SecurityError':
+            if (window.isSecureContext === false) {
+              return 'Camera access requires HTTPS or localhost. Use a secure connection or upload a photo.';
+            }
+            return 'Camera access is blocked by browser security settings.';
+          default:
+            if (message && message.toLowerCase().includes('insecure')) {
+              return 'Camera access requires HTTPS or localhost. Reload over a secure connection or upload a photo.';
+            }
+            return message || 'Unable to access camera. Please allow permissions or upload a photo.';
+        }
+      }
+
+      async function acquireStream() {
+        const attempts = [
+          { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false },
+          { video: { facingMode: 'user' }, audio: false },
+          { video: true }
+        ];
+
+        let lastError = null;
+        for (const constraints of attempts) {
+          try {
+            return await navigator.mediaDevices.getUserMedia(constraints);
+          } catch (err) {
+            lastError = err;
+          }
+        }
+        throw lastError;
+      }
+
+      function stopStream() {
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+          stream = null;
+        }
+        videoEl.classList.add('d-none');
+        captureBtn.disabled = true;
+      }
+
+      function resetPreview() {
+        capturedFile = null;
+        previewEl.classList.add('d-none');
+        submitBtn.disabled = true;
+        retakeBtn.classList.add('d-none');
+      }
+
+      async function startCamera(autoTriggered = false) {
+        cameraStatus.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Requesting camera access…';
+        setAlert(null);
+        resetPreview();
+
+        if (!isCameraContextSecure) {
+          const message = 'Camera access is blocked because the page is not being served over HTTPS or localhost.';
+          cameraStatus.innerHTML = '<i class="bx bx-error-circle text-danger"></i> ' + message;
+          setAlert('warning', message + ' Please open the site using https:// or http://localhost to use your camera.');
+          captureBtn.disabled = true;
+          return;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          cameraStatus.innerHTML = '<i class="bx bx-error-circle text-danger"></i> Camera not supported. Upload a photo instead.';
+          setAlert('danger', 'Camera is not supported on this device. You can still upload a photo below.');
+          return;
+        }
+
+        try {
+          stopStream();
+          stream = await acquireStream();
+          videoEl.srcObject = stream;
+          videoEl.classList.remove('d-none');
+          previewEl.classList.add('d-none');
+
+          try {
+            await videoEl.play();
+          } catch (playError) {
+            console.error('Camera playback error', playError);
+            const message = describeCameraError(playError) || 'Unable to start the camera preview. Try again after allowing permissions.';
+            cameraStatus.innerHTML = '<i class="bx bx-error-circle text-danger"></i> ' + message;
+            setAlert('danger', message);
+            captureBtn.disabled = true;
+            stopStream();
+            return;
+          }
+
+          captureBtn.disabled = false;
+          cameraStatus.innerHTML = '<i class="bx bx-check-circle text-success"></i> Camera ready. Center your face and capture.';
+        } catch (err) {
+          console.error('Camera error', err);
+          let message = describeCameraError(err);
+          if (autoTriggered && err && err.name === 'NotAllowedError') {
+            message = 'Camera permission requires your interaction. Click “Start camera” and allow the browser permission prompt.';
+          }
+          cameraStatus.innerHTML = '<i class="bx bx-error-circle text-danger"></i> ' + message;
+          setAlert(autoTriggered ? 'warning' : 'danger', message);
+          captureBtn.disabled = true;
+        }
+      }
+
+      function showPreview(file) {
+        capturedFile = file;
+        submitBtn.disabled = false;
+        retakeBtn.classList.remove('d-none');
+        captureBtn.classList.add('d-none');
+      }
+
+      async function handleCapture() {
+        if (!stream) {
+          setAlert('danger', 'Camera is not active. Start the camera first or upload a photo.');
+          return;
+        }
+
+        canvasEl.width = videoEl.videoWidth;
+        canvasEl.height = videoEl.videoHeight;
+        const ctx = canvasEl.getContext('2d');
+        ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+
+        canvasEl.toBlob(blob => {
+          if (!blob) {
+            setAlert('danger', 'Unable to capture photo. Please try again.');
+            return;
+          }
+          const file = new File([blob], 'face_capture.jpg', { type: 'image/jpeg' });
+          stopStream();
+          showPreview(file);
+          cameraStatus.innerHTML = '<i class="bx bx-check-circle text-success"></i> Saving your face...';
+          submitBtn.click();
+        }, 'image/jpeg', 0.9);
+      }
+
+      async function submitFace() {
+        if (!capturedFile) {
+          setAlert('danger', 'Capture or upload a photo before saving.');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', csrfToken);
+        formData.append('image_file', capturedFile);
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Saving…';
+        setAlert('info', 'Uploading and verifying your face. Please wait…');
+
+        try {
+          const response = await fetch('{% url "employees:face_register" %}', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            setAlert('success', result.message || 'Face registered successfully!');
+            cameraStatus.innerHTML = '<i class="bx bx-check-circle text-success"></i> Registration complete. Redirecting to check-in…';
+
+            const redirectTarget = result.redirect_url || '{% url "employees:check_in" %}';
+            setTimeout(() => {
+              window.location.href = redirectTarget;
+            }, 1800);
+          } else {
+            const errorMsg = result.error || 'Unable to register face. Please try again.';
+            setAlert('danger', errorMsg);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bx bx-check-circle"></i> Save my face';
+            captureBtn.classList.remove('d-none');
+            retakeBtn.classList.add('d-none');
+          }
+        } catch (error) {
+          console.error('Registration error', error);
+          setAlert('danger', 'Unexpected error while registering face. Please try again.');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="bx bx-check-circle"></i> Save my face';
+          captureBtn.classList.remove('d-none');
+          retakeBtn.classList.add('d-none');
+        }
+      }
+
+      function resetAll() {
+        stopStream();
+        resetPreview();
+        captureBtn.classList.remove('d-none');
+        cameraStatus.innerHTML = '<i class="bx bx-info-circle"></i> Start the camera or upload to continue.';
+      }
+
+      // Event bindings
+      if (startBtn) {
+        startBtn.addEventListener('click', () => startCamera(false));
+      }
+      captureBtn.addEventListener('click', handleCapture);
+
+      retakeBtn.addEventListener('click', () => {
+        resetAll();
+        startCamera(false);
+      });
+
+      if (uploadBtn) {
+        uploadBtn.addEventListener('click', () => {
+          resetAll();
+          fileInput.value = '';
+          fileInput.click();
+        });
+      }
+
+      if (fileInput) {
+        fileInput.addEventListener('change', event => {
+          const file = event.target.files && event.target.files[0];
+          if (!file) {
+            return;
+          }
+          if (!file.type.startsWith('image/')) {
+            setAlert('danger', 'Please select a valid image file.');
+            return;
+          }
+          showPreview(file);
+          cameraStatus.innerHTML = '<i class="bx bx-check-circle text-success"></i> Saving your face...';
+          submitBtn.click();
+        });
+      }
+
+      submitBtn.addEventListener('click', submitFace);
+
+      window.addEventListener('beforeunload', stopStream);
+
+      if (isCameraContextSecure) {
+        setTimeout(() => {
+          startCamera(true);
+        }, 500);
+      } else {
+        const message = 'Camera access requires a secure connection (HTTPS or localhost).';
+        setAlert('warning', message + ' You can still upload a photo using the file picker.');
+        cameraStatus.innerHTML = '<i class="bx bx-info-circle"></i> ' + message;
+      }
+    });
+  </script>
+{% endblock %}

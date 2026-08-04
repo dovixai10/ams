@@ -1,0 +1,87 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Manual Attendance Marker{% endblock %}
+
+{% block content %}
+
+<div class="container py-3">
+
+  <h3 class="mb-3">
+      <i class="bx bx-edit"></i> Manual Attendance Marker
+  </h3>
+
+  {% if message %}
+  <div class="alert alert-success">{{ message }}</div>
+  {% endif %}
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      
+      <form method="POST">
+        {% csrf_token %}
+
+        <div class="row g-3">
+
+          <!-- EMPLOYEE -->
+          <div class="col-md-6">
+            <label class="form-label">Select Employee</label>
+            <select name="employee" class="form-select" required>
+              <option value="">Select Employee</option>
+              {% for emp in employees %}
+                <option value="{{ emp.id }}">
+                  {{ emp.full_name }} ({{ emp.employee_code }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- DATE -->
+          <div class="col-md-6">
+            <label class="form-label">Select Date</label>
+            <input type="date" name="date" class="form-control" required>
+          </div>
+
+          <!-- Check In -->
+          <div class="col-md-6">
+            <label class="form-label">Check-in Time</label>
+            <input type="time" name="check_in_time" class="form-control">
+          </div>
+
+          <!-- Check Out -->
+          <div class="col-md-6">
+            <label class="form-label">Check-out Time</label>
+            <input type="time" name="check_out_time" class="form-control">
+          </div>
+
+          <!-- STATUS -->
+          <div class="col-md-6">
+            <label class="form-label">Attendance Status</label>
+            <select name="final_status" class="form-select" required>
+              <option value="present">Present</option>
+              <option value="half_day">Half Day</option>
+              <option value="absent">Absent</option>
+              <option value="checked_in">Checked In Only</option>
+            </select>
+          </div>
+
+          <!-- COMMENT -->
+          <div class="col-12">
+            <label class="form-label">Admin Comment</label>
+            <textarea name="comment" class="form-control" rows="2"></textarea>
+          </div>
+
+        </div>
+
+        <button class="btn btn-primary mt-4">
+          <i class="bx bx-save"></i> Save Attendance
+        </button>
+
+      </form>
+
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

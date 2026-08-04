@@ -1,0 +1,420 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Shift Assignment | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .shift-assignment-container {
+    padding: 1rem;
+    max-width: 100%;
+  }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0;
+  }
+
+  .btn-manage-shifts {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-manage-shifts:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    color: white;
+    text-decoration: none;
+  }
+
+  .assignment-table {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .table {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .table th {
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: 600;
+    color: #374151;
+    padding: 1rem;
+  }
+
+  .table td {
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .employee-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .shift-dropdown {
+    min-width: 150px;
+  }
+
+  .btn-remove-shift {
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    padding: 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-remove-shift:hover {
+    background: #fecaca;
+  }
+
+  .badge-not-assigned {
+    background: #fee2e2;
+    color: #dc2626;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .summary-stats {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 8px;
+  }
+
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  @media (max-width: 768px) {
+    .table {
+      font-size: 0.875rem;
+    }
+
+    .shift-dropdown {
+      max-width: 120px;
+    }
+
+    .d-flex.gap-2 {
+      flex-wrap: wrap;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="shift-assignment-container">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title"><i class="bx bx-user-check me-2"></i>Shift Assignment</h1>
+      <p class="text-muted mb-0">Manage employee shift assignments</p>
+    </div>
+    <a href="{% url 'employees:admin_shifts' %}" class="btn-manage-shifts">
+      <i class="bx bx-cog"></i>
+      Manage Shifts
+    </a>
+  </div>
+
+  <!-- Bulk Assignment Section -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-body">
+      <h6 class="card-title mb-3">
+        <i class="bx bx-checkbox-checked me-2"></i>Bulk Assignment
+      </h6>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+          <label class="form-label">Select Shift</label>
+          <select id="bulkShiftSelect" class="form-select">
+            <option value="">-- Choose a shift --</option>
+            {% for shift in shifts %}
+            <option value="{{ shift.id }}">
+              {{ shift.name }} ({{ shift.start_time|time:"h:i A" }} – {{ shift.end_time|time:"h:i A" }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <button id="bulkAssignBtn" class="btn btn-primary w-100" disabled>
+            <i class="bx bx-check me-1"></i>Assign to Selected
+          </button>
+        </div>
+      </div>
+      <small class="text-muted d-block mt-2">
+        <i class="bx bx-info-circle me-1"></i>Select employees below using checkboxes, then choose a shift and click "Assign to Selected"
+      </small>
+    </div>
+  </div>
+
+  <!-- Employees Table -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-light">
+      <div class="d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+          <i class="bx bx-list-ul me-2"></i>All Employees
+        </h6>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+          <label class="form-check-label" for="selectAllCheckbox">
+            Select All
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th width="40">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="headerSelectAll">
+              </div>
+            </th>
+            <th>Employee ID</th>
+            <th>Name</th>
+            <th>Department</th>
+            <th>Current Shift</th>
+            <th>Status</th>
+            <th width="250">Action</th>
+          </tr>
+        </thead>
+        <tbody id="employeesTableBody">
+          {% for employee in employees %}
+          <tr class="employee-row" data-employee-id="{{ employee.id }}">
+            <td>
+              <div class="form-check">
+                <input class="form-check-input employee-checkbox" type="checkbox" value="{{ employee.id }}">
+              </div>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark">EMP{{ employee.id|stringformat:"05d" }}</span>
+            </td>
+            <td>
+              <div class="d-flex align-items-center">
+                {% if employee.profile_picture %}
+                <img src="{{ employee.profile_picture.url }}" alt="Profile" class="rounded-circle me-2" width="32" height="32">
+                {% else %}
+                <div class="avatar avatar-sm me-2 bg-light">
+                  <span class="avatar-initial rounded-circle bg-primary text-white">
+                    {{ employee.full_name|first|default:"E" }}
+                  </span>
+                </div>
+                {% endif %}
+                <div>
+                  <div class="fw-semibold">{{ employee.full_name|default:employee.user.get_full_name|default:employee.user.username }}</div>
+                  <small class="text-muted">{{ employee.user.email }}</small>
+                </div>
+              </div>
+            </td>
+            <td>
+              {% if employee.department %}
+                {{ employee.department.name }}
+              {% else %}
+                <span class="text-muted">Not Assigned</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if employee.shift %}
+              <div class="shift-info">
+                <div class="fw-semibold">{{ employee.shift.name }}</div>
+                <small class="text-muted">
+                  {{ employee.shift.start_time|time:"h:i A" }} – {{ employee.shift.end_time|time:"h:i A" }}
+                </small>
+              </div>
+              {% else %}
+              <span class="badge bg-danger">Not Assigned</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if employee.user.is_active %}
+              <span class="badge bg-success">Active</span>
+              {% else %}
+              <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="d-flex gap-2 align-items-center">
+                <select class="form-select form-select-sm shift-dropdown" data-employee-id="{{ employee.id }}">
+                  <option value="">-- Change shift --</option>
+                  {% for shift in shifts %}
+                  <option value="{{ shift.id }}" {% if employee.shift and employee.shift.id == shift.id %}selected{% endif %}>
+                    {{ shift.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+                {% if employee.shift %}
+                <button class="btn btn-sm btn-outline-danger remove-shift-btn" data-employee-id="{{ employee.id }}" title="Remove shift">
+                  <i class="bx bx-trash"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-4">
+              <i class="bx bx-inbox text-muted" style="font-size: 2rem;"></i>
+              <p class="text-muted mt-2">No employees found</p>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Summary Footer -->
+  <div class="mt-4 p-3 bg-light rounded">
+    <div class="row text-center">
+      <div class="col-md-3">
+        <div class="mb-0">
+          <h6 class="text-muted mb-1">Total Employees</h6>
+          <h4 class="mb-0">{{ employees|length }}</h4>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="mb-0">
+          <h6 class="text-muted mb-1">Assigned Shifts</h6>
+          <h4 class="mb-0" id="assignedCount">0</h4>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="mb-0">
+          <h6 class="text-muted mb-1">Not Assigned</h6>
+          <h4 class="mb-0" id="notAssignedCount">0</h4>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="mb-0">
+          <h6 class="text-muted mb-1">Selected</h6>
+          <h4 class="mb-0" id="selectedCount">0</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .shift-info {
+    padding: 0.5rem 0;
+  }
+
+  .employee-row:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+
+  .shift-dropdown {
+    border-color: #e0e0e0;
+  }
+
+  .shift-dropdown:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 0.2rem rgba(124, 58, 237, 0.25);
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.65rem;
+  }
+
+  .table-hover tbody tr:hover {
+    background-color: rgba(124, 58, 237, 0.05);
+  }
+
+  .btn-outline-danger:hover {
+    background-color: #ff3b30;
+    border-color: #ff3b30;
+  }
+
+  @media (max-width: 768px) {
+    .table {
+      font-size: 0.875rem;
+    }
+
+    .shift-dropdown {
+      max-width: 120px;
+    }
+
+    .d-flex.gap-2 {
+      flex-wrap: wrap;
+    }
+  }
+</style>
+
+<!-- Toast Notifications - Top Right Position -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+  <!-- Success Toast -->
+  <div id="successToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header bg-success text-white">
+      <i class="bx bx-check-circle me-2"></i>
+      <strong class="me-auto">Success</strong>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="successToastMessage">
+      Operation completed successfully!
+    </div>
+  </div>
+
+  <!-- Error Toast -->
+  <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header bg-danger text-white">
+      <i class="bx bx-error-circle me-2"></i>
+      <strong class="me-auto">Error</strong>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="errorToastMessage">
+      An error occurred!
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'js/shift_assignment_ajax.js' %}"></script>
+{% endblock %}

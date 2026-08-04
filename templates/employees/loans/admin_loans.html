@@ -1,0 +1,539 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Manage Loan Requests{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+.admin-loans-container {
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.loans-table {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.table th {
+  background: #f9fafb;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  vertical-align: top;
+}
+
+.table tr:hover {
+  background: #f9fafb;
+}
+
+.employee-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.employee-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.employee-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.employee-name {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.9rem;
+}
+
+.employee-email {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.loan-amount {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 1rem;
+}
+
+.status-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  display: inline-block;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-disapproved {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.reason-text {
+  max-width: 300px;
+  color: #4b5563;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.reason-text.expanded {
+  max-width: none;
+}
+
+.reason-toggle {
+  color: #6366f1;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.btn-approve {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.btn-approve:hover {
+  background: #a7f3d0;
+}
+
+.btn-disapprove {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.btn-disapprove:hover {
+  background: #fecaca;
+}
+
+.btn-view {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.btn-view:hover {
+  background: #bfdbfe;
+}
+
+.attachment-link {
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.attachment-link:hover {
+  color: #4338ca;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+@media (max-width: 768px) {
+  .table {
+    font-size: 0.8rem;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .actions {
+    flex-direction: column;
+  }
+  
+  .btn-action {
+    justify-content: center;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-loans-container">
+  <div class="page-header">
+    <h1 class="page-title">Loan Requests Management</h1>
+  </div>
+
+  {% if loans %}
+    <div class="loans-table">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Reason</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for loan in loans %}
+            <tr>
+              <td>
+                <div class="employee-info">
+                  <div class="employee-avatar">
+                    {{ loan.employee.full_name.0 }}
+                  </div>
+                  <div class="employee-details">
+                    <div class="employee-name">{{ loan.employee.full_name }}</div>
+                    <div class="employee-email">{{ loan.employee.email }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="loan-amount">₹{{ loan.amount }}</div>
+              </td>
+              <td>
+                <span class="status-badge status-{{ loan.status }}">
+                  {{ loan.get_status_display }}
+                </span>
+              </td>
+              <td>
+                <div class="reason-text" id="reason-{{ loan.id }}">
+                  {{ loan.reason|truncatewords:10 }}
+                </div>
+                {% if loan.reason|wordcount > 10 %}
+                  <div class="reason-toggle" onclick="toggleReason('{{ loan.id }}')">Show more</div>
+                {% endif %}
+              </td>
+              <td>
+                <div>{{ loan.created_at|date:"M d, Y" }}</div>
+                <div style="font-size: 0.8rem; color: #6b7280;">{{ loan.created_at|time:"g:i A" }}</div>
+              </td>
+              <td>
+                <div class="actions">
+                  {% if loan.attachment %}
+                    <a href="{{ loan.attachment.url }}" target="_blank" class="attachment-link">
+                      <i class="bx bx-file"></i>
+                      File
+                    </a>
+                  {% endif %}
+                  
+                  {% if loan.status == 'pending' %}
+                    <button class="btn-action btn-approve" onclick="approveLoan('{{ loan.id }}')">
+                      <i class="bx bx-check"></i>
+                      Approve
+                    </button>
+                    <button class="btn-action btn-disapprove" onclick="openDisapproveModal('{{ loan.id }}')">
+                      <i class="bx bx-x"></i>
+                      Disapprove
+                    </button>
+                  {% endif %}
+                  
+                  <!-- <button class="btn-action btn-view" onclick="viewDetails('{{ loan.id }}')">
+                    <i class="bx bx-eye"></i>
+                    Details
+                  </button> -->
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <i class="bx bx-money"></i>
+      <h3>No Loan Requests</h3>
+      <p>No loan requests have been submitted yet.</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Disapprove Modal -->
+<div id="disapproveModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">Disapprove Loan Request</h2>
+      <button class="btn-close" onclick="closeModal('disapproveModal')">&times;</button>
+    </div>
+    
+    <form id="disapproveForm" method="post">
+      {% csrf_token %}
+      <input type="hidden" id="disapproveLoanId" name="loan_id">
+      <input type="hidden" name="action" value="disapprove">
+      
+      <div class="form-group">
+        <label class="form-label" for="admin_comment">Reason for Disapproval</label>
+        <textarea class="form-control" id="admin_comment" name="admin_comment" placeholder="Please provide a reason for disapproving this loan request..." required></textarea>
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" onclick="closeModal('disapproveModal')">Cancel</button>
+        <button type="submit" class="btn-primary">Disapprove Request</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Details Modal -->
+<div id="detailsModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">Loan Request Details</h2>
+      <button class="btn-close" onclick="closeModal('detailsModal')"></button>
+    </div>
+    <div id="detailsContent">
+      <!-- Content will be populated by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleReason(loanId) {
+  const reasonEl = document.getElementById(`reason-${loanId}`);
+  const toggleEl = reasonEl.nextElementSibling;
+  
+  if (reasonEl.classList.contains('expanded')) {
+    reasonEl.classList.remove('expanded');
+    reasonEl.textContent = reasonEl.textContent.substring(0, 100) + '...';
+    toggleEl.textContent = 'Show more';
+  } else {
+    reasonEl.classList.add('expanded');
+    // Full text would need to be stored or fetched
+    toggleEl.textContent = 'Show less';
+  }
+}
+
+function approveLoan(loanId) {
+  if (confirm('Are you sure you want to approve this loan request?')) {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.innerHTML = `
+      {% csrf_token %}
+      <input type="hidden" name="loan_id" value="${loanId}">
+      <input type="hidden" name="action" value="approve">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+function openDisapproveModal(loanId) {
+  document.getElementById('disapproveLoanId').value = loanId;
+  document.getElementById('disapproveModal').style.display = 'flex';
+}
+
+function viewDetails(loanId) {
+  // This would fetch detailed information via AJAX
+  const modal = document.getElementById('detailsModal');
+  const content = document.getElementById('detailsContent');
+  
+  // For now, show a simple message
+  content.innerHTML = `
+    <div style="text-align: center; padding: 2rem;">
+      <i class="bx bx-loader-alt" style="font-size: 2rem; color: #6366f1;"></i>
+      <p style="margin-top: 1rem; color: #6b7280;">Loading details...</p>
+    </div>
+  `;
+  
+  modal.style.display = 'flex';
+  
+  // In a real implementation, you would fetch the data here
+  setTimeout(() => {
+    content.innerHTML = `
+      <div style="color: #6b7280; text-align: center;">
+        <i class="bx bx-info-circle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+        <p>Detailed view would show complete loan information here.</p>
+      </div>
+    `;
+  }, 500);
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+  if (event.target.classList.contains('modal')) {
+    event.target.style.display = 'none';
+  }
+}
+</script>
+{% endblock %}

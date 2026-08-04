@@ -1,0 +1,465 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}My Reimbursement Requests{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+.my-reimbursements-container {
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.btn-new-reimbursement {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.btn-new-reimbursement:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  color: white;
+}
+
+.reimbursements-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.reimbursement-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.reimbursement-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.reimbursement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.reimbursement-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.reimbursement-status {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-verified {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.reimbursement-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-value {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.reimbursement-reason {
+  color: #4b5563;
+  line-height: 1.6;
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.payment-slip {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.payment-slip-preview {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.payment-slip-preview:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.admin-comment {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+  border-left: 4px solid #6366f1;
+}
+
+.admin-comment-title {
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.admin-comment-text {
+  color: #4b5563;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.timeline {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.timeline-item {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.timeline-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.timeline-created {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.timeline-verified {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.timeline-paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.timeline-content {
+  flex: 1;
+}
+
+.timeline-text {
+  color: #374151;
+  font-weight: 500;
+}
+
+.timeline-date {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.image-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.image-modal img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 8px;
+}
+
+.image-modal-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-new-reimbursement {
+    justify-content: center;
+  }
+  
+  .reimbursement-details {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="my-reimbursements-container">
+  <div class="page-header">
+    <h1 class="page-title">My Reimbursement Requests</h1>
+    <a href="{% url 'employees:reimbursement_request' %}" class="btn-new-reimbursement">
+      <i class="bx bx-plus"></i>
+      New Reimbursement
+    </a>
+  </div>
+
+  {% if reimbursements %}
+    <div class="reimbursements-grid">
+      {% for reimbursement in reimbursements %}
+        <div class="reimbursement-card">
+          <div class="reimbursement-header">
+            <div class="reimbursement-amount">₹{{ reimbursement.amount }}</div>
+            <div class="reimbursement-status status-{{ reimbursement.status }}">
+              {{ reimbursement.get_status_display }}
+            </div>
+          </div>
+          
+          <div class="reimbursement-details">
+            <div class="detail-item">
+              <span class="detail-label">Category</span>
+              <span class="category-badge">
+                {% if reimbursement.category == 'travel' %}
+                  <i class="bx bx-plane"></i> Travel
+                {% elif reimbursement.category == 'cab' %}
+                  <i class="bx bx-car"></i> Cab
+                {% elif reimbursement.category == 'food' %}
+                  <i class="bx bx-restaurant"></i> Food
+                {% elif reimbursement.category == 'office_supplies' %}
+                  <i class="bx bx-paperclip"></i> Office Supplies
+                {% else %}
+                  <i class="bx bx-category"></i> Other
+                {% endif %}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Expense Date</span>
+              <span class="detail-value">{{ reimbursement.expense_date|date:"M d, Y" }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Request Date</span>
+              <span class="detail-value">{{ reimbursement.created_at|date:"M d, Y" }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Request ID</span>
+              <span class="detail-value">#{{ reimbursement.id }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">UPI ID</span>
+              <span class="detail-value">{{ reimbursement.upi_id|default:"Not provided" }}</span>
+            </div>
+          </div>
+          
+          <div class="reimbursement-reason">
+            <strong>Reason:</strong> {{ reimbursement.reason|linebreaks }}
+          </div>
+          
+          <div class="payment-slip">
+            <strong>Payment Slip:</strong>
+            <div style="margin-top: 0.5rem;">
+              <img 
+                src="{{ reimbursement.payment_slip.url }}" 
+                alt="Payment Slip" 
+                class="payment-slip-preview"
+                onclick="openImageModal('{{ reimbursement.payment_slip.url }}')"
+              >
+            </div>
+          </div>
+          
+          {% if reimbursement.admin_comment %}
+            <div class="admin-comment">
+              <div class="admin-comment-title">Admin Comment</div>
+              <div class="admin-comment-text">{{ reimbursement.admin_comment|linebreaks }}</div>
+            </div>
+          {% endif %}
+          
+          <div class="timeline">
+            <div class="timeline-item">
+              <div class="timeline-icon timeline-created">
+                <i class="bx bx-time"></i>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-text">Request submitted</div>
+                <div class="timeline-date">{{ reimbursement.created_at|date:"M d, Y g:i A" }}</div>
+              </div>
+            </div>
+            
+            {% if reimbursement.verified_at %}
+              <div class="timeline-item">
+                <div class="timeline-icon timeline-verified">
+                  <i class="bx bx-check"></i>
+                </div>
+                <div class="timeline-content">
+                  <div class="timeline-text">Verified by {{ reimbursement.verified_by.get_full_name|default:reimbursement.verified_by.username }}</div>
+                  <div class="timeline-date">{{ reimbursement.verified_at|date:"M d, Y g:i A" }}</div>
+                </div>
+              </div>
+            {% endif %}
+            
+            {% if reimbursement.paid_at %}
+              <div class="timeline-item">
+                <div class="timeline-icon timeline-paid">
+                  <i class="bx bx-dollar"></i>
+                </div>
+                <div class="timeline-content">
+                  <div class="timeline-text">Paid by {{ reimbursement.paid_by.get_full_name|default:reimbursement.paid_by.username }}</div>
+                  <div class="timeline-date">{{ reimbursement.paid_at|date:"M d, Y g:i A" }}</div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <i class="bx bx-receipt"></i>
+      <h3>No Reimbursement Requests</h3>
+      <p>You haven't submitted any reimbursement requests yet.</p>
+      <a href="{% url 'employees:reimbursement_request' %}" class="btn-new-reimbursement">
+        <i class="bx bx-plus"></i>
+        Create Your First Request
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Image Modal -->
+<div id="imageModal" class="image-modal" onclick="closeImageModal()">
+  <span class="image-modal-close">&times;</span>
+  <img id="modalImage" src="" alt="Payment Slip">
+</div>
+
+<script>
+function openImageModal(imageUrl) {
+  document.getElementById('modalImage').src = imageUrl;
+  document.getElementById('imageModal').style.display = 'flex';
+}
+
+function closeImageModal() {
+  document.getElementById('imageModal').style.display = 'none';
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    closeImageModal();
+  }
+});
+</script>
+{% endblock %}

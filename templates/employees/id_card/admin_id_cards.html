@@ -1,0 +1,250 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}Employee ID Card Management | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .form-section {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .form-section h5 {
+    margin-bottom: 1.5rem;
+    color: #1f2937;
+    font-weight: 600;
+  }
+
+  .id-card-item {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .card-preview {
+    width: 80px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .card-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .card-info {
+    flex: 1;
+  }
+
+  .card-employee {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+  }
+
+  .card-details {
+    font-size: 0.9rem;
+    color: #6b7280;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .detail-badge {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .detail-label {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .detail-value {
+    font-size: 0.9rem;
+    color: #1f2937;
+    font-weight: 500;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .btn-sm {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+
+  .btn-info {
+    background: linear-gradient(135deg, #1e40af, #1e3a8a);
+    color: white;
+  }
+
+  .btn-info:hover {
+    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    .id-card-item {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .card-details {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .btn-group {
+      width: 100%;
+    }
+
+    .btn-sm {
+      flex: 1;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="card-title mb-0">
+          <i class="bx bx-id-card me-2"></i>Employee ID Card Management
+        </h4>
+      </div>
+      <div class="card-body">
+        <!-- Generate ID Card Form -->
+        <div class="form-section">
+          <h5>Generate New ID Card</h5>
+          <form method="POST" class="row g-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="generate">
+            
+            <div class="col-md-6">
+              <label class="form-label">Employee</label>
+              <select name="employee_id" class="form-control" required>
+                <option value="">Select Employee</option>
+                {% for emp in employees %}
+                  <option value="{{ emp.id }}">{{ emp.full_name }} ({{ emp.email }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Employee ID Number</label>
+              <input type="text" name="employee_id_number" class="form-control" placeholder="e.g., EMP-001" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Job Position</label>
+              <input type="text" name="job_position" class="form-control" placeholder="e.g., Software Engineer" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Date of Joining</label>
+              <input type="date" name="date_of_joining" class="form-control" required>
+            </div>
+
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <i class="bx bx-plus me-1"></i>Generate ID Card
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ID Cards List -->
+        <div>
+          <h5 class="mb-3">All Employee ID Cards</h5>
+          {% if id_cards %}
+            {% for card in id_cards %}
+              <div class="id-card-item">
+                {% if card.employee_photo %}
+                  <div class="card-preview">
+                    <img src="{{ card.employee_photo.url }}" alt="Employee Photo">
+                  </div>
+                {% else %}
+                  <div class="card-preview" style="background: #f3f4f6; display: flex; align-items: center; justify-content: center;">
+                    <i class="bx bx-user" style="font-size: 2rem; color: #9ca3af;"></i>
+                  </div>
+                {% endif %}
+
+                <div class="card-info">
+                  <div class="card-employee">{{ card.employee.full_name }}</div>
+                  <div class="card-details">
+                    <div class="detail-badge">
+                      <span class="detail-label">ID Number</span>
+                      <span class="detail-value">{{ card.employee_id_number }}</span>
+                    </div>
+                    <div class="detail-badge">
+                      <span class="detail-label">Position</span>
+                      <span class="detail-value">{{ card.job_position }}</span>
+                    </div>
+                    <div class="detail-badge">
+                      <span class="detail-label">DOJ</span>
+                      <span class="detail-value">{{ card.date_of_joining|date:"d M Y" }}</span>
+                    </div>
+                    <div class="detail-badge">
+                      <span class="detail-label">Generated</span>
+                      <span class="detail-value">{{ card.created_at|date:"d M Y" }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="btn-group">
+                  <a href="{% url 'employees:view_id_card' %}" class="btn-sm btn-info" target="_blank">
+                    <i class="bx bx-show"></i>View
+                  </a>
+                  {% if card.employee_photo %}
+                    <a href="{% url 'employees:download_id_card' card.id %}" class="btn-sm btn-primary">
+                      <i class="bx bx-download"></i>Download
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="alert alert-info">
+              <i class="bx bx-info-circle me-2"></i>No ID cards generated yet.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

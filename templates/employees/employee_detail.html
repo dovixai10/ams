@@ -1,0 +1,1243 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Employee Details | Dovix CRM{% endblock %}
+
+{% block vendor_css %}
+  {{ block.super }}
+{% endblock vendor_css %}
+
+{% block page_css %}
+  {{ block.super }}
+  <style>
+    .employee-profile-page {
+      background: linear-gradient(155deg, rgba(87, 111, 230, 0.08) 0%, rgba(149, 114, 252, 0.04) 40%, rgba(255, 255, 255, 0) 100%);
+      backdrop-filter: blur(2px);
+      border-radius: 1.5rem;
+      padding-bottom: 2rem;
+    }
+
+    .employee-profile-page .section-gap {
+      margin-bottom: 2.5rem;
+    }
+
+    .profile-card {
+      background: linear-gradient(135deg, #6370ff, #8d5bff);
+      border-radius: 1.25rem;
+      box-shadow: 0 18px 40px -20px rgba(87, 111, 230, 0.6);
+      color: #fff;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .profile-card::before,
+    .profile-card::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      mix-blend-mode: screen;
+      filter: blur(0.5px);
+      opacity: 0.28;
+    }
+
+    .profile-card::before {
+      width: 280px;
+      height: 280px;
+      background: rgba(255, 255, 255, 0.25);
+      top: -120px;
+      right: -120px;
+    }
+
+    .profile-card::after {
+      width: 200px;
+      height: 200px;
+      background: rgba(253, 192, 255, 0.35);
+      bottom: -90px;
+      left: -60px;
+    }
+
+    .profile-card .badge,
+    .profile-card small {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .profile-card .btn {
+      border-color: rgba(255, 255, 255, 0.45);
+      color: #fff;
+    }
+
+    .profile-card .btn:hover {
+      border-color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .status-chip {
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.9rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      backdrop-filter: blur(6px);
+      color: #fff;
+    }
+
+    .status-chip i {
+      font-size: 1rem;
+      margin-right: 0.35rem;
+    }
+
+    .card-hover-lift {
+      transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+      border-radius: 1rem;
+    }
+
+    .card-hover-lift:hover,
+    .card-hover-lift:focus-within {
+      transform: translateY(-6px);
+      box-shadow: 0 18px 45px -20px rgba(87, 111, 230, 0.35);
+      border-color: rgba(99, 112, 255, 0.48) !important;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .section-heading::before {
+      content: "";
+      width: 40px;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #6370ff, #8d5bff);
+      display: inline-block;
+    }
+
+    .info-row strong {
+      color: #4f5d73;
+    }
+
+    .info-row {
+      position: relative;
+      padding: 0.15rem 0;
+    }
+
+    .info-row::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(99, 112, 255, 0.12), rgba(141, 91, 255, 0));
+      opacity: 0.7;
+    }
+
+    .info-row:last-of-type::after {
+      display: none;
+    }
+
+    .stat-bubble {
+      border-radius: 1rem;
+      background: linear-gradient(140deg, rgba(99, 112, 255, 0.15), rgba(141, 91, 255, 0.08));
+      padding: 1.2rem 0.5rem;
+      min-width: 110px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-bubble::after {
+      content: "";
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      top: -60px;
+      right: -30px;
+    }
+
+    .stat-bubble h4 {
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      color: #48506b;
+    }
+
+    .stat-bubble small {
+      color: #67748e;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      display: block;
+    }
+
+    .recent-activity-table thead th {
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      color: #8891aa;
+      border-bottom: 1px solid rgba(99, 112, 255, 0.12);
+    }
+
+    .recent-activity-table tbody tr {
+      border-radius: 0.75rem;
+      transition: background 0.3s ease;
+    }
+
+    .recent-activity-table tbody tr:hover {
+      background: rgba(99, 112, 255, 0.08);
+    }
+
+    .action-card {
+      border-radius: 0.85rem;
+      border: 1px solid rgba(99, 112, 255, 0.15) !important;
+      padding: 1.4rem 1.2rem;
+      height: 100%;
+      transition: transform 0.28s ease, box-shadow 0.28s ease;
+      background: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .action-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(141, 91, 255, 0.18), transparent 55%);
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      pointer-events: none;
+    }
+
+    .action-card:hover::before,
+    .action-card:focus::before {
+      opacity: 1;
+    }
+
+    .action-card:hover,
+    .action-card:focus {
+      transform: translateY(-6px);
+      box-shadow: 0 18px 40px -24px rgba(99, 112, 255, 0.35);
+    }
+
+    .action-card h6 {
+      font-weight: 600;
+      color: #303a52;
+    }
+
+    .action-card small {
+      color: #707d95;
+    }
+
+    .avatar-xl img {
+      border: 3px solid rgba(255, 255, 255, 0.65);
+      box-shadow: 0 12px 24px -14px rgba(24, 22, 45, 0.55);
+    }
+
+    .btn-wave {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-wave::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.25);
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      transition: width 0.35s ease, height 0.35s ease, opacity 0.35s ease;
+      opacity: 0;
+    }
+
+    .btn-wave:hover::after,
+    .btn-wave:focus::after {
+      width: 230%;
+      height: 230%;
+      opacity: 1;
+    }
+
+    [data-animate] {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.6s ease;
+    }
+
+    .animate-in {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    .card-hover-lift:hover .section-heading {
+      color: #6366f1;
+    }
+
+    .document-admin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+
+    .document-admin-card {
+      border: 1px solid rgba(99, 102, 241, 0.18);
+      border-radius: 14px;
+      padding: 1rem;
+      background: #f8fafc;
+    }
+
+    .document-admin-card .btn {
+      width: 100%;
+    }
+
+    @media (max-width: 991.98px) {
+      .profile-card {
+        border-radius: 1rem;
+      }
+
+      .profile-card::before {
+        width: 220px;
+        height: 220px;
+        top: -100px;
+        right: -80px;
+      }
+
+      .profile-card::after {
+        width: 150px;
+        height: 150px;
+        bottom: -70px;
+        left: -50px;
+      }
+
+      .action-card {
+        padding: 1.2rem 1rem;
+      }
+    }
+  </style>
+{% endblock page_css %}
+
+{% block content %}
+  <div class="employee-profile-page p-3 p-lg-4">
+    <div class="row gy-4 section-gap" data-animate>
+      <!-- Employee Header -->
+      <div class="col-12">
+        <div class="card profile-card border-0">
+          <div class="card-body p-4 p-lg-5">
+            <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-4">
+              <div class="d-flex align-items-center gap-3 gap-lg-4">
+                <div class="avatar avatar-xl flex-shrink-0">
+                  {% if employee.profile_picture %}
+                    <img src="{{ employee.profile_picture.url }}" alt="Profile" class="rounded-circle">
+                  {% else %}
+                    <div class="avatar-initial bg-label-primary rounded-circle border border-white border-opacity-50">
+                      {{ employee.name|first|upper }}
+                    </div>
+                  {% endif %}
+                </div>
+                <div>
+                  <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                    <span class="status-chip">
+                      <i class="icon-base bx bx-id-card"></i>
+                      Employee Profile
+                    </span>
+                    {% if employee.user.is_active %}
+                      <span class="badge bg-success bg-opacity-75">Active</span>
+                    {% else %}
+                      <span class="badge bg-danger bg-opacity-75">Inactive</span>
+                    {% endif %}
+                    {% if employee.face_registered %}
+                      <span class="badge bg-info bg-opacity-75">
+                        <i class="icon-base bx bx-face me-1"></i>Face Registered
+                      </span>
+                    {% else %}
+                      <span class="badge bg-warning bg-opacity-75">
+                        <i class="icon-base bx bx-face me-1"></i>Face Not Registered
+                      </span>
+                    {% endif %}
+                  </div>
+                  <h2 class="fw-bold mb-1">{{ employee.full_name }}</h2>
+                  <p class="mb-0 text-white-50">{{ employee.email }}</p>
+                  <small class="text-white-50">Joined {{ employee.created_at|date:"M d, Y" }}</small>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap justify-content-end gap-2">
+                <a href="{% url 'employees:employee_update' employee.pk %}" class="btn btn-outline-light btn-wave">
+                  <i class="icon-base bx bx-edit-alt me-1"></i>Edit Employee
+                </a>
+                <form method="post" action="{% url 'employees:employee_toggle_status' employee.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline-light btn-wave" onclick="return confirm('Are you sure you want to {% if employee.user.is_active %}deactivate{% else %}activate{% endif %} this employee?{% if employee.user.is_active %} They will not be able to login.{% else %} They will be able to login again.{% endif %}')">
+                    {% if employee.user.is_active %}
+                      <i class="icon-base bx bx-user-x me-1"></i>Deactivate
+                    {% else %}
+                      <i class="icon-base bx bx-user-check me-1"></i>Activate
+                    {% endif %}
+                  </button>
+                </form>
+                <a href="{% url 'employees:employee_list' %}" class="btn btn-outline-light btn-wave">
+                  <i class="icon-base bx bx-arrow-back me-1"></i>Back to List
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row gy-4 section-gap" data-animate>
+      <!-- Personal Information -->
+      <div class="col-xl-6 col-lg-12 col-md-12">
+        <div class="card h-100 border-0 shadow-sm card-hover-lift">
+          <div class="card-header bg-white border-0 pb-0">
+            <h5 class="card-title m-0 section-heading">Personal Information</h5>
+          </div>
+          <div class="card-body pt-3">
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Full Name</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.full_name }}
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Email</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.email }}
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Phone</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.contact }}
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Aadhar Number</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.aadhar_card_number|default:"Not provided" }}
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>PAN Card</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.pan_card }}
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Bank Account</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.account_number|default:"Not provided" }}
+                <br>
+                <small class="text-muted">IFSC: {{ employee.ifsc_code|default:"Not provided" }}</small>
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Staff Status</strong>
+              </div>
+              <div class="col-sm-8">
+                {% if employee.user.is_staff %}
+                  <span class="badge bg-label-success">Staff</span>
+                {% else %}
+                  <span class="badge bg-label-secondary">Regular User</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Educational Qualifications</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.educational_qualifications|default:"Not provided"|linebreaks }}
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Face Recognition</strong>
+              </div>
+              <div class="col-sm-8">
+                {% if employee.face_registered %}
+                  <span class="badge bg-label-success mb-2">
+                    <i class="icon-base bx bx-check-circle me-1"></i>Registered
+                  </span>
+                  {% if employee.face_registered_at %}
+                    <br><small class="text-muted">Registered on: {{ employee.face_registered_at|date:"M d, Y H:i" }}</small>
+                  {% endif %}
+                {% else %}
+                  <span class="badge bg-label-warning mb-2">
+                    <i class="icon-base bx bx-x-circle me-1"></i>Not Registered
+                  </span>
+                  <br><small class="text-muted">Update profile picture to register face</small>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="row info-row mb-0">
+              <div class="col-sm-4">
+                <strong>Account Status</strong>
+              </div>
+              <div class="col-sm-8">
+                {% if employee.user.is_active %}
+                  <span class="badge bg-label-success">Active</span>
+                {% else %}
+                  <span class="badge bg-label-danger">Inactive</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Document Uploads & Address Information -->
+      <div class="col-xl-6 col-lg-12 col-md-12">
+        <div class="card h-100 border-0 shadow-sm card-hover-lift">
+          <div class="card-header bg-white border-0 pb-0">
+            <h5 class="card-title m-0 section-heading">CTC</h5>
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Monthly Salary</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ monthly_ctc|default:"Not provided"|linebreaks }}
+              </div>
+            </div>
+          </div>
+          <div class="card-header bg-white border-0 pb-0">
+            <h5 class="card-title m-0 section-heading">Compliance Documents</h5>
+          </div>
+          <div class="card-body pt-3">
+            <div class="document-admin-grid mb-4">
+              {% for doc in employee.documents.all %}
+                <div class="document-admin-card">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fw-semibold">{{ doc.get_document_type_display }}</span>
+                    <span class="badge 
+                      {% if doc.status == 'verified' %}
+                        bg-label-success
+                      {% elif doc.status == 'submitted' %}
+                        bg-label-info
+                      {% elif doc.status == 'rejected' %}
+                        bg-label-danger
+                      {% else %}
+                        bg-label-warning
+                      {% endif %}
+                    ">{{ doc.get_status_display }}</span>
+                  </div>
+                  {% if doc.needs_resubmission %}
+                    <div class="alert alert-warning py-2 px-3 mb-2">
+                      <i class="bx bx-info-circle me-1"></i>
+                      Resubmission requested
+                      {% if doc.resubmit_reason %}
+                        <div class="small mb-0">{{ doc.resubmit_reason }}</div>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                  {% if doc.file %}
+                    <div class="mb-2 d-flex flex-wrap gap-2">
+                      <button type="button"
+                              class="btn btn-sm btn-outline-primary"
+                              data-view-document
+                              data-doc-url="{{ doc.file.url }}"
+                              data-doc-title="{{ doc.get_document_type_display }}">
+                        <i class="bx bx-show me-1"></i>View
+                      </button>
+                      {% if doc.status != 'verified' %}
+                        <button class="btn btn-sm btn-outline-success verify-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.get_document_type_display }}">
+                          <i class="bx bx-check me-1"></i>Verify
+                        </button>
+                      {% endif %}
+                      <button class="btn btn-sm btn-outline-warning resubmit-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.get_document_type_display }}">
+                        <i class="bx bx-refresh me-1"></i>Request Resubmit
+                      </button>
+                    </div>
+                    <small class="text-muted d-block">Uploaded: {{ doc.uploaded_at|date:"M d, Y H:i" }}</small>
+                  {% else %}
+                    <span class="text-muted small">No file uploaded</span>
+                  {% endif %}
+                </div>
+              {% empty %}
+                <div class="col-12">
+                  <div class="alert alert-info mb-0">
+                    <i class="bx bx-info-circle me-2"></i>
+                    No documents uploaded yet
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+
+            <h6 class="section-heading mb-3">Address Information</h6>
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Current Address</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.current_address|default:"Not provided"|linebreaks }}
+              </div>
+            </div>
+
+            <div class="row mb-0 info-row">
+              <div class="col-sm-4">
+                <strong>Permanent Address</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.permanent_address|default:"Not provided"|linebreaks }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row gy-4 section-gap" data-animate>
+      <!-- Relative Information -->
+      <div class="col-xl-6 col-lg-12 col-md-12">
+        <div class="card h-100 border-0 shadow-sm card-hover-lift">
+          <div class="card-header bg-white border-0 pb-0">
+            <h5 class="card-title m-0 section-heading">Emergency Contact</h5>
+          </div>
+          <div class="card-body pt-3">
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Relative's Name</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.relative_name|default:"Not provided" }}
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4">
+                <strong>Relation</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.relation_with_employee|default:"Not provided" }}
+              </div>
+            </div>
+
+            <div class="row mb-0 info-row">
+              <div class="col-sm-4">
+                <strong>Contact Number</strong>
+              </div>
+              <div class="col-sm-8">
+                {{ employee.relative_contact|default:"Not provided" }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance Statistics -->
+      <div class="col-xl-6 col-lg-12 col-md-12">
+        <div class="card h-100 border-0 shadow-sm card-hover-lift">
+          <div class="card-header bg-white border-0 pb-0">
+            <h5 class="card-title m-0 section-heading">Attendance Statistics</h5>
+          </div>
+          <div class="card-body pt-3">
+            <div class="row text-center mb-4 g-3 justify-content-center">
+              <div class="col-4">
+                <div class="stat-bubble">
+                  <div class="avatar mx-auto mb-2" style="width: 52px; height: 52px;">
+                    <div class="avatar-initial bg-label-primary rounded">
+                      <i class="icon-base bx bx-calendar-check icon-24px"></i>
+                    </div>
+                  </div>
+                  <h4 class="mb-1">{{ total_attendance }}</h4>
+                  <small>Total Check-ins</small>
+                </div>
+              </div>
+
+              <div class="col-4">
+                <div class="stat-bubble">
+                  <div class="avatar mx-auto mb-2" style="width: 52px; height: 52px;">
+                    <div class="avatar-initial bg-label-info rounded">
+                      <i class="icon-base bx bx-calendar icon-24px"></i>
+                    </div>
+                  </div>
+                  <h4 class="mb-1">{{ current_month_attendance }}</h4>
+                  <small>This Month</small>
+                </div>
+              </div>
+
+              <div class="col-4">
+                <div class="stat-bubble">
+                  <div class="avatar mx-auto mb-2" style="width: 52px; height: 52px;">
+                    <div class="avatar-initial bg-label-success rounded">
+                      <i class="icon-base bx bx-time-five icon-24px"></i>
+                    </div>
+                  </div>
+                  <h4 class="mb-1">{{ week_attendance|length }}</h4>
+                  <small>This Week</small>
+                </div>
+              </div>
+            </div>
+
+            {% if recent_attendance %}
+              <div class="mt-4">
+                <h6 class="mb-3 text-muted text-uppercase" style="letter-spacing: 0.08em; font-size: 0.73rem;">Recent Check-ins</h6>
+                {% for attendance in recent_attendance|slice:":5" %}
+                  <div class="d-flex align-items-center mb-3">
+                    <div class="avatar avatar-sm me-3">
+                      <div class="avatar-initial bg-label-success rounded-circle">
+                        <i class="icon-base bx bx-check icon-16px"></i>
+                      </div>
+                    </div>
+                    <div class="flex-grow-1">
+                      <span class="fw-medium">{{ attendance.date|date:"d M Y, l" }}</span>
+                    </div>
+                    <small class="text-success">{{ attendance.check_in_time|date:"H:i" }}</small>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="text-center py-4">
+                <i class="icon-base bx bx-time-five icon-48px text-muted mb-3"></i>
+                <p class="text-muted">No check-ins yet</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row gy-4 section-gap" data-animate>
+      <div class="col-12">
+        <div class="card h-100 border-0 shadow-sm card-hover-lift">
+          <div class="card-header d-flex align-items-center justify-content-between bg-white border-0 pb-0">
+            <h5 class="card-title m-0 section-heading">Recent Attendance History</h5>
+            <a href="{% url 'employees:attendance_list' %}?employee={{ employee.pk }}" class="btn btn-sm btn-outline-primary btn-wave">
+              View All Attendance
+            </a>
+          </div>
+          <div class="card-body pt-3">
+            {% if recent_attendance %}
+              <div class="table-responsive rounded-3 overflow-hidden">
+                <table class="table table-borderless align-middle recent-activity-table mb-0">
+                  <thead>
+                    <tr>
+                      <th scope="col">Date</th>
+                      <th scope="col">Day</th>
+                      <th scope="col">Check-in</th>
+                      <th scope="col">Check-out</th>
+                      <th scope="col">Duration</th>
+                      <th scope="col" class="text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for attendance in recent_attendance %}
+                      <tr>
+                        <td>
+                          <span class="fw-semibold text-dark">{{ attendance.date|date:"M d, Y" }}</span>
+                        </td>
+                        <td>
+                          <span class="fw-medium text-muted">{{ attendance.date|date:"l" }}</span>
+                        </td>
+                        <td>
+                          <span class="badge bg-success bg-opacity-75 px-3 py-2">
+                            <i class="bx bx-log-in me-1"></i>{{ attendance.check_in_time|date:"H:i" }}
+                          </span>
+                        </td>
+                        <td>
+                          {% if attendance.check_out_time %}
+                            <span class="badge bg-danger bg-opacity-75 px-3 py-2">
+                              <i class="bx bx-log-out me-1"></i>{{ attendance.check_out_time|date:"H:i" }}
+                            </span>
+                          {% else %}
+                            <span class="badge bg-warning bg-opacity-75 px-3 py-2">
+                              <i class="bx bx-time-five me-1"></i>Active
+                            </span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if attendance.check_out_time and attendance.check_in_time %}
+                            {% widthratio attendance.check_out_time.hour 1 60 as checkout_minutes %}
+                            {% widthratio attendance.check_in_time.hour 1 60 as checkin_minutes %}
+                            <span class="text-muted">
+                              <i class="bx bx-time me-1"></i>
+                              {% if attendance.total_hours %}
+                                {{ attendance.total_hours|floatformat:1 }}h
+                              {% else %}
+                                -
+                              {% endif %}
+                            </span>
+                          {% else %}
+                            <span class="text-muted">-</span>
+                          {% endif %}
+                        </td>
+                        <td class="text-center">
+                          {% if attendance.date|date:"Y-m-d" == today|date:"Y-m-d" %}
+                            <span class="badge bg-label-success px-3 py-2">Today</span>
+                          {% else %}
+                            <span class="badge bg-label-secondary px-3 py-2">Past</span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div class="text-center py-4">
+                <i class="icon-base bx bx-time-five icon-48px text-muted mb-3"></i>
+                <p class="text-muted mb-3">No attendance records yet</p>
+                <small class="text-muted">This employee hasn't checked in yet.</small>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row section-gap" data-animate>
+      <div class="col-12">
+        <div class="card border-0 shadow-sm card-hover-lift">
+          <div class="card-header bg-white border-0 pb-0 d-flex align-items-center justify-content-between">
+            <h5 class="card-title m-0 section-heading">Quick Actions</h5>
+            <span class="text-muted small">Save time with shortcuts</span>
+          </div>
+          <div class="card-body pt-3">
+            <div class="row g-3 g-lg-4">
+              <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                <a href="{% url 'employees:employee_logs' employee.pk %}" class="text-decoration-none">
+                  <div class="action-card text-center">
+                    <i class="icon-base bx bx-analyse icon-28px text-info mb-3"></i>
+                    <h6 class="mb-1">View Activity Logs</h6>
+                    <small>Interactive attendance attempts</small>
+                  </div>
+                </a>
+              </div>
+              <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                <a href="{% url 'employees:employee_update' employee.pk %}" class="text-decoration-none">
+                  <div class="action-card text-center">
+                    <i class="icon-base bx bx-edit-alt icon-28px text-primary mb-3"></i>
+                    <h6 class="mb-1">Edit Employee</h6>
+                    <small>Update employee information</small>
+                  </div>
+                </a>
+              </div>
+              <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                <form method="post" action="{% url 'employees:employee_toggle_status' employee.pk %}" class="text-decoration-none">
+                  {% csrf_token %}
+                  <button type="submit" class="action-card text-center w-100 bg-transparent border-0" onclick="return confirm('Are you sure you want to {% if employee.user.is_active %}deactivate{% else %}activate{% endif %} this employee?{% if employee.user.is_active %} They will not be able to login.{% else %} They will be able to login again.{% endif %}')">
+                    {% if employee.user.is_active %}
+                      <i class="icon-base bx bx-user-x icon-28px text-warning mb-3"></i>
+                      <h6 class="mb-1">Deactivate</h6>
+                      <small>Disable login access</small>
+                    {% else %}
+                      <i class="icon-base bx bx-user-check icon-28px text-success mb-3"></i>
+                      <h6 class="mb-1">Activate</h6>
+                      <small>Enable login access</small>
+                    {% endif %}
+                  </button>
+                </form>
+              </div>
+              <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                <a href="{% url 'employees:employee_list' %}" class="text-decoration-none">
+                  <div class="action-card text-center">
+                    <i class="icon-base bx bx-arrow-back icon-28px text-secondary mb-3"></i>
+                    <h6 class="mb-1">Back to List</h6>
+                    <small>Return to employees list</small>
+                  </div>
+                </a>
+              </div>
+              <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                <a href="{% url 'employees:employee_change_password' employee.pk %}" class="text-decoration-none">
+                  <div class="action-card text-center">
+                    <i class="icon-base bx bx-lock-alt icon-28px text-danger mb-3"></i>
+                    <h6 class="mb-1">Change Password</h6>
+                    <small>Reset employee password</small>
+                  </div>
+                </a>
+              </div>
+              <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                <a href="{% url 'employees:admin_dashboard' %}" class="text-decoration-none">
+                  <div class="action-card text-center">
+                    <i class="icon-base bx bx-home icon-28px text-success mb-3"></i>
+                    <h6 class="mb-1">Admin Dashboard</h6>
+                    <small>Go to admin panel</small>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const animatedSections = document.querySelectorAll('[data-animate]');
+      if (!('IntersectionObserver' in window) || !animatedSections.length) {
+        animatedSections.forEach(el => el.classList.add('animate-in'));
+        return;
+      }
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('animate-in');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, {
+        threshold: 0.15,
+        rootMargin: '0px 0px -10% 0px'
+      });
+
+      animatedSections.forEach(section => observer.observe(section));
+
+      // Document View Handler
+      document.querySelectorAll('[data-view-document]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const docUrl = this.dataset.docUrl;
+          const docTitle = this.dataset.docTitle;
+          
+          if (!docUrl) {
+            alert('Document URL not found');
+            return;
+          }
+          
+          // Create modal for viewing document
+          const modalId = 'viewDocModal_' + Math.random().toString(36).substr(2, 9);
+          const modalHtml = `
+            <div class="modal fade" id="${modalId}" tabindex="-1" role="dialog" aria-hidden="true">
+              <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                <div class="modal-content border-0 shadow-lg">
+                  <div class="modal-header bg-gradient border-0 py-3">
+                    <h5 class="modal-title fw-bold text-white">
+                      <i class="bx bx-file me-2"></i>${docTitle}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body p-0" style="max-height: 70vh; overflow-y: auto;">
+                    <iframe src="${docUrl}" style="width: 100%; height: 100%; border: none; min-height: 500px;"></iframe>
+                  </div>
+                  <div class="modal-footer border-0 py-3">
+                    <a href="${docUrl}" class="btn btn-primary" download>
+                      <i class="bx bx-download me-1"></i>Download
+                    </a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                      <i class="bx bx-x me-1"></i>Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          // Add modal to DOM
+          const modalContainer = document.createElement('div');
+          modalContainer.innerHTML = modalHtml;
+          document.body.appendChild(modalContainer);
+          
+          // Show modal
+          const modal = new bootstrap.Modal(document.getElementById(modalId));
+          modal.show();
+          
+          // Clean up on modal close
+          document.getElementById(modalId).addEventListener('hidden.bs.modal', () => {
+            document.getElementById(modalId).parentElement.remove();
+          });
+        });
+      });
+
+      // Document Verification Handler
+      document.querySelectorAll('.verify-doc-btn').forEach(btn => {
+        btn.addEventListener('click', async function(e) {
+          e.preventDefault();
+          
+          const docId = this.dataset.docId;
+          const docType = this.dataset.docType;
+          const card = this.closest('.document-admin-card');
+          const btnElement = this;
+          
+          // Show beautiful confirmation modal
+          showConfirmationModal(docType, async () => {
+            // Show loading state
+            const originalText = btnElement.innerHTML;
+            btnElement.disabled = true;
+            btnElement.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Verifying...';
+            
+            try {
+              const response = await fetch(`/api/documents/${docId}/verify/`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRFToken': getCookie('csrftoken')
+                }
+              });
+              
+              const data = await response.json();
+              
+              if (data.success) {
+                // Update badge
+                const badge = card.querySelector('.badge');
+                badge.textContent = 'Verified';
+                badge.className = 'badge bg-label-success';
+                
+                // Remove verify button
+                btnElement.remove();
+                
+                // Show success message
+                showNotification('Document verified successfully!', 'success');
+              } else {
+                showNotification(data.error || 'Failed to verify document', 'error');
+                btnElement.disabled = false;
+                btnElement.innerHTML = originalText;
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              showNotification('Error verifying document', 'error');
+              btnElement.disabled = false;
+              btnElement.innerHTML = originalText;
+            }
+          });
+        });
+      });
+
+      document.querySelectorAll('.resubmit-doc-btn').forEach(btn => {
+        btn.addEventListener('click', async function(e) {
+          e.preventDefault();
+          const docId = this.dataset.docId;
+          const note = prompt('Add an optional note for the employee (leave blank to skip):') || '';
+          const btnElement = this;
+          const originalText = btnElement.innerHTML;
+          btnElement.disabled = true;
+          btnElement.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Requesting...';
+
+          try {
+            const response = await fetch(`/api/documents/${docId}/request-resubmit/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCookie('csrftoken')
+              },
+              body: new URLSearchParams({ reason: note })
+            });
+            const data = await response.json();
+            if (data.success) {
+              showNotification('Resubmission requested from employee.', 'success');
+              const badge = btnElement.closest('.document-admin-card').querySelector('.badge');
+              if (badge) {
+                badge.textContent = 'Resubmit requested';
+                badge.className = 'badge bg-label-warning';
+              }
+            } else {
+              showNotification(data.error || 'Unable to request resubmission', 'error');
+            }
+          } catch (error) {
+            console.error(error);
+            showNotification('Error requesting resubmission', 'error');
+          } finally {
+            btnElement.disabled = false;
+            btnElement.innerHTML = originalText;
+          }
+        });
+      });
+
+      // Beautiful confirmation modal
+      function showConfirmationModal(docType, onConfirm) {
+        // Create modal HTML
+        const modalId = 'confirmVerifyModal_' + Math.random().toString(36).substr(2, 9);
+        const modalHtml = `
+          <div class="modal fade" id="${modalId}" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+              <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-gradient border-0 py-4">
+                  <h5 class="modal-title fw-bold text-white">
+                    <i class="bx bx-check-circle me-2"></i>Verify Document
+                  </h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-4">
+                  <div class="text-center mb-3">
+                    <i class="bx bx-question-mark" style="font-size: 3rem; color: #6370ff;"></i>
+                  </div>
+                  <p class="text-center mb-0">
+                    <strong>Are you sure you want to verify this document?</strong><br>
+                    <span class="text-muted small">This action is irreversible.</span>
+                  </p>
+                </div>
+                <div class="modal-footer border-0 pt-0 pb-4 px-4">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bx bx-x me-1"></i>Cancel
+                  </button>
+                  <button type="button" class="btn btn-success" id="confirmVerifyBtn">
+                    <i class="bx bx-check me-1"></i>Yes, Verify
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Add modal to DOM
+        const modalContainer = document.createElement('div');
+        modalContainer.innerHTML = modalHtml;
+        document.body.appendChild(modalContainer);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById(modalId));
+        modal.show();
+        
+        // Handle confirm button
+        document.getElementById('confirmVerifyBtn').addEventListener('click', async () => {
+          modal.hide();
+          await onConfirm();
+          // Remove modal from DOM
+          setTimeout(() => {
+            document.getElementById(modalId).parentElement.remove();
+          }, 300);
+        });
+        
+        // Clean up on modal close
+        document.getElementById(modalId).addEventListener('hidden.bs.modal', () => {
+          document.getElementById(modalId).parentElement.remove();
+        });
+      }
+
+      // Helper function to get CSRF token
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+
+      // Helper function to show notifications
+      function showNotification(message, type = 'info') {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const icon = type === 'success' ? 'bx-check-circle' : 'bx-exclamation-circle';
+        
+        const alertHtml = `
+          <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            <i class="bx ${icon} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        `;
+        
+        const container = document.querySelector('.card-body') || document.body;
+        const alertEl = document.createElement('div');
+        alertEl.innerHTML = alertHtml;
+        container.insertBefore(alertEl.firstElementChild, container.firstChild);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+          const alert = container.querySelector('.alert');
+          if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+          }
+        }, 5000);
+      }
+    });
+  </script>
+{% endblock page_js %}
+
+<style>
+  .attendance-photo-small {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 2px solid #e9ecef;
+    transition: transform 0.2s ease;
+  }
+
+  .attendance-photo-small:hover {
+    transform: scale(1.2);
+    border-color: #0d6efd;
+  }
+
+  .modal img {
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+  }
+
+  /* Confirmation Modal Styles */
+  .modal-header.bg-gradient {
+    background: linear-gradient(135deg, #6370ff 0%, #8d5bff 100%) !important;
+  }
+
+  .modal-content {
+    border-radius: 12px;
+  }
+
+  .modal-header {
+    border-radius: 12px 12px 0 0;
+  }
+
+  .modal-body {
+    text-align: center;
+  }
+
+  .modal-footer .btn {
+    min-width: 100px;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+  }
+
+  .modal-footer .btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: none;
+  }
+
+  .modal-footer .btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
+  }
+
+  .modal-footer .btn-secondary {
+    background: #e5e7eb;
+    border: none;
+    color: #374151;
+  }
+
+.modal-footer .btn-secondary:hover {
+    background: #d1d5db;
+    transform: translateY(-2px);
+  }
+</style>

@@ -1,0 +1,407 @@
+{% extends layout_path %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Reimbursements | Employee Portal{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .reimb-shell {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0.75rem 0 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .reimb-header {
+    background: linear-gradient(120deg, rgba(245,158,11,0.15), rgba(217,119,6,0.05));
+    border-radius: 24px;
+    padding: 1.5rem;
+    border: 1px solid rgba(251,191,36,0.3);
+    box-shadow: 0 18px 40px rgba(245,158,11,0.15);
+  }
+
+  .reimb-header__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #7c2d12;
+    margin-bottom: 0.25rem;
+  }
+
+  .reimb-tabs {
+    background: rgba(251,191,36,0.25);
+    border-radius: 999px;
+    padding: 0.35rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  .reimb-tab {
+    border: none;
+    border-radius: 999px;
+    padding: 0.65rem 1rem;
+    font-weight: 600;
+    background: transparent;
+    color: rgba(124,45,18,0.7);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    transition: all 0.2s ease;
+  }
+
+  .reimb-tab.is-active {
+    background: #fff;
+    color: #b45309;
+    box-shadow: 0 10px 24px rgba(245,158,11,0.3);
+  }
+
+  .reimb-panel {
+    display: none;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .reimb-panel.is-active {
+    display: block;
+  }
+
+  .reimb-card {
+    border-radius: 22px;
+    border: 1px solid rgba(148,163,184,.25);
+    background: #fff;
+    box-shadow: 0 18px 40px rgba(15,23,42,.08);
+    padding: 1.5rem 1.4rem 1.7rem;
+  }
+
+  .reimb-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .reimb-field label {
+    font-size: .88rem;
+    font-weight: 600;
+    color: rgba(15,23,42,.8);
+  }
+
+  .reimb-field .form-control,
+  .reimb-field select,
+  .reimb-field textarea {
+    border-radius: 16px;
+    border: 1px solid rgba(148,163,184,.35);
+    padding: .7rem 1rem;
+    font-size: .95rem;
+  }
+
+  .reimb-field textarea {
+    min-height: 130px;
+    resize: vertical;
+  }
+
+  .reimb-submit {
+    width: 100%;
+    border-radius: 18px;
+    padding: .85rem 1rem;
+    font-weight: 600;
+    box-shadow: 0 16px 32px rgba(245,158,11,.35);
+  }
+
+  .field-error {
+    font-size: 0.8rem;
+    color: #dc2626;
+    margin-top: 0.35rem;
+  }
+
+  .history-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .history-card {
+    border-radius: 18px;
+    border: 1px solid rgba(148,163,184,.18);
+    padding: 1.25rem;
+    background: #fff;
+    box-shadow: 0 12px 24px rgba(15,23,42,.06);
+  }
+
+  .history-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .history-amount {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .status-badge {
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .status-pending { background: #fef3c7; color: #92400e; }
+  .status-verified { background: #d1fae5; color: #065f46; }
+  .status-paid { background: #dcfce7; color: #166534; }
+  .status-rejected { background: #fee2e2; color: #991b1b; }
+
+  .history-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .meta-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .meta-value {
+    font-size: 0.9rem;
+    color: #111827;
+  }
+
+  .history-reason {
+    background: #fffbeb;
+    border-radius: 12px;
+    padding: 0.85rem;
+    font-size: 0.9rem;
+    color: #713f12;
+  }
+
+  .history-attachment,
+  .history-document {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(148,163,184,0.2);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: #6b7280;
+  }
+
+  .empty-state i {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 576px) {
+    .reimb-header {
+      padding: 1.25rem;
+      height: 120px;
+    }
+    .reimb-card {
+      padding: 1.25rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reimb-shell" id="reimbPortal" data-initial-tab="{{ active_tab|default:'request' }}">
+  <!-- <section class="reimb-header">
+    <div class="badge bg-label-warning mb-2">
+      <i class="bx bx-receipt me-1"></i> Reimbursements
+    </div>
+     <h1 class="reimb-header__title mb-1" style="font-size: larger;">Track spending claims</h1> -->
+  <!-- </section> -->
+
+  <div class="reimb-tabs">
+    <button type="button" class="reimb-tab {% if active_tab != 'history' %}is-active{% endif %}" data-tab="request">
+      <i class="bx bx-edit"></i> Reimbursement Request
+    </button>
+    <button type="button" class="reimb-tab {% if active_tab == 'history' %}is-active{% endif %}" data-tab="history">
+      <i class="bx bx-notepad"></i> My Reimbursements
+    </button>
+  </div>
+
+  <section class="reimb-panel {% if active_tab != 'history' %}is-active{% endif %}" data-panel="request">
+    <div class="reimb-card">
+      <form method="post" enctype="multipart/form-data" class="reimb-form" novalidate>
+        {% csrf_token %}
+        {% if reimbursement_form.non_field_errors %}
+          <div class="alert alert-danger">
+            {{ reimbursement_form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        <div class="reimb-field">
+          <label for="{{ reimbursement_form.amount.id_for_label }}">Amount (₹)</label>
+          {{ reimbursement_form.amount }}
+          {% for error in reimbursement_form.amount.errors %}
+            <span class="field-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="reimb-field">
+          <label for="{{ reimbursement_form.upi_id.id_for_label }}">UPI ID for payout</label>
+          {{ reimbursement_form.upi_id }}
+          {% if reimbursement_form.upi_id.errors %}
+            {% for error in reimbursement_form.upi_id.errors %}
+              <span class="field-error">{{ error }}</span>
+            {% endfor %}
+          {% else %}
+            <small class="text-muted">Example: name@bank. We’ll reuse this value for future reimbursements.</small>
+          {% endif %}
+        </div>
+
+        <div class="reimb-field">
+          <label for="{{ reimbursement_form.category.id_for_label }}">Category</label>
+          {{ reimbursement_form.category }}
+          {% for error in reimbursement_form.category.errors %}
+            <span class="field-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="reimb-field">
+          <label for="{{ reimbursement_form.expense_date.id_for_label }}">Expense Date</label>
+          {{ reimbursement_form.expense_date }}
+          {% for error in reimbursement_form.expense_date.errors %}
+            <span class="field-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="reimb-field">
+          <label for="{{ reimbursement_form.reason.id_for_label }}">Reason / Description</label>
+          {{ reimbursement_form.reason }}
+          {% for error in reimbursement_form.reason.errors %}
+            <span class="field-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="reimb-field">
+          <label for="{{ reimbursement_form.payment_slip.id_for_label }}">Payment Proof</label>
+          {{ reimbursement_form.payment_slip }}
+          <small class="text-muted">Upload a clear photo or scan of the receipt (JPG / PNG / PDF).</small>
+          {% for error in reimbursement_form.payment_slip.errors %}
+            <span class="field-error d-block">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <button type="submit" class="btn btn-warning reimb-submit text-dark">
+          <i class="bx bx-send me-1"></i>Submit Request
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <section class="reimb-panel {% if active_tab == 'history' %}is-active{% endif %}" data-panel="history">
+    {% if reimbursements %}
+      <div class="history-grid">
+        {% for reimbursement in reimbursements %}
+          <article class="history-card">
+            <div class="history-head">
+              <div>
+                <div class="history-amount">₹{{ reimbursement.amount|floatformat:2 }}</div>
+                <small class="text-muted">{{ reimbursement.get_category_display }}</small>
+              </div>
+              <span class="status-badge status-{{ reimbursement.status }}">
+                {{ reimbursement.get_status_display }}
+              </span>
+            </div>
+
+            <div class="history-meta">
+              <div>
+                <div class="meta-label">Expense Date</div>
+                <div class="meta-value">{{ reimbursement.expense_date|date:"M d, Y" }}</div>
+              </div>
+              <div>
+                <div class="meta-label">Submitted</div>
+                <div class="meta-value">{{ reimbursement.created_at|date:"M d, Y" }}</div>
+              </div>
+              {% if reimbursement.verified_at %}
+                <div>
+                  <div class="meta-label">Verified</div>
+                  <div class="meta-value">{{ reimbursement.verified_at|date:"M d, Y" }}</div>
+                </div>
+              {% endif %}
+              {% if reimbursement.paid_at %}
+                <div>
+                  <div class="meta-label">Paid On</div>
+                  <div class="meta-value">{{ reimbursement.paid_at|date:"M d, Y" }}</div>
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="history-reason">
+              <strong class="d-block mb-1">Reason</strong>
+              {{ reimbursement.reason|linebreaks }}
+            </div>
+
+            <div class="history-document">
+              <a href="{{ reimbursement.payment_slip.url }}" target="_blank" rel="noopener" class="attachment-link text-warning">
+                <i class="bx bx-file"></i> View Receipt
+              </a>
+            </div>
+
+            {% if reimbursement.admin_comment %}
+              <div class="history-attachment">
+                <div class="meta-label mb-1">Admin Note</div>
+                <div class="meta-value">{{ reimbursement.admin_comment|linebreaks }}</div>
+              </div>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <i class="bx bx-wallet"></i>
+        <h4 class="mb-1">No reimbursements yet</h4>
+        <p class="mb-2">Track your expense claims here once submitted.</p>
+        <button type="button" class="btn btn-warning text-dark px-4" data-tab-focus="request">
+          <i class="bx bx-plus me-1"></i>Submit your first claim
+        </button>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const portal = document.getElementById('reimbPortal');
+      if (!portal) return;
+      const tabs = portal.querySelectorAll('.reimb-tab');
+      const panels = portal.querySelectorAll('.reimb-panel');
+
+      function setActive(tabName) {
+        tabs.forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === tabName));
+        panels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.panel === tabName));
+      }
+
+      tabs.forEach(tab => tab.addEventListener('click', () => setActive(tab.dataset.tab)));
+      portal.querySelectorAll('[data-tab-focus]').forEach(btn => {
+        btn.addEventListener('click', () => setActive(btn.dataset.tabFocus));
+      });
+
+      setActive(portal.dataset.initialTab || 'request');
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Delete Employee | {% get_theme_variables 'template_name' %} - {% get_theme_variables 'template_suffix' %}{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-xl-6 col-lg-8 col-md-10">
+      <div class="card">
+        <div class="card-header">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <h5 class="card-title m-0 text-danger">Delete Employee</h5>
+              <small class="text-muted">Confirm deletion of employee record</small>
+            </div>
+            <a href="{% url 'employees:employee_list' %}" class="btn btn-outline-secondary btn-sm">
+              <i class="icon-base bx bx-arrow-back me-1"></i>Back to List
+            </a>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="text-center mb-4">
+            <div class="avatar avatar-xl mb-3">
+              {% if employee.profile_picture %}
+                <img src="{{ employee.profile_picture.url }}" alt="Profile" class="rounded-circle">
+              {% else %}
+                <div class="avatar-initial bg-label-danger rounded-circle" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 32px;">
+                  {{ employee.name|first|upper }}
+                </div>
+              {% endif %}
+            </div>
+            <h4 class="text-danger">Are you sure?</h4>
+            <p class="text-muted mb-4">
+              You are about to delete the employee record for <strong>{{ employee.full_name }}</strong>.
+              This action cannot be undone and will also delete the associated user account.
+            </p>
+          </div>
+
+          <div class="alert alert-warning">
+            <h6 class="alert-heading mb-2">
+              <i class="icon-base bx bx-error-circle me-1"></i>Warning!
+            </h6>
+            <p class="mb-0">
+              Deleting this employee will:
+            </p>
+            <ul class="mb-0 mt-2">
+              <li>Permanently remove the employee record</li>
+              <li>Delete the associated user account</li>
+              <li>Remove all attendance records for this employee</li>
+              <li>This action cannot be reversed</li>
+            </ul>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="border rounded p-3">
+                <h6 class="mb-2">Employee Details</h6>
+                <dl class="row mb-0">
+                  <dt class="col-sm-5">Name:</dt>
+                  <dd class="col-sm-7">{{ employee.full_name }}</dd>
+
+                  <dt class="col-sm-5">Email:</dt>
+                  <dd class="col-sm-7">{{ employee.email }}</dd>
+
+                  <dt class="col-sm-5">Contact:</dt>
+                  <dd class="col-sm-7">{{ employee.contact }}</dd>
+
+                  <dt class="col-sm-5">Created:</dt>
+                  <dd class="col-sm-7">{{ employee.created_at|date:"M d, Y" }}</dd>
+                </dl>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="border rounded p-3">
+                <h6 class="mb-2">Account Information</h6>
+                <dl class="row mb-0">
+                  <dt class="col-sm-5">Account:</dt>
+                  <dd class="col-sm-7">{{ employee.account_number|slice:":4" }}****{{ employee.account_number|slice:"-4:" }}</dd>
+
+                  <dt class="col-sm-5">IFSC:</dt>
+                  <dd class="col-sm-7">{{ employee.ifsc_code }}</dd>
+
+                  <dt class="col-sm-5">PAN:</dt>
+                  <dd class="col-sm-7">{{ employee.pan_card }}</dd>
+
+                  <dt class="col-sm-5">Aadhar:</dt>
+                  <dd class="col-sm-7">{{ employee.aadhar_card_number|slice:":4" }}****{{ employee.aadhar_card_number|slice:"-4:" }}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+
+          <form method="post" class="mt-4">
+            {% csrf_token %}
+            <div class="d-flex justify-content-between">
+              <a href="{% url 'employees:employee_list' %}" class="btn btn-outline-secondary">
+                <i class="icon-base bx bx-x me-1"></i>Cancel
+              </a>
+              <button type="submit" class="btn btn-danger">
+                <i class="icon-base bx bx-trash me-1"></i>Yes, Delete Employee
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

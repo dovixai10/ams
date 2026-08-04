@@ -1,0 +1,2365 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Attendance | Dovix CRM{% endblock %}
+
+{% block content %}
+  <style>
+    html, body{
+      overflow-x: hidden;
+      overflow-y: auto;
+      position: relative;
+    }
+    .attendance-page {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 1.5rem 0 2rem;
+    }
+
+    .status-toast {
+      width: min(420px, 100%);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      border-radius: 18px;
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(220, 38, 38, 0.35);
+      color: #7f1d1d;
+      font-size: 0.94rem;
+      box-shadow: 0 12px 28px rgba(248, 113, 113, 0.18);
+    }
+
+    .status-toast__badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(248, 113, 113, 0.2);
+      color: #b91c1c;
+      letter-spacing: 0.05em;
+    }
+
+    .attendance-status {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0.85rem 1rem;
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(248, 250, 252, 0.85);
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.06);
+    }
+
+    .attendance-status__icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      background: rgba(59, 130, 246, 0.08);
+      color: #1d4ed8;
+    }
+
+    .attendance-status__title {
+      display: block;
+      font-weight: 700;
+      font-size: 0.98rem;
+      color: #0f172a;
+    }
+
+    .attendance-status__subtitle {
+      display: block;
+      font-size: 0.82rem;
+      color: rgba(15, 23, 42, 0.62);
+    }
+
+    .attendance-status--not_checked_in {
+      background: rgba(248, 113, 113, 0.12);
+      border-color: rgba(248, 113, 113, 0.25);
+    }
+
+    .attendance-status--not_checked_in .attendance-status__icon {
+      background: rgba(248, 113, 113, 0.2);
+      color: #b91c1c;
+    }
+
+    .attendance-status--checked_in_pending_checkout {
+      background: rgba(250, 204, 21, 0.14);
+      border-color: rgba(250, 204, 21, 0.28);
+    }
+
+    .attendance-status--checked_in_pending_checkout .attendance-status__icon {
+      background: rgba(250, 204, 21, 0.25);
+      color: #92400e;
+    }
+
+    .attendance-status--complete {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: rgba(34, 197, 94, 0.28);
+    }
+
+    .attendance-status--complete .attendance-status__icon {
+      background: rgba(34, 197, 94, 0.2);
+      color: #166534;
+    }
+
+    .mobile-attendance-card,
+    .all-set-mobile-card {
+      width: min(420px, 100%);
+      background: linear-gradient(160deg, rgba(37, 99, 235, 0.14) 0%, rgba(59, 130, 246, 0.06) 35%, rgba(59, 130, 246, 0.02) 100%);
+      border-radius: 28px;
+      padding: 1.8rem 1.6rem 2rem;
+      box-shadow: 0 25px 60px rgba(37, 99, 235, 0.18);
+      border: 1px solid rgba(59, 130, 246, 0.18);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mobile-attendance-card::before,
+    .all-set-mobile-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(96, 165, 250, 0.22), transparent 60%);
+      pointer-events: none;
+    }
+
+    .mobile-card__content,
+    .all-set-card__content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    .mobile-card__header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .mobile-card__avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.7);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.18);
+      overflow: hidden;
+    }
+
+    .mobile-card__avatar img,
+    .mobile-card__avatar .avatar-initial {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 22px;
+    }
+
+    .mobile-card__title {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .mobile-card__greeting {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: rgba(15, 23, 42, 0.7);
+      font-weight: 600;
+    }
+
+    .mobile-card__name {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.01em;
+    }
+
+    .mobile-card__subtitle {
+      font-size: 0.9rem;
+      color: rgba(15, 23, 42, 0.65);
+    }
+
+    .mobile-card__summary {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 22px;
+      padding: 1rem 1.1rem;
+      box-shadow: inset 0 0 0 1px rgba(37, 99, 246, 0.08);
+    }
+
+    .summary-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1d4ed8;
+    }
+
+    .summary-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(71px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .summary-item {
+      background: rgba(59, 130, 246, 0.08);
+      border-radius: 16px;
+      padding: 0.75rem 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .summary-item span:first-child {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #3b82f6;
+      font-weight: 600;
+    }
+
+    .summary-item span:last-child {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .primary-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .primary-action-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      width: 100%;
+      padding: 0.85rem 1.1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 18px;
+      border: none;
+      color: #fff;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .primary-action-button--attention {
+      box-shadow: 0 18px 32px rgba(59, 130, 246, 0.22);
+      position: relative;
+      isolation: isolate;
+    }
+
+    .primary-action-button--attention::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 2px solid rgba(59, 130, 246, 0.45);
+      opacity: 0.9;
+      animation: pulseAttention 1.8s ease-in-out infinite;
+      z-index: -1;
+    }
+
+    @keyframes pulseAttention {
+      0% {
+        transform: scale(0.98);
+        opacity: 0.4;
+      }
+      50% {
+        transform: scale(1.03);
+        opacity: 0.8;
+      }
+      100% {
+        transform: scale(0.98);
+        opacity: 0.4;
+      }
+    }
+
+    .primary-action-hint {
+      margin: 0;
+      color: rgba(15, 23, 42, 0.6);
+    }
+
+    .camera-flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.7rem;
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+    }
+
+    .camera-preview-wrap {
+      position: relative;
+      width: min(240px, 68vw);
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      overflow: hidden;
+      box-shadow: 0 28px 48px rgba(59, 130, 246, 0.24);
+      background: radial-gradient(circle at 30% 20%, rgba(147, 197, 253, 0.25), rgba(15, 23, 42, 0.92));
+      transition: box-shadow 0.25s ease;
+    }
+
+    .camera-preview-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 6px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.35);
+      pointer-events: none;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .camera-preview-wrap.camera-ready {
+      box-shadow: 0 32px 56px rgba(34, 197, 94, 0.25);
+    }
+
+    .camera-preview-wrap.camera-ready::after {
+      border-color: rgba(34, 197, 94, 0.45);
+      box-shadow: inset 0 0 0 2px rgba(22, 163, 74, 0.35), 0 0 0 6px rgba(34, 197, 94, 0.18);
+    }
+
+    .camera-preview-wrap video,
+    .camera-preview-wrap canvas,
+    .camera-preview-wrap img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      border-radius: inherit;
+      transition: opacity 0.25s ease;
+    }
+
+    .camera-preview-wrap video,
+    .camera-preview-wrap img {
+      transform: scaleX(-1) scale(1.18);
+      transform-origin: center;
+    }
+
+    .camera-status {
+      font-size: 0.75rem;
+      color: rgba(15, 23, 42, 0.7);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.1);
+      display: none !important;
+    }
+
+    .camera-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+    }
+
+    .camera-action-btn {
+      flex: 0 0 auto;
+      border-radius: 18px;
+      font-weight: 600;
+      padding: 0.75rem 1.3rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      font-size: 0.98rem;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .camera-action-btn--capture {
+      width: 74px;
+      height: 74px;
+      padding: 0;
+      border-radius: 999px;
+      font-size: 1.9rem;
+      line-height: 1;
+      box-shadow: 0 20px 38px rgba(34, 197, 94, 0.22);
+    }
+
+    .camera-action-btn--capture i {
+      margin: 0;
+    }
+
+    .camera-action-btn.btn-success,
+    .camera-action-btn.btn-danger {
+      border: none;
+      color: #fff;
+      box-shadow: 0 20px 36px rgba(59, 130, 246, 0.18);
+    }
+
+    .camera-action-btn.btn-success {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+    }
+
+    .camera-action-btn.btn-danger {
+      background: linear-gradient(135deg, #f97316, #ef4444);
+    }
+
+    .camera-action-btn.btn-outline-secondary {
+      border-width: 2px;
+      color: #1f2937;
+      background: rgba(248, 250, 252, 0.88);
+      box-shadow: 0 10px 24px rgba(148, 163, 184, 0.2);
+    }
+
+    .camera-action-btn:hover,
+    .camera-action-btn:focus {
+      transform: translateY(-2px);
+    }
+
+    .camera-action-btn:disabled {
+      opacity: 0.65;
+      box-shadow: none !important;
+      transform: none;
+    }
+
+    .modal-footer .btn {
+      border-radius: 16px;
+      font-weight: 600;
+      padding: 0.85rem 1.5rem;
+      min-width: 160px;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .modal-footer .btn.btn-success,
+    .modal-footer .btn.btn-danger {
+      color: #fff;
+      border: none;
+      box-shadow: 0 18px 32px rgba(34, 197, 94, 0.25);
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.95), rgba(16, 185, 129, 0.95));
+    }
+
+    .modal-footer .btn.btn-danger {
+      box-shadow: 0 18px 32px rgba(239, 68, 68, 0.25);
+      background: linear-gradient(135deg, rgba(249, 115, 22, 0.96), rgba(239, 68, 68, 0.96));
+    }
+
+    .modal-footer .btn.btn-secondary {
+      border-width: 2px;
+      color: #1f2937;
+      background: rgba(248, 250, 252, 0.88);
+      box-shadow: 0 10px 24px rgba(148, 163, 184, 0.18);
+    }
+
+    .modal-footer .btn:hover,
+    .modal-footer .btn:focus {
+      transform: translateY(-2px);
+    }
+
+    .modal-footer .btn:disabled {
+      opacity: 0.7;
+      box-shadow: none !important;
+      transform: none;
+    }
+    
+    /* Hide submit buttons by default */
+    #checkin-submit-btn,
+    #checkout-submit-btn {
+      display: none !important;
+    }
+    
+    /* Show buttons when they have the inline style display:inline-flex */
+    #checkin-submit-btn[style*="inline-flex"],
+    #checkout-submit-btn[style*="inline-flex"] {
+      display: inline-flex !important;
+    }
+
+    .modal-dialog--camera {
+      width: 100%;
+      max-width: min(380px, 92vw);
+      margin: 1rem auto;
+    }
+    .modal-content--camera {
+      margin-top: 2rem;      /* Adjust as needed */
+    transform: translateY(-50px);
+      border-radius: 26px;
+      border: none;
+      height: 620px;
+      overflow: hidden;
+      box-shadow: 0 30px 60px rgba(15, 23, 42, 0.18);
+    }
+
+    .modal-content--camera .modal-header {
+      padding: 0.85rem 1.1rem;
+    }
+
+    .modal-content--camera .modal-body {
+      padding: 0.85rem 1rem 1rem;
+    }
+
+    .modal-content--camera .modal-footer {
+      padding: 0.75rem 1rem 1rem;
+      border-top: none;
+      gap: 0.6rem;
+    }
+
+    .modal-content--camera .modal-body {
+      max-height: calc(100vh - 7.5rem);
+      overflow-y: auto;
+    }
+    
+    /* Compact checkout summary */
+    .checkout-summary-compact {
+      margin-bottom: 0.75rem;
+      padding: 0.75rem !important;
+      border-radius: 12px !important;
+    }
+    
+    .checkout-summary-compact .me-3 {
+      width: 48px !important;
+      height: 48px !important;
+    }
+    
+    .checkout-summary-compact .fw-semibold {
+      font-size: 0.9rem;
+    }
+    
+    .checkout-summary-compact .small {
+      font-size: 0.75rem;
+    }
+
+    @media (min-width: 576px) {
+      .camera-flow {
+        max-width: 320px;
+      }
+
+      .camera-preview-wrap {
+        width: min(280px, 60vw);
+      }
+
+      .modal-dialog--camera {
+        max-width: 420px;
+      }
+    }
+
+    .camera-instruction {
+      border-radius: 18px;
+      border: none;
+      background: rgba(59, 130, 246, 0.12);
+      color: #1d4ed8;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 1rem 1.2rem;
+      font-size: 0.9rem;
+    }
+
+    .camera-instruction i {
+      font-size: 1.5rem;
+      line-height: 1;
+      margin-top: 0.1rem;
+    }
+
+    .camera-instruction strong {
+      display: block;
+      font-size: 0.95rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .camera-instruction p {
+      margin-bottom: 0;
+      color: rgba(15, 23, 42, 0.7);
+      font-size: 0.85rem;
+    }
+
+    .success-banner {
+      width: min(420px, 100%);
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(34, 197, 94, 0.04));
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #166534;
+      border-radius: 22px;
+      padding: 1rem 1.2rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      box-shadow: 0 20px 38px rgba(22, 101, 52, 0.18);
+    }
+
+    .success-banner i {
+      font-size: 1.6rem;
+    }
+
+    .success-modal-content {
+      background: #fff;
+      border-radius: 24px;
+      padding: 2rem 2.2rem;
+      box-shadow: 0 28px 50px rgba(15, 118, 110, 0.22);
+    }
+
+    .success-modal-content h5 {
+      font-size: 1.35rem;
+    }
+
+    .primary-action-button--checkin {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      box-shadow: 0 18px 34px rgba(34, 197, 94, 0.28);
+    }
+
+    .primary-action-button--checkout {
+      background: linear-gradient(135deg, #f97316, #ef4444);
+      box-shadow: 0 18px 34px rgba(239, 68, 68, 0.26);
+    }
+
+    .primary-action-button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .primary-action-button:hover,
+    .primary-action-button:focus {
+      transform: translateY(-2px);
+    }
+
+    .secondary-links {
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    .secondary-link {
+      flex: 1;
+      min-width: 120px;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.2rem;
+      padding: 0.65rem;
+      border-radius: 16px;
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: rgba(255, 255, 255, 0.7);
+      color: #1d4ed8;
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.14);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .secondary-link i {
+      font-size: 1.1rem;
+    }
+
+    .secondary-link:hover,
+    .secondary-link:focus {
+      transform: translateY(-2px);
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3);
+    }
+
+    .attendance-status {
+      align-items: flex-start;
+    }
+
+    .attention-button {
+      background-color: #f97316;
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .attention-button:hover,
+    .attention-button:focus {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(249, 115, 22, 0.2);
+    }
+
+    @media (max-width: 576px) {
+      .attendance-page {
+        padding-top: 1rem;
+      }
+
+      .mobile-attendance-card {
+        border-radius: 24px;
+        padding: 1.5rem 1.35rem 1.75rem;
+      }
+
+      .mobile-card__header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .mobile-card__avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 20px;
+      }
+
+      .primary-action-button {
+        font-size: 0.95rem;
+      }
+
+      .secondary-links {
+        flex-direction: column;
+      }
+
+      .secondary-link {
+        width: 100%;
+      }
+
+      .camera-preview-wrap {
+        width: min(280px, 78vw);
+      }
+
+      .camera-actions {
+        flex-direction: column;
+      }
+
+      .camera-action-btn {
+        width: 100%;
+      }
+
+      .camera-action-btn.camera-action-btn--capture {
+        width: 64px;
+        height: 64px;
+      }
+
+      .modal-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+      }
+
+      .modal-footer > .btn {
+    margin: 0 !important;
+}
+    }
+    .mobile-card__header {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+  </style>
+  <!-- Error Modal -->
+   <!-- UI BOX SHOWN AFTER CHECK-IN SUCCESS (before checkout enabled) -->
+<div id="checkin-wait-box" class="success-banner d-none" style="margin-top:15px;">
+  <i class="bx bx-check-circle text-success"></i>
+  <div>
+    <p class="fw-semibold mb-1">You have successfully checked in!</p>
+    <p class="mb-1">Checkout will be available in <span id="checkout-timer">5:00</span> minutes.</p>
+    <small class="d-block">Check-in Time: <span id="checkin-time-display">{{ today_attendance.check_in_time|date:"h:i A" }}</span></small>
+  </div>
+</div>
+
+<!-- LAST ACTIVITY BOX -->
+<div id="last-activity-box" class="mobile-card__summary d-none" style="margin-top:15px;">
+  <div class="summary-heading">
+    <span>Last Activity</span>
+  </div>
+
+  <div class="summary-items">
+    <div class="summary-item">
+      <span>Last Check-in</span>
+      <span>{{ today_attendance.check_in_time|date:"h:i A" }}</span>
+    </div>
+    {% if today_attendance.check_out_time %}
+    <div class="summary-item">
+      <span>Last Check-out</span>
+      <span>{{ today_attendance.check_out_time|date:"h:i A" }}</span>
+    </div>
+    {% endif %}
+  </div>
+</div>
+<!-- UI AFTER CHECKOUT COMPLETED -->
+<!-- <div id="checkout-complete-box" class="success-banner d-none" style="margin-top:15px;">
+  <i class="bx bx-check-double text-success"></i>
+  <div>
+    <p class="fw-semibold mb-1">You are done for the day!</p>
+    <p class="mb-1">Today you worked for <span id="total-work-time">{{ work_time }}</span>.</p>
+
+    <small class="d-block">Check-in: {{ today_attendance.check_in_time|date:"h:i A" }}</small>
+    <small class="d-block">Check-out: {{ today_attendance.check_out_time|date:"h:i A" }}</small>
+  </div>
+</div> -->
+
+<!-- LAST 7 DAYS TABLE -->
+<div id="last-7-days" class="mobile-card__summary d-none" style="margin-top:15px;">
+  <div class="summary-heading">
+    <span>Last 7 Days Attendance</span>
+  </div>
+
+  {% for item in last_7_days %}
+  <div class="summary-item">
+    <span>{{ item.date|date:"d M" }}</span>
+    <span>
+      {% if item.status == 'present' %}
+        Present ({{ item.hours }}h)
+      {% elif item.status == 'half' %}
+        Half Day
+      {% else %}
+        Absent
+      {% endif %}
+    </span>
+  </div>
+  {% endfor %}
+</div>
+
+  <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="errorModalLabel">
+            <i class="bx bx-error-circle me-2"></i>Error
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex align-items-center mb-3">
+            <i class="bx bx-error-circle text-danger me-2" style="font-size: 2rem;"></i>
+            <h5 class="mb-0" id="errorTitle">Check-in Failed</h5>
+          </div>
+          <p id="errorMessage" class="mb-0">Failed</p>
+          <div id="errorDetails" class="mt-3 p-2 bg-light rounded small text-muted d-none">
+            <code id="errorDetailsText"></code>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <!-- <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button> -->
+          <button type="button" class="btn btn-primary" id="showDetailsBtn">Show Details</button>
+        </div>
+      </div>
+    </div>
+  </div>
+<body style="overflow: hidden;">
+  
+
+  <div class="attendance-page">
+    {% if messages %}
+      {% for message in messages %}
+        {% if 'error' in message.tags or 'warning' in message.tags %}
+          <div class="status-toast">
+            <span class="status-toast__badge">
+              <i class="bx bx-error"></i>
+              Alert
+            </span>
+            <span>{{ message }}</span>
+          </div>
+        {% elif 'checkin-success' in message.tags %}
+          <div id="checkin-success-data"
+               class="d-none"
+               data-success-type="checkin"
+               data-success-title="Check-in Successful"
+               data-success-message="{{ message|escape }}"
+               data-success-time="{{ check_in_success_time|date:'d M Y, h:i A' }}">
+          </div>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    {% if checkout_success %}
+      <div id="checkout-success-data"
+           class="d-none"
+           data-success-type="checkout"
+           data-success-title="Check-out Successful"
+           data-success-message="You're all set for today!"
+           data-success-time="{{ checkout_success_time }}">
+      </div>
+    {% endif %}
+
+    <div id="attendance-success-banner" class="success-banner d-none" role="status" aria-live="polite">
+      <i class="bx bx-check-circle text-success"></i>
+      <div class="text-start">
+        <p class="mb-1 fw-semibold" id="attendance-success-title"></p>
+        <p class="mb-1" id="attendance-success-message"></p>
+        <small class="d-block" id="attendance-success-time"></small>
+      </div>
+    </div>
+
+    <div id="checkin-context"
+         class="d-none"
+         data-should-auto-start="{{ should_auto_start_camera|yesno:'true,false' }}"
+         data-redirect-target="{{ check_in_redirect_target }}"
+         data-attendance-state="{{ attendance_state }}"
+         data-services-url="{{ all_services_url }}"
+         {% if today_attendance and today_attendance.check_in_time and not today_attendance.check_out_time %}
+         data-today-checkin-iso="{{ today_attendance.check_in_time|date:'c' }}"
+         {% endif %}>
+    </div>
+
+    <div class="mobile-attendance-card">
+      <div class="mobile-card__content">
+        <div class="mobile-card__header">
+          <div class="mobile-card__avatar">
+            {% if employee.profile_picture %}
+              <img src="{{ employee.profile_picture.url }}" alt="{{ employee.name }}">
+            {% else %}
+              <span class="avatar-initial bg-label-primary text-white d-flex align-items-center justify-content-center h-100 w-100">
+                {{ employee.name|slice:":1"|upper }}
+              </span>
+            {% endif %}
+          </div>
+          <div class="mobile-card__title">
+            <span class="mobile-card__greeting">Ready for your day</span>
+            <span class="mobile-card__name">{{ employee.name }}</span>
+            <span class="mobile-card__subtitle">Mark your attendance in just a tap</span>
+          </div>
+        </div>
+
+        <div class="attendance-status attendance-status--{{ attendance_state|default:'not_checked_in' }}">
+          <span class="attendance-status__icon">
+            {% if attendance_state == 'checked_in_pending_checkout' %}
+              <i class="bx bx-log-in-circle"></i>
+            {% elif attendance_state == 'complete' %}
+              <i class="bx bx-check-double"></i>
+            {% else %}
+              <i class="bx bx-time-five"></i>
+            {% endif %}
+          </span>
+          <div>
+            {% if attendance_state == 'checked_in_pending_checkout' %}
+              <span class="attendance-status__title">Checked in</span>
+              <span class="attendance-status__subtitle">Checked in at {{ today_attendance.check_in_time|date:"H:i" }} · Don't forget to check out.</span>
+            {% elif attendance_state == 'complete' %}
+              <span class="attendance-status__title">Today</span>
+              <span class="attendance-status__subtitle">Check-in {{ today_attendance.check_in_time|date:"H:i" }} · Last Check {{ today_attendance.check_out_time|date:"H:i" }}</span>
+            {% else %}
+              <span class="attendance-status__title">Not checked in yet</span>
+              <span class="attendance-status__subtitle">Tap below to start your day. We'll launch the camera for you.</span>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if today_attendance %}
+          <div class="mobile-card__summary">
+            <div class="summary-heading">
+              <span>Today's attendance</span>
+              <span>{{ today_attendance.date|date:"d M, l" }}</span>
+            </div>
+            <div class="summary-items">
+              <div class="summary-item">
+                <span>Date</span>
+                <span>{{ today_attendance.date|date:"d M" }}</span>
+              </div>
+              <div class="summary-item">
+                <span>Check-in</span>
+                <span>{{ today_attendance.check_in_time|date:"H:i" }}</span>
+              </div>
+              {% if today_attendance.check_out_time %}
+                <div class="summary-item">
+                  <span>Last-Check</span>
+                  <span>{{ today_attendance.check_out_time|date:"H:i" }}</span>
+                </div>
+              {% endif %}
+            </div>
+            {% comment %} {% if attendance_state == 'complete' %}
+              <div class="summary-complete">
+                <span class="summary-complete__badge"><i class="bx bx-check-double"></i>Complete</span>
+                <span class="summary-complete__text">Great job today! Your attendance is recorded.</span>
+              </div>
+            {% endif %} {% endcomment %}
+          </div>
+        {% endif %}
+
+        <div class="primary-actions">
+          {% if attendance_state == 'not_checked_in' %}
+            <button type="button" class="primary-action-button primary-action-button--checkin primary-action-button--attention" data-bs-toggle="modal" data-bs-target="#checkinModal">
+              <i class="bx bx-log-in"></i>
+              <span>Check In</span>
+            </button>
+            <p class="primary-action-hint text-center">Camera opens instantly so you can complete face verification.</p>
+          {% comment %} {% elif attendance_state == 'checked_in_pending_checkout' %}
+            <button type="button" class="primary-action-button primary-action-button--checkout primary-action-button--attention" data-bs-toggle="modal" data-bs-target="#checkoutModal">
+              <i class="bx bx-log-out"></i>
+              <span>Check Out</span>
+            </button>
+            <p class="primary-action-hint text-center">You're still checked in. Please complete check-out before leaving.</p> {% endcomment %}
+          {% else %}
+          <button type="button" class="primary-action-button primary-action-button--checkout primary-action-button--attention" data-bs-toggle="modal" data-bs-target="#checkoutModal">
+              <i class="bx bx-log-out"></i>
+              <span>Check Out</span>
+            </button>
+          {% comment %} {% else %}
+            <button type="button" class="primary-action-button primary-action-button--checkin" disabled>
+              <i class="bx bx-check-circle"></i>
+              <span>Attendance Complete</span>
+            </button> {% endcomment %}
+            <!-- <p class="primary-action-hint text-center">Great job! See you tomorrow.</p> -->
+          {% endif %}
+        </div>
+
+        <div class="secondary-links">
+          <!-- <a href="{% url 'employees:employee_dashboard' %}" class="secondary-link">
+            <i class="bx bx-home"></i>
+            <span>Dashboard</span>
+          </a>
+          <a href="{% url 'employees:employee_profile' %}" class="secondary-link">
+            <i class="bx bx-user"></i>
+            <span>Profile</span>
+          </a> -->
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="checkinSuccessModal" tabindex="-1" aria-labelledby="checkinSuccessModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 bg-transparent">
+          <div class="success-modal-content text-center">
+            <div class="success-banner mx-auto mb-3">
+              <i class="bx bx-check-circle text-success"></i>
+              <div class="text-start">
+                <h5 class="mb-1 fw-semibold" id="checkin-success-title">Check-in Successful</h5>
+                <p class="mb-1" id="checkin-success-text">You are all set for today.</p>
+                <small class="d-block" id="checkin-success-time-text">{{ check_in_success_time|date:"d M Y, h:i A" }}</small>
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-success w-100" data-bs-dismiss="modal">
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Check-In Modal -->
+  <div class="modal fade" id="checkinModal" tabindex="-1" aria-labelledby="checkinModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog--camera">
+      <div class="modal-content modal-content--camera">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title text-white" id="checkinModalLabel">
+            <i class="bx bx-log-in me-2"></i>Check In
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- <div class="camera-instruction">
+            <i class="bx bx-camera"></i>
+            <div>
+              <strong>Photo verification required</strong>
+              <p>Please capture a quick selfie to complete your check-in.</p>
+            </div>
+          </div> -->
+
+          <div class="camera-flow">
+            <span class="camera-status" id="checkin-camera-status">
+              <i class="bx bx-loader-alt bx-spin"></i>Initializing camera...
+            </span>
+
+            <div class="camera-preview-wrap" id="checkin-camera-wrap">
+              <video id="checkin-camera" class="d-none" autoplay playsinline muted></video>
+              <canvas id="checkin-canvas" class="d-none"></canvas>
+              <img id="checkin-preview" class="d-none" alt="Preview">
+            </div>
+
+            <div class="camera-actions">
+              <button type="button" id="checkin-capture-btn" class="btn btn-success camera-action-btn camera-action-btn--capture" disabled>
+                <i class="bx bx-camera"></i>
+                <span class="visually-hidden">Capture photo</span>
+              </button>
+              
+            </div>
+          </div>
+
+          <form id="checkin-form" method="post" action="{% url 'employees:check_in' %}" enctype="multipart/form-data" class="d-none">
+            {% csrf_token %}
+            <input type="file" name="check_in_photo" id="checkin-photo-input" accept="image/*" required class="d-none">
+            <input type="hidden" name="latitude" id="checkin-latitude-input">
+            <input type="hidden" name="longitude" id="checkin-longitude-input">
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="checkin-retake-btn" class="btn btn-outline-secondary camera-action-btn d-none">
+                <i class="bx bx-refresh"></i>Retake
+              </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="bx bx-x me-1"></i>Cancel
+          </button>
+          <button type="button" id="checkin-submit-btn" class="btn btn-success" disabled>
+            <i class="bx bx-check-circle me-1"></i>Complete Check-In
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Check-Out Modal -->
+  <div class="modal fade" id="checkoutModal" tabindex="-1" aria-labelledby="checkoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog--camera">
+      <div class="modal-content modal-content--camera">
+        <div class="modal-header bg-danger text-white" style="height: 73px;">
+          <div class="d-flex flex-column w-100">
+            <h5 class="modal-title text-white d-flex align-items-center" id="checkoutModalLabel">
+              <i class="bx bx-log-out me-2"></i>Check Out
+            </h5>
+            <small class="text-white-50 mt-1">
+              <span id="checkout-modal-date-text">
+                {% if today_attendance %}
+                  {{ today_attendance.date|date:"d M Y" }}
+                {% else %}
+                  {{ today|date:"d M Y" }}
+                {% endif %}
+              </span>
+              ·
+              <span id="checkout-modal-checkin-time-text">
+                {% if today_attendance and today_attendance.check_in_time %}
+                  Checked in at {{ today_attendance.check_in_time|date:"h:i A" }}
+                {% else %}
+                  Not checked in yet
+                {% endif %}
+              </span>
+            </small>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="position: relative;"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Checkout summary (current date, check-in info & photo) -->
+          <!-- <div class="checkout-summary-compact"> -->
+            <!-- <div class="d-flex align-items-center rounded-3 border bg-light"> -->
+              <!-- <div class="me-3" style="width:56px;height:56px;border-radius:16px;overflow:hidden;background:#e5e7eb;flex-shrink:0;">
+                {% if today_attendance and today_attendance.check_in_photo %}
+                  <img src="{{ today_attendance.check_in_photo.url }}"
+                       alt="Check-in photo"
+                       style="width:100%;height:100%;object-fit:cover;">
+                {% else %}
+                  <div class="d-flex flex-column justify-content-center align-items-center h-100 text-muted small">
+                    <i class="bx bx-user-pin mb-1" style="font-size:1.4rem;"></i>
+                    <span style="font-size:0.65rem;">No photo</span>
+                  </div>
+                {% endif %}
+              </div> -->
+              <div class="flex-grow-1">
+                <!-- <div class="fw-semibold" id="checkout-summary-date">
+                  {% if today_attendance %}
+                    {{ today_attendance.date|date:"l, d M Y" }}
+                  {% else %}
+                    {{ today|date:"l, d M Y" }}
+                  {% endif %}
+                </div> -->
+                <!-- <div class="small text-muted">
+                  {% if today_attendance and today_attendance.check_in_time %}
+                    Check-in: {{ today_attendance.check_in_time|date:"h:i A" }}
+                  {% else %}
+                    Awaiting today’s check-in
+                  {% endif %}
+                  <span id="checkout-expected-time-hint"> -->
+                    <!-- Checkout time will be recorded automatically when you complete this step. -->
+                  <!-- </span> -->
+                <!-- </div> -->
+              </div>
+            <!-- </div> -->
+          <!-- </div> -->
+
+          <div class="camera-flow" style="margin-top: 0.5rem;">
+            <span class="camera-status" id="checkout-camera-status">
+              <i class="bx bx-loader-alt bx-spin"></i>Initializing camera...
+            </span>
+
+            <div class="camera-preview-wrap" id="checkout-camera-wrap">
+              <video id="checkout-camera" class="d-none" autoplay playsinline muted></video>
+              <canvas id="checkout-canvas" class="d-none"></canvas>
+              <img id="checkout-preview" class="d-none" alt="Preview">
+            </div>
+            <div class="camera-actions">
+              <button type="button" id="checkout-capture-btn" class="btn btn-danger camera-action-btn camera-action-btn--capture" disabled>
+                <i class="bx bx-camera"></i>
+                <span class="visually-hidden">Capture photo</span>
+              </button>
+            </div>
+          </div>
+
+          <form id="checkout-form" method="post" action="{% url 'employees:check_out' %}" enctype="multipart/form-data" class="d-none">
+            {% csrf_token %}
+            <input type="file" name="check_out_photo" id="checkout-photo-input" accept="image/*" required class="d-none">
+            <input type="hidden" name="latitude" id="checkout-latitude-input">
+            <input type="hidden" name="longitude" id="checkout-longitude-input">
+            <input type="hidden" name="device_info" id="checkout-device-info">
+            <input type="hidden" name="checkout_time" id="checkout-time-input">
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="checkout-retake-btn" class="btn btn-outline-secondary camera-action-btn d-none">
+                <i class="bx bx-refresh"></i>Retake
+              </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="bx bx-x me-1"></i>Cancel
+          </button>
+          <button type="button" id="checkout-submit-btn" class="btn btn-danger" disabled>
+            <i class="bx bx-log-out me-1"></i>Complete Check-Out
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+// Function to show error modal with details
+function showErrorModal(title, message, details) {
+    // Get modal elements
+    const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+    const errorTitle = document.getElementById('errorTitle');
+    const errorMessage = document.getElementById('errorMessage');
+    const errorDetails = document.getElementById('errorDetails');
+    const errorDetailsText = document.getElementById('errorDetailsText');
+    const showDetailsBtn = document.getElementById('showDetailsBtn');
+    
+    // Set title and message
+    errorTitle.textContent = title || 'An Error Occurred';
+    errorMessage.textContent = message || 'An unexpected error occurred. Please try again.';
+    
+    // Handle details
+    if (details) {
+        try {
+            // Try to parse if it's a JSON string
+            const parsedDetails = typeof details === 'string' ? JSON.parse(details) : details;
+            errorDetailsText.textContent = typeof parsedDetails === 'object' 
+                ? JSON.stringify(parsedDetails, null, 2) 
+                : String(parsedDetails);
+        } catch (e) {
+            // If parsing fails, use as is
+            errorDetailsText.textContent = String(details);
+        }
+        showDetailsBtn.style.display = 'inline-block';
+    } else {
+        errorDetailsText.textContent = 'No additional details available';
+        showDetailsBtn.style.display = 'none';
+    }
+    
+    // Reset details panel
+    errorDetails.classList.add('d-none');
+    showDetailsBtn.textContent = 'Show Details';
+    
+    // Remove any existing event listeners
+    const newShowDetailsBtn = showDetailsBtn.cloneNode(true);
+    showDetailsBtn.parentNode.replaceChild(newShowDetailsBtn, showDetailsBtn);
+    
+    // Add click handler for show/hide details
+    if (details) {
+        newShowDetailsBtn.addEventListener('click', function() {
+            errorDetails.classList.toggle('d-none');
+            this.textContent = errorDetails.classList.contains('d-none') ? 'Show Details' : 'Hide Details';
+        });
+    }
+    
+    // Show the modal
+    errorModal.show();
+}
+document.addEventListener("DOMContentLoaded", function () {
+
+    let state = "{{ attendance_state }}";
+
+    // HTML Elements
+    const waitBox = document.getElementById("checkin-wait-box");
+    const lastActivity = document.getElementById("last-activity-box");
+    const checkoutComplete = document.getElementById("checkout-complete-box");
+    const last7 = document.getElementById("last-7-days");
+
+    const checkoutBtn = document.querySelector(".primary-action-button--checkout");
+
+
+    // 1️⃣ After CHECK-IN but checkout disabled for 5 minutes
+    if (state === "checked_in_pending_checkout") {
+
+        // Show the waiting UI
+        waitBox.classList.remove("d-none");
+        lastActivity.classList.remove("d-none");
+
+        // Disable checkout button until timer ends
+        checkoutBtn.disabled = true;
+
+        let remaining = 300; // 5 minutes
+        const timerEl = document.getElementById("checkout-timer");
+
+        const interval = setInterval(() => {
+            remaining--;
+
+            let minutes = Math.floor(remaining / 60);
+            let seconds = remaining % 60;
+            timerEl.innerText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+            if (remaining <= 0) {
+                clearInterval(interval);
+
+                // Enable checkout button
+                checkoutBtn.disabled = false;
+
+                waitBox.classList.add("d-none"); // hide waiting UI
+            }
+        }, 1000);
+    }
+
+    // 2️⃣ After CHECK-OUT is done
+    if (state === "complete") {
+        checkoutComplete.classList.remove("d-none");
+        last7.classList.remove("d-none");
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    function createModalInstance(element, options) {
+        if (typeof bootstrap === 'undefined' || !bootstrap.Modal || !element) {
+            return null;
+        }
+        return bootstrap.Modal.getOrCreateInstance(element, options || {});
+    }
+
+    const checkinContext = document.getElementById('checkin-context');
+    const shouldAutoStartCamera = checkinContext && checkinContext.dataset.shouldAutoStart === 'true';
+    const redirectTarget = checkinContext && checkinContext.dataset.redirectTarget ? checkinContext.dataset.redirectTarget : 'check_in';
+    const attendanceState = checkinContext && checkinContext.dataset.attendanceState ? checkinContext.dataset.attendanceState : 'not_checked_in';
+    const todayCheckinIso = checkinContext && checkinContext.dataset.todayCheckinIso ? checkinContext.dataset.todayCheckinIso : null;
+    const successDataEl = document.getElementById('checkin-success-data');
+    const checkoutSuccessDataEl = document.getElementById('checkout-success-data');
+    const successMessageEl = document.getElementById('checkin-success-text');
+    const successTimeEl = document.getElementById('checkin-success-time-text');
+    const checkinSuccessModalEl = document.getElementById('checkinSuccessModal');
+    const successBannerEl = document.getElementById('attendance-success-banner');
+    const successBannerTitleEl = document.getElementById('attendance-success-title');
+    const successBannerMessageEl = document.getElementById('attendance-success-message');
+    const successBannerTimeEl = document.getElementById('attendance-success-time');
+    const servicesUrl = checkinContext && checkinContext.dataset.servicesUrl ? checkinContext.dataset.servicesUrl : null;
+    const successContinueBtn = checkinSuccessModalEl ? checkinSuccessModalEl.querySelector('.btn-success') : null;
+    let successRedirectTimer = null;
+
+    // ===========================
+    // CHECK-IN MODAL FUNCTIONALITY
+    // ===========================
+    const checkinModal = document.getElementById('checkinModal');
+    const checkinModalInstance = createModalInstance(checkinModal);
+    const checkinSuccessModalInstance = createModalInstance(checkinSuccessModalEl, { backdrop: 'static' });
+    const checkinCameraWrap = document.getElementById('checkin-camera-wrap');
+    const checkinCamera = document.getElementById('checkin-camera');
+    const checkinCanvas = document.getElementById('checkin-canvas');
+    const checkinPreview = document.getElementById('checkin-preview');
+    const checkinCaptureBtn = document.getElementById('checkin-capture-btn');
+    const checkinRetakeBtn = document.getElementById('checkin-retake-btn');
+    const checkinUploadBtn = document.getElementById('checkin-upload-btn');
+    const checkinSubmitBtn = document.getElementById('checkin-submit-btn');
+    const checkinForm = document.getElementById('checkin-form');
+    const checkinPhotoInput = document.getElementById('checkin-photo-input');
+    const checkinCameraStatus = document.getElementById('checkin-camera-status');
+    const checkinLatitudeInput = document.getElementById('checkin-latitude-input');
+    const checkinLongitudeInput = document.getElementById('checkin-longitude-input');
+    
+    let checkinStream = null;
+    let checkinPhotoBlob = null;
+    let checkinPreviewUrl = null;
+    function onCheckinCameraReady() {
+        console.log('Check-in camera ready');
+        checkinCaptureBtn.disabled = false;
+        checkinSubmitBtn.disabled = true; // Ensure submit is disabled until photo is taken
+        checkinCameraStatus.innerHTML = '<i class="bx bx-camera me-1"></i>Ready to capture';
+        checkinCameraWrap && checkinCameraWrap.classList.add('camera-ready');
+    }
+
+    function describeCameraError(error) {
+        if (!error) {
+            return 'Camera access failed for an unknown reason.';
+        }
+        const name = error.name || '';
+        const message = error.message || '';
+        switch (name) {
+            case 'NotAllowedError':
+            case 'PermissionDeniedError':
+                return 'Camera permission was denied. Please allow camera access in your browser settings and try again.';
+            case 'NotFoundError':
+            case 'DevicesNotFoundError':
+                return 'No camera device was found. Connect a camera and try again.';
+            case 'NotReadableError':
+            case 'TrackStartError':
+                return 'The camera is already in use by another application. Close other programs using the camera and retry.';
+            case 'OverconstrainedError':
+            case 'ConstraintNotSatisfiedError':
+                return 'The requested camera settings are not supported. We will try a more compatible setup automatically.';
+            case 'SecurityError':
+                if (window.isSecureContext === false) {
+                    return 'Camera access requires HTTPS or localhost. Please use a secure connection.';
+                }
+                return 'Camera access is blocked by browser security settings.';
+            default:
+                if (message && message.toLowerCase().includes('insecure')) {
+                    return 'Camera access requires HTTPS or localhost. Please reload the page over a secure connection.';
+                }
+                return message || 'Unable to access camera. Please allow permissions and try again.';
+        }
+    }
+
+    async function acquireCameraStream() {
+        const attempts = [
+            { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false },
+            { video: { facingMode: 'user' }, audio: false },
+            { video: true }
+        ];
+
+        let lastError = null;
+        for (const constraints of attempts) {
+            try {
+                return await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (err) {
+                lastError = err;
+            }
+        }
+        throw lastError;
+    }
+
+    if (shouldAutoStartCamera && checkinModalInstance && !successDataEl) {
+        setTimeout(() => {
+            checkinModalInstance.show();
+        }, 250);
+    }
+
+    const displaySuccessBanner = (title, message, timeValue) => {
+        if (!successBannerEl) {
+            return;
+        }
+
+        if (successBannerTitleEl) {
+            successBannerTitleEl.textContent = title || '';
+            successBannerTitleEl.classList.toggle('d-none', !title);
+        }
+
+        if (successBannerMessageEl) {
+            successBannerMessageEl.textContent = message || '';
+            successBannerMessageEl.classList.toggle('d-none', !message);
+        }
+
+        if (successBannerTimeEl) {
+            if (timeValue) {
+                successBannerTimeEl.textContent = timeValue;
+                successBannerTimeEl.classList.remove('d-none');
+            } else {
+                successBannerTimeEl.textContent = '';
+                successBannerTimeEl.classList.add('d-none');
+            }
+        }
+
+        successBannerEl.classList.remove('d-none');
+    };
+
+    const redirectToServices = () => {
+        if (servicesUrl) {
+            window.location.href = servicesUrl;
+        }
+    };
+
+    const showSuccessModal = (title, message, timeValue, type = 'success') => {
+        if (!checkinSuccessModalInstance) {
+            return;
+        }
+
+        const titleEl = document.getElementById('checkin-success-title');
+        if (titleEl) {
+            titleEl.textContent = title;
+        }
+
+        if (successMessageEl) {
+            successMessageEl.textContent = message;
+        }
+
+        if (successTimeEl) {
+            if (timeValue) {
+                successTimeEl.textContent = timeValue;
+                successTimeEl.classList.remove('d-none');
+            } else {
+                successTimeEl.classList.add('d-none');
+            }
+        }
+
+        displaySuccessBanner(title, message, timeValue);
+
+        if (successContinueBtn) {
+            if (servicesUrl) {
+                successContinueBtn.innerHTML = '<i class="bx bx-grid-alt me-1"></i>Go to All Services';
+            } else {
+                successContinueBtn.innerHTML = 'Continue';
+            }
+
+            successContinueBtn.onclick = (event) => {
+                event.preventDefault();
+                if (servicesUrl) {
+                    redirectToServices();
+                } else {
+                    checkinSuccessModalInstance.hide();
+                }
+            };
+        }
+
+        if (servicesUrl) {
+            if (successRedirectTimer) {
+                clearTimeout(successRedirectTimer);
+            }
+            const timeout = type === 'checkout' ? 2500 : 3000;
+            successRedirectTimer = setTimeout(() => {
+                redirectToServices();
+            }, timeout);
+        }
+
+        setTimeout(() => {
+            checkinSuccessModalInstance.show();
+        }, 350);
+    };
+
+    if (successDataEl && attendanceState !== 'complete') {
+        const successType = successDataEl.dataset.successType || 'checkin';
+        const title = successDataEl.dataset.successTitle || (successType === 'checkin' ? 'Check-in Successful' : 'Success');
+        const message = successDataEl.dataset.successMessage || 'Check-in successful!';
+        const timeValue = successDataEl.dataset.successTime;
+        showSuccessModal(title, message, timeValue, successType);
+    }
+
+    if (checkoutSuccessDataEl) {
+        const successType = checkoutSuccessDataEl.dataset.successType || 'checkout';
+        const title = checkoutSuccessDataEl.dataset.successTitle || 'All set for today';
+        const message = checkoutSuccessDataEl.dataset.successMessage || "You're all set for today!";
+        const timeValue = checkoutSuccessDataEl.dataset.successTime;
+        showSuccessModal(title, message, timeValue, successType);
+    }
+
+    // Get user's current location for check-in
+    function getCheckinLocation() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('Geolocation is not supported by your browser'));
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    resolve({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    });
+                },
+                (error) => {
+                    let errorMessage = 'Unable to retrieve your location';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = 'Location access denied. Please enable location services.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = 'Location information is unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = 'Location request timed out.';
+                            break;
+                    }
+                    reject(new Error(errorMessage));
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        });
+    }
+    
+    // Initialize camera when modal is shown
+    if (checkinModal) {
+        checkinModal.addEventListener('shown.bs.modal', function() {
+            // Kick off camera immediately
+            initCheckinCamera();
+
+            // Request location in parallel
+            getCheckinLocation()
+                .then(coords => {
+                    checkinLatitudeInput.value = coords.latitude;
+                    checkinLongitudeInput.value = coords.longitude;
+                    console.log('Check-in location obtained:', coords);
+                })
+                .catch(error => {
+                    console.error('Location error:', error);
+                    alert(error.message + '\n\nLocation access is required for check-in. Please enable location services and try again.');
+                });
+        });
+        
+        checkinModal.addEventListener('hidden.bs.modal', function() {
+            stopCheckinCamera();
+            resetCheckinModal();
+        });
+    }
+    
+    async function initCheckinCamera() {
+        console.log('Initializing check-in camera...');
+
+        if (!window.isSecureContext) {
+            const msg = 'Camera access requires HTTPS or running the site on localhost. Please reload via https:// or http://localhost.';
+            checkinCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>' + msg;
+            console.error(msg);
+            checkinCaptureBtn.disabled = true;
+            return;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.error('MediaDevices API not supported');
+            checkinCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>Camera not supported on this device';
+            checkinCaptureBtn.disabled = true;
+            return;
+        }
+
+        if (navigator.permissions && navigator.permissions.query) {
+            try {
+                const cameraPermission = await navigator.permissions.query({ name: 'camera' });
+                if (cameraPermission.state === 'denied') {
+                    const msg = 'Browser camera permission is blocked. Please enable camera access in your browser settings and reload the page.';
+                    checkinCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>' + msg;
+                    checkinCaptureBtn.disabled = true;
+                    return;
+                }
+            } catch (permErr) {
+                console.warn('Unable to query camera permissions:', permErr);
+            }
+        }
+
+        checkinCaptureBtn.disabled = true;
+        checkinCameraStatus.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Requesting camera access...';
+
+        try {
+            // Stop existing stream before requesting a new one
+            stopCheckinCamera();
+
+            const stream = await acquireCameraStream();
+
+            checkinStream = stream;
+            checkinCamera.srcObject = stream;
+            checkinCamera.classList.remove('d-none');
+            
+            // Force play immediately
+            try {
+                await checkinCamera.play();
+                console.log('Check-in camera playing');
+                onCheckinCameraReady();
+            } catch (playError) {
+                console.error('Error playing camera:', playError);
+                // Try one more time after a short delay
+                setTimeout(async () => {
+                    try {
+                        await checkinCamera.play();
+                        onCheckinCameraReady();
+                    } catch (e) {
+                        checkinCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>Error starting camera';
+                    }
+                }, 500);
+            }
+        } catch (error) {
+            console.error('Camera error:', error.name, error.message, error);
+            const errorMsg = describeCameraError(error);
+            checkinCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>' + errorMsg;
+            checkinCaptureBtn.disabled = true;
+            checkinCameraWrap && checkinCameraWrap.classList.remove('camera-ready');
+        }
+    }
+
+    function stopCheckinCamera() {
+        if (checkinStream) {
+            checkinStream.getTracks().forEach(track => track.stop());
+            checkinStream = null;
+        }
+    }
+
+    function resetCheckinModal() {
+        if (checkinPreviewUrl) {
+            URL.revokeObjectURL(checkinPreviewUrl);
+            checkinPreviewUrl = null;
+        }
+        checkinCamera.classList.add('d-none');
+        checkinPreview.classList.add('d-none');
+        checkinCaptureBtn.classList.remove('d-none');
+        checkinRetakeBtn.classList.add('d-none');
+        checkinSubmitBtn.disabled = true;
+        checkinPhotoBlob = null;
+        checkinPhotoInput.value = '';
+        // Clear location values
+        checkinLatitudeInput.value = '';
+        checkinLongitudeInput.value = '';
+        checkinCameraStatus.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Initializing camera...';
+        checkinCameraWrap && checkinCameraWrap.classList.remove('camera-ready');
+    }
+    
+    // Capture photo
+    if (checkinCaptureBtn) {
+        checkinCaptureBtn.addEventListener('click', function() {
+            const context = checkinCanvas.getContext('2d');
+            checkinCanvas.width = checkinCamera.videoWidth;
+            checkinCanvas.height = checkinCamera.videoHeight;
+            context.drawImage(checkinCamera, 0, 0);
+            
+            checkinCanvas.toBlob(function(blob) {
+                checkinPhotoBlob = blob;
+                if (checkinPreviewUrl) {
+                    URL.revokeObjectURL(checkinPreviewUrl);
+                }
+                checkinPreviewUrl = URL.createObjectURL(blob);
+                checkinPreview.src = checkinPreviewUrl;
+                
+                // Hide camera, show preview
+                checkinCamera.classList.add('d-none');
+                checkinPreview.classList.remove('d-none');
+                checkinCaptureBtn.classList.add('d-none');
+                checkinRetakeBtn.classList.remove('d-none');
+                checkinSubmitBtn.disabled = false;
+                checkinSubmitBtn.style.display = 'inline-flex';
+                checkinCameraStatus.innerHTML = '<i class="bx bx-check-circle me-1 text-success"></i>Photo captured successfully';
+                
+                // Stop camera
+                stopCheckinCamera();
+                checkinCameraWrap && checkinCameraWrap.classList.remove('camera-ready');
+            }, 'image/jpeg', 0.8);
+        });
+    }
+    
+    // Retake photo
+    if (checkinRetakeBtn) {
+        checkinRetakeBtn.addEventListener('click', function() {
+            checkinPreview.classList.add('d-none');
+            checkinCamera.classList.remove('d-none');
+            checkinCaptureBtn.classList.remove('d-none');
+            checkinRetakeBtn.classList.add('d-none');
+            checkinSubmitBtn.disabled = true;
+            checkinPhotoBlob = null;
+            if (checkinPreviewUrl) {
+                URL.revokeObjectURL(checkinPreviewUrl);
+                checkinPreviewUrl = null;
+            }
+            checkinPhotoInput.value = '';
+            initCheckinCamera();
+            checkinCameraWrap && checkinCameraWrap.classList.remove('camera-ready');
+        });
+    }
+
+    if (checkinUploadBtn) {
+        checkinUploadBtn.addEventListener('click', function() {
+            stopCheckinCamera();
+            checkinCaptureBtn.classList.add('d-none');
+            checkinCamera.classList.add('d-none');
+            checkinRetakeBtn.classList.remove('d-none');
+            checkinCameraStatus.innerHTML = '<i class="bx bx-upload me-1"></i>Select a photo using your device camera or gallery.';
+            checkinPhotoInput.click();
+        });
+    }
+
+    if (checkinPhotoInput) {
+        checkinPhotoInput.addEventListener('change', function(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            checkinPhotoBlob = file;
+            if (checkinPreviewUrl) {
+                URL.revokeObjectURL(checkinPreviewUrl);
+            }
+            checkinPreviewUrl = URL.createObjectURL(file);
+            checkinPreview.src = checkinPreviewUrl;
+            checkinPreview.classList.remove('d-none');
+            checkinSubmitBtn.disabled = false;
+            checkinSubmitBtn.style.display = 'inline-flex';
+            checkinRetakeBtn.classList.remove('d-none');
+            checkinCameraStatus.innerHTML = '<i class="bx bx-check-circle me-1 text-success"></i>Photo selected successfully.';
+            checkinCameraWrap && checkinCameraWrap.classList.remove('camera-ready');
+        });
+    }
+    
+    // Submit check-in
+    if (checkinSubmitBtn) {
+        checkinSubmitBtn.addEventListener('click', function() {
+            console.log('Check-in submit clicked');
+            console.log('Photo blob:', checkinPhotoBlob);
+            console.log('Latitude:', checkinLatitudeInput.value);
+            console.log('Longitude:', checkinLongitudeInput.value);
+            
+            if (!checkinPhotoBlob) {
+                alert('Please capture a photo first');
+                return;
+            }
+            
+            // NOTE: Location is helpful but no longer hard-blocks check-in if unavailable
+            if (!checkinLatitudeInput.value || !checkinLongitudeInput.value) {
+                console.warn('Proceeding with check-in without location coordinates');
+            }
+            
+            // Create file from blob
+            let fileToSubmit;
+            if (checkinPhotoBlob instanceof File) {
+                fileToSubmit = checkinPhotoBlob;
+            } else {
+                fileToSubmit = new File([checkinPhotoBlob], 'checkin_photo.jpg', { type: 'image/jpeg' });
+            }
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(fileToSubmit);
+            checkinPhotoInput.files = dataTransfer.files;
+            
+            console.log('Submitting check-in form with location (may be empty):', {
+                latitude: checkinLatitudeInput.value,
+                longitude: checkinLongitudeInput.value
+            });
+            
+            // Disable button and show loading
+            checkinSubmitBtn.disabled = true;
+            checkinSubmitBtn.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Processing...';
+            
+            // Create FormData and submit via fetch for better error handling
+            const formData = new FormData(checkinForm);
+            
+            fetch(checkinForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(async response => {
+                // If server redirected (HTML), follow it
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    return null;
+                }
+
+                const ct = (response.headers.get('content-type') || '').toLowerCase();
+
+                if (ct.includes('application/json')) {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        const error = new Error(data.message || 'Check-in failed');
+                        error.details = data.details || 'No additional details available';
+                        error.type = data.type || 'checkin_error';
+                        throw error;
+                    }
+                    return { data };
+                }
+
+                // Non-JSON (likely HTML). Reload to let server messages render.
+                window.location.reload();
+                return null;
+            })
+            .then(payload => {
+                if (!payload) return; // handled by redirect/reload above
+                const data = payload.data;
+                if (data.success) {
+                    const checkinModal = bootstrap.Modal.getInstance(document.getElementById('checkinModal'));
+                    if (checkinModal) checkinModal.hide();
+                    // Show success popup with returned message/time
+                    showSuccessModal(
+                        'Check-in Successful',
+                        data.message || 'Check-in successful!',
+                        data.check_in_time || '' ,
+                        'checkin'
+                    );
+                } else {
+                    throw new Error(data.message || 'Check-in failed');
+                }
+            })
+            .catch(error => {
+                console.error('Check-in error:', error);
+                // Close the camera modal first
+                const checkinModal = bootstrap.Modal.getInstance(document.getElementById('checkinModal'));
+                if (checkinModal) checkinModal.hide();
+                
+                // Show error in popup
+                showErrorModal(
+                    'Check-in Failed',
+                    error.message || 'An error occurred during check-in. Please try again.',
+                    error.details || error.toString()
+                );
+                
+                // Reset button state
+                checkinSubmitBtn.disabled = false;
+                checkinSubmitBtn.innerHTML = '<i class="bx bx-check-circle me-1"></i>Complete Check-In';
+            });
+        });
+    }
+
+    // =================================================================
+    // CHECK-OUT MODAL FUNCTIONALITY
+    // =================================================================
+    const checkoutModal = document.getElementById('checkoutModal');
+    const checkoutCameraWrap = document.getElementById('checkout-camera-wrap');
+    const checkoutCamera = document.getElementById('checkout-camera');
+    const checkoutCanvas = document.getElementById('checkout-canvas');
+    const checkoutPreview = document.getElementById('checkout-preview');
+    const checkoutCaptureBtn = document.getElementById('checkout-capture-btn');
+    const checkoutRetakeBtn = document.getElementById('checkout-retake-btn');
+    const checkoutSubmitBtn = document.getElementById('checkout-submit-btn');
+    const checkoutForm = document.getElementById('checkout-form');
+    const checkoutPhotoInput = document.getElementById('checkout-photo-input');
+    const checkoutCameraStatus = document.getElementById('checkout-camera-status');
+    const checkoutLatitudeInput = document.getElementById('checkout-latitude-input');
+    const checkoutLongitudeInput = document.getElementById('checkout-longitude-input');
+    const checkoutDeviceInfoInput = document.getElementById('checkout-device-info');
+    const checkoutTimeInput = document.getElementById('checkout-time-input');
+    const checkoutModalInstance = createModalInstance(checkoutModal, { backdrop: 'static', keyboard: false });
+
+    // Helper to open checkout modal via Bootstrap and optional jQuery API
+    function openCheckoutModalPopup() {
+        if (!checkoutModal) return;
+        if (checkoutModalInstance) {
+            checkoutModalInstance.show();
+        }
+        if (window.jQuery) {
+            window.jQuery('#checkoutModal').modal('show');
+        }
+    }
+
+    // Server-driven redirect directly into checkout flow
+    if (redirectTarget === 'check_out' && checkoutModalInstance) {
+        setTimeout(() => {
+            openCheckoutModalPopup();
+        }, 300);
+    }
+
+    // Auto-show checkout popup ~5 minutes after check-in when still pending checkout
+    if (attendanceState === 'checked_in_pending_checkout' && todayCheckinIso && checkoutModalInstance) {
+        try {
+            const checkInTime = new Date(todayCheckinIso);
+            const now = new Date();
+            const minDelayMs = 5 * 60 * 1000; // 5 minutes
+            const elapsed = now - checkInTime;
+            const delay = elapsed >= minDelayMs ? 500 : (minDelayMs - elapsed);
+            setTimeout(() => {
+                openCheckoutModalPopup();
+            }, delay);
+        } catch (e) {
+            console.warn('Unable to compute auto-checkout timing:', e);
+        }
+    }
+
+    const mobileHomeLink = document.querySelector('.mobile-bottom-nav__item[aria-label="Home"]');
+    if (mobileHomeLink && redirectTarget === 'check_out' && checkoutModalInstance) {
+        mobileHomeLink.addEventListener('click', function(event) {
+            event.preventDefault();
+            checkoutModalInstance.show();
+        });
+    }
+    
+    let checkoutStream = null;
+    let checkoutPhotoBlob = null;
+    let checkoutPreviewUrl = null;
+    
+    // Get user's current location for checkout
+    function getCheckoutLocation() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('Geolocation is not supported by your browser'));
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    resolve({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    });
+                },
+                (error) => {
+                    let errorMessage = 'Unable to retrieve your location';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = 'Location access denied. Please enable location services.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = 'Location information is unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = 'Location request timed out.';
+                            break;
+                    }
+                    reject(new Error(errorMessage));
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        });
+    }
+    
+    // Initialize camera when modal is shown
+    if (checkoutModal) {
+        checkoutModal.addEventListener('shown.bs.modal', function() {
+            // Always reset the modal state when shown
+            resetCheckoutModal();
+            
+            // Ensure submit button is disabled
+            checkoutSubmitBtn.disabled = true;
+            
+            // Start camera
+            initCheckoutCamera();
+            
+            // Request location in parallel
+            getCheckoutLocation()
+                .then(coords => {
+                    checkoutLatitudeInput.value = coords.latitude;
+                    checkoutLongitudeInput.value = coords.longitude;
+                    console.log('Checkout location obtained:', coords);
+                })
+                .catch(error => {
+                    console.error('Location error:', error);
+                    alert(error.message + '\n\nLocation access is recommended for check-out, but you can still continue.');
+                    // Do not hard-block check-out if location is unavailable
+                });
+        });
+        
+        checkoutModal.addEventListener('hidden.bs.modal', function() {
+            stopCheckoutCamera();
+            resetCheckoutModal();
+        });
+    }
+    
+    async function initCheckoutCamera() {
+        console.log('Initializing checkout camera...');
+
+        if (!window.isSecureContext) {
+            const msg = 'Camera access requires HTTPS or running the site on localhost. Please reload via https:// or http://localhost.';
+            checkoutCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>' + msg;
+            console.error(msg);
+            checkoutCaptureBtn.disabled = true;
+            return;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.error('MediaDevices API not supported');
+            checkoutCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>Camera not supported on this device';
+            checkoutCaptureBtn.disabled = true;
+            return;
+        }
+
+        if (navigator.permissions && navigator.permissions.query) {
+            try {
+                const cameraPermission = await navigator.permissions.query({ name: 'camera' });
+                if (cameraPermission.state === 'denied') {
+                    const msg = 'Browser camera permission is blocked. Please enable camera access in your browser settings and reload the page.';
+                    checkoutCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>' + msg;
+                    checkoutCaptureBtn.disabled = true;
+                    return;
+                }
+            } catch (permErr) {
+                console.warn('Unable to query camera permissions:', permErr);
+            }
+        }
+
+        checkoutCaptureBtn.disabled = true;
+        checkoutCameraStatus.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Requesting camera access...';
+
+        try {
+            // Stop existing stream to avoid conflicts
+            stopCheckoutCamera();
+
+            const stream = await acquireCameraStream();
+
+            checkoutStream = stream;
+            checkoutCamera.srcObject = stream;
+            checkoutCamera.classList.remove('d-none');
+            
+            // Force play immediately
+            try {
+                await checkoutCamera.play();
+                console.log('Checkout camera playing');
+                onCheckoutCameraReady();
+            } catch (playError) {
+                console.error('Error playing camera:', playError);
+                // Try one more time after a short delay
+                setTimeout(async () => {
+                    try {
+                        await checkoutCamera.play();
+                        onCheckoutCameraReady();
+                    } catch (e) {
+                        checkoutCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>Error starting camera';
+                    }
+                }, 500);
+            }
+        } catch (error) {
+            console.error('Camera error:', error.name, error.message, error);
+            const errorMsg = describeCameraError(error);
+            checkoutCameraStatus.innerHTML = '<i class="bx bx-error-circle me-1 text-danger"></i>' + errorMsg;
+            checkoutCaptureBtn.disabled = true;
+            alert('Camera Error: ' + errorMsg + '\n\nPlease check your browser settings and try again.');
+            checkoutCameraWrap && checkoutCameraWrap.classList.remove('camera-ready');
+        }
+    }
+    
+    function stopCheckoutCamera() {
+        if (checkoutStream) {
+            checkoutStream.getTracks().forEach(track => track.stop());
+            checkoutStream = null;
+        }
+    }
+    
+    function resetCheckoutModal() {
+        if (checkoutPreviewUrl) {
+            URL.revokeObjectURL(checkoutPreviewUrl);
+            checkoutPreviewUrl = null;
+        }
+        checkoutCamera.classList.add('d-none');
+        checkoutPreview.classList.add('d-none');
+        checkoutCaptureBtn.classList.remove('d-none');
+        checkoutRetakeBtn.classList.add('d-none');
+        checkoutSubmitBtn.disabled = true;
+        checkoutPhotoBlob = null;
+        checkoutPhotoInput.value = '';
+        // Clear location values
+        checkoutLatitudeInput.value = '';
+        checkoutLongitudeInput.value = '';
+        checkoutCameraStatus.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Initializing camera...';
+        checkoutCameraWrap && checkoutCameraWrap.classList.remove('camera-ready');
+    }
+    
+    function onCheckoutCameraReady() {
+        console.log('Check-out camera ready');
+        checkoutCaptureBtn.disabled = false;
+        checkoutSubmitBtn.disabled = true; // Ensure submit is disabled until photo is taken
+        checkoutCameraStatus.innerHTML = '<i class="bx bx-camera me-1"></i>Ready to capture';
+        checkoutCameraWrap && checkoutCameraWrap.classList.add('camera-ready');
+    }
+
+    // Capture photo
+    if (checkoutCaptureBtn) {
+        checkoutCaptureBtn.addEventListener('click', function() {
+            const context = checkoutCanvas.getContext('2d');
+            checkoutCanvas.width = checkoutCamera.videoWidth;
+            checkoutCanvas.height = checkoutCamera.videoHeight;
+            context.drawImage(checkoutCamera, 0, 0);
+            
+            checkoutCanvas.toBlob(function(blob) {
+                checkoutPhotoBlob = blob;
+                if (checkoutPreviewUrl) {
+                    URL.revokeObjectURL(checkoutPreviewUrl);
+                }
+                checkoutPreviewUrl = URL.createObjectURL(blob);
+                checkoutPreview.src = checkoutPreviewUrl;
+                
+                // Hide camera, show preview
+                checkoutCamera.classList.add('d-none');
+                checkoutPreview.classList.remove('d-none');
+                checkoutCaptureBtn.classList.add('d-none');
+                checkoutRetakeBtn.classList.remove('d-none');
+                checkoutSubmitBtn.disabled = false;
+                checkoutSubmitBtn.style.display = 'inline-flex';
+                checkoutCameraStatus.innerHTML = '<i class="bx bx-check-circle me-1 text-success"></i>Photo captured successfully';
+                
+                // Stop camera
+                stopCheckoutCamera();
+                checkoutCameraWrap && checkoutCameraWrap.classList.remove('camera-ready');
+            }, 'image/jpeg', 0.8);
+        });
+    }
+    
+    // Retake photo
+    if (checkoutRetakeBtn) {
+        checkoutRetakeBtn.addEventListener('click', function() {
+            checkoutPreview.classList.add('d-none');
+            checkoutCamera.classList.remove('d-none');
+            checkoutCaptureBtn.classList.remove('d-none');
+            checkoutRetakeBtn.classList.add('d-none');
+            checkoutSubmitBtn.disabled = true;
+            checkoutPhotoBlob = null;
+            if (checkoutPreviewUrl) {
+                URL.revokeObjectURL(checkoutPreviewUrl);
+                checkoutPreviewUrl = null;
+            }
+            checkoutPhotoInput.value = '';
+            initCheckoutCamera();
+            checkoutCameraWrap && checkoutCameraWrap.classList.remove('camera-ready');
+        });
+    }
+
+    if (checkoutPhotoInput) {
+        checkoutPhotoInput.addEventListener('change', function(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            checkoutPhotoBlob = file;
+            if (checkoutPreviewUrl) {
+                URL.revokeObjectURL(checkoutPreviewUrl);
+            }
+            checkoutPreviewUrl = URL.createObjectURL(file);
+            checkoutPreview.src = checkoutPreviewUrl;
+            checkoutPreview.classList.remove('d-none');
+            checkoutSubmitBtn.disabled = false;
+            checkoutSubmitBtn.style.display = 'inline-flex';
+            checkoutRetakeBtn.classList.remove('d-none');
+            checkoutCameraStatus.innerHTML = '<i class="bx bx-check-circle me-1 text-success"></i>Photo selected successfully.';
+            checkoutCameraWrap && checkoutCameraWrap.classList.remove('camera-ready');
+        });
+    }
+    
+    // Submit check-out
+    if (checkoutSubmitBtn) {
+        checkoutSubmitBtn.addEventListener('click', function() {
+            console.log('Check-out submit clicked');
+            console.log('Photo blob:', checkoutPhotoBlob);
+            console.log('Latitude:', checkoutLatitudeInput.value);
+            console.log('Longitude:', checkoutLongitudeInput.value);
+            
+            if (!checkoutPhotoBlob) {
+                alert('Please capture a photo first');
+                return;
+            }
+            
+            // NOTE: Location is helpful but no longer hard-blocks check-out if unavailable
+            if (!checkoutLatitudeInput.value || !checkoutLongitudeInput.value) {
+                console.warn('Proceeding with check-out without location coordinates');
+            }
+            
+            // Create file from blob
+            let fileToSubmit;
+            if (checkoutPhotoBlob instanceof File) {
+                fileToSubmit = checkoutPhotoBlob;
+            } else {
+                fileToSubmit = new File([checkoutPhotoBlob], 'checkout_photo.jpg', { type: 'image/jpeg' });
+            }
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(fileToSubmit);
+            checkoutPhotoInput.files = dataTransfer.files;
+            
+            console.log('Submitting check-out form with location (may be empty):', {
+                latitude: checkoutLatitudeInput.value,
+                longitude: checkoutLongitudeInput.value
+            });
+            
+            // Disable button and show loading
+            checkoutSubmitBtn.disabled = true;
+            checkoutSubmitBtn.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Processing...';
+            
+            // Attach device info and client-side checkout time for diagnostics
+            if (checkoutDeviceInfoInput) {
+                checkoutDeviceInfoInput.value = navigator.userAgent || '';
+            }
+            if (checkoutTimeInput) {
+                checkoutTimeInput.value = new Date().toISOString();
+            }
+
+            // Create FormData and submit via fetch for better error handling
+            const formData = new FormData(checkoutForm);
+            
+            fetch(checkoutForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(async response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    return null;
+                }
+
+                const ct = (response.headers.get('content-type') || '').toLowerCase();
+
+                if (ct.includes('application/json')) {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        const error = new Error(data.message || 'Check-out failed');
+                        error.details = data.details || 'No additional details available';
+                        error.type = data.type || 'checkout_error';
+                        throw error;
+                    }
+                    return { data };
+                }
+
+                window.location.reload();
+                return null;
+            })
+            .then(payload => {
+                if (!payload) return;
+                const data = payload.data;
+                if (data.success) {
+                    const checkoutModal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
+                    if (checkoutModal) checkoutModal.hide();
+                    showSuccessModal(
+                        'Check-out Successful',
+                        data.message || "You're all set for today!",
+                        data.check_out_time || '',
+                        'checkout'
+                    );
+                } else {
+                    throw new Error(data.message || 'Check-out failed');
+                }
+            })
+            .catch(error => {
+                console.error('Check-out error:', error);
+                // Close the camera modal first
+                const checkoutModal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
+                if (checkoutModal) checkoutModal.hide();
+                
+                // Show error in popup
+                showErrorModal(
+                    'Check-out Failed',
+                    error.message || 'An error occurred during check-out. Please try again.',
+                    error.details || error.toString()
+                );
+                
+                // Reset button state
+                checkoutSubmitBtn.disabled = false;
+                checkoutSubmitBtn.innerHTML = '<i class="bx bx-log-out me-1"></i>Complete Check-Out';
+            });
+        });
+    }
+});
+  </script>
+{% endblock %}
+
+{% block vendor_css %}
+  {{ block.super }}
+  <style>
+    .camera-preview {
+      width: 100%;
+      max-width: 500px;
+      height: auto;
+      border-radius: 12px;
+      border: 2px solid #e9ecef;
+      background: #f8f9fa;
+    }
+
+    .camera-container {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    @media (max-width: 768px) {
+      .camera-preview {
+        max-width: 100%;
+        border-radius: 8px;
+      }
+
+      .modal-lg {
+        max-width: 95%;
+      }
+    }
+  </style>
+  </body>
+{% endblock %}

@@ -1,0 +1,1098 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}My Attendance Logs | Employee Management System{% endblock %}
+
+{% block content %}
+  <style>
+    :root {
+      --attend-radius: 18px;
+      --attend-border: rgba(15, 23, 42, 0.08);
+      --attend-muted: #6b7280;
+      --attend-bg: #f4f6fb;
+      --attend-card: #ffffff;
+      --attend-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+    }
+
+    body {
+      background: var(--attend-bg);
+    }
+
+    .attend-app {
+      display: flex;
+      flex-direction: column;
+      gap: 1.6rem;
+    }
+
+    .attend-app--padded {
+      padding: 1.6rem 0 3rem;
+    }
+
+    .attend-card {
+      background: var(--attend-card);
+      border-radius: var(--attend-radius);
+      border: 1px solid var(--attend-border);
+      box-shadow: var(--attend-shadow);
+      padding: 1.6rem;
+    }
+
+    .attend-hero {
+      position: relative;
+      overflow: hidden;
+      color: #f8fafc;
+      background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+      display: grid;
+      gap: 1.2rem;
+    }
+
+    .attend-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 60%);
+      pointer-events: none;
+    }
+
+    .attend-hero__top {
+      position: relative;
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .attend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.42rem 0.95rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: rgba(15, 23, 42, 0.22);
+      color: rgba(248, 250, 252, 0.92);
+    }
+
+    .attend-hero__title {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+
+    .attend-hero__subtitle {
+      margin: 0;
+      max-width: 520px;
+      font-size: 0.92rem;
+      opacity: 0.9;
+    }
+
+    .attend-hero__actions {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+    }
+
+    .attend-hero__actions .btn {
+      border-radius: 999px;
+      font-weight: 600;
+      padding-inline: 1.15rem;
+    }
+
+    .attend-metrics {
+      position: relative;
+      display: grid;
+      gap: 0.8rem;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+
+    .attend-metric {
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+      background: rgba(248, 250, 252, 0.92);
+      border-radius: 16px;
+      padding: 0.85rem 1rem;
+      border: 1px solid rgba(15, 23, 42, 0.05);
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+    }
+
+    .attend-metric__icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+    }
+
+    .attend-metric__data {
+      display: grid;
+      gap: 0.1rem;
+    }
+
+    .attend-metric__label {
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--attend-muted);
+    }
+
+    .attend-metric__value {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .attend-filter {
+      display: grid;
+      gap: 1.1rem;
+    }
+
+    .attend-filter__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .attend-filter__header h2 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: #1f2937;
+    }
+
+    .attend-filter__header p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--attend-muted);
+    }
+
+    .attend-filter__controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .attend-filter__field {
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    .attend-filter__label {
+      font-size: 0.74rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--attend-muted);
+      font-weight: 600;
+    }
+
+    .attend-filter__input {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 0.9rem;
+      border-radius: 14px;
+      border: 1px solid rgba(99, 102, 241, 0.18);
+      background: #f8f9ff;
+    }
+
+    .attend-filter__input i {
+      color: #6366f1;
+      font-size: 1.05rem;
+    }
+
+    .attend-filter__input select {
+      border: none;
+      background: transparent;
+      width: 100%;
+      font-size: 0.92rem;
+      color: #111827;
+    }
+
+    .attend-filter__input select:focus {
+      outline: none;
+      box-shadow: none;
+    }
+
+    .attend-filter__actions {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .attend-filter__actions .btn {
+      border-radius: 999px;
+      font-weight: 600;
+      padding-inline: 1.2rem;
+    }
+
+    .attend-records {
+      display: grid;
+      gap: 1.2rem;
+    }
+
+    .attend-records__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    .attend-records__header h2 {
+      margin: 0;
+      font-size: 1.08rem;
+      color: #1f2937;
+    }
+
+    .attend-records__header p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--attend-muted);
+    }
+
+    .attend-records__pills {
+      display: inline-flex;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+    }
+
+    .attend-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+      background: rgba(99, 102, 241, 0.1);
+      color: #4338ca;
+      font-weight: 600;
+    }
+
+    .attend-table thead {
+      background: #f8fafc;
+    }
+
+    .attend-table th {
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #64748b;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.32);
+    }
+
+    .attend-table td {
+      border-color: rgba(226, 232, 240, 0.7);
+      vertical-align: middle;
+    }
+
+    .attend-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.38rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .attend-status--complete {
+      background: rgba(34, 197, 94, 0.16);
+      color: #15803d;
+    }
+
+    .attend-status--pending {
+      background: rgba(250, 204, 21, 0.2);
+      color: #92400e;
+    }
+
+    .attend-status--out {
+      background: rgba(239, 68, 68, 0.16);
+      color: #b91c1c;
+    }
+
+    .attend-mobile {
+      display: grid;
+      gap: 1.1rem;
+    }
+
+    .attend-entry {
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid rgba(226, 232, 240, 0.75);
+      padding: 1.25rem 1.3rem;
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+      display: grid;
+      gap: 1rem;
+    }
+
+    .attend-entry__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.8rem;
+    }
+
+    .attend-entry__date {
+      display: grid;
+      gap: 0.2rem;
+    }
+
+    .attend-entry__date strong {
+      font-size: 1.05rem;
+      color: #111827;
+    }
+
+    .attend-entry__day {
+      font-size: 0.8rem;
+      color: var(--attend-muted);
+    }
+
+    .attend-entry__status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .attend-entry__status::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .attend-entry--complete .attend-entry__status {
+      background: rgba(34, 197, 94, 0.14);
+      color: #15803d;
+    }
+
+    .attend-entry--complete .attend-entry__status::before {
+      background: #22c55e;
+    }
+
+    .attend-entry--pending .attend-entry__status {
+      background: rgba(250, 204, 21, 0.22);
+      color: #92400e;
+    }
+
+    .attend-entry--pending .attend-entry__status::before {
+      background: #f59e0b;
+    }
+
+    .attend-entry__grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.9rem;
+    }
+
+    .attend-entry__item {
+      display: grid;
+      gap: 0.35rem;
+      font-size: 0.9rem;
+    }
+
+    .attend-entry__label {
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--attend-muted);
+    }
+
+    .attend-entry__time {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.55rem 0.95rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.94rem;
+      letter-spacing: 0.01em;
+      background: rgba(99, 102, 241, 0.12);
+      color: #27276b;
+      box-shadow: 0 16px 32px rgba(99, 102, 241, 0.18);
+    }
+
+    .attend-entry__time i {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #6366f1;
+      color: #fff;
+      font-size: 1.1rem;
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.2);
+    }
+
+    .attend-entry__time--out {
+      background: rgba(239, 68, 68, 0.12);
+      color: #b91c1c;
+      box-shadow: 0 16px 32px rgba(239, 68, 68, 0.15);
+    }
+
+    .attend-entry__time--out i {
+      background: #ef4444;
+    }
+
+    .attend-entry__time--pending {
+      background: rgba(148, 163, 184, 0.2);
+      color: #475569;
+      box-shadow: none;
+    }
+
+    .attend-entry__time--pending i {
+      background: rgba(148, 163, 184, 0.75);
+    }
+
+    .attend-entry__duration {
+      font-weight: 700;
+      color: #4338ca;
+    }
+
+    .attend-entry__actions .btn {
+      border-radius: 999px;
+      width: 100%;
+      font-weight: 600;
+      padding: 0.58rem 1rem;
+      box-shadow: 0 10px 26px rgba(99, 102, 241, 0.18);
+    }
+
+    .attend-empty {
+      display: grid;
+      gap: 0.8rem;
+      justify-items: center;
+      text-align: center;
+      padding: 2.6rem 1.4rem;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(79, 70, 229, 0.02));
+      border-radius: var(--attend-radius);
+      border: 1px dashed rgba(99, 102, 241, 0.2);
+    }
+
+    .attend-empty__icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      background: rgba(99, 102, 241, 0.14);
+      display: grid;
+      place-items: center;
+      color: #4338ca;
+      font-size: 2rem;
+      box-shadow: 0 16px 40px rgba(99, 102, 241, 0.18);
+    }
+
+    .attend-pagination .pagination {
+      gap: 0.5rem;
+    }
+
+    .attend-pagination .page-link {
+      border-radius: 999px !important;
+      min-width: 38px;
+      text-align: center;
+    }
+
+    .attend-pagination .page-item.active .page-link {
+      background: #6366f1;
+      border-color: #6366f1;
+      box-shadow: 0 16px 36px rgba(99, 102, 241, 0.32);
+    }
+
+    .attend-modal .modal-content {
+      border-radius: 20px;
+      border: none;
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.2);
+    }
+
+    .photo-preview {
+      display: flex;
+      justify-content: center;
+    }
+
+    .photo-preview img {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 12px 32px rgba(99, 102, 241, 0.2);
+      border: 4px solid rgba(99, 102, 241, 0.12);
+    }
+
+    @media (max-width: 576px) {
+      .photo-preview img {
+        width: 96px;
+        height: 96px;
+      }
+    }
+
+    .attend-modal__header {
+      border-bottom: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .attend-modal__chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.16);
+      color: #4338ca;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .attend-modal__grid {
+      display: grid;
+      gap: 1.2rem;
+    }
+
+    .attend-modal__card {
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      border-radius: 16px;
+      padding: 1.35rem;
+      background: linear-gradient(145deg, #ffffff 0%, #f9fbff 100%);
+      display: grid;
+      gap: 0.9rem;
+    }
+
+    .attend-modal__card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .attend-modal__icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 1.25rem;
+      color: #fff;
+    }
+
+    .attend-modal__time {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin: 0;
+      color: #111827;
+    }
+
+    .attend-modal__placeholder {
+      display: grid;
+      gap: 0.45rem;
+      place-items: center;
+      padding: 1.1rem;
+      border-radius: 14px;
+      border: 1px dashed rgba(148, 163, 184, 0.5);
+      color: var(--attend-muted);
+      font-weight: 600;
+    }
+
+    .attend-modal__summary {
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      border-radius: 16px;
+      padding: 1.2rem;
+      display: grid;
+      gap: 0.8rem;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+
+    .attend-modal__summary-item {
+      display: grid;
+      gap: 0.3rem;
+    }
+
+    .attend-modal__summary-item span:first-child {
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--attend-muted);
+    }
+
+    .attend-modal__summary-item span:last-child {
+      font-weight: 700;
+      color: #111827;
+    }
+
+    @media (max-width: 992px) {
+      .attend-card {
+        padding: 1.4rem;
+      }
+
+      .attend-hero__title {
+        font-size: 1.6rem;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .attend-app--padded {
+        padding: 1.25rem 0 2.4rem;
+      }
+
+      .attend-hero__actions {
+        flex-direction: column;
+      }
+
+      .attend-hero__actions .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .attend-filter__controls {
+        grid-template-columns: 1fr;
+      }
+
+      .attend-filter__actions {
+        width: 100%;
+      }
+
+      .attend-filter__actions .btn {
+        flex: 1 1 auto;
+      }
+
+      .attend-entry__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 576px) {
+      .attend-card {
+        padding: 1.2rem 1.1rem;
+      }
+
+      .attend-metrics {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+
+      .attend-entry__grid {
+        grid-template-columns: 1fr;
+      }
+
+      .attend-modal__grid {
+        gap: 1rem;
+      }
+    }
+  </style>
+
+  <div class="row justify-content-center">
+    <div class="col-xl-9 col-lg-10 col-12">
+      <div class="attend-app attend-app--padded">
+
+        <section class="attend-card attend-hero">
+          <div class="attend-hero__top">
+            <span class="attend-chip"><i class="bx bx-pulse"></i> Attendance tracker</span>
+            <h1 class="attend-hero__title">Stay on top of your workday, {{ employee.name }}</h1>
+            <p class="attend-hero__subtitle">Review daily check-ins, monitor progress, and keep your hours tidy with a mobile-first view that travels with you.</p>
+          </div>
+          <div class="attend-hero__actions">
+            {% if not attendance_records %}
+              <a href="{% url 'employees:check_in' %}" class="btn btn-light btn-sm text-primary fw-semibold">
+                <i class="bx bx-log-in"></i> Check in today
+              </a>
+            {% else %}
+              <a href="{% url 'employees:employee_dashboard' %}" class="btn btn-light btn-sm text-primary fw-semibold">
+                <i class="bx bx-grid-alt"></i> Dashboard
+              </a>
+            {% endif %}
+            <a href="{% url 'employees:attendance_calendar' %}" class="btn btn-outline-light btn-sm">
+              <i class="bx bx-calendar"></i> Calendar view
+            </a>
+          </div>
+          <div class="attend-metrics">
+            <div class="attend-metric">
+              <span class="attend-metric__icon" style="background: rgba(99, 102, 241, 0.18); color: #4338ca;">
+                <i class="bx bx-calendar-check"></i>
+              </span>
+              <div class="attend-metric__data">
+                <span class="attend-metric__label">Working days</span>
+                <span class="attend-metric__value">{{ total_working_days }}</span>
+              </div>
+            </div>
+            <div class="attend-metric">
+              <span class="attend-metric__icon" style="background: rgba(34, 197, 94, 0.18); color: #15803d;">
+                <i class="bx bx-check-circle"></i>
+              </span>
+              <div class="attend-metric__data">
+                <span class="attend-metric__label">Present days</span>
+                <span class="attend-metric__value">{{ present_days }}</span>
+              </div>
+            </div>
+            <div class="attend-metric">
+              <span class="attend-metric__icon" style="background: rgba(251, 191, 36, 0.22); color: #b45309;">
+                <i class="bx bx-time"></i>
+              </span>
+              <div class="attend-metric__data">
+                <span class="attend-metric__label">Absences</span>
+                <span class="attend-metric__value">{{ absent_days }}</span>
+              </div>
+            </div>
+            <div class="attend-metric">
+              <span class="attend-metric__icon" style="background: rgba(56, 189, 248, 0.2); color: #0369a1;">
+                <i class="bx bx-time-five"></i>
+              </span>
+              <div class="attend-metric__data">
+                <span class="attend-metric__label">Half days</span>
+                <span class="attend-metric__value">{{ half_day_days }}</span>
+              </div>
+            </div>
+            <div class="attend-metric">
+              <span class="attend-metric__icon" style="background: rgba(251, 191, 36, 0.2); color: #c2410c;">
+                <i class="bx bx-pie-chart-alt"></i>
+              </span>
+              <div class="attend-metric__data">
+                <span class="attend-metric__label">Attendance rate</span>
+                <span class="attend-metric__value">{{ attendance_percentage }}%</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="attend-card attend-filter">
+          <div class="attend-filter__header">
+            <div>
+              <h2>Filter history</h2>
+              <p>Pick a month or year to narrow your attendance timeline.</p>
+            </div>
+            <button class="btn btn-outline-primary btn-sm d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#attendanceFilters" aria-expanded="false" aria-controls="attendanceFilters" id="filterToggle">
+              <i class="bx bx-filter-alt"></i> Filters
+            </button>
+          </div>
+
+          <div class="collapse d-md-block" id="attendanceFilters">
+            <form method="get" class="attend-filter__controls">
+              <div class="attend-filter__field">
+                <span class="attend-filter__label">Month</span>
+                <label class="attend-filter__input">
+                  <i class="bx bx-calendar"></i>
+                  <select name="month">
+                    <option value="">All months</option>
+                    <option value="1" {% if selected_month == "1" %}selected{% endif %}>January</option>
+                    <option value="2" {% if selected_month == "2" %}selected{% endif %}>February</option>
+                    <option value="3" {% if selected_month == "3" %}selected{% endif %}>March</option>
+                    <option value="4" {% if selected_month == "4" %}selected{% endif %}>April</option>
+                    <option value="5" {% if selected_month == "5" %}selected{% endif %}>May</option>
+                    <option value="6" {% if selected_month == "6" %}selected{% endif %}>June</option>
+                    <option value="7" {% if selected_month == "7" %}selected{% endif %}>July</option>
+                    <option value="8" {% if selected_month == "8" %}selected{% endif %}>August</option>
+                    <option value="9" {% if selected_month == "9" %}selected{% endif %}>September</option>
+                    <option value="10" {% if selected_month == "10" %}selected{% endif %}>October</option>
+                    <option value="11" {% if selected_month == "11" %}selected{% endif %}>November</option>
+                    <option value="12" {% if selected_month == "12" %}selected{% endif %}>December</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="attend-filter__field">
+                <span class="attend-filter__label">Year</span>
+                <label class="attend-filter__input">
+                  <i class="bx bx-timer"></i>
+                  <select name="year">
+                    <option value="">All years</option>
+                    {% for year_date in available_years %}
+                      <option value="{{ year_date.year }}" {% if selected_year == year_date.year|stringformat:"s" %}selected{% endif %}>{{ year_date.year }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+              </div>
+
+              <div class="attend-filter__actions">
+                <button type="submit" class="btn btn-primary">
+                  <i class="bx bx-search"></i> Apply
+                </button>
+                <a href="{% url 'employees:my_attendance_logs' %}" class="btn btn-outline-secondary">
+                  <i class="bx bx-reset"></i>
+                </a>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="attend-card attend-records">
+          <div class="attend-records__header">
+            <div>
+              <h2>Attendance records</h2>
+              <p>Detailed log of check-ins, check-outs, and tracked hours.</p>
+            </div>
+            <div class="attend-records__pills d-none d-md-inline-flex">
+              <span class="attend-pill"><i class="bx bx-check"></i> Complete: {{ complete_days }}</span>
+              <span class="attend-pill" style="background: rgba(251, 191, 36, 0.16); color: #b45309;"><i class="bx bx-time"></i> Incomplete: {{ incomplete_days }}</span>
+              <span class="attend-pill" style="background: rgba(56, 189, 248, 0.15); color: #075985;"><i class="bx bx-calendar"></i> Total: {{ total_days }}</span>
+            </div>
+          </div>
+
+          {% if attendance_records %}
+            <div class="table-responsive d-none d-md-block attend-table">
+              <table class="table table-borderless align-middle">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for attendance in attendance_records %}
+                    <tr>
+                      <td class="text-muted">{{ forloop.counter0|add:page_obj.start_index }}</td>
+                      <td>
+                        <div class="d-grid gap-1">
+                          <strong>{{ attendance.date|date:"d M Y" }}</strong>
+                          <small class="text-muted">{{ attendance.date|date:"l" }}</small>
+                          {% if attendance.date == current_date %}
+                            <span class="badge bg-primary">Today</span>
+                          {% endif %}
+                        </div>
+                      </td>
+                      <td>
+                        <span class="attend-status"><i class="bx bx-log-in"></i> {{ attendance.check_in_time|date:"H:i" }}</span>
+                      </td>
+                      <td>
+                        {% if attendance.check_out_time %}
+                          <span class="attend-status attend-status--out"><i class="bx bx-log-out"></i> {{ attendance.check_out_time|date:"H:i" }}</span>
+                        {% else %}
+                          <span class="attend-status attend-status--pending"><i class="bx bx-time-five"></i> Pending</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if attendance.check_out_time %}
+                          <span class="text-primary fw-semibold">{{ attendance.duration|default:"-" }}</span>
+                        {% else %}
+                          <span class="text-muted">-</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if attendance.check_out_time %}
+                          <span class="attend-status attend-status--complete"><i class="bx bx-check"></i> Complete</span>
+                        {% else %}
+                          <span class="attend-status attend-status--pending"><i class="bx bx-time-five"></i> Incomplete</span>
+                        {% endif %}
+                      </td>
+                      <td class="text-end">
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#detailModal{{ attendance.id }}">
+                          <i class="bx bx-show"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="attend-mobile d-md-none">
+              {% for attendance in attendance_records %}
+                <article class="attend-entry {% if attendance.check_out_time %}attend-entry--complete{% else %}attend-entry--pending{% endif %}">
+                  <div class="attend-entry__head">
+                    <div class="attend-entry__date">
+                      <strong>{{ attendance.date|date:"d M Y" }}</strong>
+                      <span class="attend-entry__day">{{ attendance.date|date:"l" }}</span>
+                    </div>
+                    <span class="attend-entry__status">
+                      {% if attendance.check_out_time %}<i class="bx bx-check"></i> Complete{% else %}<i class="bx bx-time-five"></i> Incomplete{% endif %}
+                    </span>
+                  </div>
+                  <div class="attend-entry__grid">
+                    <div class="attend-entry__item">
+                      <span class="attend-entry__label">Check-in</span>
+                      <span class="attend-entry__time"><i class="bx bx-log-in"></i>{{ attendance.check_in_time|date:"H:i" }}</span>
+                      <small class="text-muted">{{ attendance.check_in_time|date:"d M" }}</small>
+                    </div>
+                    <div class="attend-entry__item">
+                      <span class="attend-entry__label">Check-out</span>
+                      {% if attendance.check_out_time %}
+                        <span class="attend-entry__time attend-entry__time--out"><i class="bx bx-log-out"></i>{{ attendance.check_out_time|date:"H:i" }}</span>
+                        <small class="text-muted">{{ attendance.check_out_time|date:"d M" }}</small>
+                      {% else %}
+                        <span class="text-muted">Pending</span>
+                      {% endif %}
+                    </div>
+                    <div class="attend-entry__item">
+                      <span class="attend-entry__label">Duration</span>
+                      {% if attendance.check_out_time %}
+                        <span class="attend-entry__duration">{{ attendance.duration|default:"-" }}</span>
+                      {% else %}
+                        <span class="text-muted">-</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="attend-entry__actions">
+                    <button type="button" class="btn btn-soft-primary btn-sm" data-bs-toggle="modal" data-bs-target="#detailModal{{ attendance.id }}">
+                      View details
+                    </button>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+
+            {% if page_obj.has_other_pages %}
+              <div class="attend-pagination">
+                <nav aria-label="Attendance pagination">
+                  <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                      <li class="page-item">
+                        <a class="page-link" href="?page=1{% if selected_month %}&month={{ selected_month }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}">
+                          <i class="bx bx-chevrons-left"></i>
+                        </a>
+                      </li>
+                      <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_month %}&month={{ selected_month }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}">
+                          <i class="bx bx-chevron-left"></i>
+                        </a>
+                      </li>
+                    {% endif %}
+                    <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+                    {% if page_obj.has_next %}
+                      <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_month %}&month={{ selected_month }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}">
+                          <i class="bx bx-chevron-right"></i>
+                        </a>
+                      </li>
+                      <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if selected_month %}&month={{ selected_month }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}">
+                          <i class="bx bx-chevrons-right"></i>
+                        </a>
+                      </li>
+                    {% endif %}
+                  </ul>
+                </nav>
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="attend-empty">
+              <span class="attend-empty__icon"><i class="bx bx-calendar-x"></i></span>
+              <h3>No attendance records yet</h3>
+              <p class="text-muted mb-2">
+                {% if selected_month or selected_year %}
+                  Nothing matches your filters right now. Try adjusting the month or year range.
+                {% else %}
+                  You haven\'t started logging attendance. Tap below to create your first check-in.
+                {% endif %}
+              </p>
+              <div class="d-flex flex-wrap justify-content-center gap-2">
+                {% if selected_month or selected_year %}
+                  <a href="{% url 'employees:my_attendance_logs' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bx bx-reset"></i> Reset filters
+                  </a>
+                {% endif %}
+                <a href="{% url 'employees:check_in' %}" class="btn btn-primary btn-sm">
+                  <i class="bx bx-log-in"></i> Check in now
+                </a>
+              </div>
+            </div>
+          {% endif %}
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  {% for attendance in attendance_records %}
+    <div class="modal fade attend-modal" id="detailModal{{ attendance.id }}" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header attend-modal__header">
+            <div>
+              <span class="attend-modal__chip"><i class="bx bx-calendar-event"></i> Entry detail</span>
+              <h5 class="mb-1">{{ attendance.date|date:"l, d F Y" }}</h5>
+              <small class="text-muted">Logged on {{ attendance.date|date:"d/m/Y" }}</small>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="attend-modal__grid">
+              <div class="attend-modal__card">
+                <div class="attend-modal__card-header">
+                  <span class="attend-modal__icon" style="background: #10b981;">
+                    <i class="bx bx-log-in"></i>
+                  </span>
+                  <div>
+                    <h6 class="mb-0">Check-in</h6>
+                    <small class="text-muted">{{ attendance.check_in_time|date:"d M Y" }}</small>
+                  </div>
+                </div>
+                <p class="attend-modal__time">{{ attendance.check_in_time|date:"H:i:s" }}</p>
+                
+              </div>
+
+              <div class="attend-modal__card">
+                <div class="attend-modal__card-header">
+                  <span class="attend-modal__icon" style="background: #ef4444;">
+                    <i class="bx bx-log-out"></i>
+                  </span>
+                  <div>
+                    <h6 class="mb-0">Check-out</h6>
+                    {% if attendance.check_out_time %}
+                      <small class="text-muted">{{ attendance.check_out_time|date:"d M Y" }}</small>
+                    {% endif %}
+                  </div>
+                </div>
+                {% if attendance.check_out_time %}
+                  <p class="attend-modal__time">{{ attendance.check_out_time|date:"H:i:s" }}</p>
+                  
+                {% else %}
+                  <div class="attend-modal__placeholder">
+                    <i class="bx bx-time-five"></i>
+                    <span>Check-out pending</span>
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="attend-modal__summary">
+                <div class="attend-modal__summary-item">
+                  <span>Duration</span>
+                  <span>{% if attendance.check_out_time %}{{ attendance.duration|default:"-" }}{% else %}-{% endif %}</span>
+                </div>
+                <div class="attend-modal__summary-item">
+                  <span>Hours count</span>
+                  <span>{% if attendance.check_out_time %}{{ attendance.duration_hours }}{% else %}-{% endif %}</span>
+                </div>
+                <div class="attend-modal__summary-item">
+                  <span>Status</span>
+                  <span>
+                    {% if attendance.check_out_time %}
+                      <span class="attend-status attend-status--complete"><i class="bx bx-check"></i> Complete</span>
+                    {% else %}
+                      <span class="attend-status attend-status--pending"><i class="bx bx-time-five"></i> Incomplete</span>
+                    {% endif %}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer border-0">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var toggle = document.getElementById('filterToggle');
+      var filters = document.getElementById('attendanceFilters');
+      if (toggle && filters) {
+        filters.addEventListener('shown.bs.collapse', function () {
+          toggle.innerHTML = '<i class="bx bx-x"></i> Hide filters';
+        });
+        filters.addEventListener('hidden.bs.collapse', function () {
+          toggle.innerHTML = '<i class="bx bx-filter-alt"></i> Filters';
+        });
+      }
+    });
+  </script>
+{% endblock %}

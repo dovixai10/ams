@@ -1,0 +1,670 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Manage Reimbursement Requests{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+.admin-reimbursements-container {
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.reimbursements-table {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.table th {
+  background: #f9fafb;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  vertical-align: top;
+}
+
+.table tr:hover {
+  background: #f9fafb;
+}
+
+.employee-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.employee-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.employee-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.employee-name {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.9rem;
+}
+
+.employee-email {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.reimbursement-amount {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 1rem;
+}
+
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.status-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  display: inline-block;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-verified {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.reason-text {
+  max-width: 250px;
+  color: #4b5563;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  display: block;
+  overflow: visible;
+}
+
+.reason-text.reason-expanded {
+  max-width: 100%;
+  white-space: normal;
+  display: block;
+  overflow: visible;
+}
+
+.reason-toggle {
+  color: #6366f1;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.btn-verify {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.btn-verify:hover {
+  background: #bfdbfe;
+}
+
+.btn-mark-paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.btn-mark-paid:hover {
+  background: #a7f3d0;
+}
+
+.btn-reject {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.btn-reject:hover {
+  background: #fecaca;
+}
+
+.btn-view {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-view:hover {
+  background: #e5e7eb;
+}
+
+.payment-slip-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.payment-slip-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.image-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.image-modal img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 8px;
+}
+
+.image-modal-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .table {
+    font-size: 0.8rem;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .actions {
+    flex-direction: column;
+  }
+  
+  .btn-action {
+    justify-content: center;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-reimbursements-container">
+  <div class="page-header">
+    <h1 class="page-title">Reimbursement Requests Management</h1>
+  </div>
+
+  {% if reimbursements %}
+    <div class="reimbursements-table">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Amount</th>
+            <th>UPI ID</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Expense Date</th>
+            <th>Payment Slip</th>
+            <th>Reason</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reimbursement in reimbursements %}
+            <tr>
+              <td>
+                <div class="employee-info">
+                  <div class="employee-avatar">
+                    {{ reimbursement.employee.full_name.0 }}
+                  </div>
+                  <div class="employee-details">
+                    <div class="employee-name">{{ reimbursement.employee.full_name }}</div>
+                    <div class="employee-email">{{ reimbursement.employee.email }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="reimbursement-amount">₹{{ reimbursement.amount }}</div>
+              </td>
+              <td>
+                <div class="text-muted small">{{ reimbursement.upi_id|default:"—" }}</div>
+              </td>
+              <td>
+                <div class="category-badge">
+                  {% if reimbursement.category == 'travel' %}
+                    <i class="bx bx-plane"></i> Travel
+                  {% elif reimbursement.category == 'cab' %}
+                    <i class="bx bx-car"></i> Cab
+                  {% elif reimbursement.category == 'food' %}
+                    <i class="bx bx-restaurant"></i> Food
+                  {% elif reimbursement.category == 'office_supplies' %}
+                    <i class="bx bx-paperclip"></i> Office
+                  {% else %}
+                    <i class="bx bx-category"></i> Other
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                <span class="status-badge status-{{ reimbursement.status }}">
+                  {{ reimbursement.get_status_display }}
+                </span>
+              </td>
+              <td>
+                <div>{{ reimbursement.expense_date|date:"M d, Y" }}</div>
+              </td>
+              <td>
+                <img 
+                  src="{{ reimbursement.payment_slip.url }}" 
+                  alt="Payment Slip" 
+                  class="payment-slip-thumb"
+                  onclick="openImageModal('{{ reimbursement.payment_slip.url }}')"
+                >
+              </td>
+              <td>
+                <div class="reason-text" id="reason-{{ reimbursement.id }}">
+                  {{ reimbursement.reason }}
+                </div>
+                {% if reimbursement.reason|wordcount > 8 %}
+                  <div class="reason-toggle" id="reason-toggle-{{ reimbursement.id }}" onclick="toggleReason('{{ reimbursement.id }}')"></div>
+                {% endif %}
+              </td>
+              <td>
+                {% if user.is_superuser or user.is_staff %}
+                  <div class="actions">
+                    {% if reimbursement.status == 'pending' %}
+                      <button class="btn-action btn-verify" onclick="verifyReimbursement('{{ reimbursement.id }}')">
+                        <i class="bx bx-check"></i>
+                        Verify
+                      </button>
+                      <button class="btn-action btn-reject" onclick="openRejectModal('{{ reimbursement.id }}')">
+                        <i class="bx bx-x"></i>
+                        Reject
+                      </button>
+                    {% endif %}
+                    
+                    {% if reimbursement.status == 'verified' %}
+                      <button class="btn-action btn-mark-paid" onclick="markAsPaid('{{ reimbursement.id }}')">
+                        <i class="bx bx-dollar"></i>
+                        Mark Paid
+                      </button>
+                    {% endif %}
+                    
+                    <!-- <button class="btn-action btn-view" onclick="viewDetails('{{ reimbursement.id }}')"> -->
+                      <!-- <i class="bx bx-eye"></i>
+                      Details
+                    </button> -->
+                  </div>
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <i class="bx bx-receipt"></i>
+      <h3>No Reimbursement Requests</h3>
+      <p>No reimbursement requests have been submitted yet.</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">Reject Reimbursement Request</h2>
+      <button class="btn-close" onclick="closeModal('rejectModal')">&times;</button>
+    </div>
+    
+    <form id="rejectForm" method="post">
+      {% csrf_token %}
+      <input type="hidden" id="rejectReimbursementId" name="reimbursement_id">
+      <input type="hidden" name="action" value="reject">
+      
+      <div class="form-group">
+        <label class="form-label" for="admin_comment">Reason for Rejection</label>
+        <textarea class="form-control" id="admin_comment" name="admin_comment" placeholder="Please provide a reason for rejecting this reimbursement request..." required></textarea>
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" onclick="closeModal('rejectModal')">Cancel</button>
+        <button type="submit" class="btn-primary">Reject Request</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Details Modal -->
+<div id="detailsModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">Reimbursement Request Details</h2>
+      <button class="btn-close" onclick="closeModal('detailsModal')"></button>
+    </div>
+    <div id="detailsContent">
+      <!-- Content will be populated by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<!-- Image Modal -->
+<div id="imageModal" class="image-modal" onclick="closeImageModal()">
+  <span class="image-modal-close">&times;</span>
+  <img id="modalImage" src="" alt="Payment Slip">
+</div>
+
+<script>
+function toggleReason(reimbursementId) {
+  const reasonEl = document.getElementById(`reason-${reimbursementId}`);
+  const toggleEl = document.getElementById(`reason-toggle-${reimbursementId}`);
+  
+  if (reasonEl.classList.contains('reason-expanded')) {
+    reasonEl.classList.remove('reason-expanded');
+    // toggleEl.textContent = 'Show more';
+  } else {
+    reasonEl.classList.add('reason-expanded');
+    // toggleEl.textContent = 'Show less';
+  }
+}
+
+function verifyReimbursement(reimbursementId) {
+  if (confirm('Are you sure you want to verify this reimbursement request?')) {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.innerHTML = `
+      {% csrf_token %}
+      <input type="hidden" name="reimbursement_id" value="${reimbursementId}">
+      <input type="hidden" name="action" value="verify">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+function markAsPaid(reimbursementId) {
+  if (confirm('Are you sure you want to mark this reimbursement as paid?')) {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.innerHTML = `
+      {% csrf_token %}
+      <input type="hidden" name="reimbursement_id" value="${reimbursementId}">
+      <input type="hidden" name="action" value="mark_paid">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+function openRejectModal(reimbursementId) {
+  document.getElementById('rejectReimbursementId').value = reimbursementId;
+  document.getElementById('rejectModal').style.display = 'flex';
+}
+
+function viewDetails(reimbursementId) {
+  // This would fetch detailed information via AJAX
+  const modal = document.getElementById('detailsModal');
+  const content = document.getElementById('detailsContent');
+  
+  // For now, show a simple message
+  content.innerHTML = `
+    <div style="text-align: center; padding: 2rem;">
+      <i class="bx bx-loader-alt" style="font-size: 2rem; color: #6366f1;"></i>
+      <p style="margin-top: 1rem; color: #6b7280;">Loading details...</p>
+    </div>
+  `;
+  
+  modal.style.display = 'flex';
+  
+  // In a real implementation, you would fetch the data here
+  setTimeout(() => {
+    content.innerHTML = `
+      <div style="color: #6b7280; text-align: center;">
+        <i class="bx bx-info-circle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+        <p>Detailed view would show complete reimbursement information here.</p>
+      </div>
+    `;
+  }, 500);
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).style.display = 'none';
+}
+
+function openImageModal(imageUrl) {
+  document.getElementById('modalImage').src = imageUrl;
+  document.getElementById('imageModal').style.display = 'flex';
+}
+
+function closeImageModal() {
+  document.getElementById('imageModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+  if (event.target.classList.contains('modal')) {
+    event.target.style.display = 'none';
+  }
+}
+
+// Close image modal on escape key
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    closeImageModal();
+  }
+});
+</script>
+{% endblock %}

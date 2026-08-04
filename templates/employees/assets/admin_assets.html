@@ -1,0 +1,464 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Asset Management | Admin{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .asset-admin-shell {
+    display: grid;
+    grid-template-columns: minmax(320px, 360px) 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 992px) {
+    .asset-admin-shell {
+      grid-template-columns: 1fr;
+    }
+  }
+  .asset-form-card,
+  .asset-list-card {
+    border-radius: 20px;
+    border: 1px solid rgba(148,163,184,0.25);
+    background: #fff;
+    box-shadow: 0 18px 38px rgba(15,23,42,0.08);
+    padding: 1.5rem;
+  }
+  .asset-form-card h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  .asset-table th {
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #475569;
+  }
+  .asset-table td {
+    vertical-align: middle;
+  }
+  .asset-status-badge {
+    display: inline-block;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .asset-status-received {
+    background: #d1fae5;
+    color: #065f46;
+  }
+  .asset-status-not-received {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .asset-status-returned {
+    background: #dbeafe;
+    color: #0c2d6b;
+  }
+  .asset-verified-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: #f0fdf4;
+    color: #166534;
+  }
+  .asset-unverified-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: #fef2f2;
+    color: #7f1d1d;
+  }
+  .asset-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .asset-verify-btn {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .asset-verify-btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+  }
+  .asset-verify-btn.verified {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+    color: #065f46;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="asset-admin-shell">
+  <section class="asset-form-card">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <span class="badge bg-label-primary mb-2">Assign asset</span>
+        <h2 class="mb-0">Issue a new asset</h2>
+        <p class="text-muted small mb-0">Track who has laptops, access cards, or accessories.</p>
+      </div>
+    </div>
+
+    <form method="post" class="mt-3">
+      {% csrf_token %}
+      {% if assignment_form.non_field_errors %}
+        <div class="alert alert-danger">{{ assignment_form.non_field_errors }}</div>
+      {% endif %}
+      <div class="mb-3">
+        <label class="form-label">Employee</label>
+        {{ assignment_form.employee }}
+        {% for error in assignment_form.employee.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Asset Type</label>
+        {{ assignment_form.asset_type }}
+        {% for error in assignment_form.asset_type.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Asset Name / Identifier</label>
+        {{ assignment_form.asset_name }}
+        {% for error in assignment_form.asset_name.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Assignment date</label>
+        {{ assignment_form.assigned_date }}
+        {% for error in assignment_form.assigned_date.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Notes (optional)</label>
+        {{ assignment_form.notes }}
+        {% for error in assignment_form.notes.errors %}
+          <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn btn-primary w-100">
+        <i class="bx bx-check-shield me-1"></i>Save assignment
+      </button>
+    </form>
+  </section>
+
+  <section class="asset-list-card">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <div>
+        <h3 class="mb-0">Issued assets</h3>
+        <small class="text-muted">Showing {{ assignments|length }} record{{ assignments|length|pluralize }}</small>
+      </div>
+      <form method="get" class="d-flex gap-2">
+        <select name="employee" class="form-select form-select-sm" style="min-width: 200px;">
+          <option value="">All employees</option>
+          {% for person in employees %}
+            <option value="{{ person.id }}" {% if employee_filter|add:'' == person.id|add:'' %}selected{% endif %}>
+              {{ person.full_name }}
+            </option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
+        {% if employee_filter %}
+          <a href="{% url 'employees:asset_management' %}" class="btn btn-link btn-sm">Reset</a>
+        {% endif %}
+      </form>
+    </div>
+
+    {% if assignments %}
+      <div class="table-responsive">
+        <table class="table table-hover table-nowrap asset-table">
+          <thead class="table-light">
+            <tr>
+              <th>Employee</th>
+              <th>Asset</th>
+              <th>Type</th>
+              <th>Employee Status</th>
+              <th>HR Verification</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for assignment in assignments %}
+              <tr>
+                <td>
+                  <div class="fw-semibold">{{ assignment.employee.full_name }}</div>
+                  <small class="text-muted">{{ assignment.employee.email }}</small>
+                </td>
+                <td>
+                  <div>{{ assignment.asset_name }}</div>
+                  <small class="text-muted">{{ assignment.assigned_date|date:"d M Y" }}</small>
+                </td>
+                <td><span class="badge bg-label-info">{{ assignment.get_asset_type_display }}</span></td>
+                <td>
+                  <span class="asset-status-badge asset-status-{{ assignment.employee_status }}">
+                    {{ assignment.get_employee_status_display }}
+                  </span>
+                </td>
+                <td>
+                  {% if assignment.hr_verified %}
+                    <span class="asset-verified-badge">✓ Verified</span>
+                    {% if assignment.hr_comment %}
+                      <div class="small text-muted mt-1">{{ assignment.hr_comment|truncatewords:5 }}</div>
+                    {% endif %}
+                  {% else %}
+                    <span class="asset-unverified-badge">✗ Unverified</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="asset-actions d-flex gap-2 flex-wrap">
+                    <!-- Verify Received Button (when status=received and not verified) -->
+                    {% if assignment.employee_status == 'received' and not assignment.hr_verified %}
+                      <button type="button" 
+                              class="btn btn-sm btn-success"
+                              onclick="hrAction({{ assignment.id }}, 'verify', '{{ assignment.asset_name|escapejs }}')"
+                              title="Verify that employee received the asset">
+                        <i class="bx bx-check me-1"></i>Verify Received
+                      </button>
+                    {% endif %}
+
+                    <!-- Request Return Button (when verified and not requesting return) -->
+                    {% if assignment.hr_verified and not assignment.return_requested %}
+                      <button type="button" 
+                              class="btn btn-sm btn-warning"
+                              onclick="hrAction({{ assignment.id }}, 'request_return', '{{ assignment.asset_name|escapejs }}')"
+                              title="Request employee to return the asset">
+                        <i class="bx bx-undo me-1"></i>Request Return
+                      </button>
+                    {% endif %}
+
+                    <!-- Verify Returned Button (when employee marked returned and not verified) -->
+                    {% if assignment.employee_status == 'returned' and not assignment.hr_verified %}
+                      <button type="button" 
+                              class="btn btn-sm btn-info"
+                              onclick="hrAction({{ assignment.id }}, 'verify_returned', '{{ assignment.asset_name|escapejs }}')"
+                              title="Verify that employee returned the asset">
+                        <i class="bx bx-check-double me-1"></i>Verify Returned
+                      </button>
+                    {% endif %}
+
+                    <!-- View Details Button (always available) -->
+                    <button type="button" 
+                            class="btn btn-sm btn-outline-secondary"
+                            onclick="openAssetDetailsModal({{ assignment.id }}, '{{ assignment.asset_name }}', '{{ assignment.get_employee_status_display }}', {{ assignment.hr_verified|lower }}, '{{ assignment.hr_comment|escapejs }}', {{ assignment.return_requested|lower }})"
+                            title="View asset details">
+                      <i class="bx bx-info-circle me-1"></i>Details
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center text-muted py-5">
+        <i class="bx bx-package fs-1 d-block mb-2"></i>
+        <p class="mb-0">No assets have been issued yet.</p>
+      </div>
+    {% endif %}
+  </section>
+</div>
+
+<!-- Asset Verification Modal -->
+<div class="modal fade" id="assetVerificationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bx bx-check-circle me-2"></i>Verify Asset Status
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Asset Name</label>
+          <div id="verifyAssetName" class="form-control-plaintext"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Employee Status</label>
+          <div id="verifyAssetStatus" class="form-control-plaintext"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">HR Comment</label>
+          <textarea class="form-control" id="verifyAssetComment" rows="3" placeholder="Add your verification comment..."></textarea>
+        </div>
+        <div class="mb-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="verifyAssetCheckbox">
+            <label class="form-check-label" for="verifyAssetCheckbox">
+              Mark as verified
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitAssetVerification()">
+          <i class="bx bx-save me-1"></i>Save Verification
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+let currentAssetId = null;
+let currentAction = null;
+
+// HR Action Handler - Handles all three HR actions
+function hrAction(assetId, action, assetName) {
+  currentAssetId = assetId;
+  currentAction = action;
+  
+  let title = '';
+  let message = '';
+  
+  if (action === 'verify') {
+    title = 'Verify Asset Received';
+    message = `Are you sure you want to verify that "${assetName}" has been received by the employee?`;
+  } else if (action === 'request_return') {
+    title = 'Request Asset Return';
+    message = `Are you sure you want to request the return of "${assetName}"? The employee will be able to update the status.`;
+  } else if (action === 'verify_returned') {
+    title = 'Verify Asset Returned';
+    message = `Are you sure you want to verify that "${assetName}" has been returned by the employee?`;
+  }
+  
+  // Show confirmation dialog
+  if (confirm(message)) {
+    submitHRAction();
+  }
+}
+
+function submitHRAction() {
+  if (!currentAssetId || !currentAction) return;
+  
+  const comment = prompt('Add a comment (optional):', '');
+  
+  // Send HR action request to backend
+  fetch(`/api/asset/${currentAssetId}/verify/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      action: currentAction,
+      comment: comment || ''
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Show success message
+      alert(data.message || 'Action completed successfully');
+      
+      // Reload page to show updated data
+      location.reload();
+    } else {
+      alert(data.error || 'Failed to complete action');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error completing action');
+  });
+}
+
+function openAssetDetailsModal(assetId, assetName, employeeStatus, isVerified, comment, returnRequested) {
+  currentAssetId = assetId;
+  
+  // Populate modal fields
+  document.getElementById('verifyAssetName').textContent = assetName;
+  document.getElementById('verifyAssetStatus').innerHTML = `<span class="asset-status-badge asset-status-${employeeStatus.toLowerCase()}">${employeeStatus}</span>`;
+  document.getElementById('verifyAssetComment').value = comment || '';
+  document.getElementById('verifyAssetCheckbox').checked = isVerified;
+  
+  // Show modal
+  const modal = new bootstrap.Modal(document.getElementById('assetVerificationModal'));
+  modal.show();
+}
+
+function openAssetVerificationModal(assetId, assetName, employeeStatus, isVerified, comment) {
+  openAssetDetailsModal(assetId, assetName, employeeStatus, isVerified, comment, false);
+}
+
+function submitAssetVerification() {
+  if (!currentAssetId) return;
+  
+  const verified = document.getElementById('verifyAssetCheckbox').checked;
+  const comment = document.getElementById('verifyAssetComment').value.trim();
+  
+  // Send verification request to backend
+  fetch(`/api/asset/${currentAssetId}/verify/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      action: 'verify',
+      verified: verified,
+      comment: comment
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Close modal
+      bootstrap.Modal.getInstance(document.getElementById('assetVerificationModal')).hide();
+      
+      // Show success message
+      alert(data.message || 'Asset verification saved successfully');
+      
+      // Reload page to show updated data
+      location.reload();
+    } else {
+      alert(data.error || 'Failed to save verification');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error saving verification');
+  });
+}
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,310 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Attendance Details | Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center">
+        <h2 class="mb-0">
+          <i class="bx bx-calendar-check me-2"></i>Attendance Details
+        </h2>
+        <a href="{% url 'employees:admin_attendance_logs' %}" class="btn btn-outline-secondary">
+          <i class="bx bx-arrow-back me-1"></i>Back
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employee Info Card -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="card-title mb-3 text-primary">
+            <i class="bx bx-user me-2"></i>Employee Information
+          </h6>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label text-muted small fw-600">Name</label>
+              <p class="mb-0 fw-medium">{{ employee.name }}</p>
+            </div>
+            <div class="col-12">
+              <label class="form-label text-muted small fw-600">Email</label>
+              <p class="mb-0 fw-medium">{{ employee.email }}</p>
+            </div>
+            <div class="col-12">
+              <label class="form-label text-muted small fw-600">Employee ID</label>
+              <p class="mb-0 fw-medium">{{ employee.employee_id }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="card-title mb-3 text-primary">
+            <i class="bx bx-calendar me-2"></i>Attendance Summary
+          </h6>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label text-muted small fw-600">Date</label>
+              <p class="mb-0 fw-medium">{{ date|date:"l, M d, Y" }}</p>
+            </div>
+            <div class="col-12">
+              <label class="form-label text-muted small fw-600">Status</label>
+              <p class="mb-0">
+                {% if status == "Present" %}
+                  <span class="badge bg-success">
+                    <i class="bx bx-check-circle me-1"></i>{{ status }}
+                  </span>
+                {% elif status == "Checked-in" %}
+                  <span class="badge bg-info">
+                    <i class="bx bx-log-in me-1"></i>{{ status }}
+                  </span>
+                {% else %}
+                  <span class="badge bg-warning">{{ status }}</span>
+                {% endif %}
+              </p>
+            </div>
+            <div class="col-12">
+              <label class="form-label text-muted small fw-600">Total Duration</label>
+              <p class="mb-0 fw-medium">{{ duration }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Check-in and Check-out Details -->
+  <div class="row mb-4">
+    <!-- Check-in Card -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="card-title mb-3 text-success">
+            <i class="bx bx-log-in me-2"></i>Check-In Details
+          </h6>
+          
+          {% if check_in_photo %}
+            <div class="mb-3">
+              <div class="position-relative" style="overflow: hidden; border-radius: 8px; background: #f8f9fa;">
+                <img src="{{ check_in_photo }}" alt="Check-in photo" class="img-fluid" style="max-height: 350px; width: 100%; object-fit: cover; display: block;">
+              </div>
+              <small class="text-muted d-block mt-2">
+                <i class="bx bx-image me-1"></i>Check-in photo captured
+              </small>
+            </div>
+          {% else %}
+            <div class="alert alert-warning mb-3">
+              <i class="bx bx-image-alt me-1"></i>
+              <strong>No photo captured</strong>
+              <p class="mb-0 small mt-1">Employee did not capture a check-in photo</p>
+            </div>
+          {% endif %}
+
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label text-muted small fw-600">Check-In Time</label>
+              <p class="mb-0 fw-medium">
+                <i class="bx bx-time me-1 text-success"></i>{{ check_in_time }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Check-out Card -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="card-title mb-3 text-danger">
+            <i class="bx bx-log-out me-2"></i>Check-Out Details
+          </h6>
+          
+          {% if check_out_photo %}
+            <div class="mb-3">
+              <div class="position-relative" style="overflow: hidden; border-radius: 8px; background: #f8f9fa;">
+                <img src="{{ check_out_photo }}" alt="Check-out photo" class="img-fluid" style="max-height: 350px; width: 100%; object-fit: cover; display: block;">
+              </div>
+              <small class="text-muted d-block mt-2">
+                <i class="bx bx-image me-1"></i>Check-out photo captured
+              </small>
+            </div>
+          {% else %}
+            <div class="alert alert-warning mb-3">
+              <i class="bx bx-image-alt me-1"></i>
+              <strong>No photo captured</strong>
+              <p class="mb-0 small mt-1">Employee has not checked out yet or did not capture a photo</p>
+            </div>
+          {% endif %}
+
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label text-muted small fw-600">Check-Out Time</label>
+              <p class="mb-0 fw-medium">
+                <i class="bx bx-time me-1 text-danger"></i>{{ check_out_time }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Additional Info -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="card-title mb-3 text-primary">
+            <i class="bx bx-info-circle me-2"></i>Additional Information
+          </h6>
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <tbody>
+                <tr class="border-bottom">
+                  <td class="text-muted fw-600" style="width: 40%;">Half Day</td>
+                  <td>
+                    {% if attendance.half_day %}
+                      <span class="badge bg-warning">
+                        <i class="bx bx-check me-1"></i>Yes
+                      </span>
+                    {% else %}
+                      <span class="badge bg-secondary">No</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                <tr class="border-bottom">
+                  <td class="text-muted fw-600">Recorded At</td>
+                  <td>{{ attendance.created_at|date:"M d, Y H:i:s" }}</td>
+                </tr>
+                <tr>
+                  <td class="text-muted fw-600">Last Updated</td>
+                  <td>{{ attendance.updated_at|date:"M d, Y H:i:s" }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="d-flex gap-2">
+        <a href="{% url 'employees:admin_attendance_logs' %}" class="btn btn-outline-secondary">
+          <i class="bx bx-arrow-back me-1"></i>Back to Records
+        </a>
+        <a href="{% url 'employees:employee_detail' employee.id %}" class="btn btn-outline-primary">
+          <i class="bx bx-user me-1"></i>View Employee Profile
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.card {
+  border: 1px solid #e9ecef !important;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+.card-title {
+  color: #1f2937;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+img {
+  border: 1px solid #e9ecef;
+  transition: transform 0.3s ease;
+}
+
+img:hover {
+  transform: scale(1.02);
+}
+
+.badge {
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.table td {
+  padding: 0.75rem;
+  vertical-align: middle;
+}
+
+.fw-600 {
+  font-weight: 600;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .card-body {
+    padding: 1rem;
+  }
+
+  .card-title {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  img {
+    max-height: 250px !important;
+  }
+
+  .row {
+    margin-bottom: 1rem;
+  }
+
+  .col-md-6 {
+    margin-bottom: 1rem;
+  }
+
+  .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .btn, .d-flex {
+    display: none !important;
+  }
+
+  .card {
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+</style>
+{% endblock %}

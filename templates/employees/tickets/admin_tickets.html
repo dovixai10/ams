@@ -1,0 +1,434 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% block title %}Support Tickets Management | Admin Panel{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <!-- Page Header -->
+    <div class="col-12 mb-6">
+      <div class="card bg-gradient-danger text-white">
+        <div class="card-body">
+          <h4 class="card-title text-white mb-1">
+            <i class="bx bx-support me-2"></i>Support Tickets Management
+          </h4>
+          <p class="mb-0 opacity-75">Monitor and resolve employee support requests</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="col-xl-2 col-md-4 col-6 mb-6">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="avatar mx-auto mb-2" style="width: 40px; height: 40px;">
+            <div class="avatar-initial bg-label-primary rounded">
+              <i class="bx bx-list-ul"></i>
+            </div>
+          </div>
+          <h5 class="mb-0">{{ total_tickets }}</h5>
+          <small class="text-muted">Total</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-2 col-md-4 col-6 mb-6">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="avatar mx-auto mb-2" style="width: 40px; height: 40px;">
+            <div class="avatar-initial bg-label-primary rounded">
+              <i class="bx bx-time"></i>
+            </div>
+          </div>
+          <h5 class="mb-0">{{ open_tickets }}</h5>
+          <small class="text-muted">Open</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-2 col-md-4 col-6 mb-6">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="avatar mx-auto mb-2" style="width: 40px; height: 40px;">
+            <div class="avatar-initial bg-label-warning rounded">
+              <i class="bx bx-loader-circle"></i>
+            </div>
+          </div>
+          <h5 class="mb-0">{{ in_progress_tickets }}</h5>
+          <small class="text-muted">In Progress</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-2 col-md-4 col-6 mb-6">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="avatar mx-auto mb-2" style="width: 40px; height: 40px;">
+            <div class="avatar-initial bg-label-success rounded">
+              <i class="bx bx-check-circle"></i>
+            </div>
+          </div>
+          <h5 class="mb-0">{{ resolved_tickets }}</h5>
+          <small class="text-muted">Resolved</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-2 col-md-4 col-6 mb-6">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="avatar mx-auto mb-2" style="width: 40px; height: 40px;">
+            <div class="avatar-initial bg-label-danger rounded">
+              <i class="bx bx-error"></i>
+            </div>
+          </div>
+          <h5 class="mb-0">{{ urgent_tickets }}</h5>
+          <small class="text-muted">Urgent</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters and Table -->
+    <div class="col-12 mb-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title m-0">All Tickets</h5>
+        </div>
+        
+        <!-- Filter Form -->
+        <div class="card-body border-bottom">
+          <form method="get" class="row g-3">
+            <div class="col-md-2">
+              <label class="form-label small">Employee</label>
+              <select name="employee" class="form-select form-select-sm">
+                <option value="">All Employees</option>
+                {% for emp in employees %}
+                  <option value="{{ emp.id }}" {% if selected_employee == emp.id|stringformat:"s" %}selected{% endif %}>
+                    {{ emp.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-2">
+              <label class="form-label small">Status</label>
+              <select name="status" class="form-select form-select-sm">
+                <option value="">All Status</option>
+                {% for status_code, status_label in status_choices %}
+                  <option value="{{ status_code }}" {% if selected_status == status_code %}selected{% endif %}>
+                    {{ status_label }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-2">
+              <label class="form-label small">Priority</label>
+              <select name="priority" class="form-select form-select-sm">
+                <option value="">All Priority</option>
+                {% for priority_code, priority_label in priority_choices %}
+                  <option value="{{ priority_code }}" {% if selected_priority == priority_code %}selected{% endif %}>
+                    {{ priority_label }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-2">
+              <label class="form-label small">Category</label>
+              <select name="category" class="form-select form-select-sm">
+                <option value="">All Categories</option>
+                {% for category_code, category_label in category_choices %}
+                  <option value="{{ category_code }}" {% if selected_category == category_code %}selected{% endif %}>
+                    {{ category_label }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+              <button type="submit" class="btn btn-primary btn-sm w-100">
+                <i class="bx bx-filter-alt"></i> Filter
+              </button>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+              <a href="{% url 'employees:admin_tickets' %}" class="btn btn-outline-secondary btn-sm w-100">
+                <i class="bx bx-reset"></i> Reset
+              </a>
+            </div>
+          </form>
+        </div>
+
+        <div class="card-body">
+          {% if tickets %}
+            <div class="table-responsive">
+              <table class="table table-hover table-sm">
+                <thead class="table-light">
+                  <tr>
+                    <th>Ticket #</th>
+                    <th>Employee</th>
+                    <th>Subject</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for ticket in tickets %}
+                    <tr class="{% if ticket.is_overdue %}table-warning{% endif %}">
+                      <td>
+                        <strong class="text-primary">{{ ticket.ticket_number }}</strong>
+                        {% if ticket.is_overdue %}
+                          <i class="bx bx-error text-danger" title="Overdue"></i>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <div class="d-flex align-items-center">
+                          <div class="avatar avatar-xs me-2">
+                            <div class="avatar-initial bg-label-primary rounded-circle">
+                              {{ ticket.employee.name|slice:":1"|upper }}
+                            </div>
+                          </div>
+                          <div>
+                            <small class="fw-medium">{{ ticket.employee.name }}</small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <i class="bx {{ ticket.category_icon }} me-1 text-muted"></i>
+                        {{ ticket.subject|truncatewords:5 }}
+                      </td>
+                      <td>
+                        <span class="badge bg-label-info">{{ ticket.get_category_display }}</span>
+                      </td>
+                      <td>
+                        <span class="badge bg-{{ ticket.priority_color }}">
+                          {{ ticket.get_priority_display }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge bg-{{ ticket.status_color }}">
+                          {{ ticket.get_status_display }}
+                        </span>
+                      </td>
+                      <td>
+                        <small>{{ ticket.created_at|date:"d M, H:i" }}</small>
+                      </td>
+                      <td>
+                        <button type="button" 
+                                class="btn btn-sm btn-outline-primary" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#ticketModal{{ ticket.id }}">
+                          <i class="bx bx-edit"></i>
+                        </button>
+                      </td>
+                    </tr>
+
+                    <!-- Ticket Update Modal -->
+                    <div class="modal fade" id="ticketModal{{ ticket.id }}" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog modal-lg modal-dialog-centered">
+                        <div class="modal-content">
+                          <div class="modal-header bg-{{ ticket.status_color }} text-white">
+                            <h5 class="modal-title text-white">
+                              <i class="bx bx-edit me-2"></i>{{ ticket.ticket_number }} - {{ ticket.subject }}
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                          </div>
+                          <div class="modal-body">
+                            <!-- Ticket Info -->
+                            <div class="row mb-4">
+                              <div class="col-md-6">
+                                <p class="mb-1"><strong>Employee:</strong> {{ ticket.employee.name }}</p>
+                                <p class="mb-1"><strong>Email:</strong> {{ ticket.employee.email }}</p>
+                                <p class="mb-1"><strong>Created:</strong> {{ ticket.created_at|date:"d M Y, H:i" }}</p>
+                              </div>
+                              <div class="col-md-6">
+                                <p class="mb-1"><strong>Category:</strong> {{ ticket.get_category_display }}</p>
+                                <p class="mb-1"><strong>Current Status:</strong> 
+                                  <span class="badge bg-{{ ticket.status_color }}">{{ ticket.get_status_display }}</span>
+                                </p>
+                                <p class="mb-1"><strong>Current Priority:</strong> 
+                                  <span class="badge bg-{{ ticket.priority_color }}">{{ ticket.get_priority_display }}</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            <!-- Description -->
+                            <div class="mb-4">
+                              <h6>Description:</h6>
+                              <div class="border rounded p-3 bg-light">
+                                <p class="mb-0" style="white-space: pre-wrap;">{{ ticket.description }}</p>
+                              </div>
+                            </div>
+
+                            <!-- Attachment -->
+                            {% if ticket.attachment %}
+                              <div class="mb-4">
+                                <h6>Attachment:</h6>
+                                <a href="{{ ticket.attachment.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                  <i class="bx bx-download me-1"></i>Download
+                                </a>
+                              </div>
+                            {% endif %}
+
+                            <!-- Comments Section -->
+                            {% if ticket.comments.all %}
+                              <div class="mb-4">
+                                <h6><i class="bx bx-conversation me-1"></i>Comments & Conversation:</h6>
+                                <div class="border rounded p-3 bg-light" style="max-height: 300px; overflow-y: auto;">
+                                  {% for comment in ticket.comments.all %}
+                                    <div class="mb-3 {% if not forloop.last %}border-bottom pb-3{% endif %}">
+                                      <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                          <strong class="{% if comment.is_admin %}text-danger{% else %}text-primary{% endif %}">
+                                            {% if comment.is_admin %}
+                                              <i class="bx bx-shield me-1"></i>Admin
+                                            {% else %}
+                                              <i class="bx bx-user me-1"></i>{{ comment.user.get_full_name|default:comment.user.username }}
+                                            {% endif %}
+                                          </strong>
+                                          {% if comment.is_internal %}
+                                            <span class="badge bg-warning ms-1">Internal Note</span>
+                                          {% endif %}
+                                        </div>
+                                        <small class="text-muted">{{ comment.created_at|date:"d M Y, H:i" }}</small>
+                                      </div>
+                                      <p class="mb-0 small" style="white-space: pre-wrap;">{{ comment.comment }}</p>
+                                    </div>
+                                  {% endfor %}
+                                </div>
+                              </div>
+                            {% else %}
+                              <div class="mb-4">
+                                <div class="alert alert-info">
+                                  <i class="bx bx-info-circle me-1"></i>No comments yet on this ticket.
+                                </div>
+                              </div>
+                            {% endif %}
+
+                            <!-- Update Form -->
+                            <form method="post" action="{% url 'employees:admin_update_ticket' ticket.pk %}">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="update_status">
+                              
+                              <div class="row mb-3">
+                                <div class="col-md-6">
+                                  <label class="form-label">Update Status</label>
+                                  <select name="status" class="form-select">
+                                    {% for status_code, status_label in status_choices %}
+                                      <option value="{{ status_code }}" {% if ticket.status == status_code %}selected{% endif %}>
+                                        {{ status_label }}
+                                      </option>
+                                    {% endfor %}
+                                  </select>
+                                </div>
+                                <div class="col-md-6">
+                                  <label class="form-label">Update Priority</label>
+                                  <select name="priority" class="form-select">
+                                    {% for priority_code, priority_label in priority_choices %}
+                                      <option value="{{ priority_code }}" {% if ticket.priority == priority_code %}selected{% endif %}>
+                                        {{ priority_label }}
+                                      </option>
+                                    {% endfor %}
+                                  </select>
+                                </div>
+                              </div>
+
+                              <div class="mb-3">
+                                <label class="form-label">Admin Notes (Internal)</label>
+                                <textarea name="admin_notes" class="form-control" rows="3" placeholder="Add internal notes...">{{ ticket.admin_notes }}</textarea>
+                              </div>
+
+                              <button type="submit" class="btn btn-primary">
+                                <i class="bx bx-save me-1"></i>Update Ticket
+                              </button>
+                            </form>
+
+                            <hr class="my-4">
+
+                            <!-- Add Comment Form -->
+                            <h6>Add Comment/Reply</h6>
+                            <form method="post" action="{% url 'employees:admin_update_ticket' ticket.pk %}">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="add_comment">
+                              
+                              <div class="mb-3">
+                                <textarea name="comment" class="form-control" rows="3" placeholder="Type your response to the employee..." required></textarea>
+                              </div>
+                              
+                              <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" name="is_internal" id="internal{{ ticket.id }}">
+                                <label class="form-check-label" for="internal{{ ticket.id }}">
+                                  Internal Note (Not visible to employee)
+                                </label>
+                              </div>
+
+                              <button type="submit" class="btn btn-success">
+                                <i class="bx bx-send me-1"></i>Post Comment
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+              <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                  {% if page_obj.has_previous %}
+                    <li class="page-item">
+                      <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_employee %}&employee={{ selected_employee }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_priority %}&priority={{ selected_priority }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}">
+                        <i class="bx bx-chevron-left"></i>
+                      </a>
+                    </li>
+                  {% endif %}
+
+                  <li class="page-item active">
+                    <span class="page-link">
+                      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                    </span>
+                  </li>
+
+                  {% if page_obj.has_next %}
+                    <li class="page-item">
+                      <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_employee %}&employee={{ selected_employee }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_priority %}&priority={{ selected_priority }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}">
+                        <i class="bx bx-chevron-right"></i>
+                      </a>
+                    </li>
+                  {% endif %}
+                </ul>
+              </nav>
+            {% endif %}
+
+          {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-5">
+              <div class="avatar avatar-xl mx-auto mb-3">
+                <div class="avatar-initial bg-label-primary rounded">
+                  <i class="bx bx-support display-4"></i>
+                </div>
+              </div>
+              <h5 class="mb-2">No Tickets Found</h5>
+              <p class="text-muted">
+                {% if selected_employee or selected_status or selected_priority or selected_category %}
+                  No tickets match your filter criteria.
+                {% else %}
+                  No support tickets have been created yet.
+                {% endif %}
+              </p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
