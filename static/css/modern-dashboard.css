@@ -1,0 +1,713 @@
+/* ===========================
+   MODERN DASHBOARD CSS
+   HamaraHR Style - Mobile First
+   =========================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.dashboard-container {
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 1rem;
+  min-height: 100vh;
+}
+
+/* ===========================
+   GREETING CARD
+   =========================== */
+
+.greeting-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  padding: 2rem;
+  color: white;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.greeting-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.greeting-card::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -30%;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.greeting-content {
+  position: relative;
+  z-index: 1;
+}
+
+.greeting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.greeting-text h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.5px;
+}
+
+.greeting-text p {
+  font-size: 0.95rem;
+  opacity: 0.95;
+  margin: 0;
+}
+
+.greeting-icon {
+  font-size: 3rem;
+  opacity: 0.9;
+}
+
+.greeting-time {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin-top: 0.5rem;
+}
+
+.greeting-weather {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 1rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-top: 1rem;
+}
+
+.weather-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.weather-item:last-child {
+  margin-bottom: 0;
+}
+
+.weather-label {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.weather-value {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* ===========================
+   COMMON BOX STYLES
+   =========================== */
+
+.shift-box,
+.tasks-box,
+.alerts-box,
+.performers-box,
+.attendance-summary {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.box-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.box-header i {
+  font-size: 1.5rem;
+  color: #667eea;
+}
+
+.box-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+/* ===========================
+   SHIFT DETAILS BOX
+   =========================== */
+
+.shift-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.time-item {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.time-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.time-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.shift-status {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.shift-status.warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.shift-status.danger {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.shift-status-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #059669;
+}
+
+.shift-status.warning .shift-status-text {
+  color: #d97706;
+}
+
+.shift-status.danger .shift-status-text {
+  color: #dc2626;
+}
+
+.shift-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.btn {
+  padding: 0.875rem 1rem;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-checkin {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.btn-checkin:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+}
+
+.btn-checkout {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.btn-checkout:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-full {
+  grid-column: 1 / -1;
+}
+
+/* ===========================
+   ATTENDANCE SUMMARY
+   =========================== */
+
+.attendance-summary {
+  text-align: center;
+}
+
+.attendance-status {
+  display: inline-block;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.attendance-summary h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.attendance-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.attendance-time {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.attendance-time-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.attendance-time-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+/* ===========================
+   POINTS DISPLAY
+   =========================== */
+
+.points-display {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: white;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+.points-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+.points-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.points-subtitle {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+/* ===========================
+   TASKS BOX
+   =========================== */
+
+.task-item {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.task-item:last-child {
+  margin-bottom: 0;
+}
+
+.task-info {
+  flex: 1;
+}
+
+.task-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+}
+
+.task-priority {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.task-priority.high {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.task-priority.medium {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.task-priority.low {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+}
+
+/* ===========================
+   ALERTS BOX
+   =========================== */
+
+.alert-item {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.alert-item:last-child {
+  margin-bottom: 0;
+}
+
+.alert-item.danger {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.alert-item.success {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.alert-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 0.25rem;
+}
+
+.alert-item.danger .alert-title {
+  color: #7f1d1d;
+}
+
+.alert-item.success .alert-title {
+  color: #166534;
+}
+
+.alert-message {
+  font-size: 0.85rem;
+  color: #78350f;
+  margin-bottom: 0.5rem;
+}
+
+.alert-item.danger .alert-message {
+  color: #5f1f1f;
+}
+
+.alert-item.success .alert-message {
+  color: #1b4332;
+}
+
+.alert-button {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.1);
+  color: #92400e;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.alert-button:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.alert-item.danger .alert-button {
+  color: #7f1d1d;
+}
+
+.alert-item.success .alert-button {
+  color: #166534;
+}
+
+/* ===========================
+   TOP PERFORMERS
+   =========================== */
+
+.performer-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+}
+
+.performer-item:last-child {
+  margin-bottom: 0;
+}
+
+.performer-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.performer-rank.rank-1 {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+}
+
+.performer-rank.rank-2 {
+  background: linear-gradient(135deg, #c0c0c0 0%, #a9a9a9 100%);
+  color: white;
+}
+
+.performer-rank.rank-3 {
+  background: linear-gradient(135deg, #cd7f32 0%, #b87333 100%);
+  color: white;
+}
+
+.performer-info {
+  flex: 1;
+}
+
+.performer-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+}
+
+.performer-points {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.performer-points strong {
+  color: #667eea;
+  font-weight: 700;
+}
+
+/* ===========================
+   EMPTY STATE
+   =========================== */
+
+.empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #9ca3af;
+}
+
+.empty-state i {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* ===========================
+   ANIMATIONS
+   =========================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+/* ===========================
+   THEME VARIATIONS
+   =========================== */
+
+.theme-morning {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.theme-afternoon {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.theme-evening {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.theme-night {
+  background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+}
+
+/* ===========================
+   RESPONSIVE DESIGN
+   =========================== */
+
+@media (max-width: 480px) {
+  .dashboard-container {
+    max-width: 100%;
+    padding: 0.75rem;
+  }
+
+  .greeting-card {
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .greeting-text h1 {
+    font-size: 1.5rem;
+  }
+
+  .greeting-icon {
+    font-size: 2.5rem;
+  }
+
+  .shift-box,
+  .tasks-box,
+  .alerts-box,
+  .performers-box,
+  .attendance-summary {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .shift-times {
+    gap: 0.75rem;
+  }
+
+  .shift-buttons {
+    gap: 0.5rem;
+  }
+
+  .btn {
+    padding: 0.75rem 0.75rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .dashboard-container {
+    padding: 0.5rem;
+  }
+
+  .greeting-card {
+    padding: 1.25rem;
+  }
+
+  .greeting-text h1 {
+    font-size: 1.3rem;
+  }
+
+  .greeting-icon {
+    font-size: 2rem;
+  }
+
+  .greeting-header {
+    margin-bottom: 1rem;
+  }
+
+  .greeting-weather {
+    padding: 0.75rem;
+  }
+
+  .shift-times {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-times {
+    grid-template-columns: 1fr;
+  }
+}
