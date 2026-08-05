@@ -8,9 +8,14 @@ urlpatterns = [
         RedirectView.as_view(url='/login/', permanent=True),
         name="auth-login-basic",
     ),
+    # path(
+    #     "auth/register/",
+    #     RedirectView.as_view(url='/employees/create/', permanent=True),
+    #     name="auth-register-basic",
+    # ),
     path(
         "auth/register/",
-        RedirectView.as_view(url='/employees/create/', permanent=True),
+        RedirectView.as_view(url='/register-office/', permanent=True),
         name="auth-register-basic",
     ),
     path(

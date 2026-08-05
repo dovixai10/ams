@@ -15,8 +15,223 @@ from .models import (
     LeaveType,
 )
 from django.utils import timezone
+from .permissions import office_admin_required, is_platform_admin, get_request_office
+
+from django import forms
+from django.contrib.auth.models import User
+from django.utils.text import slugify
+
+from .models import Office, OfficeAdmin
+from .models import Employee, Shift
+
+def tenant_queryset(request, queryset):
+    """
+    Scope a queryset to the current office.
+
+    Platform admin:
+        Can see all offices.
+
+    Approved office admin:
+        Can see only their own office.
+
+    User with no office:
+        Gets no tenant data.
+    """
+    if is_platform_admin(request.user):
+        return queryset
+
+    office = get_request_office(request)
+
+    if office is None:
+        return queryset.none()
+
+    return queryset.filter(office=office)
 
 
+class OfficeRegistrationForm(forms.Form):
+    # -------------------------
+    # Office Admin Information
+    # -------------------------
+    full_name = forms.CharField(
+        max_length=200,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Your full name'
+        })
+    )
+
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'you@company.com'
+        })
+    )
+
+    contact_number = forms.CharField(
+        max_length=15,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Your mobile number'
+        })
+    )
+
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    confirm_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    # -------------------------
+    # Office Information
+    # -------------------------
+    office_name = forms.CharField(
+        max_length=200,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    office_address = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3
+        })
+    )
+
+    office_contact = forms.CharField(
+        max_length=15,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    logo = forms.ImageField(required=False)
+
+    website = forms.URLField(
+        required=False,
+        widget=forms.URLInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'https://example.com'
+        })
+    )
+
+    industry = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'IT, Education, Healthcare...'
+        })
+    )
+
+    employee_strength = forms.IntegerField(
+        required=False,
+        min_value=1,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    registration_number = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    gst_number = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control'
+        })
+    )
+
+    registration_document = forms.FileField(
+        required=False
+    )
+
+    # -------------------------
+    # Validation
+    # -------------------------
+    def clean_email(self):
+        email = self.cleaned_data['email']
+
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError(
+                "An account with this email already exists."
+            )
+
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        if (
+            cleaned_data.get("password")
+            and cleaned_data.get("confirm_password")
+            and cleaned_data["password"] != cleaned_data["confirm_password"]
+        ):
+            self.add_error(
+                "confirm_password",
+                "Passwords do not match."
+            )
+
+        return cleaned_data
+
+    # -------------------------
+    # Save
+    # -------------------------
+    def save(self):
+        data = self.cleaned_data
+
+        base_slug = slugify(data["office_name"])
+        slug = base_slug
+        counter = 1
+
+        while Office.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
+        office = Office.objects.create(
+            name=data["office_name"],
+            slug=slug,
+            address=data["office_address"],
+            contact_number=data["office_contact"],
+            logo=data.get("logo"),
+            website=data.get("website"),
+            industry=data.get("industry"),
+            employee_strength=data.get("employee_strength"),
+            registration_number=data.get("registration_number"),
+            gst_number=data.get("gst_number"),
+            registration_document=data.get("registration_document"),
+            status=Office.Status.PENDING,
+        )
+
+        user = User.objects.create_user(
+            username=data["email"],
+            email=data["email"],
+            password=data["password"],
+            first_name=data["full_name"],
+            is_active=False,  # Activated after approval
+        )
+
+        OfficeAdmin.objects.create(
+            user=user,
+            office=office,
+            is_owner=True,
+            full_name=data["full_name"],
+            contact_number=data["contact_number"],
+        )
+
+        return office
+    
 class EmployeeForm(forms.ModelForm):
     """Form for creating new employees"""
 
@@ -39,6 +254,12 @@ class EmployeeForm(forms.ModelForm):
         help_text="Confirm the password"
     )
 
+    def __init__(self, *args, **kwargs): 
+        """ Receive the request and show only shifts belonging to the current office/company. """ 
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs) # Never show all shifts by default. 
+        self.fields['shift'].queryset = Shift.objects.none() 
+        if self.request: self.fields['shift'].queryset = ( tenant_queryset( self.request, Shift.objects.filter(is_active=True) ) .order_by('name') )
     class Meta:
         model = Employee
         fields = [
@@ -211,6 +432,12 @@ class EmployeeDocumentForm(forms.ModelForm):
 class EmployeeUpdateForm(forms.ModelForm):
     """Form for updating existing employees"""
 
+    def __init__(self, *args, **kwargs): 
+        """ Receive the request and show only shifts belonging to the current office/company. """ 
+        self.request = kwargs.pop('request', None) 
+        super().__init__(*args, **kwargs) # Never expose every company's shifts. 
+        self.fields['shift'].queryset = Shift.objects.none() 
+        if self.request: self.fields['shift'].queryset = ( tenant_queryset( self.request, Shift.objects.filter(is_active=True) ) .order_by('name') )
     class Meta:
         model = Employee
         fields = [
@@ -886,7 +1113,7 @@ class AssetAssignmentForm(forms.ModelForm):
     assigned_date = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
     )
-
+      
     class Meta:
         model = AssetAssignment
         fields = ['employee', 'asset_type', 'asset_name', 'assigned_date', 'notes']
@@ -896,7 +1123,33 @@ class AssetAssignmentForm(forms.ModelForm):
             'asset_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., MacBook Pro 16"'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Serial number, condition, etc.'}),
         }
+    def __init__(self, *args, **kwargs): 
+        """ Restrict the employee dropdown to the current company/office. """ 
+        # Remove request before calling the parent ModelForm. 
+        request = kwargs.pop('request', None) 
+        super().__init__(*args, **kwargs) # Security default: # If the request is not supplied, do not show any employees. 
+        self.fields['employee'].queryset = Employee.objects.none()
+        # if request is not None: # Show only employees belonging to the logged-in # admin's current company/office.
+        #     self.fields['employee'].queryset = ( tenant_queryset( request, Employee.objects.select_related('user') ).order_by('full_name') ) 
+          
+        if request is not None:
+            employee_queryset = tenant_queryset(
+                request,
+                Employee.objects.select_related("user"),
+            )
 
+            self.fields["employee"].queryset = (
+                employee_queryset
+                .order_by("full_name")
+            )
+
+            # Optional: show name and email in the dropdown
+            self.fields["employee"].label_from_instance = (
+                lambda employee: (
+                    f"{employee.full_name or employee.name}"
+                    f" ({employee.email})"
+                )
+            )
     def clean_asset_name(self):
         asset_name = self.cleaned_data['asset_name'].strip()
         if not asset_name:

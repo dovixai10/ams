@@ -25,6 +25,66 @@ from .models import (
     LeaveType
 )
 
+from .models import Office, OfficeAdmin
+
+
+@admin.register(Office)
+class OfficeAdmin_(admin.ModelAdmin):  # named OfficeAdmin_ to avoid clashing with the OfficeAdmin model
+    list_display = ('name', 'status', 'industry', 'employee_strength', 'created_at', 'approved_by')
+    list_filter = ('status', 'industry', 'created_at')
+    search_fields = ('name', 'slug', 'registration_number', 'gst_number')
+    ordering = ('-created_at',)
+    readonly_fields = ('slug', 'approved_by', 'approved_at', 'created_at', 'updated_at')
+    actions = ['approve_offices', 'reject_offices']
+
+    fieldsets = (
+        ('Office Details', {
+            'fields': ('name', 'slug', 'address', 'contact_number', 'logo', 'website', 'industry', 'employee_strength')
+        }),
+        ('Compliance', {
+            'fields': ('registration_number', 'gst_number', 'registration_document')
+        }),
+        ('Approval', {
+            'fields': ('status', 'rejection_reason', 'approved_by', 'approved_at')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    def save_model(self, request, obj, form, change):
+        if change and 'status' in form.changed_data:
+            if obj.status == Office.Status.APPROVED:
+                obj.approve(request.user)   # runs your activation logic
+                return
+            elif obj.status == Office.Status.REJECTED:
+                obj.reject(request.user, reason=obj.rejection_reason or 'Rejected via admin panel')
+                return
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description='Approve selected offices (activates their admin login)')
+    def approve_offices(self, request, queryset):
+        count = 0
+        for office in queryset.exclude(status=Office.Status.APPROVED):
+            office.approve(request.user)
+            count += 1
+        self.message_user(request, f'{count} office(s) approved.')
+
+    @admin.action(description='Reject selected offices')
+    def reject_offices(self, request, queryset):
+        count = 0
+        for office in queryset.exclude(status=Office.Status.REJECTED):
+            office.reject(request.user, reason='Rejected via admin panel')
+            count += 1
+        self.message_user(request, f'{count} office(s) rejected.')
+
+
+@admin.register(OfficeAdmin)
+class OfficeAdminAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'user', 'office', 'is_owner', 'created_at')
+    list_filter = ('is_owner', 'created_at')
+    search_fields = ('full_name', 'user__username', 'user__email', 'office__name')
+
 
 @admin.register(Shift)
 class ShiftAdmin(admin.ModelAdmin):
@@ -47,15 +107,15 @@ class ShiftAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'full_name', 'email', 'contact', 'created_at')
-    list_filter = ('created_at', 'updated_at')
-    search_fields = ('name', 'full_name', 'email', 'contact')
+    list_display = ('name', 'full_name', 'office', 'email', 'contact', 'created_at')
+    list_filter = ('office', 'created_at', 'updated_at')
+    search_fields = ('name', 'full_name', 'email', 'contact', 'office__name')
     ordering = ('name', 'full_name')
     readonly_fields = ('created_at', 'updated_at')
 
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'full_name', 'email', 'contact')
+            'fields': ('office', 'name', 'full_name', 'email', 'contact')
         }),
         ('Employment Details', {
             'fields': ('joining_date', 'shift')

@@ -227,4 +227,11 @@ urlpatterns = [
     path('leave-types/<int:pk>/delete/', views.admin_leave_type_delete, name='admin_leave_type_delete'),
 
     path('leave/balances/', views.employee_leave_balances, name='employee_leave_balances'),
+
+
+    # office registration 
+    # Office registration & approval (multi-tenant)
+    path('register-office/', views.office_register, name='office_register'),
+    path('office-status/', views.office_status, name='office_status'),
+    path('platform/office-approvals/', views.platform_office_approvals, name='platform_office_approvals'),
 ]

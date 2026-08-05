@@ -7,11 +7,105 @@ from datetime import date, timedelta
 import json
 from decimal import Decimal
 
+class Office(models.Model):
+    """A tenant / company using this HRMS. Every Employee, Attendance,
+    LeaveRequest, etc. ultimately belongs to exactly one Office."""
 
+    class Status(models.TextChoices):
+        PENDING = ('pending', 'Pending Approval')
+        APPROVED = ('approved', 'Approved')
+        REJECTED = ('rejected', 'Rejected')
+        SUSPENDED = ('suspended', 'Suspended')
+
+    name = models.CharField(max_length=200, help_text="Company/office name")
+    slug = models.SlugField(max_length=100, unique=True, help_text="Used for subdomain/URL identification")
+    address = models.CharField(max_length=200, help_text="Company/office address")
+    contact_number = models.CharField(
+        max_length=15, blank=True,
+        validators=[RegexValidator(r'^\+?1?\d{9,15}$', 'Enter a valid phone number.')]
+    )
+    logo = models.ImageField(upload_to='office_logos/', blank=True,null=True)
+    website = models.URLField(blank=True)
+    industry = models.CharField(max_length=100, blank=True, help_text="IT, Education, Manufacturing, Healthcare, etc.")
+
+    employee_strength = models.PositiveIntegerField(null=True, blank=True, help_text="Approximate number of employees")
+
+    # Optional Business Verification
+    registration_number = models.CharField(max_length=100, blank=True, help_text="Company Registration Number")
+
+    gst_number = models.CharField(max_length=20, blank=True)
+
+    registration_document = models.FileField(upload_to="office_documents/", blank=True, null=True)
+
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='approved_offices'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.get_status_display()})"
+
+    def approve(self, admin_user):
+        self.status = self.Status.APPROVED
+        self.approved_by = admin_user
+        self.approved_at = timezone.now()
+        self.save(update_fields=['status', 'approved_by', 'approved_at', 'updated_at'])
+        # Activate the owning admin's login now that the office is approved
+        owner = self.admins.filter(is_owner=True).first()
+        if owner and not owner.user.is_active:
+            owner.user.is_active = True
+            owner.user.save(update_fields=['is_active'])
+
+    def reject(self, admin_user, reason=''):
+        self.status = self.Status.REJECTED
+        self.approved_by = admin_user
+        self.approved_at = timezone.now()
+        self.rejection_reason = reason
+        self.save(update_fields=['status', 'approved_by', 'approved_at', 'rejection_reason', 'updated_at'])
+
+    @property
+    def is_approved(self):
+        return self.status == self.Status.APPROVED
+
+class OfficeAdmin(models.Model):
+    """Marks a Django User as the HR/admin for a specific Office.
+    This user manages everything within their office once approved."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='office_admin_profile'
+    )
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='admins')
+    is_owner = models.BooleanField(default=True, help_text="The person who originally registered this office")
+    full_name = models.CharField(max_length=200, blank=True)
+    contact_number = models.CharField(max_length=15, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Office Admin'
+        verbose_name_plural = 'Office Admins'
+
+    def __str__(self):
+        return f"{self.full_name or self.user.username} — {self.office.name}"
 
 class Shift(models.Model):
     """Shift model for managing employee work shifts"""
-    
+
+    office = models.ForeignKey(
+        Office,
+        on_delete=models.CASCADE,
+        related_name='shifts',
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='Office/company that owns this shift'
+    )
+
     class ShiftType(models.TextChoices):
         FULL_DAY = ('full_day', 'Full Day')
         HALF_DAY = ('half_day', 'Half Day')
@@ -43,6 +137,17 @@ class Shift(models.Model):
         ordering = ['name']
         verbose_name = 'Shift'
         verbose_name_plural = 'Shifts'
+
+        constraints = [
+        models.UniqueConstraint(
+            fields=['office', 'name'],
+            name='unique_shift_name_per_office'
+            )
+        ]
+
+        indexes = [
+            models.Index(fields=['office', 'is_active']),
+        ]
     
     def __str__(self):
         return f"{self.name} ({self.get_shift_type_display()}) - {self.start_time} to {self.end_time}"
@@ -79,6 +184,11 @@ class Shift(models.Model):
 class Employee(models.Model):
     """Employee model representing an employee in the system"""
 
+    office = models.ForeignKey(
+        'Office', on_delete=models.CASCADE, related_name='employees',
+        null=True, blank=True,  # nullable at first for migration safety, tighten later
+        help_text="The office/company this employee belongs to"
+    )
     # Basic Information
     name = models.CharField(max_length=100, help_text="Employee's first name")
     full_name = models.CharField(max_length=200, help_text="Employee's full name")
@@ -456,14 +566,22 @@ class LeaveType(models.Model):
         MALE = ('male', 'Male')
         FEMALE = ('female', 'Female')
 
+    office = models.ForeignKey(
+        Office,
+        on_delete=models.CASCADE,
+        related_name='leave_types',
+        null=True,
+        blank=True,
+        db_index=True
+    )
+
     name = models.CharField(
         max_length=100,
-        unique=True,
+        
         help_text="Full name of the leave type (e.g. 'Earned Leave')"
     )
     code = models.CharField(
         max_length=20,
-        unique=True,
         help_text="Short code (e.g. EL, CL, SL, ML, PL, COMP)"
     )
     description = models.TextField(
@@ -563,6 +681,21 @@ class LeaveType(models.Model):
         verbose_name = 'Leave Type'
         verbose_name_plural = 'Leave Types'
 
+        constraints = [
+            models.UniqueConstraint(
+                fields=['office', 'name'],
+                name='unique_leave_type_name_per_office'
+            ),
+            models.UniqueConstraint(
+                fields=['office', 'code'],
+                name='unique_leave_type_code_per_office'
+            ),
+        ]
+
+        indexes = [
+            models.Index(fields=['office', 'is_active']),
+        ]
+
     def __str__(self):
         return f"{self.name} ({self.code})"
 
@@ -597,6 +730,14 @@ def fiscal_year_for(d: date) -> int:
 class EmployeeLeaveBalance(models.Model):
     """Per-employee, per-leave-type running balance."""
 
+    office = models.ForeignKey(
+        Office,
+        on_delete=models.CASCADE,
+        related_name='employee_leave_balance',
+        null=True,
+        blank=True,
+        db_index=True
+    )
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -720,6 +861,15 @@ class LeaveCreditLog(models.Model):
         CARRY_FORWARD = ('carry_forward', 'Carry Forward')
         DEDUCTION = ('deduction', 'Deduction (Leave Taken)')
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='leave_credit_log',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -797,6 +947,14 @@ def _format_duration_from_seconds(total_seconds: int) -> str:
 class Attendance(models.Model):
     """Attendance model for tracking employee check-ins"""
 
+    office = models.ForeignKey(
+        Office,
+        on_delete=models.CASCADE,
+        related_name='attendance_record',
+        null=True,
+        blank=True,
+        db_index=True
+    )
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -1150,6 +1308,15 @@ class Attendance(models.Model):
 class AttendanceDayComment(models.Model):
     """Daily comment shared between employee and admin for a given date."""
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='attendance_day_comment',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -1204,6 +1371,14 @@ class AttendanceBreak(models.Model):
         BreakReason.TEA.value: 15,
         BreakReason.LUNCH.value: 40,
     }
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='attendance_break',
+            null=True,
+            blank=True,
+            db_index=True
+        )
 
     attendance = models.ForeignKey(
         Attendance,
@@ -1358,6 +1533,15 @@ class LeaveRequest(models.Model):
         VERIFIED = ('verified', 'Verified')
         EXPIRED = ('expired', 'Expired')
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='leave_request',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -1611,6 +1795,14 @@ class FaceUpdateRequest(models.Model):
         REJECTED = ('rejected', 'Rejected')
         COMPLETED = ('completed', 'Completed')
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='face_update_request',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -1726,6 +1918,15 @@ class AttendanceLog(models.Model):
         ('break_not_active', 'No Active Break'),
         ('break_not_allowed', 'Break Not Allowed'),
     ]
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='attendance_log',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.ForeignKey(
         Employee,
@@ -1836,6 +2037,15 @@ class Task(models.Model):
         COMPLETED = ('completed', 'Completed')
         BLOCKED = ('blocked', 'Blocked')
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='task',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     title = models.CharField(
         max_length=150,
         help_text="Short summary of the task",
@@ -1951,6 +2161,14 @@ class Task(models.Model):
 class TaskUpdate(models.Model):
     """Audit trail of task status updates and comments."""
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='task_update',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
@@ -2021,6 +2239,14 @@ class Ticket(models.Model):
         ('facility', 'Facility/Infrastructure'),
         ('other', 'Other'),
     ]
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='ticket',
+            null=True,
+            blank=True,
+            db_index=True
+        )
 
     ticket_number = models.CharField(
         max_length=20,
@@ -2178,7 +2404,15 @@ class Ticket(models.Model):
 
 class TicketComment(models.Model):
     """Comments/replies on tickets"""
-    
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='ticket_comment',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     ticket = models.ForeignKey(
         Ticket,
         on_delete=models.CASCADE,
@@ -2224,6 +2458,14 @@ class PasswordResetRequest(models.Model):
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     ]
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='password_request',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.ForeignKey(
         Employee,
@@ -2316,6 +2558,15 @@ class EmployeeDocument(models.Model):
         SUBMITTED = ('submitted', 'Submitted')
         VERIFIED = ('verified', 'Verified')
         REJECTED = ('rejected', 'Rejected')
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='document',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.ForeignKey(
         Employee,
@@ -2404,6 +2655,15 @@ class EmployeeDocument(models.Model):
 class LeaveVerificationDocument(models.Model):
     """Files uploaded by employees to verify leave requests."""
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='verification_document',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     leave = models.ForeignKey(
         LeaveRequest,
         on_delete=models.CASCADE,
@@ -2451,6 +2711,7 @@ class Holiday(models.Model):
         ("company", "Company Holiday"),
         ("optional", "Optional Holiday"),
     )
+    office = models.ForeignKey('Office', on_delete=models.CASCADE, related_name='holidays', null=True, blank=True)
 
     name = models.CharField(max_length=255)
     date = models.DateField()
@@ -2491,6 +2752,15 @@ class Holiday(models.Model):
 
 class CompanyRule(models.Model):
     """Company rules and regulations"""
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='company_rule',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     title = models.CharField(max_length=200, help_text="Rule title")
     description = models.TextField(help_text="Rule description")
@@ -2526,6 +2796,15 @@ class CompanyRule(models.Model):
 class RuleAcknowledgement(models.Model):
     """Track per-rule acknowledgements for each employee."""
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='rule_acknowledgement',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -2549,6 +2828,15 @@ class RuleAcknowledgement(models.Model):
 class RulesAcceptance(models.Model):
     """Track when an employee has accepted the overall rules set."""
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='rule_acceptance',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     employee = models.OneToOneField(
         Employee,
         on_delete=models.CASCADE,
@@ -2583,6 +2871,15 @@ class AssetAssignment(models.Model):
         RECEIVED = ('received', 'Received')
         RETURNED = ('returned', 'Returned')
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='asset_assignment',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -2686,6 +2983,15 @@ class LoanRequest(models.Model):
         PENDING = 'pending', 'Pending'
         APPROVED = 'approved', 'Approved'
         DISAPPROVED = 'disapproved', 'Disapproved'
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='loan_request',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.ForeignKey(
         Employee,
@@ -2759,6 +3065,15 @@ class ReimbursementRequest(models.Model):
         VERIFIED = 'verified', 'Verified'
         PAID = 'paid', 'Paid'
         REJECTED = 'rejected', 'Rejected'
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='reimbursement_request',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.ForeignKey(
         Employee,
@@ -2835,6 +3150,15 @@ class EmployeeSalary(models.Model):
         UPI = "upi", "UPI"
         CHEQUE = "cheque", "Cheque"
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='salary_profile',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -2915,6 +3239,15 @@ class EmployeeSalary(models.Model):
 
 class SalarySlip(models.Model):
     """Employee salary slip records"""
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='salary_slip',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.ForeignKey(
         Employee,
@@ -2973,6 +3306,15 @@ class SalarySlip(models.Model):
 
 class EmployeeIDCard(models.Model):
     """Employee digital ID card"""
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='employee_id_card',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.OneToOneField(
         Employee,
@@ -3016,6 +3358,15 @@ class EmployeeIDCard(models.Model):
 
 class EmployeePoints(models.Model):
     """Track employee performance points"""
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='performance_point',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.ForeignKey(
         Employee,
@@ -3081,6 +3432,15 @@ class EmployeeTask(models.Model):
         MEDIUM = ('medium', 'Medium')
         HIGH = ('high', 'High')
         URGENT = ('urgent', 'Urgent')
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='assigned_task',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.ForeignKey(
         Employee,
@@ -3141,6 +3501,15 @@ class EmployeeTask(models.Model):
 class LeaveAdjustment(models.Model):
     """Stores admin a leave increase/decrease history."""
 
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='leave_adjustment',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -3217,6 +3586,15 @@ class EmployeeNotification(models.Model):
         # General
         RULE_UPDATE = ('rule_update', 'Policy Update')
         ALERT = ('alert', 'Alert')
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='notification',
+            null=True,
+            blank=True,
+            db_index=True
+        )
     
     employee = models.ForeignKey(
         Employee,
@@ -3267,6 +3645,16 @@ class EmployeeNotification(models.Model):
     def __str__(self):
         return f"{self.title} - {self.employee.full_name}"
 class PaidLeaveAdjustment(models.Model):
+
+    office = models.ForeignKey(
+            Office,
+            on_delete=models.CASCADE,
+            related_name='paid_leave_adjustment',
+            null=True,
+            blank=True,
+            db_index=True
+        )
+    
     employee = models.ForeignKey(
         'Employee',
         on_delete=models.CASCADE,

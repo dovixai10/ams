@@ -14,17 +14,18 @@ from web_project import TemplateLayout
 from web_project.template_helpers.theme import TemplateHelper
 
 from .leave_accrual import get_employee_leave_type_balances
+from .permissions import office_admin_required, is_platform_admin
 
 logger = logging.getLogger(__name__)
 
 
-def is_superadmin(user):
-    """Check if user is superadmin"""
-    return user.is_superuser
+# def is_superadmin(user):
+#     """Check if user is superadmin"""
+#     return user.is_superuser
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["GET"])
 def leave_verification_documents(request, leave_id):
     """Return verification documents for a leave (admin use).
@@ -33,7 +34,11 @@ def leave_verification_documents(request, leave_id):
     """
     try:
         leave = get_object_or_404(LeaveRequest, id=leave_id)
-        
+
+        if not is_platform_admin(request.user):
+            if leave.employee.office_id != request.user.office_admin_profile.office_id:
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+      
         # Build documents list with all required fields
         documents = []
         for doc in leave.verification_documents.order_by('-uploaded_at'):
@@ -86,8 +91,13 @@ def upload_leave_receipt(request, leave_id):
     leave = get_object_or_404(LeaveRequest, id=leave_id)
     
     # Permission check: employee can only upload for own leaves
-    if not request.user.is_superuser:
-        if not hasattr(request.user, 'employee_profile') or request.user.employee_profile != leave.employee:
+    if not is_platform_admin(request.user):
+        is_owner = hasattr(request.user, 'employee_profile') and request.user.employee_profile == leave.employee
+        is_this_offices_admin = (
+            hasattr(request.user, 'office_admin_profile')
+            and leave.employee.office_id == request.user.office_admin_profile.office_id
+        )
+        if not (is_owner or is_this_offices_admin):
             return JsonResponse({'error': 'Permission denied'}, status=403)
     
     if 'file' not in request.FILES:

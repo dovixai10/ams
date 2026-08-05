@@ -17,13 +17,14 @@ import json
 from .models import Holiday
 from web_project import TemplateLayout
 from web_project.template_helpers.theme import TemplateHelper
+from .permissions import office_admin_required, is_platform_admin, get_request_office
 
 logger = logging.getLogger(__name__)
 
 
-def is_admin(user):
-    """Check if user is admin/superuser"""
-    return user.is_superuser or user.is_staff
+# def is_admin(user):
+#     """Check if user is admin/superuser"""
+#     return user.is_superuser or user.is_staff
 
 
 @login_required
@@ -66,6 +67,11 @@ def get_holidays(request):
         ).order_by('date').values(
             'id', 'date', 'name', 'description'
         )
+        office = get_request_office(request)
+        if office:
+            holidays = holidays.filter(office=office)
+        holidays = holidays.order_by('date').values('id', 'date', 'name', 'description')
+  
         
         holidays_list = [
             {
@@ -109,11 +115,10 @@ def create_holiday(request):
     Admin only
     """
     try:
-        if not is_admin(request.user):
-            return JsonResponse({
-                'success': False,
-                'error': 'Permission denied'
-            }, status=403)
+        if not office_admin_required(request.user):   # was: office_admin_required(request.user)
+            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+        office = get_request_office(request)
         
         # Parse request data
         try:
@@ -147,7 +152,7 @@ def create_holiday(request):
             }, status=400)
         
         # Check if holiday already exists
-        if Holiday.objects.filter(date=holiday_date).exists():
+        if Holiday.objects.filter(date=holiday_date, office=office).exists():
             return JsonResponse({
                 'success': False,
                 'error': 'Holiday already exists for this date'
@@ -158,7 +163,8 @@ def create_holiday(request):
             date=holiday_date,
             name=name,
             description=description,
-            created_by=request.user
+            created_by=request.user,
+            office=office
         )
         
         logger.info(f"Holiday created: {holiday.id} - {holiday.name} on {holiday.date}")
@@ -197,7 +203,7 @@ def update_holiday(request, holiday_id):
     Admin only
     """
     try:
-        if not is_admin(request.user):
+        if not office_admin_required(request.user):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'
@@ -274,7 +280,7 @@ def delete_holiday(request, holiday_id):
     Admin only
     """
     try:
-        if not is_admin(request.user):
+        if not office_admin_required(request.user):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'

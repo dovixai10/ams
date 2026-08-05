@@ -1,0 +1,139 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Register Your Office{% endblock %}
+
+{% block page_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'vendor/css/pages/page-auth.css' %}">
+{% endblock page_css %}
+
+{% block content %}
+  <div class="container-xxl">
+    <div class="authentication-wrapper authentication-basic container-p-y">
+      <div class="authentication-inner" style="max-width: 640px;">
+        <div class="card px-sm-6 px-0">
+          <div class="card-body">
+            <div class="app-brand justify-content-center mb-6">
+              <a href="{% url 'employees:login' %}" class="app-brand-link gap-2">
+                <span class="app-brand-logo demo">{% include 'partials/logo.html' %}</span>
+              </a>
+            </div>
+
+            <h4 class="mb-1">Register your office 🏢</h4>
+            <p class="mb-6">Set up your company and we'll review it before activating your account.</p>
+
+            {% if messages %}
+              {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible mb-4" role="alert">
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+              {% endfor %}
+            {% endif %}
+
+            <form method="post" enctype="multipart/form-data" class="mb-6" novalidate>
+              {% csrf_token %}
+
+              <h6 class="mb-3">Your details</h6>
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">Full name</label>
+                  {{ form.full_name }}
+                  {% if form.full_name.errors %}<div class="text-danger small mt-1">{{ form.full_name.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">Contact number</label>
+                  {{ form.contact_number }}
+                </div>
+              </div>
+              <div class="mb-4">
+                <label class="form-label">Email</label>
+                {{ form.email }}
+                {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors|striptags }}</div>{% endif %}
+              </div>
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">Password</label>
+                  {{ form.password }}
+                  {% if form.password.errors %}<div class="text-danger small mt-1">{{ form.password.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-md-6 mb-6">
+                  <label class="form-label">Confirm password</label>
+                  {{ form.confirm_password }}
+                  {% if form.confirm_password.errors %}<div class="text-danger small mt-1">{{ form.confirm_password.errors|striptags }}</div>{% endif %}
+                </div>
+              </div>
+
+              <hr class="mb-6">
+
+              <h6 class="mb-3">Office details</h6>
+              <div class="mb-4">
+                <label class="form-label">Office / company name</label>
+                {{ form.office_name }}
+                {% if form.office_name.errors %}<div class="text-danger small mt-1">{{ form.office_name.errors|striptags }}</div>{% endif %}
+              </div>
+              <div class="mb-4">
+                <label class="form-label">Office address</label>
+                {{ form.office_address }}
+                {% if form.office_address.errors %}<div class="text-danger small mt-1">{{ form.office_address.errors|striptags }}</div>{% endif %}
+              </div>
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">Office contact number</label>
+                  {{ form.office_contact }}
+                </div>
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">Website</label>
+                  {{ form.website }}
+                  {% if form.website.errors %}<div class="text-danger small mt-1">{{ form.website.errors|striptags }}</div>{% endif %}
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">Industry</label>
+                  {{ form.industry }}
+                </div>
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">Employee strength</label>
+                  {{ form.employee_strength }}
+                  {% if form.employee_strength.errors %}<div class="text-danger small mt-1">{{ form.employee_strength.errors|striptags }}</div>{% endif %}
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">Registration number</label>
+                  {{ form.registration_number }}
+                </div>
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">GST number</label>
+                  {{ form.gst_number }}
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <label class="form-label">Office logo</label>
+                  {{ form.logo }}
+                </div>
+                <div class="col-md-6 mb-6">
+                  <label class="form-label">Registration document</label>
+                  {{ form.registration_document }}
+                  <div class="form-text">Certificate of incorporation, GST certificate, etc. (optional but speeds up approval)</div>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary d-grid w-100">Submit for approval</button>
+            </form>
+
+            <p class="text-center">
+              <span>Already registered?</span>
+              <a href="{% url 'employees:login' %}"><span>Sign in</span></a>
+              &nbsp;|&nbsp;
+              <a href="{% url 'employees:office_status' %}"><span>Check approval status</span></a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -3,7 +3,7 @@ Shift Assignment Views
 Handles admin shift assignment to employees with AJAX support
 """
 
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -11,15 +11,64 @@ from django.contrib import messages
 from django.db.models import Q
 from .models import Employee, Shift
 import json
+from .permissions import office_admin_required, is_platform_admin, get_request_office
+
+def is_office_admin(user):
+    """An HR user tied to a specific approved office."""
+    return hasattr(user, 'office_admin_profile')
+
+from django.core.exceptions import PermissionDenied
 
 
-def is_superadmin(user):
-    """Check if user is superadmin"""
-    return user.is_superuser
+def tenant_queryset(request, queryset):
+    """
+    Scope a queryset to the current office.
+
+    Platform admin:
+        Can see all offices.
+
+    Approved office admin:
+        Can see only their own office.
+
+    User with no office:
+        Gets no tenant data.
+    """
+    if is_platform_admin(request.user):
+        return queryset
+
+    office = get_request_office(request)
+
+    if office is None:
+        return queryset.none()
+
+    return queryset.filter(office=office)
+
+
+def tenant_object_or_404(request, model, **lookup):
+    """
+    Fetch an object only if it belongs to the current office.
+
+    Platform admin can access every office.
+    Office admin can access only their own office.
+    """
+    queryset = tenant_queryset(
+        request,
+        model.objects.all()
+    )
+
+    return get_object_or_404(
+        queryset,
+        **lookup
+    )
+
+
+# def is_superadmin(user):
+#     """Check if user is superadmin"""
+#     return user.is_superuser
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def shift_assignment(request):
     """
     Display all employees with their current shifts
@@ -30,8 +79,9 @@ def shift_assignment(request):
     
     try:
         # More robust query with proper error handling
-        employees = Employee.objects.all().select_related('shift', 'user').order_by('full_name')
-        shifts = Shift.objects.filter(is_active=True).order_by('name')
+        employees = tenant_queryset( request, Employee.objects.select_related('shift', 'user').order_by('full_name'))
+        # shifts = Shift.objects.filter(is_active=True).order_by('name')
+        shifts = ( tenant_queryset( request, Shift.objects.filter( is_active=True ) ) .order_by('name') )
         
         print(f"[DEBUG] Found {employees.count()} employees and {shifts.count()} shifts")
         
@@ -52,7 +102,7 @@ def shift_assignment(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["POST"])
 def update_employee_shift(request):
     """
@@ -73,7 +123,8 @@ def update_employee_shift(request):
         
         # Get employee
         try:
-            employee = Employee.objects.get(id=employee_id)
+            # employee = Employee.objects.get(id=employee_id)
+            employee = tenant_object_or_404( request, Employee, id=employee_id, )
         except Employee.DoesNotExist:
             return JsonResponse({
                 'success': False,
@@ -82,7 +133,8 @@ def update_employee_shift(request):
         
         # Get shift
         try:
-            shift = Shift.objects.get(id=shift_id)
+            # shift = Shift.objects.get(id=shift_id)
+            shift = tenant_object_or_404( request, Shift, id=shift_id, is_active=True, )
         except Shift.DoesNotExist:
             return JsonResponse({
                 'success': False,
@@ -119,7 +171,7 @@ def update_employee_shift(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["POST"])
 def bulk_assign_shift(request):
     """
@@ -146,27 +198,31 @@ def bulk_assign_shift(request):
         
         # Get shift
         try:
-            shift = Shift.objects.get(id=shift_id)
+            # shift = Shift.objects.get(id=shift_id)
+            shift = tenant_object_or_404( request, Shift, id=shift_id, is_active=True, )
         except Shift.DoesNotExist:
             return JsonResponse({
                 'success': False,
                 'message': 'Shift not found'
             }, status=404)
-        
+
+        employees = tenant_queryset( request, Employee.objects.filter( id__in=employee_ids ) )
         # Update employees
-        updated_count = 0
-        failed_count = 0
-        
-        for employee_id in employee_ids:
-            try:
-                employee = Employee.objects.get(id=employee_id)
-                employee.shift = shift
-                employee.save()
-                updated_count += 1
-            except Employee.DoesNotExist:
-                failed_count += 1
-            except Exception as e:
-                failed_count += 1
+        # updated_count = 0
+        # failed_count = 0
+        updated_count = employees.update( shift=shift )
+        failed_count = ( len( set( str( employee_id ) for employee_id in employee_ids ) ) - updated_count )
+
+        # for employee_id in employee_ids:
+        #     try:
+        #         employee = Employee.objects.get(id=employee_id)
+        #         employee.shift = shift
+        #         employee.save()
+        #         updated_count += 1
+        #     except Employee.DoesNotExist:
+        #         failed_count += 1
+        #     except Exception as e:
+        #         failed_count += 1
         
         # Format shift display
         shift_display = f"{shift.start_time.strftime('%I:%M %p')} – {shift.end_time.strftime('%I:%M %p')}"
@@ -198,7 +254,7 @@ def bulk_assign_shift(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["POST"])
 def remove_employee_shift(request):
     """
@@ -218,7 +274,8 @@ def remove_employee_shift(request):
         
         # Get employee
         try:
-            employee = Employee.objects.get(id=employee_id)
+            # employee = Employee.objects.get(id=employee_id)
+            employee = tenant_object_or_404( request, Employee, id=employee_id, )
         except Employee.DoesNotExist:
             return JsonResponse({
                 'success': False,
@@ -248,14 +305,15 @@ def remove_employee_shift(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def get_employee_shifts_data(request):
     """
     AJAX endpoint to get all employees with their shifts
     Used for dynamic table updates
     """
     try:
-        employees = Employee.objects.all().select_related('shift', 'user').order_by('user__first_name')
+        # employees = Employee.objects.all().select_related('shift', 'user').order_by('user__first_name')
+        employees = ( tenant_queryset( request, Employee.objects.select_related( 'shift', 'user', 'department', 'designation', ) ) .order_by( 'user__first_name' ) )
         
         employees_data = []
         for emp in employees:

@@ -1,0 +1,61 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Office Registration Status{% endblock %}
+
+{% block page_css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'vendor/css/pages/page-auth.css' %}">
+{% endblock page_css %}
+
+{% block content %}
+  <div class="container-xxl">
+    <div class="authentication-wrapper authentication-basic container-p-y">
+      <div class="authentication-inner">
+        <div class="card px-sm-6 px-0">
+          <div class="card-body">
+            <div class="app-brand justify-content-center mb-6">
+              <a href="{% url 'employees:login' %}" class="app-brand-link gap-2">
+                <span class="app-brand-logo demo">{% include 'partials/logo.html' %}</span>
+              </a>
+            </div>
+
+            <h4 class="mb-1">Check registration status</h4>
+            <p class="mb-6">Enter the email you registered with.</p>
+
+            <form method="post" class="mb-4">
+              {% csrf_token %}
+              <div class="mb-4">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-control" value="{{ email }}" placeholder="you@company.com" required>
+              </div>
+              <button type="submit" class="btn btn-primary d-grid w-100">Check status</button>
+            </form>
+
+            {% if error %}
+              <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+
+            {% if office_admin %}
+              {% with office=office_admin.office %}
+                <div class="alert alert-{% if office.status == 'approved' %}success{% elif office.status == 'rejected' %}danger{% else %}warning{% endif %}">
+                  <strong>{{ office.name }}</strong> — {{ office.get_status_display }}
+                  {% if office.status == 'rejected' and office.rejection_reason %}
+                    <div class="small mt-2">Reason: {{ office.rejection_reason }}</div>
+                  {% endif %}
+                  {% if office.status == 'approved' %}
+                    <div class="small mt-2"><a href="{% url 'employees:login' %}">Log in now →</a></div>
+                  {% endif %}
+                </div>
+              {% endwith %}
+            {% endif %}
+
+            <p class="text-center mt-4">
+              <a href="{% url 'employees:login' %}"><span>Back to login</span></a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

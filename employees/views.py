@@ -33,6 +33,7 @@ from .models import LeaveType, EmployeeLeaveBalance, LeaveCreditLog
 from datetime import date
 from .leave_accrual import initialize_balances_for_new_type, get_employee_leave_type_balances
 
+from .permissions import office_admin_required, is_platform_admin, get_request_office
 
 import sys
 
@@ -132,6 +133,177 @@ import logging
 
 
 logger = logging.getLogger(__name__)
+
+# office _registration 
+from .models import Office, OfficeAdmin
+from .forms import OfficeRegistrationForm
+from .permissions import office_admin_required, is_platform_admin, get_request_office
+
+
+# def is_platform_admin(user):
+#     """The real, global Django superuser — approves/rejects offices only."""
+#     return user.is_superuser
+
+# def get_request_office(request):
+#     """Office to scope queries to. Platform admin gets None (sees everything for support)."""
+#     if hasattr(request.user, 'office_admin_profile'):
+#         return request.user.office_admin_profile.office
+#     return None
+
+def is_office_admin(user):
+    """An HR user tied to a specific approved office."""
+    return hasattr(user, 'office_admin_profile')
+
+from django.core.exceptions import PermissionDenied
+
+
+def tenant_queryset(request, queryset):
+    """
+    Scope a queryset to the current office.
+
+    Platform admin:
+        Can see all offices.
+
+    Approved office admin:
+        Can see only their own office.
+
+    User with no office:
+        Gets no tenant data.
+    """
+    if is_platform_admin(request.user):
+        return queryset
+
+    office = get_request_office(request)
+
+    if office is None:
+        return queryset.none()
+
+    return queryset.filter(office=office)
+
+
+def tenant_object_or_404(request, model, **lookup):
+    """
+    Fetch an object only if it belongs to the current office.
+
+    Platform admin can access every office.
+    Office admin can access only their own office.
+    """
+    queryset = tenant_queryset(
+        request,
+        model.objects.all()
+    )
+
+    return get_object_or_404(
+        queryset,
+        **lookup
+    )
+
+
+def require_same_office(request, obj):
+    """
+    Extra protection for objects that were fetched through
+    another relationship instead of a direct office queryset.
+    """
+    if is_platform_admin(request.user):
+        return
+
+    office = get_request_office(request)
+
+    if office is None:
+        raise PermissionDenied(
+            'Your account is not linked to an approved office.'
+        )
+
+    object_office_id = getattr(
+        obj,
+        'office_id',
+        None
+    )
+
+    if object_office_id != office.id:
+        raise PermissionDenied(
+            'You do not have permission to access this office data.'
+        )
+    
+def office_register(request):
+    if request.user.is_authenticated:
+        return redirect('employees:login')
+
+    if request.method == 'POST':
+        form = OfficeRegistrationForm(request.POST, request.FILES)   # <-- add request.FILES
+        if form.is_valid():
+            office = form.save()
+            messages.success(
+                request,
+                'Registration submitted! We will review your details and notify you once approved.'
+            )
+            return redirect(reverse('employees:office_status') + f'?email={office.admins.first().user.email}')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = OfficeRegistrationForm()
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_blank.html', context),
+        'hide_mobile_nav': True,
+        'form': form,
+    })
+    return render(request, 'employees/auth/office_register.html', context)
+
+def office_status(request):
+    """Lets a pending office admin check their approval status without logging in."""
+    email = request.GET.get('email', '').strip()
+    office_admin = None
+    error = None
+
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+
+    if email:
+        office_admin = OfficeAdmin.objects.filter(user__email=email, is_owner=True).select_related('office').first()
+        if not office_admin:
+            error = 'No registration found for that email.'
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_blank.html', context),
+        'hide_mobile_nav': True,
+        'email': email,
+        'office_admin': office_admin,
+        'error': error,
+    })
+    return render(request, 'employees/auth/office_status.html', context)
+
+
+@login_required
+@user_passes_test(is_platform_admin)
+def platform_office_approvals(request):
+    """Platform-level screen (you) to approve/reject office registrations."""
+    status_filter = request.GET.get('status', 'pending')
+    offices = Office.objects.select_related().prefetch_related('admins__user').order_by('-created_at')
+    if status_filter and status_filter in Office.Status.values:
+        offices = offices.filter(status=status_filter)
+
+    if request.method == 'POST':
+        office = get_object_or_404(Office, pk=request.POST.get('office_id'))
+        action = request.POST.get('action')
+        if action == 'approve':
+            office.approve(request.user)
+            messages.success(request, f'{office.name} approved. Their admin can now log in.')
+        elif action == 'reject':
+            office.reject(request.user, request.POST.get('reason', ''))
+            messages.info(request, f'{office.name} rejected.')
+        return redirect('employees:platform_office_approvals')
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'offices': offices,
+        'status_filter': status_filter,
+        'status_choices': Office.Status.choices,
+    })
+    return render(request, 'employees/platform/office_approvals.html', context)
 
 
 def is_admin(user):
@@ -234,10 +406,18 @@ def humanize_seconds(total_seconds: int) -> str:
 
 
 # Helper functions to check user roles
-def is_superadmin(user):
-    """Check if user is a superadmin (only true superusers, not staff)"""
-    return user.is_superuser
+# def is_superadmin(user):
+#     """Check if user is a superadmin (only true superusers, not staff)"""
+#     return user.is_superuser
 
+def office_admin_required(user):
+    """Grants access to HR-facing views: either the real platform superuser
+    (who can see everything for support purposes) or an approved office's HR admin."""
+    if user.is_superuser:
+        return True
+    if hasattr(user, 'office_admin_profile'):
+        return user.office_admin_profile.office.status == Office.Status.APPROVED
+    return False
 
 def _parse_comment_date(value: str):
     date_obj = parse_date(value)
@@ -269,7 +449,7 @@ def _comment_queryset_for_user(user):
     qs = AttendanceDayComment.objects.select_related('employee', 'created_by')
     if is_employee(user):
         return qs.filter(employee=user.employee_profile)
-    if is_superadmin(user):
+    if office_admin_required(user):
         return qs
     return qs.none()
 
@@ -358,7 +538,7 @@ def attendance_day_comments(request):
         queryset = queryset.filter(employee_id=employee_id)
     elif is_employee(request.user):
         queryset = queryset.filter(employee=request.user.employee_profile)
-    elif not is_superadmin(request.user):
+    elif not office_admin_required(request.user):
         return HttpResponseBadRequest('Not allowed to view comments.')
 
     comments = [
@@ -373,7 +553,7 @@ def attendance_day_comments(request):
 def create_attendance_day_comment(request):
     """Create a new attendance day comment for employee/admin."""
 
-    is_admin_user = is_superadmin(request.user)
+    is_admin_user = office_admin_required(request.user)
 
     employee_id = request.POST.get('employee_id')
     date_str = request.POST.get('date')
@@ -412,7 +592,7 @@ def create_attendance_day_comment(request):
 def attendance_day_comment_threads(request):
     """Return recent attendance comment threads for admin consumption."""
 
-    if not is_superadmin(request.user):
+    if not office_admin_required(request.user):
         return HttpResponseBadRequest('Not allowed.')
 
     limit_param = request.GET.get('limit')
@@ -453,7 +633,7 @@ def delete_attendance_day_comment(request, comment_id):
 
     comment = get_object_or_404(AttendanceDayComment, pk=comment_id)
 
-    if is_superadmin(request.user):
+    if office_admin_required(request.user):
         pass
     elif is_employee(request.user) and comment.employee == request.user.employee_profile and not comment.is_admin_comment:
         pass
@@ -493,8 +673,10 @@ def _pending_leave_verifications_for_employee(employee):
 
 
 # Authentication Views
+from .models import Office, OfficeAdmin  # add this import near your other model imports
+
 class LoginView(TemplateView):
-    """Custom login view that handles both admin and employee logins"""
+    """Custom login view that handles admin, office admin, and employee logins"""
 
     def get(self, request):
         if request.user.is_authenticated:
@@ -509,22 +691,27 @@ class LoginView(TemplateView):
             messages.error(request, 'Please provide both email/username and password.')
             return render(request, 'employees/auth/login.html', self.get_context_data())
 
-        # Try to authenticate with username first, then email
-        user = None
-
-        # First try direct username authentication
         user = authenticate(request, username=username, password=password)
 
-        # If that fails, try email authentication
         if not user:
             try:
-                # Find user by email
                 user_obj = User.objects.get(email=username)
                 user = authenticate(request, username=user_obj.username, password=password)
             except User.DoesNotExist:
                 pass
 
         if user:
+            # Block login if office isn't approved yet
+            if hasattr(user, 'office_admin_profile'):
+                office = user.office_admin_profile.office
+                if office.status != Office.Status.APPROVED:
+                    context = self.get_context_data()
+                    context.update({
+                        'login_error': f'Your office registration is {office.get_status_display().lower()}. Please wait for approval.',
+                        'entered_username': username,
+                    })
+                    return render(request, 'employees/auth/login.html', context)
+
             login(request, user)
             messages.success(request, f'Welcome back, {user.get_full_name() or user.username}!')
             return self.redirect_authenticated_user(user)
@@ -545,22 +732,18 @@ class LoginView(TemplateView):
         return context
 
     def redirect_authenticated_user(self, user):
-        """Redirect user based on their role"""
-        # Check if there's a 'next' parameter in the request
         next_url = self.request.POST.get('next') or self.request.GET.get('next')
-
         if next_url:
-            # Redirect to the page they were trying to access
             return redirect(next_url)
-        else:
-            # Default redirects based on role
-            if is_superadmin(user):
-                return redirect('employees:admin_dashboard')
-            elif is_employee(user):
-                return redirect('employees:check_in')
-            else:
-                return redirect('/')
 
+        if is_platform_admin(user):
+            return redirect('employees:platform_office_approvals')
+        elif is_office_admin(user):
+            return redirect('employees:admin_dashboard')
+        elif is_employee(user):
+            return redirect('employees:check_in')
+        else:
+            return redirect('/')
 
 @login_required
 def logout_view(request):
@@ -645,7 +828,7 @@ class EmployeePasswordResetCompleteView(PasswordResetCompleteView):
 
 # Dashboard Views
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_dashboard(request):
     """Admin dashboard view with comprehensive statistics"""
     from django.utils import timezone
@@ -659,19 +842,40 @@ def admin_dashboard(request):
     month_ago = today - timedelta(days=30)
     
     # Employee Statistics
-    total_employees = Employee.objects.count()
-    active_employees = Employee.objects.filter(user__is_active=True).count()
+    # total_employees = Employee.objects.count()
+    total_employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).count()
+    active_employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).filter(user__is_active=True).count()
     
     # Attendance Statistics
-    today_checkins = Attendance.objects.filter(date=today).count()
-    today_checkouts = Attendance.objects.filter(date=today, check_out_time__isnull=False).count()
+    # today_checkins = Attendance.objects.filter(date=today).count()
+    today_checkins = tenant_queryset(
+        request,
+        Attendance.objects.all()
+    ).filter(
+        date=today
+    ).count()
+    today_checkouts = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(
+    date=today, check_out_time__isnull=False).count()
     incomplete_today = today_checkins - today_checkouts
     
     # Weekly attendance trend
     week_attendance = []
     for i in range(7):
         date = today - timedelta(days=6-i)
-        count = Attendance.objects.filter(date=date).count()
+        count = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(
+    date=date).count()
         week_attendance.append({
             'date': date.strftime('%a'),
             'count': count
@@ -713,15 +917,22 @@ def admin_dashboard(request):
     recent_tickets = Ticket.objects.select_related('employee').order_by('-created_at')[:5]
     
     # Today's attendance
-    today_attendance = Attendance.objects.filter(
-        date=today
+    today_attendance = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(
+    date=today
     ).select_related('employee').order_by('-check_in_time')[:10]
     
     # Recent employees
     recent_employees = Employee.objects.order_by('-created_at')[:5]
 
     # Monthly statistics
-    month_checkins = Attendance.objects.filter(date__gte=month_ago).count()
+    month_checkins = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(
+    date__gte=month_ago).count()
     month_tickets = Ticket.objects.filter(created_at__gte=month_ago).count()
 
     # Attendance rate
@@ -1114,7 +1325,7 @@ def employee_breaks(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_breaks_dashboard(request):
     """Interactive dashboard for admins to monitor employee breaks."""
 
@@ -1142,7 +1353,11 @@ def admin_breaks_dashboard(request):
         start_date, end_date = end_date, start_date
         messages.info(request, 'Start date was after end date. Dates have been swapped for you.')
 
-    all_employees = Employee.objects.all().order_by('name')
+    # all_employees = Employee.objects.all().order_by('name')
+    all_employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('name')
     selected_employee = None
     if employee_id:
         selected_employee = get_object_or_404(Employee, pk=employee_id)
@@ -1424,7 +1639,7 @@ def upload_leave_receipt(request, leave_id):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["GET"])
 def leave_verification_documents(request, leave_id):
     """Return verification documents for a leave (admin use).
@@ -1468,7 +1683,7 @@ def leave_verification_documents(request, leave_id):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_leave_requests(request):
     """Admin view to manage employee leave requests.
     
@@ -1481,7 +1696,14 @@ def admin_leave_requests(request):
     requested_after = request.GET.get('requested_after')
     requested_before = request.GET.get('requested_before')
 
-    leave_qs = LeaveRequest.objects.select_related('employee', 'reviewed_by').prefetch_related('verification_documents').order_by('-created_at')
+    # leave_qs = LeaveRequest.objects.select_related('employee', 'reviewed_by').prefetch_related('verification_documents').order_by('-created_at')
+    
+    # --------------------------------------------------------- 
+    # # OFFICE-SCOPED LEAVE QUERYSET 
+    # # --------------------------------------------------------- 
+    # # All GET results, filters, summaries, and POST lookups 
+    # # must use this office-scoped queryset.
+    leave_qs = tenant_queryset( request, LeaveRequest.objects.select_related( 'employee', 'reviewed_by' ).prefetch_related( 'verification_documents' ) ).order_by( '-created_at' )
 
     # Show ALL leaves by default (pending, approved, rejected)
     # Only filter if admin explicitly selects a status
@@ -1514,7 +1736,8 @@ def admin_leave_requests(request):
         action = request.POST.get('action')
         admin_comment = (request.POST.get('admin_comment') or '').strip()
         leave_request = get_object_or_404(LeaveRequest, pk=leave_id)
-
+        leave_request = get_object_or_404( tenant_queryset( request, LeaveRequest.objects.select_related( 'employee', 'reviewed_by' ) ), pk=leave_id )
+        office = leave_request.employee.office
         if action == 'approve':
             leave_request.mark_approved(request.user, admin_comment)
 
@@ -1951,7 +2174,7 @@ def my_attendance_logs(request):
 
 # Employee CRUD Views
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(is_superadmin), name='dispatch')
+@method_decorator(user_passes_test(office_admin_required), name='dispatch')
 class EmployeeListView(ListView):
     """List all employees"""
     model = Employee
@@ -1968,6 +2191,10 @@ class EmployeeListView(ListView):
 
     def get_queryset(self):
         queryset = Employee.objects.all()
+        queryset = tenant_queryset(
+            self.request,
+            queryset
+        )
         search = self.request.GET.get('search')
         if search:
             queryset = queryset.filter(
@@ -1980,14 +2207,17 @@ class EmployeeListView(ListView):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def employee_live_search(request):
     """Return filtered employees for live search (AJAX only)."""
     if request.headers.get('x-requested-with') != 'XMLHttpRequest':
         return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
 
     query = request.GET.get('q', '').strip()
-    employees = Employee.objects.all()
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    )
 
     if query:
         employees = employees.filter(
@@ -2011,7 +2241,17 @@ def employee_live_search(request):
 
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(is_superadmin), name='dispatch')
+@method_decorator(user_passes_test(office_admin_required), name='dispatch')
+@method_decorator(
+    login_required,
+    name='dispatch'
+)
+@method_decorator(
+    user_passes_test(
+        is_office_admin
+    ),
+    name='dispatch'
+)
 class EmployeeCreateView(CreateView):
     """Create new employee"""
     model = Employee
@@ -2029,29 +2269,69 @@ class EmployeeCreateView(CreateView):
 
     def form_valid(self, form):
         password = form.cleaned_data.get('password')
+
+        office = get_request_office(
+            self.request
+        )
+
+        if (
+            not is_platform_admin(
+                self.request.user
+            )
+            and office is None
+        ):
+            form.add_error(
+                None,
+                'Your account is not linked to an approved office.'
+            )
+            return self.form_invalid(form)
+
+        password = form.cleaned_data.get(
+            'password'
+        )
+
         if not password or len(password) < 8:
-            form.add_error('password', 'Password is required (minimum 8 characters).')
+            form.add_error(
+                'password',
+                'Password is required (minimum 8 characters).'
+            )
             return self.form_invalid(form)
 
         try:
             with transaction.atomic():
+
                 user = User.objects.create_user(
-                    username=form.cleaned_data['email'],
-                    email=form.cleaned_data['email'],
-                    first_name=form.cleaned_data.get('full_name', ''),
+                    username=form.cleaned_data[
+                        'email'
+                    ],
+                    email=form.cleaned_data[
+                        'email'
+                    ],
+                    first_name=form.cleaned_data.get(
+                        'full_name',
+                        ''
+                    ),
                     password=password,
                     is_staff=True,
-                    is_active=True
+                    is_active=True,
                 )
 
-                employee = form.save(commit=False)
+                employee = form.save(
+                    commit=False
+                )
+
                 employee.user = user
+
+                # Office comes from middleware,
+                # not from the submitted form.
+                employee.office = office
+
                 employee.profile_picture = None
                 employee.face_registered = False
                 employee.face_encoding = None
                 employee.face_registered_at = None
-                employee.save()
 
+                employee.save()
                 login_url = self.request.build_absolute_uri(reverse('employees:login'))
                 try:
                     send_employee_onboarding_email(employee, password, login_url)
@@ -2138,13 +2418,18 @@ def send_leave_notification_email(leave_request: LeaveRequest, *, subject: str, 
 
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(is_superadmin), name='dispatch')
+@method_decorator(user_passes_test(office_admin_required), name='dispatch')
 class EmployeeUpdateView(UpdateView):
     """Update existing employee"""
     model = Employee
     form_class = EmployeeUpdateForm
     template_name = 'employees/employee_form.html'
 
+    def get_queryset(self):
+        return tenant_queryset(
+            self.request,
+            super().get_queryset()
+        )
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         context.update({
@@ -2163,7 +2448,7 @@ class EmployeeUpdateView(UpdateView):
 
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(is_superadmin), name='dispatch')
+@method_decorator(user_passes_test(office_admin_required), name='dispatch')
 class EmployeeDeleteView(DeleteView):
     """Delete employee"""
     model = Employee
@@ -2188,7 +2473,7 @@ class EmployeeDeleteView(DeleteView):
 
 # Employee Status Toggle View (for super-admins to activate/deactivate employees)
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def employee_toggle_status(request, pk):
     """Toggle employee active/inactive status (Super-admin only)"""
     employee = get_object_or_404(Employee, pk=pk)
@@ -2218,26 +2503,38 @@ def employee_toggle_status(request, pk):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def employee_detail(request, pk):
     """View employee details (Super-admin only)"""
     employee = get_object_or_404(Employee, pk=pk)
     from django.utils import timezone
 
     # Get attendance statistics
-    total_attendance = Attendance.objects.filter(employee=employee).count()
-    current_month_attendance = Attendance.objects.filter(
+    total_attendance = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(employee=employee).count()
+    current_month_attendance = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(
         employee=employee,
         date__year=timezone.now().year,
         date__month=timezone.now().month
     ).count()
 
     # Get recent attendance records
-    recent_attendance = Attendance.objects.filter(employee=employee).order_by('-date')[:10]
+    recent_attendance = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(employee=employee).order_by('-date')[:10]
 
     # Get attendance for current week
     week_start = timezone.now().date() - timezone.timedelta(days=7)
-    week_attendance = Attendance.objects.filter(
+    week_attendance = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(
         employee=employee,
         date__gte=week_start,
         date__lte=timezone.now().date()
@@ -2268,7 +2565,7 @@ def employee_detail(request, pk):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def employee_attendance_logs(request, pk):
     """Interactive activity log view for a specific employee (Super-admin only)."""
 
@@ -2471,7 +2768,7 @@ def update_asset_status(request, asset_id):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["POST"])
 def verify_asset_status(request, asset_id):
     """API endpoint for admin to manage asset lifecycle.
@@ -2492,8 +2789,49 @@ def verify_asset_status(request, asset_id):
         action = data.get('action', 'verify')  # 'verify', 'request_return', 'verify_returned'
         comment = data.get('comment', '').strip()
         
-        # Get asset assignment
-        asset = AssetAssignment.objects.get(id=asset_id)
+        # Start with the asset and its employee/office relationships.
+        asset_queryset = (
+            AssetAssignment.objects
+            .select_related(
+                "employee",
+                "employee__user",
+                "employee__office",
+            )
+        )
+
+        # Platform admin can access assets from every office.
+        # Office admin can access only assets assigned to employees
+        # in the admin's own office.
+        if not is_platform_admin(request.user):
+
+            office = get_request_office(request)
+
+            if office is None:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "No office is associated with this admin account.",
+                    },
+                    status=403,
+                )
+
+            asset_queryset = asset_queryset.filter(
+                employee__office=office
+            )
+
+        # Get the asset only after applying the correct tenant filter.
+        asset = asset_queryset.filter(
+            id=asset_id
+        ).first()
+
+        if asset is None:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Asset assignment was not found or you do not have permission to access it.",
+                },
+                status=404,
+            )
         
         # CRITICAL: Implement the 3-step asset lifecycle workflow
         if action == 'verify':
@@ -2546,17 +2884,30 @@ def verify_asset_status(request, asset_id):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def asset_management(request):
     """Admin interface to assign and track company assets."""
-    assignments = AssetAssignment.objects.select_related('employee').order_by('-assigned_date', '-created_at')
     employee_filter = request.GET.get('employee') or ''
-
+    # assignments = AssetAssignment.objects.select_related('employee').order_by('-assigned_date', '-created_at')
+    assignments = (
+    AssetAssignment.objects
+    .select_related(
+        "employee",
+        "employee__user",
+        "employee__office",
+    )
+    .filter(
+        employee__office=get_request_office(request)
+    ).order_by(
+        "-assigned_date",
+        "-created_at",
+    )
+)
     if employee_filter:
         assignments = assignments.filter(employee_id=employee_filter)
 
     if request.method == 'POST':
-        form = AssetAssignmentForm(request.POST)
+        form = AssetAssignmentForm(request.POST, request=request)
         if form.is_valid():
             form.save()
             messages.success(request, 'Asset assigned successfully.')
@@ -2567,15 +2918,23 @@ def asset_management(request):
         messages.error(request, 'Please correct the highlighted errors and try again.')
     else:
         form = AssetAssignmentForm(
+            request=request,
             initial={'employee': employee_filter} if employee_filter else None
         )
 
+    employees = (
+        tenant_queryset(
+            request,
+            Employee.objects.select_related("user")
+        )
+        .order_by("full_name")
+    )
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'assignment_form': form,
         'assignments': assignments,
-        'employees': Employee.objects.order_by('full_name'),
+        'employees': employees,
         'employee_filter': employee_filter,
     })
     return render(request, 'employees/assets/admin_assets.html', context)
@@ -2583,15 +2942,21 @@ def asset_management(request):
 
 # SuperAdmin Profile Views
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def superadmin_profile(request):
     """SuperAdmin profile view"""
     user = request.user
     from django.utils import timezone
 
     # Get statistics for superadmin dashboard
-    total_employees = Employee.objects.count()
-    today_checkins = Attendance.objects.filter(date=timezone.now().date()).count()
+    total_employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).count()
+    today_checkins = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(date=timezone.now().date()).count()
 
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -2604,7 +2969,7 @@ def superadmin_profile(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def superadmin_profile_edit(request):
     """SuperAdmin profile edit view"""
     user = request.user
@@ -2628,7 +2993,7 @@ def superadmin_profile_edit(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def superadmin_change_password(request):
     """Allow superadmin to update their own password"""
     context = TemplateLayout.init(request, context={})
@@ -2680,7 +3045,10 @@ def check_in(request):
     ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     # Get today's attendance record if it exists
-    today_attendance = Attendance.objects.filter(employee=employee, date=today).first()
+    today_attendance = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(employee=employee, date=today).first()
 
     # GUARD 1: Face must be registered
     if not employee.face_registered:
@@ -2912,7 +3280,7 @@ def check_in(request):
 
 # Attendance Views (for admin)
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(is_superadmin), name='dispatch')
+@method_decorator(user_passes_test(office_admin_required), name='dispatch')
 class AttendanceListView(ListView):
     """List all attendance records"""
     model = Attendance
@@ -2949,11 +3317,20 @@ class AttendanceListView(ListView):
 
         context.update({
             'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
-            'today_count': Attendance.objects.filter(date=today).count(),
-            'unique_employees': Attendance.objects.filter(
+            'today_count': tenant_queryset(
+    self.request,
+    Attendance.objects.all()
+).filter(date=today).count(),
+            'unique_employees': tenant_queryset(
+    self.request,
+    Attendance.objects.all()
+).filter(
                 date=today
             ).values('employee').distinct().count(),
-            'total_employees': Employee.objects.count(),
+            'total_employees': tenant_queryset(
+        self.request,
+        Employee.objects.all()
+    ).count(),
             'today': today,
             'total_working_days': metrics.get('total_working_days', 0),
             'present_days': metrics.get('present_days', 0),
@@ -2964,7 +3341,12 @@ class AttendanceListView(ListView):
         return context
 
     def get_queryset(self):
-        queryset = Attendance.objects.select_related('employee')
+        queryset = Attendance.objects.select_related( 'employee', 'employee__user', 'employee__office' ) # Platform admin can see all attendance. # Office admin can see attendance only for employees in their office. 
+        if not is_platform_admin(self.request.user): 
+            office = get_request_office(self.request) 
+        if office is None: 
+            return queryset.none() 
+        queryset = queryset.filter( employee__office=office )
         date_filter = self.request.GET.get('date')
         employee_filter = self.request.GET.get('employee')
 
@@ -2975,89 +3357,6 @@ class AttendanceListView(ListView):
 
         return queryset.order_by('-check_in_time')
 
-
-# @login_required
-# @user_passes_test(is_superadmin)
-# def admin_attendance_logs(request):
-#     """Admin view for all attendance activity logs including failed attempts"""
-#     from django.core.paginator import Paginator
-#     from employees.models import AttendanceLog
-    
-#     # Get filter parameters
-#     employee_id = request.GET.get('employee')
-#     action = request.GET.get('action')
-#     status = request.GET.get('status')
-#     date_from = request.GET.get('date_from')
-#     date_to = request.GET.get('date_to')
-    
-#     # Base queryset
-#     logs = AttendanceLog.objects.select_related('employee', 'attendance').order_by('-timestamp')
-    
-#     # Apply filters
-#     if employee_id:
-#         logs = logs.filter(employee_id=employee_id)
-    
-#     if action:
-#         logs = logs.filter(action=action)
-    
-#     if status == 'success':
-#         logs = logs.filter(success=True)
-#     elif status == 'failed':
-#         logs = logs.filter(success=False)
-    
-#     if date_from:
-#         from datetime import datetime
-#         date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
-#         logs = logs.filter(timestamp__date__gte=date_from_obj)
-    
-#     if date_to:
-#         from datetime import datetime
-#         date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
-#         logs = logs.filter(timestamp__date__lte=date_to_obj)
-    
-#     # Calculate statistics
-#     total_logs = logs.count()
-#     successful_logs = logs.filter(success=True).count()
-#     failed_logs = logs.filter(success=False).count()
-    
-#     # Count by action type
-#     check_in_attempts = logs.filter(action__contains='check_in').count()
-#     check_out_attempts = logs.filter(action__contains='check_out').count()
-    
-#     # Recent failed attempts (for security monitoring)
-#     recent_failures = AttendanceLog.objects.filter(
-#         success=False
-#     ).select_related('employee').order_by('-timestamp')[:10]
-    
-#     # Pagination
-#     paginator = Paginator(logs, 50)  # 50 logs per page
-#     page_number = request.GET.get('page')
-#     page_obj = paginator.get_page(page_number)
-    
-#     # Get all employees for filter dropdown
-#     employees = Employee.objects.all().order_by('name')
-    
-#     context = TemplateLayout.init(request, context={})
-#     context.update({
-#         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
-#         'page_obj': page_obj,
-#         'logs': page_obj.object_list,
-#         'total_logs': total_logs,
-#         'successful_logs': successful_logs,
-#         'failed_logs': failed_logs,
-#         'check_in_attempts': check_in_attempts,
-#         'check_out_attempts': check_out_attempts,
-#         'recent_failures': recent_failures,
-#         'employees': employees,
-#         'selected_employee': employee_id,
-#         'selected_action': action,
-#         'selected_status': status,
-#         'selected_date_from': date_from,
-#         'selected_date_to': date_to,
-#         'action_choices': AttendanceLog.ACTION_CHOICES,
-#         'current_date': timezone.now().date(),
-#     })
-#     return render(request, 'employees/admin_attendance_logs.html', context)
 
 from datetime import datetime
 
@@ -3077,7 +3376,17 @@ def _get_filtered_attendance_logs(request):
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
 
-    logs = AttendanceLog.objects.select_related('employee', 'attendance').order_by('-timestamp')
+    logs = AttendanceLog.objects.select_related('employee', 'attendance', 'employee__office').order_by('-timestamp')
+
+    # Platform admin can see logs from all companies.
+    # Office admin can see logs only from their own company/office.
+    if not is_platform_admin(request.user):
+        office = get_request_office(request)
+
+        if office is None:
+            logs = logs.none()
+        else:
+            logs = logs.filter(employee__office=office)
 
     if employee_id:
         logs = logs.filter(employee_id=employee_id)
@@ -3113,7 +3422,7 @@ def _get_filtered_attendance_logs(request):
 # ---------------------------------------------------------------------------
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_attendance_logs(request):
     """Admin view for all attendance activity logs including failed attempts"""
     from django.core.paginator import Paginator
@@ -3141,7 +3450,11 @@ def admin_attendance_logs(request):
     page_obj = paginator.get_page(page_number)
 
     # Get all employees for filter dropdown
-    employees = Employee.objects.all().order_by('name')
+    # employees = Employee.objects.all().order_by('name')
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('name')
 
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -3171,7 +3484,7 @@ def admin_attendance_logs(request):
 # ---------------------------------------------------------------------------
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_attendance_logs_excel(request):
     """Exports the currently filtered attendance activity logs as an Excel file.
 
@@ -3427,7 +3740,7 @@ def request_face_update(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["GET", "POST"])
 def admin_face_update_requests(request):
     status_filter = request.GET.get('status', '').strip()
@@ -4070,7 +4383,7 @@ def check_out(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_tasks(request):
     """Admin view to assign and monitor employee tasks."""
 
@@ -4161,7 +4474,7 @@ def admin_tasks(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_task_detail(request, pk):
     """Detailed admin view for a single task with history."""
 
@@ -4391,7 +4704,7 @@ def add_ticket_comment(request, pk):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_tickets(request):
     """Admin view for all tickets"""
     from employees.models import Ticket
@@ -4429,7 +4742,11 @@ def admin_tickets(request):
     page_obj = paginator.get_page(page_number)
     
     # Get all employees for filter
-    employees = Employee.objects.all().order_by('name')
+    # employees = Employee.objects.all().order_by('name')
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('name')
     
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -4454,7 +4771,7 @@ def admin_tickets(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_update_ticket(request, pk):
     """Admin update ticket status and add notes"""
     from employees.models import Ticket, TicketComment
@@ -4861,7 +5178,7 @@ def employee_attendance_calendar(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_attendance_calendar(request):
     """Admin view for attendance calendar with detailed insights"""
     from datetime import datetime, timedelta
@@ -4888,7 +5205,8 @@ def admin_attendance_calendar(request):
     last_day = datetime(year, month, monthrange(year, month)[1]).date()
     
     # Get all employees
-    all_employees = Employee.objects.all().order_by('name')
+    # all_employees = Employee.objects.all().order_by('name')
+    all_employees = tenant_queryset( request, Employee.objects.select_related( 'office', 'user' ) ).order_by( 'name', 'full_name' )
     total_employee_count = all_employees.count()
     
     # Filter by employee if specified
@@ -4902,13 +5220,20 @@ def admin_attendance_calendar(request):
     employee_count_for_day = 1 if employee_id else total_employee_count
     
     # Get all attendance records for this month
-    attendance_records = Attendance.objects.filter(
-        date__gte=first_day,
-        date__lte=last_day
-    ).select_related('employee')
-    
-    if employee_id:
-        attendance_records = attendance_records.filter(employee_id=employee_id)
+    attendance_records = Attendance.objects.select_related( 'employee', 'employee__office' ).filter( date__gte=first_day, date__lte=last_day )
+
+    if not is_platform_admin(request.user): 
+        office = get_request_office(request) 
+        if office is None: 
+            attendance_records = attendance_records.none() 
+        else: attendance_records = attendance_records.filter( employee__office=office )
+
+    # Apply selected employee after company filtering.
+    if selected_employee: 
+        attendance_records = attendance_records.filter( employee=selected_employee ) 
+        attendance_records = attendance_records.order_by( 'date', 'employee__name' )
+    # if employee_id:
+    #     attendance_records = attendance_records.filter(employee_id=employee_id)
     
     # Create attendance lookup by date and employee
     attendance_by_date = {}
@@ -5046,7 +5371,7 @@ def admin_attendance_calendar(request):
     return render(request, 'employees/attendance/admin_calendar.html', context)
 
 # @login_required
-# @user_passes_test(is_superadmin)
+# @user_passes_test(office_admin_required)
 # def attendance_excel_report(request):
 #     from datetime import datetime
 #     from calendar import monthrange
@@ -5118,7 +5443,7 @@ def admin_attendance_calendar(request):
 
 #     return response
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def attendance_excel_report(request):
     from datetime import datetime
     from calendar import monthrange
@@ -5134,7 +5459,11 @@ def attendance_excel_report(request):
     last_day = datetime(year, month, monthrange(year, month)[1]).date()
 
     # Employees
-    employees = Employee.objects.all().order_by("full_name")
+    # employees = Employee.objects.all().order_by("full_name")
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by("full_name")
 
     if employee_id:
         employees = employees.filter(id=employee_id)
@@ -5160,7 +5489,10 @@ def attendance_excel_report(request):
 
     for employee in employees:
 
-        attendance = Attendance.objects.filter(
+        attendance = tenant_queryset(
+    request,
+    Attendance.objects.all()
+).filter(
             employee=employee,
             date__range=[first_day, last_day]
         )
@@ -5732,7 +6064,7 @@ def company_rules(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_rules(request):
     """Admin CRUD for company rules"""
     rules = CompanyRule.objects.all().order_by('order', 'created_at').annotate(
@@ -5787,7 +6119,10 @@ def admin_rules(request):
             messages.success(request, 'Rule deleted successfully!')
             return redirect('employees:admin_rules')
     
-    total_employees = Employee.objects.count()
+    total_employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).count()
     acceptances = RulesAcceptance.objects.select_related('employee').order_by('-accepted_at')
     acknowledged_total = acceptances.count()
     pending_employees = Employee.objects.filter(rules_acceptance__isnull=True).order_by('full_name')
@@ -5852,7 +6187,7 @@ def my_loans(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_loans(request):
     """Admin dashboard for loan requests"""
     loans = LoanRequest.objects.all().order_by('-created_at')
@@ -5954,7 +6289,7 @@ def my_reimbursements(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_reimbursements(request):
     """Admin dashboard for reimbursement requests"""
     reimbursements = ReimbursementRequest.objects.all().order_by('-created_at')
@@ -6033,7 +6368,7 @@ def salary_slips(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_salary_slips(request):
     """Admin dashboard for salary slip management"""
     from employees.models import SalarySlip
@@ -6072,7 +6407,11 @@ def admin_salary_slips(request):
         
         return redirect('employees:admin_salary_slips')
     
-    employees = Employee.objects.all().order_by('full_name')
+    # employees = Employee.objects.all().order_by('full_name')
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('full_name')
     salary_slips = SalarySlip.objects.all().order_by('-month')
     
     context = TemplateLayout.init(request, context={})
@@ -6153,7 +6492,7 @@ def view_id_card(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_id_cards(request):
     """Admin dashboard for employee ID card management"""
     from employees.models import EmployeeIDCard
@@ -6192,7 +6531,11 @@ def admin_id_cards(request):
         
         return redirect('employees:admin_id_cards')
     
-    employees = Employee.objects.all().order_by('full_name')
+    # employees = Employee.objects.all().order_by('full_name')
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('full_name')
     id_cards = EmployeeIDCard.objects.all().order_by('-created_at')
     
     context = TemplateLayout.init(request, context={})
@@ -6205,10 +6548,14 @@ def admin_id_cards(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def dynamic_id_card_generator(request):
     """Dynamic ID card generator with real-time preview"""
-    employees = Employee.objects.all().order_by('full_name')
+    # employees = Employee.objects.all().order_by('full_name')
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('full_name')
     
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -6237,7 +6584,7 @@ def download_id_card(request, pk):
     return redirect('employees:view_id_card')
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def get_employee_data_api(request):
     """Returns employee details as JSON for the dynamic ID card preview."""
     from django.http import JsonResponse
@@ -6266,11 +6613,12 @@ def get_employee_data_api(request):
     })
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_shifts(request):
     """Admin view for managing shifts"""
     from .models import Shift
-    
+    # Current office from OfficeMiddleware. 
+    office = get_request_office( request )
     if request.method == 'POST':
         action = request.POST.get('action')
         # print(action, 'AAAAAAAAAAAAAAAAAAAAA')
@@ -6291,6 +6639,7 @@ def admin_shifts(request):
             
             try:
                 myshift = Shift.objects.create(
+                    office=office,
                     name=name,
                     shift_type=shift_type,
                     start_time=start_time,
@@ -6313,7 +6662,12 @@ def admin_shifts(request):
             is_active = request.POST.get('is_active') == 'on'
             
             try:
-                shift = Shift.objects.get(id=shift_id)
+                # shift = Shift.objects.get(id=shift_id)
+                shift = tenant_object_or_404(
+    request,
+    Shift,
+    id=shift_id
+)
                 shift.name = name
                 shift.shift_type = shift_type
                 shift.start_time = start_time
@@ -6331,7 +6685,12 @@ def admin_shifts(request):
         elif action == 'delete':
             shift_id = request.POST.get('shift_id')
             try:
-                shift = Shift.objects.get(id=shift_id)
+                # shift = Shift.objects.get(id=shift_id)
+                shift = tenant_object_or_404(
+    request,
+    Shift,
+    id=shift_id
+)
                 shift_name = shift.name
                 shift.delete()
                 messages.success(request, f'Shift "{shift_name}" deleted successfully.')
@@ -6343,9 +6702,9 @@ def admin_shifts(request):
             return redirect('employees:admin_shifts')
     
     # Get all shifts
-    shifts = Shift.objects.all().annotate(
+    shifts = ( tenant_queryset( request, Shift.objects.all() ).annotate(
         employee_count=Count('employees')
-    ).order_by('name')
+    ).order_by('name'))
     
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -6367,7 +6726,7 @@ from .shift_assignment_views import (
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_idcard_generator(request):
     """Admin view for generating employee ID cards.
 
@@ -6446,7 +6805,11 @@ def admin_idcard_generator(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
     # GET request – render generator UI
-    employees = Employee.objects.all().order_by('full_name')
+    # employees = Employee.objects.all().order_by('full_name')
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('full_name')
 
     context = TemplateLayout.init(request, context={})
     context.update(
@@ -6576,7 +6939,7 @@ def modern_dashboard(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_points_management(request):
     """Admin view for managing employee points"""
     from .models import EmployeePoints
@@ -6693,7 +7056,7 @@ def notification_center(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["GET"])
 def get_employee_data(request):
     """API endpoint to fetch employee data for ID card generation"""
@@ -6811,7 +7174,11 @@ def manual_attendance(request):
     from django.utils import timezone
     from datetime import datetime, time, timedelta
 
-    employees = Employee.objects.all().order_by("full_name")
+    # employees = Employee.objects.all().order_by("full_name")
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('full_name')
     message = None
 
     if request.method == "POST":
@@ -6822,12 +7189,23 @@ def manual_attendance(request):
         status = request.POST.get("final_status")
         comment = request.POST.get("comment")
 
-        employee = Employee.objects.get(id=employee_id)
+        # employee = Employee.objects.get(id=employee_id)
         date = datetime.strptime(date_str, "%Y-%m-%d").date()
 
+        employee = get_object_or_404(
+            tenant_queryset(
+                request,
+                Employee.objects.all()
+            ),
+            id=employee_id
+        )
+
+        office = employee.office
+
         attendance, created = Attendance.objects.get_or_create(
+            office=office,
             employee=employee,
-            date=date
+            date=date,
         )
 
         # -----------------------------
@@ -6959,7 +7337,11 @@ from decimal import Decimal, InvalidOperation
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def manual_leave_adjustment(request):
-    employees = Employee.objects.all()
+    # employees = Employee.objects.all()
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    )
     selected_employee = None
 
     context = TemplateLayout.init(request, context={})
@@ -7043,7 +7425,7 @@ def attendance_kiosk(request):
 # # employee Salary 
 
 # @login_required
-# @user_passes_test(is_superadmin)
+# @user_passes_test(office_admin_required)
 # def employee_salary(request):
 #     """Admin dashboard for employee salary profile management"""
 #     from employees.models import EmployeeSalary
@@ -7272,7 +7654,7 @@ def _collect_salary_form_fields(post_data):
 # ---------------------------------------------------------------------------
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def employee_salary(request):
     """Admin dashboard for employee salary history management"""
     from employees.models import EmployeeSalary
@@ -7319,7 +7701,11 @@ def employee_salary(request):
 
         return redirect('employees:employee_salary')
 
-    employees = Employee.objects.all().order_by('full_name')
+    # employees = Employee.objects.all().order_by('full_name')
+    employees = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('full_name')
 
     # ---- Filters: month, year, employee ----
     today = date_cls.today()
@@ -7392,7 +7778,7 @@ def employee_salary(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def employee_salary_excel_report(request):
     """Export monthly, attendance-adjusted salary report as Excel, using the
     salary entry that was EFFECTIVE for each employee during the selected
@@ -7413,7 +7799,11 @@ def employee_salary_excel_report(request):
 
     employee_id = request.GET.get('employee')
 
-    employees_qs = Employee.objects.all().order_by('full_name')
+    # employees_qs = Employee.objects.all().order_by('full_name')
+    employees_qs = tenant_queryset(
+        request,
+        Employee.objects.all()
+    ).order_by('full_name')
     if employee_id:
         employees_qs = employees_qs.filter(id=employee_id)
 
@@ -7488,7 +7878,7 @@ from .leave_accrual import initialize_balances_for_new_type, resync_balances_for
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 def admin_leave_types(request):
     """Admin page to create and list configurable leave types."""
 
@@ -7531,7 +7921,7 @@ def admin_leave_types(request):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["POST"])
 def admin_leave_type_update(request, pk):
     """Update an existing leave type, resyncing balances if accrual_amount changed."""
@@ -7560,7 +7950,7 @@ def admin_leave_type_update(request, pk):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["POST"])
 def admin_leave_type_toggle(request, pk):
     """Toggle active/inactive status — inactive types are hidden from employees."""
@@ -7573,7 +7963,7 @@ def admin_leave_type_toggle(request, pk):
 
 
 @login_required
-@user_passes_test(is_superadmin)
+@user_passes_test(office_admin_required)
 @require_http_methods(["POST"])
 def admin_leave_type_delete(request, pk):
     """Delete a leave type — blocked only if it has real credit/debit history
