@@ -408,7 +408,7 @@
         this.currentDate = new Date();
         this.holidays = {};
         // Check if user is admin
-        this.isAdmin = {{ user.is_superuser|lower }} || {{ user.is_staff|lower }};
+        this.isAdmin = {{ is_office_admin|yesno:"true,false" }};
         this.init();
       }
 
@@ -642,7 +642,7 @@
     // Holiday modal functions (global scope for onclick handlers)
     window.saveHoliday = async function(dateStr, holidayId) {
       // SECURITY: Check admin permission
-      const isAdmin = {{ user.is_superuser|lower }} || {{ user.is_staff|lower }};
+      const isAdmin = {{ is_office_admin|yesno:"true,false" }};
       if (!isAdmin) {
         alert('You do not have permission to manage holidays.');
         return;
@@ -689,7 +689,7 @@
     
     window.deleteHoliday = async function(holidayId) {
       // SECURITY: Check admin permission
-      const isAdmin = {{ user.is_superuser|lower }} || {{ user.is_staff|lower }};
+      const isAdmin = {{ is_office_admin|yesno:"true,false" }};
       if (!isAdmin) {
         alert('You do not have permission to manage holidays.');
         return;

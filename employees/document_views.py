@@ -16,7 +16,7 @@ import logging
 from datetime import datetime
 
 from .models import Employee, EmployeeDocument
-
+from .permissions import is_office_admin
 logger = logging.getLogger(__name__)
 
 # Allowed file extensions
@@ -152,7 +152,7 @@ def get_employee_documents(request, employee_id=None):
             employee = request.user.employee_profile
         else:
             # Admin can view any employee's documents
-            if not request.user.is_superuser:
+            if not is_office_admin(request.user):
                 return JsonResponse({
                     'success': False,
                     'error': 'Permission denied'
@@ -309,7 +309,7 @@ def delete_document(request, document_id):
         document = get_object_or_404(EmployeeDocument, id=document_id)
         
         # Check permission
-        if document.employee != request.user.employee_profile and not request.user.is_superuser:
+        if document.employee != request.user.employee_profile and not is_office_admin(request.user):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'
@@ -338,7 +338,7 @@ def delete_document(request, document_id):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser or u.is_staff)
+@user_passes_test(is_office_admin)
 @require_http_methods(["POST"])
 def request_document_resubmission(request, pk):
     """Allow admins to request that an employee re-upload a document."""
@@ -378,7 +378,7 @@ def view_document(request, document_id):
         document = get_object_or_404(EmployeeDocument, id=document_id)
         
         # Check permission - employee can only view their own, admin can view all
-        if document.employee != request.user.employee_profile and not request.user.is_superuser:
+        if document.employee != request.user.employee_profile and not is_office_admin(request.user):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'

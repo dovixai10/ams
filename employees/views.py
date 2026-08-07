@@ -137,22 +137,8 @@ logger = logging.getLogger(__name__)
 # office _registration 
 from .models import Office, OfficeAdmin
 from .forms import OfficeRegistrationForm
-from .permissions import office_admin_required, is_platform_admin, get_request_office
+from .permissions import office_admin_required, is_platform_admin, get_request_office, is_office_admin, is_employee
 
-
-# def is_platform_admin(user):
-#     """The real, global Django superuser — approves/rejects offices only."""
-#     return user.is_superuser
-
-# def get_request_office(request):
-#     """Office to scope queries to. Platform admin gets None (sees everything for support)."""
-#     if hasattr(request.user, 'office_admin_profile'):
-#         return request.user.office_admin_profile.office
-#     return None
-
-def is_office_admin(user):
-    """An HR user tied to a specific approved office."""
-    return hasattr(user, 'office_admin_profile')
 
 from django.core.exceptions import PermissionDenied
 
@@ -410,14 +396,7 @@ def humanize_seconds(total_seconds: int) -> str:
 #     """Check if user is a superadmin (only true superusers, not staff)"""
 #     return user.is_superuser
 
-def office_admin_required(user):
-    """Grants access to HR-facing views: either the real platform superuser
-    (who can see everything for support purposes) or an approved office's HR admin."""
-    if user.is_superuser:
-        return True
-    if hasattr(user, 'office_admin_profile'):
-        return user.office_admin_profile.office.status == Office.Status.APPROVED
-    return False
+
 
 def _parse_comment_date(value: str):
     date_obj = parse_date(value)
@@ -685,9 +664,9 @@ def delete_attendance_day_comment(request, comment_id):
     return JsonResponse({'deleted': True})
 
 
-def is_employee(user):
-    """Check if user is an employee"""
-    return hasattr(user, 'employee_profile')
+# def is_employee(user):
+#     """Check if user is an employee"""
+#     return hasattr(user, 'employee_profile')
 
 
 def _pending_leave_verifications_for_employee(employee):

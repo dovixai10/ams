@@ -17,7 +17,7 @@ import json
 from .models import Holiday
 from web_project import TemplateLayout
 from web_project.template_helpers.theme import TemplateHelper
-from .permissions import office_admin_required, is_platform_admin, get_request_office
+from .permissions import office_admin_required, is_platform_admin, get_request_office, is_office_admin
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ def holidays_calendar(request):
     context.update({
         "current_year": timezone.now().year,
         "layout_path": TemplateHelper.set_layout('layout_vertical.html', context),
+        'is_office_admin': is_office_admin(request.user),
     })
     return render(request, "employees/holidays_calendar.html", context)
 
@@ -121,7 +122,7 @@ def create_holiday(request):
     Admin only
     """
     try:
-        if not office_admin_required(request.user):   # was: office_admin_required(request.user)
+        if not is_office_admin(request.user):   # was: office_admin_required(request.user)
             return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
 
         office = get_request_office(request)
@@ -209,7 +210,7 @@ def update_holiday(request, holiday_id):
     Admin only
     """
     try:
-        if not office_admin_required(request.user):
+        if not is_office_admin(request.user):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'
@@ -297,7 +298,7 @@ def delete_holiday(request, holiday_id):
     Admin only
     """
     try:
-        if not office_admin_required(request.user):
+        if not is_office_admin(request.user):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'

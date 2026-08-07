@@ -2,7 +2,7 @@
 # from web_project.bootstrap import TemplateBootstrap
 from web_project.template_helpers.theme import TemplateHelper
 from django.conf import settings
-
+from employees.permissions import is_office_admin
 
 class TemplateLayout:
     # Initialize the bootstrap files and page layout
@@ -21,7 +21,7 @@ class TemplateLayout:
         if request is not None:
             user = getattr(request, "user", None)
             if getattr(user, "is_authenticated", False):
-                if getattr(user, "is_superuser", False):
+                if getattr(user, "is_superuser", False) or is_office_admin(user):
                     context.setdefault("is_navbar", False)
                     context.setdefault("navbar_hide_toggle", True)
                     context.setdefault("hide_mobile_nav", True)
