@@ -845,14 +845,27 @@ class LeaveRequestForm(forms.ModelForm):
     def __init__(self, *args, employee=None, **kwargs):
         self.employee = employee
         super().__init__(*args, **kwargs)
+        print("Employee:", employee)
+        print("Employee office:", employee.office_id)
+
+        qs = LeaveType.objects.filter(
+            office=employee.office,
+            is_active=True
+        ).order_by("display_order", "name")
+
+        print("Filtered leave types:")
+        for lt in qs:
+            print(lt.id, lt.name, lt.office_id)
+
+        self.fields["leave_type_ref"].queryset = qs
 
         if employee:
             applicable = [
-                lt for lt in LeaveType.objects.filter(is_active=True).order_by('display_order', 'name')
+                lt for lt in LeaveType.objects.filter(office=employee.office, is_active=True).order_by('display_order', 'name')
                 if lt.is_applicable_for(employee)
             ]
             applicable_ids = [lt.id for lt in applicable]
-            self.fields['leave_type_ref'].queryset = LeaveType.objects.filter(id__in=applicable_ids)
+            self.fields['leave_type_ref'].queryset = LeaveType.objects.filter(office=employee.office, id__in=applicable_ids)
 
             balances = {
                 b.leave_type_id: b.balance
@@ -1179,11 +1192,24 @@ class TaskForm(forms.ModelForm):
             'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
 
-    def __init__(self, *args, assigned_by=None, **kwargs):
-        self.assigned_by = assigned_by
+    def __init__(self, *args, assigned_by=None, request=None, **kwargs):
+        self.assigned_by = assigned_by 
+        self.request = request
+
         super().__init__(*args, **kwargs)
-        self.fields['assigned_to'].queryset = (
-            Employee.objects.select_related('user').order_by('full_name', 'email')
+
+        employees = Employee.objects.select_related("user")
+
+        if self.request:
+            employees = tenant_queryset(
+                self.request,
+                employees
+            )
+
+
+        self.fields["assigned_to"].queryset = employees.order_by(
+            "full_name",
+            "email",
         )
         self.fields['assigned_to'].label_from_instance = (
             lambda obj: f"{obj.full_name or obj.name} ({obj.email})"
@@ -1197,6 +1223,9 @@ class TaskForm(forms.ModelForm):
         task = super().save(commit=False)
         if self.assigned_by and not task.assigned_by:
             task.assigned_by = self.assigned_by
+
+        if not task.office and task.assigned_to:
+            task.office = task.assigned_to.office
         if commit:
             task.save()
             self.save_m2m()

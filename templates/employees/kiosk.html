@@ -75,7 +75,7 @@ Looking for face...
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const statusDiv = document.getElementById("status");
-
+const OFFICE_TOKEN = "{{ office.kiosk_token }}";
 navigator.mediaDevices.getUserMedia({
     video:{
         facingMode:"user"
@@ -115,7 +115,7 @@ async function captureAndSend(){
 
     try{
 
-        const response=await fetch("/mark-attendance/",{
+        const response=await fetch(`/mark-attendance/${OFFICE_TOKEN}/`,{
 
             method:"POST",
 

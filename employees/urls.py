@@ -9,7 +9,7 @@ urlpatterns = [
     path('', RedirectView.as_view(url='login/', permanent=False), name='home'),
 
     #open attendence
-    path("attendance-kiosk/", views.attendance_kiosk, name="attendance_kiosk"),
+    path("attendance-kiosk/<uuid:token>/", views.attendance_kiosk, name="attendance_kiosk"),
 
     # Authentication URLs
     path('login/', views.LoginView.as_view(), name='login'),
@@ -49,7 +49,7 @@ urlpatterns = [
     # then requests location and camera access and processes the attendance.
     # path('mark-attendance/', views.check_in, name='mark_attendance'),
     path(
-    "mark-attendance/",
+    "mark-attendance/<uuid:token>/",
     views.mark_attendance,
     name="mark_attendance",
 ),

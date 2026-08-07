@@ -62,23 +62,29 @@ def get_holidays(request):
                 }, status=400)
         
         # Get all holidays for the year
-        holidays = Holiday.objects.filter(
-            date__year=year
-        ).order_by('date').values(
-            'id', 'date', 'name', 'description'
-        )
         office = get_request_office(request)
-        if office:
-            holidays = holidays.filter(office=office)
-        holidays = holidays.order_by('date').values('id', 'date', 'name', 'description')
-  
-        
+
+        # holidays = Holiday.objects.filter(
+        #     office=office,
+        #     date__year=year
+        # ).order_by("date")
+        holidays = Holiday.objects.filter(
+            office=office,
+            date__year=year
+        ).order_by("date").values(
+            "id",
+            "date",
+            "name",
+            "description",
+            "type",
+        )
         holidays_list = [
             {
                 'id': h['id'],
                 'date': h['date'].isoformat(),
                 'name': h['name'],
-                'description': h['description'] or ''
+                'description': h['description'] or '',
+                "type": h["type"],
             }
             for h in holidays
         ]
@@ -209,7 +215,14 @@ def update_holiday(request, holiday_id):
                 'error': 'Permission denied'
             }, status=403)
         
-        holiday = get_object_or_404(Holiday, id=holiday_id)
+        # holiday = get_object_or_404(Holiday, id=holiday_id)
+        office = get_request_office(request)
+
+        holiday = get_object_or_404(
+            Holiday,
+            id=holiday_id,
+            office=office
+        )
         
         # Parse request data
         try:
@@ -228,7 +241,11 @@ def update_holiday(request, holiday_id):
                     }, status=400)
                 
                 # Check if new date already exists
-                if Holiday.objects.filter(date=new_date).exclude(id=holiday_id).exists():
+                # if Holiday.objects.filter(date=new_date).exclude(id=holiday_id).exists():
+                if Holiday.objects.filter(
+                    office=office,
+                    date=new_date
+                ).exclude(id=holiday_id).exists():
                     return JsonResponse({
                         'success': False,
                         'error': 'Holiday already exists for this date'
@@ -286,7 +303,14 @@ def delete_holiday(request, holiday_id):
                 'error': 'Permission denied'
             }, status=403)
         
-        holiday = get_object_or_404(Holiday, id=holiday_id)
+        # holiday = get_object_or_404(Holiday, id=holiday_id)
+        office = get_request_office(request)
+
+        holiday = get_object_or_404(
+            Holiday,
+            id=holiday_id,
+            office=office
+        )
         holiday_name = holiday.name
         holiday_date = holiday.date
         
@@ -338,7 +362,13 @@ def check_holiday(request):
                 'error': f'Date error: {str(e)}'
             }, status=400)
         
-        holiday = Holiday.objects.filter(date=check_date).first()
+        # holiday = Holiday.objects.filter(date=check_date).first()
+        office = get_request_office(request)
+
+        holiday = Holiday.objects.filter(
+            office=office,
+            date=check_date
+        ).first()
         
         if holiday:
             return JsonResponse({

@@ -22,7 +22,7 @@ def initialize_balances_for_new_type(leave_type: LeaveType, credited_by=None):
     if not leave_type.is_active:
         return 0
 
-    employees = Employee.objects.filter(user__is_active=True)
+    employees = Employee.objects.filter(user__is_active=True, office=leave_type.office)
     credited_count = 0
     today = date.today()
 
@@ -161,7 +161,7 @@ def get_employee_leave_type_balances(employee):
 
     This single function is your entire "automation" — no cron needed.
     """
-    leave_types = LeaveType.objects.filter(is_active=True).order_by('display_order', 'name')
+    leave_types = LeaveType.objects.filter(office=employee.office, is_active=True).order_by('display_order', 'name')
     result = []
     today = date.today()
 

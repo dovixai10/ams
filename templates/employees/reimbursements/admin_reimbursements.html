@@ -479,7 +479,6 @@ textarea.form-control {
                 {% endif %}
               </td>
               <td>
-                {% if user.is_superuser or user.is_staff %}
                   <div class="actions">
                     {% if reimbursement.status == 'pending' %}
                       <button class="btn-action btn-verify" onclick="verifyReimbursement('{{ reimbursement.id }}')">
@@ -504,9 +503,7 @@ textarea.form-control {
                       Details
                     </button> -->
                   </div>
-                {% else %}
-                  <span class="text-muted small">—</span>
-                {% endif %}
+              
               </td>
             </tr>
           {% endfor %}

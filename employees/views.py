@@ -445,19 +445,35 @@ def _serialize_comment(comment: AttendanceDayComment, current_user=None):
     }
 
 
-def _comment_queryset_for_user(user):
-    qs = AttendanceDayComment.objects.select_related('employee', 'created_by')
-    if is_employee(user):
-        return qs.filter(employee=user.employee_profile)
-    if office_admin_required(user):
+def _comment_queryset_for_user(request):
+    qs = tenant_queryset(
+        request,
+        AttendanceDayComment.objects.select_related(
+            "employee",
+            "created_by",
+        )
+    )
+
+    if is_employee(request.user):
+        return qs.filter(employee=request.user.employee_profile)
+
+    if office_admin_required(request.user):
         return qs
+
     return qs.none()
 
 
-def _build_comment_threads_for_admin(*, limit=10, employee_id=None, current_user=None):
+def _build_comment_threads_for_admin(request, *, limit=10, employee_id=None, current_user=None):
     """Return serialized recent attendance comment threads for admin dashboard usage."""
 
-    qs = AttendanceDayComment.objects.select_related('employee', 'created_by').order_by('-updated_at')
+    # qs = AttendanceDayComment.objects.select_related('employee', 'created_by').order_by('-updated_at')
+    qs = tenant_queryset(
+        request,
+        AttendanceDayComment.objects.select_related(
+            "employee",
+            "created_by",
+        )
+    ).order_by("-updated_at")
     if employee_id:
         qs = qs.filter(employee_id=employee_id)
 
@@ -532,7 +548,16 @@ def attendance_day_comments(request):
     except ValueError:
         return HttpResponseBadRequest('Invalid date parameter.')
 
-    queryset = AttendanceDayComment.objects.select_related('employee', 'created_by').filter(date=target_date)
+    # queryset = AttendanceDayComment.objects.select_related('employee', 'created_by').filter(date=target_date)
+    queryset = tenant_queryset(
+        request,
+        AttendanceDayComment.objects.select_related(
+            "employee",
+            "created_by",
+        )
+    ).filter(
+        date=target_date
+    )
 
     if employee_id:
         queryset = queryset.filter(employee_id=employee_id)
@@ -562,7 +587,14 @@ def create_attendance_day_comment(request):
     if not all([employee_id, date_str, comment_text]):
         return HttpResponseBadRequest('Missing required fields.')
 
-    employee = get_object_or_404(Employee, pk=employee_id)
+    # employee = get_object_or_404(Employee, pk=employee_id)
+    employee = get_object_or_404(
+        tenant_queryset(
+            request,
+            Employee.objects.all(),
+        ),
+        pk=employee_id,
+    )
 
     if not is_admin_user and employee != request.user.employee_profile:
         return HttpResponseBadRequest('Not allowed to create comment for this employee.')
@@ -578,6 +610,7 @@ def create_attendance_day_comment(request):
             date=target_date,
             is_admin_comment=is_admin_user,
             defaults={
+                "office": employee.office,
                 'comment': comment_text,
                 'created_by': request.user,
             }
@@ -613,6 +646,7 @@ def attendance_day_comment_threads(request):
             return HttpResponseBadRequest('Invalid employee parameter.')
 
     threads = _build_comment_threads_for_admin(
+        request,
         limit=limit,
         employee_id=employee_id,
         current_user=request.user,
@@ -631,7 +665,14 @@ def attendance_day_comment_threads(request):
 def delete_attendance_day_comment(request, comment_id):
     """Delete comment when user has permission."""
 
-    comment = get_object_or_404(AttendanceDayComment, pk=comment_id)
+    # comment = get_object_or_404(AttendanceDayComment, pk=comment_id)
+    comment = get_object_or_404(
+        tenant_queryset(
+            request,
+            AttendanceDayComment.objects.all(),
+        ),
+        pk=comment_id,
+    )
 
     if office_admin_required(request.user):
         pass
@@ -657,7 +698,7 @@ def _pending_leave_verifications_for_employee(employee):
         LeaveRequest.VerificationStatus.UNDER_REVIEW,
     ]
     leaves = (
-        LeaveRequest.objects.filter(employee=employee, verification_status__in=statuses)
+        LeaveRequest.objects.filter(office=employee.office, employee=employee, verification_status__in=statuses)
         .order_by('-created_at')
         .prefetch_related('verification_documents')
     )
@@ -737,7 +778,7 @@ class LoginView(TemplateView):
             return redirect(next_url)
 
         if is_platform_admin(user):
-            return redirect('employees:platform_office_approvals')
+            return redirect('employees:admin_dashboard')
         elif is_office_admin(user):
             return redirect('employees:admin_dashboard')
         elif is_employee(user):
@@ -851,20 +892,50 @@ def admin_dashboard(request):
         request,
         Employee.objects.all()
     ).filter(user__is_active=True).count()
-    
+
+    office = get_request_office(request)
+
+    print("Current Office:", office)
+    print("Office ID:", office.id if office else None)
+
+    today_records = Attendance.objects.filter(date=today)
+
+    for a in today_records:
+        print(
+            "Attendance:",
+            a.id,
+            "Employee:", a.employee.name,
+            "Attendance Office:", a.office_id,
+            "Employee Office:", a.employee.office_id,
+        )
+
+    print(
+    Attendance.objects.filter(
+            office=office,
+            date=today
+        ).query
+    )
+
+    print(
+        Attendance.objects.filter(
+            office=office,
+            date=today
+        ).count()
+    )
     # Attendance Statistics
     # today_checkins = Attendance.objects.filter(date=today).count()
     today_checkins = tenant_queryset(
         request,
         Attendance.objects.all()
-    ).filter(
-        date=today
+        ).filter(
+            date=today
     ).count()
+    
     today_checkouts = tenant_queryset(
-    request,
-    Attendance.objects.all()
-).filter(
-    date=today, check_out_time__isnull=False).count()
+        request,
+        Attendance.objects.all()
+    ).filter(date=today, check_out_time__isnull=False).count()
+
     incomplete_today = today_checkins - today_checkouts
     
     # Weekly attendance trend
@@ -884,48 +955,137 @@ def admin_dashboard(request):
     week_attendance_labels = [entry['date'] for entry in week_attendance]
     
     # Leave Statistics
-    pending_leave_requests = LeaveRequest.objects.filter(status=LeaveRequest.Status.PENDING).count()
-    total_leave_requests = LeaveRequest.objects.count()
+    # pending_leave_requests = LeaveRequest.objects.filter(status=LeaveRequest.Status.PENDING).count()
+    # total_leave_requests = LeaveRequest.objects.count()
+    # recent_leave_requests = (
+    #     LeaveRequest.objects
+    #     .select_related('employee')
+    #     .order_by('-created_at')[:5]
+    # )
+
+    leave_requests = tenant_queryset(
+        request,
+        LeaveRequest.objects.all()
+    )
+
+    pending_leave_requests = leave_requests.filter(
+        status=LeaveRequest.Status.PENDING
+    ).count()
+
+    total_leave_requests = leave_requests.count()
+
     recent_leave_requests = (
-        LeaveRequest.objects
-        .select_related('employee')
-        .order_by('-created_at')[:5]
+        leave_requests
+        .select_related("employee")
+        .order_by("-created_at")[:5]
     )
 
     # Ticket Statistics
-    open_tickets = Ticket.objects.filter(status='open').count()
-    urgent_tickets = Ticket.objects.filter(priority='urgent', status__in=['open', 'in_progress']).count()
-    resolved_today = Ticket.objects.filter(resolved_at__date=today).count()
+    # open_tickets = Ticket.objects.filter(status='open').count()
+    # urgent_tickets = Ticket.objects.filter(priority='urgent', status__in=['open', 'in_progress']).count()
+    # resolved_today = Ticket.objects.filter(resolved_at__date=today).count()
     
+    tickets = tenant_queryset(
+        request,
+        Ticket.objects.all()
+    )
+
+    open_tickets = tickets.filter(
+        status="open"
+    ).count()
+
+    urgent_tickets = tickets.filter(
+        priority="urgent",
+        status__in=["open", "in_progress"]
+    ).count()
+
+    resolved_today = tickets.filter(
+        resolved_at__date=today
+    ).count()
+
     # Password Reset Requests
-    pending_password_requests = PasswordResetRequest.objects.filter(status='pending').count()
-    recent_password_requests = PasswordResetRequest.objects.filter(
-        status='pending'
-    ).select_related('employee').order_by('-created_at')[:5]
+
+    # pending_password_requests = PasswordResetRequest.objects.filter(status='pending').count()
+    # recent_password_requests = PasswordResetRequest.objects.filter(
+    #     status='pending'
+    # ).select_related('employee').order_by('-created_at')[:5]
     
+    password_requests = tenant_queryset(
+        request,
+        PasswordResetRequest.objects.all()
+    )
+
+    pending_password_requests = password_requests.filter(
+        status="pending"
+    ).count()
+
+    recent_password_requests = (
+        password_requests
+        .filter(status="pending")
+        .select_related("employee")
+        .order_by("-created_at")[:5]
+    )
     # Recent Activity Logs
-    recent_failures = AttendanceLog.objects.filter(
-        success=False
-    ).select_related('employee').order_by('-timestamp')[:5]
+    # recent_failures = AttendanceLog.objects.filter(
+    #     success=False
+    # ).select_related('employee').order_by('-timestamp')[:5]
     
+    recent_failures = (
+        tenant_queryset(
+            request,
+            AttendanceLog.objects.all()
+        )
+        .filter(success=False)
+        .select_related("employee")
+        .order_by("-timestamp")[:5]
+    )
+
     # Top performers (most check-ins this month)
-    top_performers = Employee.objects.annotate(
-        checkin_count=Count('attendance_records', filter=Q(attendance_records__date__gte=month_ago))
-    ).order_by('-checkin_count')[:5]
+    # top_performers = Employee.objects.annotate(
+    #     checkin_count=Count('attendance_records', filter=Q(attendance_records__date__gte=month_ago))
+    # ).order_by('-checkin_count')[:5]
     
+    top_performers = (
+        tenant_queryset(
+            request,
+            Employee.objects.all()
+        )
+        .annotate(
+            checkin_count=Count(
+                "attendance_records",
+                filter=Q(attendance_records__date__gte=month_ago)
+            )
+        )
+        .order_by("-checkin_count")[:5]
+    )
     # Recent tickets
-    recent_tickets = Ticket.objects.select_related('employee').order_by('-created_at')[:5]
+    # recent_tickets = Ticket.objects.select_related('employee').order_by('-created_at')[:5]
+    recent_tickets = (
+        tenant_queryset(
+            request,
+            Ticket.objects.all()
+        )
+        .select_related("employee")
+        .order_by("-created_at")[:5]
+    )
     
     # Today's attendance
     today_attendance = tenant_queryset(
-    request,
-    Attendance.objects.all()
-).filter(
-    date=today
-    ).select_related('employee').order_by('-check_in_time')[:10]
-    
+        request,
+        Attendance.objects.all()
+    ).filter(
+        date=today
+        ).select_related('employee').order_by('-check_in_time')[:10]
+        
     # Recent employees
-    recent_employees = Employee.objects.order_by('-created_at')[:5]
+    # recent_employees = Employee.objects.order_by('-created_at')[:5]
+    recent_employees = (
+        tenant_queryset(
+            request,
+            Employee.objects.all()
+        )
+        .order_by("-created_at")[:5]
+    )
 
     # Monthly statistics
     month_checkins = tenant_queryset(
@@ -942,6 +1102,7 @@ def admin_dashboard(request):
     # Attendance day comments summary for dashboard chat
     comment_threads_limit = 10
     admin_comment_threads = _build_comment_threads_for_admin(
+        request,
         limit=comment_threads_limit,
         current_user=request.user,
     )
@@ -1489,12 +1650,17 @@ def admin_breaks_dashboard(request):
 def employee_leave_requests(request):
     employee = request.user.employee_profile
     leave_qs = LeaveRequest.objects.filter(employee=employee).order_by('-created_at')
+    # leave_qs = tenant_queryset(
+    #     request,
+    #     LeaveRequest.objects.all()
+    # ).filter(employee=employee).order_by('-created_at')
 
     if request.method == 'POST':
         form = LeaveRequestForm(request.POST, employee=employee)
         if form.is_valid():
             leave_request = form.save(commit=False)
             leave_request.employee = employee
+            leave_request.office = employee.office
             leave_request.status = LeaveRequest.Status.PENDING
             leave_request.save()
 
@@ -3044,12 +3210,13 @@ def check_in(request):
     today = timezone.now().date()
     ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
-    # Get today's attendance record if it exists
-    today_attendance = tenant_queryset(
-    request,
-    Attendance.objects.all()
-).filter(employee=employee, date=today).first()
-
+#     # Get today's attendance record if it exists
+#     today_attendance = tenant_queryset(
+    #     request,
+    #     Attendance.objects.all()
+    # ).filter(employee=employee, date=today).first()
+        # Get today's attendance record if it exists
+    today_attendance = Attendance.objects.filter(office=employee.office, employee=employee, date=today).first()
     # GUARD 1: Face must be registered
     if not employee.face_registered:
         face_register_url = f"{reverse('employees:face_register')}?next={reverse('employees:check_in')}"
@@ -3201,9 +3368,10 @@ def check_in(request):
 
             # SECURITY: All validations passed - create attendance record
             attendance, created = Attendance.objects.get_or_create(
+                office=employee.office,
                 employee=employee,
                 date=today,
-                defaults={'check_in_time': timezone.now()}
+                defaults={"office": employee.office, 'check_in_time': timezone.now()}
             )
             
             # Save photo and location
@@ -3215,6 +3383,7 @@ def check_in(request):
             # LOG: Successful check-in
             AttendanceLog.objects.create(
                 employee=employee,
+                office=employee.office,
                 action='check_in_success',
                 success=True,
                 confidence=result['confidence'],
@@ -3238,6 +3407,7 @@ def check_in(request):
         except Exception as e:
             AttendanceLog.objects.create(
                 employee=employee,
+                office=employee.office,
                 action='check_in_failed',
                 success=False,
                 failure_reason='other',
@@ -3725,7 +3895,7 @@ def request_face_update(request):
             return redirect('employees:request_face_update')
 
         reason = (request.POST.get('reason') or '').strip()
-        FaceUpdateRequest.objects.create(employee=employee, reason=reason)
+        FaceUpdateRequest.objects.create(office=employee.office, employee=employee, reason=reason)
         messages.success(request, 'Face update request submitted. An administrator will review it shortly.')
         return redirect('employees:employee_dashboard')
 
@@ -3748,12 +3918,24 @@ def admin_face_update_requests(request):
     requested_after = request.GET.get('requested_after')
     requested_before = request.GET.get('requested_before')
 
-    requests_qs = FaceUpdateRequest.objects.select_related('employee', 'reviewed_by').order_by('-requested_at')
+    # requests_qs = FaceUpdateRequest.objects.select_related('employee', 'reviewed_by').order_by('-requested_at')
+    requests_qs = tenant_queryset(
+        request,
+        FaceUpdateRequest.objects.select_related(
+            "employee",
+            "reviewed_by",
+        )
+    ).order_by("-requested_at")
     if status_filter in FaceUpdateRequest.Status.values:
         requests_qs = requests_qs.filter(status=status_filter)
     if employee_query:
+        # requests_qs = requests_qs.filter(
+        #     Q(employee__name__icontains=employee_query)
+        #     | Q(employee__email__icontains=employee_query)
+        # )
         requests_qs = requests_qs.filter(
-            Q(employee__name__icontains=employee_query)
+            Q(employee__full_name__icontains=employee_query)
+            | Q(employee__employee_code__icontains=employee_query)
             | Q(employee__email__icontains=employee_query)
         )
     if requested_after:
@@ -3763,7 +3945,10 @@ def admin_face_update_requests(request):
 
     requests_qs = requests_qs.select_related('employee', 'reviewed_by')
 
-    overall_summary = FaceUpdateRequest.objects.aggregate(
+    overall_summary = tenant_queryset(
+        request,
+        FaceUpdateRequest.objects.all()
+    ).aggregate(
         total=Count('id'),
         pending=Count('id', filter=Q(status=FaceUpdateRequest.Status.PENDING)),
         approved=Count('id', filter=Q(status=FaceUpdateRequest.Status.APPROVED)),
@@ -3777,7 +3962,14 @@ def admin_face_update_requests(request):
         req_id = request.POST.get('request_id')
         action = request.POST.get('action')
         admin_comment = (request.POST.get('admin_comment') or '').strip()
-        face_request = get_object_or_404(FaceUpdateRequest, pk=req_id)
+        # face_request = get_object_or_404(FaceUpdateRequest, pk=req_id)
+        face_request = get_object_or_404(
+            tenant_queryset(
+                request,
+                FaceUpdateRequest.objects.select_related("employee")
+            ),
+            pk=req_id,
+        )
 
         if action == 'approve':
             face_request.mark_approved(request.user, admin_comment)
@@ -3824,10 +4016,16 @@ def admin_face_update_requests(request):
 
 
 
-def mark_attendance(request):
+def mark_attendance(request, token):
     """
     View for marking attendance using face recognition
     """
+
+    office = get_object_or_404(
+        Office,
+        kiosk_token=token,
+        status=Office.Status.APPROVED,
+    )
     if request.method == 'POST' and 'image' in request.POST:
         try:
             # Get the base64 image data
@@ -3854,7 +4052,19 @@ def mark_attendance(request):
             unknown_encoding = face_recognition.face_encodings(rgb_img, face_locations)[0]
             
             # Get all employees with face encodings
-            employees = Employee.objects.filter(face_registered=True).exclude(face_encoding__isnull=True)
+            # employees = Employee.objects.filter(face_registered=True).exclude(face_encoding__isnull=True)
+            employees = Employee.objects.filter(
+                office=office,
+                face_registered=True,
+            ).exclude(
+                face_encoding__isnull=True
+            )
+            # employees = tenant_queryset(
+            #     request,
+            #     Employee.objects.filter(
+            #         face_registered=True
+            #     ).exclude(face_encoding__isnull=True)
+            # )
             
             # Compare with known faces
             for employee in employees:
@@ -3873,9 +4083,11 @@ def mark_attendance(request):
                     if result[0]:
                         # Face recognized, mark attendance
                         attendance, created = Attendance.objects.get_or_create(
+                            office=office,
                             employee=employee,
                             date=timezone.now().date(),
                             defaults={
+                                "office": office,
                                 'check_in_time': timezone.now(),
                                 'check_in_photo': save_attendance_image(img, f"checkin_{employee.id}")
                             }
@@ -3969,6 +4181,7 @@ def mark_attendance(request):
                             attendance.save()
 
                             AttendanceLog.objects.create(
+                                office=office,
                                 employee=employee,
                                 attendance=attendance,
                                 action="check_out_success",
@@ -3988,6 +4201,7 @@ def mark_attendance(request):
 
                         # ---- First capture of the day: this IS the check-in ----
                         AttendanceLog.objects.create(
+                            office=office,
                             employee=employee,
                             attendance=attendance,
                             action="check_in_success",
@@ -4053,12 +4267,13 @@ def check_out(request):
     ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     # Get today's attendance record
-    attendance = Attendance.objects.filter(employee=employee, date=today).first()
+    attendance = Attendance.objects.filter(office=employee.office, employee=employee, date=today).first()
 
     # Validation 1: Must be checked in first
     if not attendance:
         # Log failed attempt
         AttendanceLog.objects.create(
+            office=employee.office,
             employee=employee,
             action='check_out_failed',
             success=False,
@@ -4100,6 +4315,7 @@ def check_out(request):
             remaining_seconds = int(MIN_CHECKOUT_DELAY_SECONDS - seconds_since_check_in)
             remaining_minutes = max(1, remaining_seconds // 60)
             AttendanceLog.objects.create(
+                office=employee.office,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4129,6 +4345,7 @@ def check_out(request):
         
         if not user_latitude or not user_longitude:
             AttendanceLog.objects.create(
+                office=employee.office,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4147,6 +4364,7 @@ def check_out(request):
         is_valid_coords, coord_message = validate_coordinates(user_latitude, user_longitude)
         if not is_valid_coords:
             AttendanceLog.objects.create(
+                office=employee.office,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4169,6 +4387,7 @@ def check_out(request):
         
         if not is_within:
             AttendanceLog.objects.create(
+                office=employee.office,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4188,6 +4407,7 @@ def check_out(request):
         if not check_out_photo:
             # Log failed attempt
             AttendanceLog.objects.create(
+                office=employee.office,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4206,6 +4426,7 @@ def check_out(request):
         if not employee.face_registered:
             # Log failed attempt
             AttendanceLog.objects.create(
+                office=employee.office,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4229,6 +4450,7 @@ def check_out(request):
 
             if checkout_encoding is None:
                 AttendanceLog.objects.create(
+                    office=employee.office,
                     employee=employee,
                     action='check_out_failed',
                     success=False,
@@ -4245,6 +4467,7 @@ def check_out(request):
 
             if stored_encoding is None:
                 AttendanceLog.objects.create(
+                    office=employee.office,
                     employee=employee,
                     action='check_out_failed',
                     success=False,
@@ -4266,6 +4489,7 @@ def check_out(request):
 
             if not result['match']:
                 AttendanceLog.objects.create(
+                    office=employee.office,
                     employee=employee,
                     action='check_out_failed',
                     success=False,
@@ -4290,6 +4514,7 @@ def check_out(request):
             if not match_info or match_info['employee'].pk != employee.pk:
                 matched_employee = match_info['employee'].full_name if match_info else None
                 AttendanceLog.objects.create(
+                    office=employee.office,
                     employee=employee,
                     action='check_out_failed',
                     success=False,
@@ -4335,6 +4560,7 @@ def check_out(request):
             
             # Log successful check-out
             AttendanceLog.objects.create(
+                office=employee.office,
                 employee=employee,
                 action='check_out_success',
                 success=True,
@@ -4363,6 +4589,7 @@ def check_out(request):
         except Exception as e:
             # Log exception
             AttendanceLog.objects.create(
+                office=employee.office,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4387,7 +4614,16 @@ def check_out(request):
 def admin_tasks(request):
     """Admin view to assign and monitor employee tasks."""
 
-    tasks = Task.objects.select_related('assigned_to__user', 'assigned_by').prefetch_related('updates__updated_by').order_by('-created_at')
+    # tasks = Task.objects.select_related('assigned_to__user', 'assigned_by').prefetch_related('updates__updated_by').order_by('-created_at')
+    tasks = tenant_queryset(
+        request,
+        Task.objects.select_related(
+            "assigned_to__user",
+            "assigned_by",
+        ).prefetch_related(
+            "updates__updated_by"
+        )
+    ).order_by("-created_at")
 
     status_filter = request.GET.get('status')
     priority_filter = request.GET.get('priority')
@@ -4400,11 +4636,12 @@ def admin_tasks(request):
     if assignee_filter:
         tasks = tasks.filter(assigned_to_id=assignee_filter)
 
-    form = TaskForm(request.POST or None, assigned_by=request.user)
+    form = TaskForm(request.POST or None, assigned_by=request.user, request=request)
     if request.method == 'POST':
         if form.is_valid():
             task = form.save()
             TaskUpdate.objects.create(
+                office=task.office,
                 task=task,
                 updated_by=request.user,
                 previous_status=None,
@@ -4416,7 +4653,14 @@ def admin_tasks(request):
         else:
             messages.error(request, 'Please correct the errors before assigning the task.')
 
-    employees = Employee.objects.select_related('user').order_by('full_name', 'email')
+    # employees = Employee.objects.select_related('user').order_by('full_name', 'email')
+    employees = tenant_queryset(
+        request,
+        Employee.objects.select_related("user")
+    ).order_by(
+        "full_name",
+        "email",
+    )
     task_list = list(tasks)
 
     status_styles = {
@@ -4478,12 +4722,24 @@ def admin_tasks(request):
 def admin_task_detail(request, pk):
     """Detailed admin view for a single task with history."""
 
+    # task = get_object_or_404(
+    #     Task.objects.select_related('assigned_to__user', 'assigned_by').prefetch_related('updates__updated_by'),
+    #     pk=pk,
+    # )
     task = get_object_or_404(
-        Task.objects.select_related('assigned_to__user', 'assigned_by').prefetch_related('updates__updated_by'),
+        tenant_queryset(
+            request,
+            Task.objects.select_related(
+                "assigned_to__user",
+                "assigned_by",
+            ).prefetch_related(
+                "updates__updated_by"
+            ),
+        ),
         pk=pk,
     )
 
-    form = TaskForm(request.POST or None, instance=task, assigned_by=task.assigned_by or request.user)
+    form = TaskForm(request.POST or None, instance=task, assigned_by=task.assigned_by or request.user, request=request,)
     update_form = TaskUpdateForm(task=task)
     task_updates = list(task.updates.select_related('updated_by').order_by('-created_at'))
 
@@ -4511,7 +4767,14 @@ def admin_task_detail(request, pk):
 def update_task_status(request, pk):
     """Handle status updates from employees or admins."""
 
-    task = get_object_or_404(Task.objects.select_related('assigned_to__user'), pk=pk)
+    # task = get_object_or_404(Task.objects.select_related('assigned_to__user'), pk=pk)
+    task = get_object_or_404(
+        tenant_queryset(
+            request,
+            Task.objects.select_related("assigned_to__user"),
+        ),
+        pk=pk,
+    )
 
     is_admin = request.user.is_superuser
     is_assigned_employee = hasattr(request.user, 'employee_profile') and task.assigned_to == request.user.employee_profile
@@ -4546,7 +4809,20 @@ def employee_tasks(request):
     """Employee view to track assigned tasks and post updates."""
 
     employee = request.user.employee_profile
-    tasks = Task.objects.filter(assigned_to=employee).select_related('assigned_by').prefetch_related('updates__updated_by').order_by('-status_updated_at', '-created_at')
+    # tasks = Task.objects.filter(assigned_to=employee).select_related('assigned_by').prefetch_related('updates__updated_by').order_by('-status_updated_at', '-created_at')
+    tasks = tenant_queryset(
+        request,
+        Task.objects.filter(
+            assigned_to=employee
+        ).select_related(
+            "assigned_by"
+        ).prefetch_related(
+            "updates__updated_by"
+        )
+    ).order_by(
+        "-status_updated_at",
+        "-created_at",
+    )
 
     task_forms = [(task, TaskUpdateForm(task=task)) for task in tasks]
 
@@ -4603,6 +4879,7 @@ def support_tickets(request):
             messages.error(request, 'Subject and description are required.')
         else:
             ticket = Ticket.objects.create(
+                office=employee.office,
                 employee=employee,
                 subject=subject,
                 description=description,
@@ -4613,7 +4890,11 @@ def support_tickets(request):
             return redirect('employees:support_tickets')
     
     # Get all tickets for history
-    tickets = Ticket.objects.filter(employee=employee).order_by('-created_at')
+    # tickets = Ticket.objects.filter(employee=employee).order_by('-created_at')
+    tickets = tenant_queryset(
+        request,
+        Ticket.objects.filter(employee=employee)
+    ).order_by('-created_at')
     
     # Statistics
     total_tickets = tickets.count()
@@ -4657,8 +4938,22 @@ def ticket_detail(request, pk):
     from employees.models import Ticket, TicketComment
     
     employee = request.user.employee_profile
-    ticket = get_object_or_404(Ticket, pk=pk, employee=employee)
-    comments = ticket.comments.filter(is_internal=False).order_by('created_at')
+    # ticket = get_object_or_404(Ticket, pk=pk, employee=employee)
+    ticket = get_object_or_404(
+        tenant_queryset(
+            request,
+            Ticket.objects
+        ),
+        pk=pk,
+        employee=employee,
+    )
+    # comments = ticket.comments.filter(is_internal=False).order_by('created_at')
+    comments = tenant_queryset(
+        request,
+        ticket.comments.filter(
+            is_internal=False
+        )
+    ).order_by("created_at")
     
     # CRITICAL FIX: Check if ticket is resolved
     # If resolved, disable comments for employee
@@ -4684,13 +4979,22 @@ def add_ticket_comment(request, pk):
     from employees.models import Ticket, TicketComment
     
     employee = request.user.employee_profile
-    ticket = get_object_or_404(Ticket, pk=pk, employee=employee)
+    # ticket = get_object_or_404(Ticket, pk=pk, employee=employee)
+    ticket = get_object_or_404(
+        tenant_queryset(
+            request,
+            Ticket.objects
+        ),
+        pk=pk,
+        employee=employee,
+    )
     
     if request.method == 'POST':
         comment_text = request.POST.get('comment')
         
         if comment_text:
             TicketComment.objects.create(
+                office=ticket.office,
                 ticket=ticket,
                 user=request.user,
                 comment=comment_text,
@@ -4717,7 +5021,14 @@ def admin_tickets(request):
     category = request.GET.get('category')
     
     # Base queryset
-    tickets = Ticket.objects.select_related('employee', 'resolved_by').order_by('-created_at')
+    # tickets = Ticket.objects.select_related('employee', 'resolved_by').order_by('-created_at')
+    tickets = tenant_queryset(
+        request,
+        Ticket.objects.select_related(
+            "employee",
+            "resolved_by",
+        )
+    ).order_by("-created_at")
     
     # Apply filters
     if employee_id:
@@ -4730,11 +5041,34 @@ def admin_tickets(request):
         tickets = tickets.filter(category=category)
     
     # Statistics
-    total_tickets = Ticket.objects.count()
-    open_tickets = Ticket.objects.filter(status='open').count()
-    in_progress_tickets = Ticket.objects.filter(status='in_progress').count()
-    resolved_tickets = Ticket.objects.filter(status='resolved').count()
-    urgent_tickets = Ticket.objects.filter(priority='urgent', status__in=['open', 'in_progress']).count()
+    # total_tickets = Ticket.objects.count()
+    # open_tickets = Ticket.objects.filter(status='open').count()
+    # in_progress_tickets = Ticket.objects.filter(status='in_progress').count()
+    # resolved_tickets = Ticket.objects.filter(status='resolved').count()
+    # urgent_tickets = Ticket.objects.filter(priority='urgent', status__in=['open', 'in_progress']).count()
+    ticket_stats = tenant_queryset(
+        request,
+        Ticket.objects.all()
+    )
+
+    total_tickets = ticket_stats.count()
+
+    open_tickets = ticket_stats.filter(
+        status="open"
+    ).count()
+
+    in_progress_tickets = ticket_stats.filter(
+        status="in_progress"
+    ).count()
+
+    resolved_tickets = ticket_stats.filter(
+        status="resolved"
+    ).count()
+
+    urgent_tickets = ticket_stats.filter(
+        priority="urgent",
+        status__in=["open", "in_progress"],
+    ).count()
     
     # Pagination
     paginator = Paginator(tickets, 20)
@@ -4776,7 +5110,14 @@ def admin_update_ticket(request, pk):
     """Admin update ticket status and add notes"""
     from employees.models import Ticket, TicketComment
     
-    ticket = get_object_or_404(Ticket, pk=pk)
+    # ticket = get_object_or_404(Ticket, pk=pk)
+    ticket = get_object_or_404(
+        tenant_queryset(
+            request,
+            Ticket.objects
+        ),
+        pk=pk,
+    )
     
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -4806,6 +5147,7 @@ def admin_update_ticket(request, pk):
                     status_comment += f" | Priority updated to '{dict(Ticket.PRIORITY_CHOICES)[new_priority]}'"
                 
                 TicketComment.objects.create(
+                    office=ticket.office,
                     ticket=ticket,
                     user=request.user,
                     comment=status_comment,
@@ -4820,6 +5162,7 @@ def admin_update_ticket(request, pk):
             
             if comment_text:
                 TicketComment.objects.create(
+                    office=ticket.office,
                     ticket=ticket,
                     user=request.user,
                     comment=comment_text,
@@ -5866,22 +6209,26 @@ def attendance_details_api(request, date):
         # Get comments for this date
         from .models import AttendanceDayComment
         comments_qs = AttendanceDayComment.objects.filter(
+            office=employee.office,
             employee=employee,
             date=selected_date
         ).order_by('-created_at')
         
-        comments = []
-        for c in comments_qs:
-            comments.append({
-                'id': c.pk,
-                'comment': c.comment,
-                'created_by': c.created_by.get_username() if c.created_by else 'system',
-                'created_at': timezone.localtime(c.created_at).isoformat(),
-                'updated_at': timezone.localtime(c.updated_at).isoformat(),
-                'is_admin_comment': c.is_admin_comment,
-                'is_mine': c.created_by == request.user if c.created_by else False,
-            })
-        
+        # comments = []
+        # for c in comments_qs:
+        #     comments.append({
+        #         'id': c.pk,
+        #         'comment': c.comment,
+        #         'created_by': c.created_by.get_username() if c.created_by else 'system',
+        #         'created_at': timezone.localtime(c.created_at).isoformat(),
+        #         'updated_at': timezone.localtime(c.updated_at).isoformat(),
+        #         'is_admin_comment': c.is_admin_comment,
+        #         'is_mine': c.created_by == request.user if c.created_by else False,
+        #     })
+        comments = [
+            _serialize_comment(comment, request.user)
+            for comment in comments_qs
+        ]
         # Format weekday
         weekday = selected_date.strftime('%A, %B %d, %Y')
         
@@ -6017,10 +6364,24 @@ def admin_attendance_detail(request, attendance_id):
 def company_rules(request):
     """Employee view for company rules and regulations"""
     employee = request.user.employee_profile
-    rules = CompanyRule.objects.filter(is_active=True).order_by('order', 'created_at')
+    # rules = CompanyRule.objects.filter(is_active=True).order_by('order', 'created_at')
+    rules = tenant_queryset(
+        request,
+        CompanyRule.objects.filter(is_active=True)
+    ).order_by('order', 'created_at')
     rules_version = determine_rules_version()
+    # acknowledged_ids = set(
+    #     RuleAcknowledgement.objects.filter(employee=employee, rule__in=rules).values_list('rule_id', flat=True)
+    # )
+
     acknowledged_ids = set(
-        RuleAcknowledgement.objects.filter(employee=employee, rule__in=rules).values_list('rule_id', flat=True)
+        tenant_queryset(
+            request,
+            RuleAcknowledgement.objects.filter(
+                employee=employee,
+                rule__in=rules
+            )
+        ).values_list('rule_id', flat=True)
     )
     acceptance = getattr(employee, 'rules_acceptance', None)
     acceptance_valid = acceptance and acceptance.version == rules_version
@@ -6041,9 +6402,17 @@ def company_rules(request):
         else:
             with transaction.atomic():
                 for rule in rules:
-                    RuleAcknowledgement.objects.get_or_create(employee=employee, rule=rule)
+                    # RuleAcknowledgement.objects.get_or_create(employee=employee, rule=rule)
+                    RuleAcknowledgement.objects.get_or_create(
+                        employee=employee,
+                        rule=rule,
+                        defaults={
+                            "office": employee.office,
+                        }
+                    )
                 RulesAcceptance.objects.update_or_create(
                     employee=employee,
+                    office=employee.office,
                     defaults={'version': rules_version, 'accepted_at': timezone.now()},
                 )
             messages.success(request, 'Thanks! Your acknowledgement has been recorded.')
@@ -6067,10 +6436,19 @@ def company_rules(request):
 @user_passes_test(office_admin_required)
 def admin_rules(request):
     """Admin CRUD for company rules"""
-    rules = CompanyRule.objects.all().order_by('order', 'created_at').annotate(
-        ack_total=Count('acknowledgements', distinct=True)
-    )
+    # rules = CompanyRule.objects.all().order_by('order', 'created_at').annotate(
+    #     ack_total=Count('acknowledgements', distinct=True)
+    # )
     
+    rules = tenant_queryset(
+        request,
+        CompanyRule.objects.all()
+    ).order_by(
+        "order",
+        "created_at"
+    ).annotate(
+        ack_total=Count("acknowledgements", distinct=True)
+    )
     if request.method == 'POST':
         action = request.POST.get('action')
         
@@ -6082,19 +6460,29 @@ def admin_rules(request):
                     if point:
                         points.append(point)
             
+            office = get_request_office(request)
+
             rule = CompanyRule.objects.create(
-                title=request.POST.get('title'),
-                description=request.POST.get('description'),
+                office=office,
+                title=request.POST.get("title"),
+                description=request.POST.get("description"),
                 points=points,
-                order=int(request.POST.get('order', 0)),
-                created_by=request.user
+                order=int(request.POST.get("order", 0)),
+                created_by=request.user,
             )
             messages.success(request, 'Rule created successfully!')
             return redirect('employees:admin_rules')
         
         elif action == 'update':
             rule_id = request.POST.get('rule_id')
-            rule = get_object_or_404(CompanyRule, id=rule_id)
+            # rule = get_object_or_404(CompanyRule, id=rule_id)
+            office = get_request_office(request)
+
+            rule = get_object_or_404(
+                CompanyRule,
+                id=rule_id,
+                office=office
+            )
             rule.title = request.POST.get('title')
             rule.description = request.POST.get('description')
             
@@ -6114,7 +6502,14 @@ def admin_rules(request):
         
         elif action == 'delete':
             rule_id = request.POST.get('rule_id')
-            rule = get_object_or_404(CompanyRule, id=rule_id)
+            # rule = get_object_or_404(CompanyRule, id=rule_id)
+            office = get_request_office(request)
+
+            rule = get_object_or_404(
+                CompanyRule,
+                id=rule_id,
+                office=office
+            )
             rule.delete()
             messages.success(request, 'Rule deleted successfully!')
             return redirect('employees:admin_rules')
@@ -6123,9 +6518,19 @@ def admin_rules(request):
         request,
         Employee.objects.all()
     ).count()
-    acceptances = RulesAcceptance.objects.select_related('employee').order_by('-accepted_at')
+    # acceptances = RulesAcceptance.objects.select_related('employee').order_by('-accepted_at')
+    acceptances = tenant_queryset(
+        request,
+        RulesAcceptance.objects.select_related("employee")
+    ).order_by("-accepted_at")
     acknowledged_total = acceptances.count()
-    pending_employees = Employee.objects.filter(rules_acceptance__isnull=True).order_by('full_name')
+    # pending_employees = Employee.objects.filter(rules_acceptance__isnull=True).order_by('full_name')
+    pending_employees = tenant_queryset(
+        request,
+        Employee.objects.filter(
+            rules_acceptance__isnull=True
+        )
+    ).order_by("full_name")
     
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -6151,8 +6556,21 @@ def admin_rules(request):
 @user_passes_test(is_employee)
 def loan_request(request):
     """Employee loan request form"""
-    employee = get_object_or_404(Employee, user=request.user)
-    loans = LoanRequest.objects.filter(employee=employee).order_by('-created_at')
+    # employee = get_object_or_404(Employee, user=request.user)
+    # loans = LoanRequest.objects.filter(employee=employee).order_by('-created_at')
+
+    employee = get_object_or_404(
+        tenant_queryset(
+            request,
+            Employee.objects.all()
+        ),
+        user=request.user,
+    )
+
+    loans = tenant_queryset(
+        request,
+        LoanRequest.objects.filter(employee=employee)
+    ).order_by("-created_at")
     active_tab = request.GET.get('tab', 'request')
     
     if request.method == 'POST':
@@ -6160,6 +6578,7 @@ def loan_request(request):
         if form.is_valid():
             loan = form.save(commit=False)
             loan.employee = employee
+            loan.office = employee.office
             loan.save()
             messages.success(request, 'Loan request submitted successfully!')
             return redirect(f"{reverse('employees:loan_request')}?tab=history")
@@ -6190,12 +6609,26 @@ def my_loans(request):
 @user_passes_test(office_admin_required)
 def admin_loans(request):
     """Admin dashboard for loan requests"""
-    loans = LoanRequest.objects.all().order_by('-created_at')
+    # loans = LoanRequest.objects.all().order_by('-created_at')
+    loans = tenant_queryset(
+        request,
+        LoanRequest.objects.select_related(
+            "employee",
+            "reviewed_by",
+        )
+    ).order_by("-created_at")
     
     if request.method == 'POST':
         loan_id = request.POST.get('loan_id')
         action = request.POST.get('action')
-        loan = get_object_or_404(LoanRequest, id=loan_id)
+        # loan = get_object_or_404(LoanRequest, id=loan_id)
+        loan = get_object_or_404(
+            tenant_queryset(
+                request,
+                LoanRequest.objects.select_related("employee")
+            ),
+            id=loan_id,
+        )
         
         if action == 'approve':
             loan.status = LoanRequest.Status.APPROVED
@@ -6242,8 +6675,21 @@ def admin_loans(request):
 @user_passes_test(is_employee)
 def reimbursement_request(request):
     """Employee reimbursement request form"""
-    employee = get_object_or_404(Employee, user=request.user)
-    reimbursements = ReimbursementRequest.objects.filter(employee=employee).order_by('-created_at')
+    # employee = get_object_or_404(Employee, user=request.user)
+    # reimbursements = ReimbursementRequest.objects.filter(employee=employee).order_by('-created_at')
+
+    employee = get_object_or_404(
+        tenant_queryset(
+            request,
+            Employee.objects.all(),
+        ),
+        user=request.user,
+    )
+
+    reimbursements = tenant_queryset(
+        request,
+        ReimbursementRequest.objects.filter(employee=employee),
+    ).order_by("-created_at")
     active_tab = request.GET.get('tab', 'request')
     
     if request.method == 'POST':
@@ -6251,6 +6697,7 @@ def reimbursement_request(request):
         if form.is_valid():
             reimbursement = form.save(commit=False)
             reimbursement.employee = employee
+            reimbursement.office = employee.office
             reimbursement.upi_id = form.cleaned_data.get('upi_id') or employee.upi_id
             reimbursement.save()
 
@@ -6292,12 +6739,27 @@ def my_reimbursements(request):
 @user_passes_test(office_admin_required)
 def admin_reimbursements(request):
     """Admin dashboard for reimbursement requests"""
-    reimbursements = ReimbursementRequest.objects.all().order_by('-created_at')
+    # reimbursements = ReimbursementRequest.objects.all().order_by('-created_at')
+    reimbursements = tenant_queryset(
+        request,
+        ReimbursementRequest.objects.select_related(
+            "employee",
+            "verified_by",
+            "paid_by",
+        ),
+    ).order_by("-created_at")
     
     if request.method == 'POST':
         reimbursement_id = request.POST.get('reimbursement_id')
         action = request.POST.get('action')
-        reimbursement = get_object_or_404(ReimbursementRequest, id=reimbursement_id)
+        # reimbursement = get_object_or_404(ReimbursementRequest, id=reimbursement_id)
+        reimbursement = get_object_or_404(
+            tenant_queryset(
+                request,
+                ReimbursementRequest.objects.select_related("employee"),
+            ),
+            id=reimbursement_id,
+        )
         
         if action == 'verify':
             reimbursement.status = ReimbursementRequest.Status.VERIFIED
@@ -6386,9 +6848,17 @@ def admin_salary_slips(request):
             try:
                 from datetime import datetime
                 month_date = datetime.strptime(month_str, '%Y-%m').date().replace(day=1)
-                employee = Employee.objects.get(id=employee_id)
+                # employee = Employee.objects.get(id=employee_id)
+                employee = get_object_or_404(
+                    tenant_queryset(
+                        request,
+                        Employee.objects.all()
+                    ),
+                    id=employee_id
+                )
                 
                 salary_slip, created = SalarySlip.objects.update_or_create(
+                    office=employee.office,
                     employee=employee,
                     month=month_date,
                     defaults={
@@ -6412,7 +6882,11 @@ def admin_salary_slips(request):
         request,
         Employee.objects.all()
     ).order_by('full_name')
-    salary_slips = SalarySlip.objects.all().order_by('-month')
+    # salary_slips = SalarySlip.objects.all().order_by('-month')
+    salary_slips = tenant_queryset(
+        request,
+        SalarySlip.objects.select_related("employee")
+    ).order_by("-month")
     
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -6428,13 +6902,32 @@ def download_salary_slip(request, pk):
     """Download salary slip PDF"""
     from employees.models import SalarySlip
     
-    salary_slip = get_object_or_404(SalarySlip, id=pk)
+    # salary_slip = get_object_or_404(SalarySlip, id=pk)
+    salary_slip = get_object_or_404(
+        tenant_queryset(
+            request,
+            SalarySlip.objects.select_related("employee")
+        ),
+        id=pk,
+    )
     
     # Check permissions
-    if request.user.employee_profile != salary_slip.employee and not request.user.is_superuser:
-        messages.error(request, 'You do not have permission to access this file.')
-        return redirect('employees:employee_dashboard')
-    
+    # if request.user.employee_profile != salary_slip.employee and not request.user.is_superuser:
+    #     messages.error(request, 'You do not have permission to access this file.')
+    #     return redirect('employees:employee_dashboard')
+    is_platform_admin = request.user.is_superuser
+
+    is_owner = (
+        hasattr(request.user, "employee_profile")
+        and request.user.employee_profile == salary_slip.employee
+    )
+
+    if not (is_platform_admin or is_owner):
+        messages.error(
+            request,
+            "You do not have permission to access this salary slip."
+        )
+        return redirect("employees:employee_dashboard")
     if salary_slip.pdf_file:
         return FileResponse(salary_slip.pdf_file.open('rb'), as_attachment=True)
     
@@ -7137,19 +7630,24 @@ def holiday_calendar(request):
     """Display holiday calendar for employees"""
     from datetime import datetime
     from employees.models import Holiday  # Assuming you have a Holiday model
-    
+    from .permissions import get_request_office
+
+
     selected_year = request.GET.get('year', datetime.now().year)
     
     try:
         selected_year = int(selected_year)
     except (ValueError, TypeError):
         selected_year = datetime.now().year
+
+    office = get_request_office(request)
+
+    # Get holidays for selected year
+    holidays = Holiday.objects.filter(office=office, date__year=selected_year).order_by('date')
     
     # Get available years from holidays
     available_years = list(range(datetime.now().year, datetime.now().year + 3))
     
-    # Get holidays for selected year
-    holidays = Holiday.objects.filter(date__year=selected_year).order_by('date')
     
     # Count by type
     national_count = holidays.filter(type='national').count()
@@ -7169,7 +7667,7 @@ def holiday_calendar(request):
     return render(request, 'employees/holiday_calendar.html', context)
 
 @login_required
-@user_passes_test(is_superuser)
+@user_passes_test(office_admin_required)
 def manual_attendance(request):
     from django.utils import timezone
     from datetime import datetime, time, timedelta
@@ -7202,12 +7700,36 @@ def manual_attendance(request):
 
         office = employee.office
 
-        attendance, created = Attendance.objects.get_or_create(
+        # attendance, created = Attendance.objects.get_or_create(
+        #     office=office,
+        #     employee=employee,
+        #     date=date,
+        # )
+        attendance = Attendance.objects.filter(
+            employee=employee,
+            date=date,
+        ).first()
+
+        if attendance:
+            messages.warning(
+                request,
+                f"Attendance for {employee.full_name} on {date.strftime('%d-%b-%Y')} already exists. "
+                "Please edit the existing attendance instead of creating a new one."
+            )
+
+            context = TemplateLayout.init(request, context={})
+            context.update({
+                "layout_path": TemplateHelper.set_layout("layout_vertical.html", context),
+                "employees": employees,
+            })
+
+            return render(request, "employees/manual_attendance.html", context)
+
+        attendance = Attendance(
             office=office,
             employee=employee,
             date=date,
         )
-
         # -----------------------------
         # SAFE DEFAULTS IF NO TIME GIVEN
         # -----------------------------
@@ -7271,17 +7793,21 @@ def manual_attendance(request):
 
     return render(request, "employees/manual_attendance.html", context)
 
-
-@user_passes_test(is_admin)
+@login_required
+@user_passes_test(office_admin_required)
 def admin_adjust_paid_leave(request):
-    employees = Employee.objects.filter(is_active=True).order_by("full_name")
-
+    office = get_request_office(request)
+    # employees = Employee.objects.filter(is_active=True).order_by("full_name")
+    employees = tenant_queryset(
+        request,
+        Employee.objects.filter(is_active=True)
+    ).order_by('full_name')
     selected_employee = None
     current_balance = None
 
     if request.method == "GET":
         print("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP")
-        return render(request, "admin/paid_leave_adjustment.htm")
+        return render(request, "admin/adjust_paid_leave.html")
 
     if request.method == "POST":
         employee_id = request.POST.get("employee")
@@ -7290,7 +7816,11 @@ def admin_adjust_paid_leave(request):
         reason = request.POST.get("reason", "")
         print(employee_id, amount, adjustment_type, reason, 'OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO')
 
-        selected_employee = Employee.objects.get(id=employee_id)
+        # selected_employee = Employee.objects.get(id=employee_id)
+        selected_employee = get_object_or_404(
+            tenant_queryset(request, Employee.objects.all()),
+            id=employee_id
+        )
         current_balance = selected_employee.calculate_paid_leave_balance()
 
         amount = float(amount)
@@ -7317,10 +7847,18 @@ def admin_adjust_paid_leave(request):
 
     # For showing current balance on GET request
     if request.GET.get("employee"):
-        selected_employee = Employee.objects.get(id=request.GET.get("employee"))
+        # selected_employee = Employee.objects.get(id=request.GET.get("employee"))
+        selected_employee = get_object_or_404(
+            tenant_queryset(request, Employee.objects.all()),
+            id=request.GET.get("employee")
+        )
         current_balance = selected_employee.calculate_paid_leave_balance()
 
-    adjustments = PaidLeaveAdjustment.objects.all().order_by("-adjusted_at")
+    # adjustments = PaidLeaveAdjustment.objects.all().order_by("-adjusted_at")
+    adjustments = tenant_queryset(
+        request,
+        PaidLeaveAdjustment.objects.select_related('employee').all()
+    ).order_by("-adjusted_at")
 
     return render(request, "admin/paid_leave_adjustment.html", {
         "employees": employees,
@@ -7334,8 +7872,9 @@ from decimal import Decimal
 
 from decimal import Decimal, InvalidOperation
 
+# @user_passes_test(lambda u: u.is_superuser)
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(office_admin_required)
 def manual_leave_adjustment(request):
     # employees = Employee.objects.all()
     employees = tenant_queryset(
@@ -7370,7 +7909,14 @@ def manual_leave_adjustment(request):
             messages.error(request, f"A single adjustment can't exceed {MAX_SINGLE_ADJUSTMENT} days.")
             return redirect("employees:adjust_paid_leave")
 
-        employee = get_object_or_404(Employee, id=emp_id)
+        # employee = get_object_or_404(Employee, id=emp_id)
+        employee = get_object_or_404(
+            tenant_queryset(
+                request,
+                Employee.objects.all()
+            ),
+            id=emp_id
+        )
         selected_employee = employee
 
         previous_balance = employee.manual_extra_leaves
@@ -7390,6 +7936,7 @@ def manual_leave_adjustment(request):
 
         PaidLeaveAdjustment.objects.create(
             employee=employee,
+            office=employee.office,
             adjustment_type=adjustment_type,
             amount=amount,
             reason=reason,
@@ -7406,7 +7953,14 @@ def manual_leave_adjustment(request):
     if employee_id:
         selected_employee = Employee.objects.filter(id=employee_id).first()
 
-    adjustments = PaidLeaveAdjustment.objects.select_related('employee', 'adjusted_by').order_by("-adjusted_at")[:100]
+    # adjustments = PaidLeaveAdjustment.objects.select_related('employee', 'adjusted_by').order_by("-adjusted_at")[:100]
+    adjustments = tenant_queryset(
+        request,
+        PaidLeaveAdjustment.objects.select_related(
+            'employee',
+            'adjusted_by'
+        )
+    ).order_by("-adjusted_at")[:100]
 
     context.update({
         "layout_path": TemplateHelper.set_layout('layout_vertical.html', context),
@@ -7418,8 +7972,16 @@ def manual_leave_adjustment(request):
 
 
 # open url for attendance 
-def attendance_kiosk(request):
-    return render(request, "employees/kiosk.html")
+def attendance_kiosk(request, token):
+    office = get_object_or_404(
+        Office,
+        kiosk_token=token,
+        status=Office.Status.APPROVED,
+    )
+    return render(request, "employees/kiosk.html",
+        {
+            "office": office,
+        },)
 
 
 # # employee Salary 
@@ -7884,9 +8446,11 @@ def admin_leave_types(request):
 
     if request.method == 'POST':
         form = LeaveTypeForm(request.POST)
+        office = get_request_office(request)
         if form.is_valid():
             leave_type = form.save(commit=False)
             leave_type.created_by = request.user
+            leave_type.office = office
             leave_type.save()
 
             # NEW: instantly credit every eligible employee
@@ -7909,8 +8473,15 @@ def admin_leave_types(request):
     else:
         form = LeaveTypeForm()
 
-    leave_types = LeaveType.objects.all().order_by('display_order', 'name')
-
+    # leave_types = LeaveType.objects.all().order_by('display_order', 'name')
+    leave_types = tenant_queryset(
+            request,
+            LeaveType.objects.all()
+        ).order_by(
+            "display_order",
+            "name",
+        )
+    
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
@@ -7925,7 +8496,14 @@ def admin_leave_types(request):
 @require_http_methods(["POST"])
 def admin_leave_type_update(request, pk):
     """Update an existing leave type, resyncing balances if accrual_amount changed."""
-    leave_type = get_object_or_404(LeaveType, pk=pk)
+    # leave_type = get_object_or_404(LeaveType, pk=pk)
+    leave_type = get_object_or_404(
+        tenant_queryset(
+            request,
+            LeaveType.objects.all()
+        ),
+        pk=pk,
+    )
     old_amount = leave_type.accrual_amount  # snapshot BEFORE the form overwrites it
 
     form = LeaveTypeForm(request.POST, instance=leave_type)
@@ -7954,7 +8532,14 @@ def admin_leave_type_update(request, pk):
 @require_http_methods(["POST"])
 def admin_leave_type_toggle(request, pk):
     """Toggle active/inactive status — inactive types are hidden from employees."""
-    leave_type = get_object_or_404(LeaveType, pk=pk)
+    # leave_type = get_object_or_404(LeaveType, pk=pk)
+    leave_type = get_object_or_404(
+        tenant_queryset(
+            request,
+            LeaveType.objects.all()
+        ),
+        pk=pk,
+    )
     leave_type.is_active = not leave_type.is_active
     leave_type.save(update_fields=['is_active', 'updated_at'])
     state = 'activated' if leave_type.is_active else 'deactivated'
@@ -7968,7 +8553,14 @@ def admin_leave_type_toggle(request, pk):
 def admin_leave_type_delete(request, pk):
     """Delete a leave type — blocked only if it has real credit/debit history
     or leave requests tied to it."""
-    leave_type = get_object_or_404(LeaveType, pk=pk)
+    # leave_type = get_object_or_404(LeaveType, pk=pk)
+    leave_type = get_object_or_404(
+        tenant_queryset(
+            request,
+            LeaveType.objects.all()
+        ),
+        pk=pk,
+    )
 
     has_history = (
         leave_type.credit_logs.exists()

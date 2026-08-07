@@ -22,7 +22,9 @@ from .models import (
     PaidLeaveAdjustment,
     EmployeeLeaveBalance,
     LeaveCreditLog,
-    LeaveType
+    LeaveType,
+    LeaveAdjustment,
+    Holiday
 )
 
 from .models import Office, OfficeAdmin
@@ -30,7 +32,7 @@ from .models import Office, OfficeAdmin
 
 @admin.register(Office)
 class OfficeAdmin_(admin.ModelAdmin):  # named OfficeAdmin_ to avoid clashing with the OfficeAdmin model
-    list_display = ('name', 'status', 'industry', 'employee_strength', 'created_at', 'approved_by')
+    list_display = ('kiosk_token', 'name', 'status', 'industry', 'employee_strength', 'created_at', 'approved_by')
     list_filter = ('status', 'industry', 'created_at')
     search_fields = ('name', 'slug', 'registration_number', 'gst_number')
     ordering = ('-created_at',)
@@ -88,9 +90,9 @@ class OfficeAdminAdmin(admin.ModelAdmin):
 
 @admin.register(Shift)
 class ShiftAdmin(admin.ModelAdmin):
-    list_display = ('name', 'shift_type', 'start_time', 'end_time', 'is_active')
+    list_display = ('office', 'name', 'shift_type', 'start_time', 'end_time', 'is_active')
     list_filter = ('shift_type', 'is_active', 'created_at')
-    search_fields = ('name',)
+    search_fields = ('name', 'office__name')
     ordering = ('name',)
     readonly_fields = ('created_at', 'updated_at')
     
@@ -251,15 +253,15 @@ class EmployeeSalaryAdmin(admin.ModelAdmin):
 
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
-    list_display = ('employee', 'check_in_time', 'get_date')
+    list_display = ('employee', 'office', 'check_in_time', 'get_date')
     list_filter = ('check_in_time',)
-    search_fields = ('employee__name', 'employee__full_name', 'employee__email')
+    search_fields = ('employee__name', 'employee__full_name', 'employee__email', 'office__name')
     ordering = ('-check_in_time',)
     total_work_hours = ('total_work_hours')
     final_status = ('final_status')
 
     fieldsets = ('Attendance Information', {
-            'fields': ('employee', 'date', 'check_out_time', 'check_in_photo', 'check_out_photo', 'total_work_hours', 'final_status')
+            'fields': ('office', 'employee', 'date', 'check_out_time', 'check_in_photo', 'check_out_photo', 'total_work_hours', 'final_status')
         }),
 
     def get_date(self, obj):
@@ -270,15 +272,15 @@ class AttendanceAdmin(admin.ModelAdmin):
 
 @admin.register(AttendanceLog)
 class AttendanceLogAdmin(admin.ModelAdmin):
-    list_display = ('employee', 'action', 'success', 'timestamp', 'ip_address', 'confidence')
+    list_display = ('employee','office', 'action', 'success', 'timestamp', 'ip_address', 'confidence')
     list_filter = ('action', 'success', 'failure_reason', 'timestamp')
-    search_fields = ('employee__name', 'employee__email', 'ip_address', 'notes')
+    search_fields = ('employee__name', 'employee__email', 'ip_address', 'notes',)
     ordering = ('-timestamp',)
     readonly_fields = ('timestamp',)
     
     fieldsets = (
         ('Log Information', {
-            'fields': ('employee', 'action', 'success', 'timestamp')
+            'fields': ('office', 'employee', 'action', 'success', 'timestamp')
         }),
         ('Details', {
             'fields': ('failure_reason', 'confidence', 'attendance')
@@ -319,6 +321,7 @@ class FaceUpdateRequestAdmin(admin.ModelAdmin):
 class LeaveRequestAdmin(admin.ModelAdmin):
     list_display = (
         'employee',
+        'office',
         'start_date',
         'end_date',
         'status',
@@ -326,8 +329,8 @@ class LeaveRequestAdmin(admin.ModelAdmin):
         'reviewed_at',
         'reviewed_by',
     )
-    list_filter = ('status', 'start_date', 'end_date', 'created_at')
-    search_fields = ('employee__name', 'employee__full_name', 'employee__email', 'reason', 'admin_comment')
+    list_filter = ('office', 'status', 'start_date', 'end_date', 'created_at')
+    search_fields = ('employee__name', 'employee__full_name', 'employee__email', 'reason', 'admin_comment', 'office__name',)
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at', 'reviewed_at')
 
@@ -585,4 +588,4 @@ class EmployeeIDCardAdmin(admin.ModelAdmin):
     )
 from django.contrib import admin
 
-admin.site.register([PaidLeaveAdjustment, LeaveType, EmployeeLeaveBalance, LeaveCreditLog])
+admin.site.register([PaidLeaveAdjustment, LeaveType, EmployeeLeaveBalance, LeaveCreditLog, LeaveAdjustment, Holiday])

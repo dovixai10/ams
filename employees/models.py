@@ -6,6 +6,7 @@ from django.utils import timezone
 from datetime import date, timedelta
 import json
 from decimal import Decimal
+import uuid
 
 class Office(models.Model):
     """A tenant / company using this HRMS. Every Employee, Attendance,
@@ -16,6 +17,12 @@ class Office(models.Model):
         APPROVED = ('approved', 'Approved')
         REJECTED = ('rejected', 'Rejected')
         SUSPENDED = ('suspended', 'Suspended')
+
+    kiosk_token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
 
     name = models.CharField(max_length=200, help_text="Company/office name")
     slug = models.SlugField(max_length=100, unique=True, help_text="Used for subdomain/URL identification")
