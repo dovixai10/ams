@@ -78,6 +78,27 @@
                 {{ form.office_address }}
                 {% if form.office_address.errors %}<div class="text-danger small mt-1">{{ form.office_address.errors|striptags }}</div>{% endif %}
               </div>
+
+              <div class="mb-4">
+                <label class="form-label d-block">Office location</label>
+                <div class="row">
+                  <div class="col-md-6 mb-2">
+                    <label class="form-label">Latitude</label>
+                    {{ form.latitude }}
+                    {% if form.latitude.errors %}<div class="text-danger small mt-1">{{ form.latitude.errors|striptags }}</div>{% endif %}
+                  </div>
+                  <div class="col-md-6 mb-2">
+                    <label class="form-label">Longitude</label>
+                    {{ form.longitude }}
+                    {% if form.longitude.errors %}<div class="text-danger small mt-1">{{ form.longitude.errors|striptags }}</div>{% endif %}
+                  </div>
+                </div>
+                <button type="button" id="detectLocationBtn" class="btn btn-outline-primary btn-sm mt-1">
+                  <i class="icon-base bx bx-current-location me-1"></i>Use my current location
+                </button>
+                <div id="locationStatus" class="form-text"></div>
+              </div>
+              
               <div class="row">
                 <div class="col-md-6 mb-4">
                   <label class="form-label">Office contact number</label>
@@ -137,3 +158,46 @@
     </div>
   </div>
 {% endblock %}
+
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('detectLocationBtn');
+      var status = document.getElementById('locationStatus');
+      var latInput = document.getElementById('{{ form.latitude.id_for_label }}');
+      var lonInput = document.getElementById('{{ form.longitude.id_for_label }}');
+ 
+      if (btn) {
+        btn.addEventListener('click', function () {
+          if (!window.isSecureContext) {
+            status.textContent = 'Location detection needs a secure (https://) connection. Please enter coordinates manually.';
+            return;
+          }
+          if (!navigator.geolocation) {
+            status.textContent = 'Geolocation is not supported by your browser. Please enter coordinates manually.';
+            return;
+          }
+          status.textContent = 'Detecting your location...';
+          navigator.geolocation.getCurrentPosition(
+            function (position) {
+              latInput.value = position.coords.latitude.toFixed(6);
+              lonInput.value = position.coords.longitude.toFixed(6);
+              status.textContent = 'Location detected — you can adjust the values manually if needed.';
+            },
+            function (error) {
+              var reasons = {
+                1: 'Permission denied. Please allow location access for this site and try again.',
+                2: 'Your position is currently unavailable. Please enter coordinates manually.',
+                3: 'Location request timed out. Please try again or enter coordinates manually.'
+              };
+              status.textContent = reasons[error.code] || 'Could not detect location. Please enter coordinates manually.';
+            },
+            { timeout: 10000 }
+          );
+        });
+      }
+    });
+  </script>
+{% endblock page_js %}

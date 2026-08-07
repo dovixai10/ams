@@ -44,7 +44,7 @@ class OfficeAdmin_(admin.ModelAdmin):  # named OfficeAdmin_ to avoid clashing wi
             'fields': ('name', 'slug', 'address', 'contact_number', 'logo', 'website', 'industry', 'employee_strength')
         }),
         ('Compliance', {
-            'fields': ('registration_number', 'gst_number', 'registration_document')
+            'fields': ('registration_number', 'gst_number', 'registration_document', 'latitude', 'longitude')
         }),
         ('Approval', {
             'fields': ('status', 'rejection_reason', 'approved_by', 'approved_at')

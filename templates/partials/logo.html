@@ -1,1 +1,8 @@
-<img src="{% static 'img2/Dovixai.png' %}" alt="Dovix Logo" style="height: 95px; width: 135px; max-width: 100%;">
+{% comment %} <img src="{% static 'img2/Dovixai.png' %}" alt="Dovix Logo" style="height: 95px; width: 135px; max-width: 100%;"> {% endcomment %}
+
+{% load static %}
+{% if site_logo_url %}
+  <img src="{{ site_logo_url }}" alt="{{ site_name }} Logo" style="height: 95px; width: 135px; max-width: 100%; object-fit: contain;">
+{% else %}
+  <img src="{% static 'img2/Dovixai.png' %}" alt="{{ site_name|default:'Dovix' }} Logo" style="height: 95px; width: 135px; max-width: 100%;">
+{% endif %}

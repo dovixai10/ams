@@ -126,6 +126,8 @@ TEMPLATES = [
                 "employees.context_processors.mobile_nav",
                 # "config.context_processors.my_setting",
                 # "config.context_processors.environment",
+
+                'employees.context_processors.office_branding',
             ],
             "libraries": {
                 "theme": "web_project.template_tags.theme",

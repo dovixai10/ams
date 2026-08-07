@@ -1,0 +1,269 @@
+{% extends layout_path %}
+
+{% load static %}
+
+{% comment %} {% block title %}Edit Office | Dovix CRM{% endblock %} {% endcomment %}
+{% block title %}Edit Office | {{ site_name }}{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10 col-md-12">
+      <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div>
+            <h5 class="card-title m-0">Edit Office Details</h5>
+            <small class="text-muted">Update your office's information</small>
+          </div>
+          <a href="{% url 'employees:superadmin_profile' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="icon-base bx bx-arrow-back me-1"></i>Back to Profile
+          </a>
+        </div>
+
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="row">
+              <!-- Office Logo Section -->
+              <div class="col-md-4 text-center mb-4">
+                <div class="avatar avatar-xl mb-3">
+                  {% if office.logo %}
+                    <img src="{{ office.logo.url }}" alt="{{ office.name }}" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
+                  {% else %}
+                    <div class="avatar-initial bg-label-primary rounded-circle" style="width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 48px;">
+                      {{ office.name|first|upper }}
+                    </div>
+                  {% endif %}
+                </div>
+                <p class="text-muted mb-0">{{ office.name }}</p>
+                <small class="text-muted">{{ office.get_status_display }}</small>
+
+                <div class="mt-3 text-start">
+                  <label for="{{ form.logo.id_for_label }}" class="form-label">
+                    {{ form.logo.label }}
+                  </label>
+                  {{ form.logo }}
+                  {% if form.logo.errors %}
+                    <div class="text-danger small">{{ form.logo.errors.0 }}</div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <!-- Office Form -->
+              <div class="col-md-8">
+                <!-- Basic Information -->
+                <div class="row mb-4">
+                  <div class="col-12">
+                    <h6 class="text-primary mb-3">Basic Information</h6>
+                  </div>
+
+                  <div class="col-md-12 mb-3">
+                    <label for="{{ form.name.id_for_label }}" class="form-label">
+                      {{ form.name.label }}
+                    </label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                      <div class="text-danger small">{{ form.name.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+
+                  <div class="col-md-12 mb-3">
+                    <label for="{{ form.address.id_for_label }}" class="form-label">
+                      {{ form.address.label }}
+                    </label>
+                    {{ form.address }}
+                    {% if form.address.errors %}
+                      <div class="text-danger small">{{ form.address.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+
+                  <div class="col-md-6 mb-3">
+                    <label for="{{ form.contact_number.id_for_label }}" class="form-label">
+                      {{ form.contact_number.label }}
+                    </label>
+                    {{ form.contact_number }}
+                    {% if form.contact_number.errors %}
+                      <div class="text-danger small">{{ form.contact_number.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+
+                  <div class="col-md-6 mb-3">
+                    <label for="{{ form.website.id_for_label }}" class="form-label">
+                      {{ form.website.label }}
+                    </label>
+                    {{ form.website }}
+                    {% if form.website.errors %}
+                      <div class="text-danger small">{{ form.website.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+
+                  <div class="col-md-6 mb-3">
+                    <label for="{{ form.industry.id_for_label }}" class="form-label">
+                      {{ form.industry.label }}
+                    </label>
+                    {{ form.industry }}
+                    {% if form.industry.errors %}
+                      <div class="text-danger small">{{ form.industry.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+
+                  <div class="col-md-6 mb-3">
+                    <label for="{{ form.employee_strength.id_for_label }}" class="form-label">
+                      {{ form.employee_strength.label }}
+                    </label>
+                    {{ form.employee_strength }}
+                    {% if form.employee_strength.errors %}
+                      <div class="text-danger small">{{ form.employee_strength.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <!-- Business Verification -->
+                <div class="row mb-4">
+                  <div class="col-12">
+                    <h6 class="text-primary mb-3">Business Verification</h6>
+                  </div>
+
+                  <div class="col-md-6 mb-3">
+                    <label for="{{ form.registration_number.id_for_label }}" class="form-label">
+                      {{ form.registration_number.label }}
+                    </label>
+                    {{ form.registration_number }}
+                    {% if form.registration_number.errors %}
+                      <div class="text-danger small">{{ form.registration_number.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+
+                  <div class="col-md-6 mb-3">
+                    <label for="{{ form.gst_number.id_for_label }}" class="form-label">
+                      {{ form.gst_number.label }}
+                    </label>
+                    {{ form.gst_number }}
+                    {% if form.gst_number.errors %}
+                      <div class="text-danger small">{{ form.gst_number.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <!-- Location -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h6 class="text-primary mb-3">Location</h6>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <label for="{{ form.latitude.id_for_label }}" class="form-label">
+            {{ form.latitude.label }}
+        </label>
+        {{ form.latitude }}
+        {% if form.latitude.errors %}
+            <div class="text-danger small">{{ form.latitude.errors.0 }}</div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <label for="{{ form.longitude.id_for_label }}" class="form-label">
+            {{ form.longitude.label }}
+        </label>
+        {{ form.longitude }}
+        {% if form.longitude.errors %}
+            <div class="text-danger small">{{ form.longitude.errors.0 }}</div>
+        {% endif %}
+    </div>
+
+    <div class="col-12">
+        <button
+            type="button"
+            id="detectLocationBtn"
+            class="btn btn-outline-primary btn-sm">
+            <i class="bx bx-current-location me-1"></i>
+            Use my current location
+        </button>
+
+        <div id="locationStatus" class="form-text mt-2"></div>
+    </div>
+</div>
+
+                <!-- Read-only Status -->
+                <div class="row mb-4">
+                  <div class="col-12">
+                    <h6 class="text-primary mb-3">Account Status</h6>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label text-muted">Status</label>
+                    <p class="mb-0">
+                      <span class="badge bg-label-warning">{{ office.get_status_display }}</span>
+                    </p>
+                    <small class="text-muted">Status is managed by the platform admin</small>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label text-muted">Registered On</label>
+                    <p class="mb-0">{{ office.created_at|date:"M d, Y" }}</p>
+                  </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="row">
+                  <div class="col-12">
+                    <div class="d-flex gap-3 justify-content-end">
+                      <a href="{% url 'employees:superadmin_profile' %}" class="btn btn-outline-secondary">
+                        Cancel
+                      </a>
+                      <button type="submit" class="btn btn-primary">
+                        <i class="icon-base bx bx-save me-1"></i>Save Changes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+
+
+{% block page_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('detectLocationBtn');
+      var status = document.getElementById('locationStatus');
+      var latInput = document.getElementById('{{ form.latitude.id_for_label }}');
+      var lonInput = document.getElementById('{{ form.longitude.id_for_label }}');
+ 
+      if (btn) {
+        btn.addEventListener('click', function () {
+          if (!window.isSecureContext) {
+            status.textContent = 'Location detection needs a secure (https://) connection. Please enter coordinates manually.';
+            return;
+          }
+          if (!navigator.geolocation) {
+            status.textContent = 'Geolocation is not supported by your browser. Please enter coordinates manually.';
+            return;
+          }
+          status.textContent = 'Detecting your location...';
+          navigator.geolocation.getCurrentPosition(
+            function (position) {
+              latInput.value = position.coords.latitude.toFixed(6);
+              lonInput.value = position.coords.longitude.toFixed(6);
+              status.textContent = 'Location detected — you can adjust the values manually if needed.';
+            },
+            function (error) {
+              var reasons = {
+                1: 'Permission denied. Please allow location access for this site and try again.',
+                2: 'Your position is currently unavailable. Please enter coordinates manually.',
+                3: 'Location request timed out. Please try again or enter coordinates manually.'
+              };
+              status.textContent = reasons[error.code] || 'Could not detect location. Please enter coordinates manually.';
+            },
+            { timeout: 10000 }
+          );
+        });
+      }
+    });
+  </script>
+{% endblock page_js %}

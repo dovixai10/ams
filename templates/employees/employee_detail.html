@@ -2,7 +2,8 @@
 
 {% load static %}
 
-{% block title %}Employee Details | Dovix CRM{% endblock %}
+{% comment %} {% block title %}Employee Details | Dovix CRM{% endblock %} {% endcomment %}
+{% block title %}Employee Details | {{ site_name }}{% endblock %}
 
 {% block vendor_css %}
   {{ block.super }}

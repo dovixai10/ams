@@ -34,7 +34,7 @@ from datetime import date
 from .leave_accrual import initialize_balances_for_new_type, get_employee_leave_type_balances
 
 from .permissions import office_admin_required, is_platform_admin, get_request_office
-
+from django.urls import reverse
 import sys
 
 # Do not discard working image libraries merely because the optional
@@ -100,6 +100,7 @@ from .forms import (
     AssetAssignmentForm,
     TaskForm,
     TaskUpdateForm,
+    OfficeProfileForm
 )
 try:
     from .face_utils import (
@@ -3084,8 +3085,15 @@ def asset_management(request):
     })
     return render(request, 'employees/assets/admin_assets.html', context)
 
+def _get_admin_office(request):
+    """Resolve the Office tied to this admin. Office admins have office_admin_profile;
+    platform admin has none unless middleware sets request.office for a support context."""
+    profile = getattr(request.user, 'office_admin_profile', None)
+    if profile:
+        return profile.office
+    return get_request_office(request)
 
-# SuperAdmin Profile Views
+
 @login_required
 @user_passes_test(office_admin_required)
 def superadmin_profile(request):
@@ -3093,22 +3101,26 @@ def superadmin_profile(request):
     user = request.user
     from django.utils import timezone
 
-    # Get statistics for superadmin dashboard
-    total_employees = tenant_queryset(
-        request,
-        Employee.objects.all()
-    ).count()
+    total_employees = tenant_queryset(request, Employee.objects.all()).count()
     today_checkins = tenant_queryset(
-    request,
-    Attendance.objects.all()
-).filter(date=timezone.now().date()).count()
+        request, Attendance.objects.all()
+    ).filter(date=timezone.now().date()).count()
 
+    office = _get_admin_office(request)
+
+    kiosk_url = None
+    if office:
+        kiosk_url = request.build_absolute_uri(
+            reverse("employees:attendance_kiosk", args=[office.kiosk_token])
+        )
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'user': user,
         'total_employees': total_employees,
         'today_checkins': today_checkins,
+        'office': _get_admin_office(request),
+        "kiosk_url": kiosk_url,
     })
     return render(request, 'employees/superadmin_profile.html', context)
 
@@ -3137,6 +3149,34 @@ def superadmin_profile_edit(request):
     return render(request, 'employees/superadmin_profile_edit.html', context)
 
 
+@login_required
+@user_passes_test(is_office_admin)
+def office_profile_edit(request):
+    """Edit the office's own details. Deliberately gated to is_office_admin only —
+    not office_admin_required — since this edits a specific office record, and the
+    platform admin isn't tied to one particular office to edit here."""
+    office = _get_admin_office(request)
+    if office is None:
+        messages.error(request, 'No office is associated with your account.')
+        return redirect('employees:superadmin_profile')
+
+    if request.method == 'POST':
+        form = OfficeProfileForm(request.POST, request.FILES, instance=office)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Office details updated successfully!')
+            return redirect('employees:superadmin_profile')
+    else:
+        form = OfficeProfileForm(instance=office)
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'form': form,
+        'office': office,
+    })
+    return render(request, 'employees/office_profile_edit.html', context)
+    
 @login_required
 @user_passes_test(office_admin_required)
 def superadmin_change_password(request):
@@ -3259,7 +3299,7 @@ def check_in(request):
             return redirect('employees:check_in')
         
         # VALIDATION 4: Must be within office premises
-        is_within, distance, location_message = is_within_office_premises(float(user_latitude), float(user_longitude))
+        is_within, distance, location_message = is_within_office_premises(employee.office, float(user_latitude), float(user_longitude))
         if not is_within:
             AttendanceLog.objects.create(
                 employee=employee,
@@ -4321,7 +4361,8 @@ def check_out(request):
         user_latitude = request.POST.get('latitude') or request.POST.get('lat')
         user_longitude = request.POST.get('longitude') or request.POST.get('lng')
         device_info = request.POST.get('device_info')  # optional client-provided device info
-        
+        print("user_latitude->", user_latitude)
+        print("user_longitude->", user_longitude)
         if not user_latitude or not user_longitude:
             AttendanceLog.objects.create(
                 office=employee.office,
@@ -4360,6 +4401,7 @@ def check_out(request):
         
         # Check if within office premises
         is_within, distance, location_message = is_within_office_premises(
+            employee.office,
             float(user_latitude), 
             float(user_longitude)
         )

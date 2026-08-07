@@ -39,6 +39,7 @@ urlpatterns = [
     # SuperAdmin Profile URLs (SuperAdmin only)
     path('admin-profile/', views.superadmin_profile, name='superadmin_profile'),
     path('admin-profile/edit/', views.superadmin_profile_edit, name='superadmin_profile_edit'),
+    path('office-profile/edit/', views.office_profile_edit, name='office_profile_edit'),
     path('admin-profile/change-password/', views.superadmin_change_password, name='superadmin_change_password'),
     # path('checkin-dashboard/', views.checkin_dashboard, name='checkin_dashboard'),
 

@@ -35,6 +35,9 @@ class Office(models.Model):
     website = models.URLField(blank=True)
     industry = models.CharField(max_length=100, blank=True, help_text="IT, Education, Manufacturing, Healthcare, etc.")
 
+    latitude = models.DecimalField(max_digits=9, decimal_places=7)
+    longitude = models.DecimalField(max_digits=9, decimal_places=7)
+
     employee_strength = models.PositiveIntegerField(null=True, blank=True, help_text="Approximate number of employees")
 
     # Optional Business Verification

@@ -2,7 +2,8 @@
 
 {% load static %}
 
-{% block title %}My Profile | Dovix CRM{% endblock %}
+{% comment %} {% block title %}My Profile | Dovix CRM{% endblock %} {% endcomment %}
+{% block title %}My Profile | {{ site_name }}{% endblock %}
 
 {% block content %}
 
@@ -229,6 +230,100 @@
                 </div>
 
               </div>
+
+              {% if office %}
+              <!-- Office Details -->
+              <div class="row mb-4">
+                <div class="col-12 d-flex align-items-center justify-content-between mb-3">
+                  <h6 class="text-primary mb-0">Office Details</h6>
+                  <a href="{% url 'employees:office_profile_edit' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="icon-base bx bx-building-house me-1"></i>Edit Office
+                  </a>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label class="form-label text-muted">Office Name</label>
+                  <p class="mb-0">{{ office.name }}</p>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label class="form-label text-muted">Status</label>
+                  <p class="mb-0">
+                    {% if office.status == 'approved' %}
+                      <span class="badge bg-label-success">{{ office.get_status_display }}</span>
+                    {% elif office.status == 'pending' %}
+                      <span class="badge bg-label-warning">{{ office.get_status_display }}</span>
+                    {% elif office.status == 'suspended' %}
+                      <span class="badge bg-label-secondary">{{ office.get_status_display }}</span>
+                    {% else %}
+                      <span class="badge bg-label-danger">{{ office.get_status_display }}</span>
+                    {% endif %}
+                  </p>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label class="form-label text-muted">Address</label>
+                  <p class="mb-0">{{ office.address|default:"Not set" }}</p>
+                </div>
+                <div class="col-12 mb-3">
+    <label class="form-label text-muted">Attendance Kiosk URL</label>
+
+    <div class="input-group">
+        <input
+            type="text"
+            id="kioskUrl"
+            class="form-control"
+            value="{{ kiosk_url }}"
+            readonly
+        >
+
+        <button
+            type="button"
+            class="btn btn-outline-primary"
+            onclick="copyKioskUrl()"
+        >
+            <i class="bx bx-copy me-1"></i>
+            Copy
+        </button>
+    </div>
+
+    <small class="text-muted">
+        Share this URL with the attendance kiosk device. Only employees belonging to this office can mark attendance using this link.
+    </small>
+</div>
+
+                <div class="col-md-6 mb-3">
+                  <label class="form-label text-muted">Contact Number</label>
+                  <p class="mb-0">{{ office.contact_number|default:"Not set" }}</p>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label class="form-label text-muted">Website</label>
+                  <p class="mb-0">{{ office.website|default:"Not set" }}</p>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label class="form-label text-muted">Industry</label>
+                  <p class="mb-0">{{ office.industry|default:"Not set" }}</p>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label class="form-label text-muted">Employee Strength</label>
+                  <p class="mb-0">{{ office.employee_strength|default:"Not set" }}</p>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                  <label class="form-label text-muted">Location (Lat, Long)</label>
+                  <p class="mb-0">
+                    {% if office.latitude and office.longitude %}
+                      {{ office.latitude }}, {{ office.longitude }}
+                    {% else %}
+                      Not set
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+              {% endif %}
 
               <!-- Quick Actions -->
 

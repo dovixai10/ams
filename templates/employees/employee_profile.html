@@ -4,7 +4,8 @@
 {% load i18n %}
 {% load humanize %}
 
-{% block title %}My Profile | Dovix CRM{% endblock %}
+{% comment %} {% block title %}My Profile | Dovix CRM{% endblock %} {% endcomment %}
+{% block title %}My Profile | {{ site_name }}{% endblock %}
 
 {% block content %}
   <style>

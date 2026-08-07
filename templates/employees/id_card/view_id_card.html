@@ -234,7 +234,7 @@
           <div class="id-card-face id-card-face--front">
             <div class="id-card-header-bar">
               <div>
-                <div class="id-card-logo">DOVIX</div>
+                <div class="id-card-logo">{{site_name}}</div>
                 <div class="id-card-company-sub">Executing Vision Through Intelligence</div>
               </div>
               <span class="badge bg-success">Employee</span>
@@ -279,7 +279,7 @@
               <div class="id-card-qr-wrap">
                 <div class="id-card-meta">
                   <div>Show this card to security for verification.</div>
-                  <div>Valid Employee of DOVIX AI</div>
+                  <div>Valid Employee of {{site_name}}</div>
                 </div>
                 {% if id_card.qr_code %}
                 <div class="id-card-qr">
@@ -289,7 +289,8 @@
               </div>
             </div>
             <div class="id-card-footer-bar">
-              <span>https://dovix.ai/</span>
+              <span>{{ site_url }}</span>
+              
               <span class="text-muted">Digital ID · Front</span>
             </div>
           </div>
@@ -298,7 +299,7 @@
           <div class="id-card-face id-card-face--back">
             <div class="id-card-header-bar">
               <div>
-                <div class="id-card-logo">DOVIX</div>
+                <div class="id-card-logo">{{ site_name }}</div>
                 <div class="id-card-company-sub">Emergency Details & Address</div>
               </div>
             </div>
@@ -341,7 +342,7 @@
               <div class="id-card-qr-wrap">
                 <div class="id-card-meta">
                   <div>In case of emergency, please contact this number +91 91163 82399</div>
-                  <div>This card remains property of DOVIX AI</div>
+                  <div>This card remains property of {{site_name}}</div>
                 </div>
                 {% if id_card.qr_code %}
                 <div class="id-card-qr">
@@ -351,7 +352,7 @@
               </div>
             </div>
             <div class="id-card-footer-bar">
-              <span>https://dovix.ai</span>
+              <span>{{ site_url }}</span>
               <span class="text-muted">Digital ID · Back</span>
             </div>
           </div>

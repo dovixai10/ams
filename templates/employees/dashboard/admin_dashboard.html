@@ -4,7 +4,8 @@
 {% load i18n %}
 {% load humanize %}
 
-{% block title %}Admin Dashboard | Dovix CRM{% endblock %}
+{% comment %} {% block title %}Admin Dashboard | Dovix CRM{% endblock %} {% endcomment %}
+{% block title %}Admin Dashboard | {{ site_name }}{% endblock %}
 
 {% block vendor_css %}
   {{ block.super }}

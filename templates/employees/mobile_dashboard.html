@@ -735,7 +735,16 @@
     <!-- HEADER -->
     <div class="header">
         <div class="header-top">
-            <img src="/static/img2/Dovixai.png" alt="Dovix AI" class="header-logo">
+            {% comment %} <img src="/static/img2/Dovixai.png" alt="Dovix AI" class="header-logo"> {% endcomment %}
+            {% if site_logo_url %}
+                <img src="{{ site_logo_url }}"
+                    alt="{{ site_name }}"
+                    class="header-logo">
+            {% else %}
+                <img src="{% static 'img2/Dovixai.png' %}"
+                    alt="Dovix AI"
+                    class="header-logo">
+            {% endif %}
             <div class="header-profile-img" onclick="openNotifications()">
                 <i class='bx bx-bell'></i>
                 {% if unread_count > 0 %}

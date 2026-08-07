@@ -138,6 +138,25 @@ class OfficeRegistrationForm(forms.Form):
             'class': 'form-control'
         })
     )
+    latitude = forms.DecimalField(
+        max_digits=9,
+        decimal_places=7,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': 'any',
+            'placeholder': 'e.g. 26.912434'
+        })
+    )
+
+    longitude = forms.DecimalField(
+        max_digits=9,
+        decimal_places=7,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': 'any',
+            'placeholder': 'e.g. 75.787270'
+        })
+    )
 
     registration_number = forms.CharField(
         required=False,
@@ -210,6 +229,8 @@ class OfficeRegistrationForm(forms.Form):
             employee_strength=data.get("employee_strength"),
             registration_number=data.get("registration_number"),
             gst_number=data.get("gst_number"),
+            latitude=data["latitude"],
+            longitude=data["longitude"],
             registration_document=data.get("registration_document"),
             status=Office.Status.PENDING,
         )
@@ -231,7 +252,30 @@ class OfficeRegistrationForm(forms.Form):
         )
 
         return office
+
+class OfficeProfileForm(forms.ModelForm):
     
+    class Meta:
+        model = Office
+        fields = [
+            'name', 'address', 'contact_number', 'website', 'industry',
+            'employee_strength', 'registration_number', 'gst_number',
+            'logo', 'latitude', 'longitude',
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'address': forms.TextInput(attrs={'class': 'form-control'}),
+            'contact_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'website': forms.URLInput(attrs={'class': 'form-control'}),
+            'industry': forms.TextInput(attrs={'class': 'form-control'}),
+            'employee_strength': forms.NumberInput(attrs={'class': 'form-control'}),
+            'registration_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'gst_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'logo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'latitude': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'}),
+            'longitude': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'}),
+        }
+
 class EmployeeForm(forms.ModelForm):
     """Form for creating new employees"""
 
@@ -413,6 +457,7 @@ class EmployeeForm(forms.ModelForm):
             self.save_m2m()
 
         return employee
+
 
 
 class EmployeeDocumentForm(forms.ModelForm):
