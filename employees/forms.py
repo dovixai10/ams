@@ -13,7 +13,9 @@ from .models import (
     TaskUpdate,
     AssetAssignment,
     LeaveType,
+    AttendanceRule,
 )
+
 from django.utils import timezone
 from .permissions import office_admin_required, is_platform_admin, get_request_office
 
@@ -1311,3 +1313,26 @@ class TaskUpdateForm(forms.ModelForm):
                 self.task.status = update.new_status
                 self.task.save(update_fields=['status', 'status_updated_at', 'updated_at'])
         return update
+
+
+class AttendanceRuleForm(forms.ModelForm):
+    class Meta:
+        model = AttendanceRule
+        fields = ['threshold_mode', 'full_day_percentage', 'half_day_percentage',
+                  'full_day_hours', 'half_day_hours', 'is_active']
+        widgets = {
+            'threshold_mode': forms.Select(attrs={'class': 'form-select'}),
+            'full_day_percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'half_day_percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'full_day_hours': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'half_day_hours': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        instance = self.instance
+        for field, value in cleaned.items():
+            setattr(instance, field, value)
+        instance.clean()  # reuse model-level validation
+        return cleaned

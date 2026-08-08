@@ -235,4 +235,8 @@ urlpatterns = [
     path('register-office/', views.office_register, name='office_register'),
     path('office-status/', views.office_status, name='office_status'),
     path('platform/office-approvals/', views.platform_office_approvals, name='platform_office_approvals'),
+
+    # attendance rule 
+
+    path('attendance/rule-settings/', views.attendance_rule_settings, name='attendance_rule_settings'),
 ]

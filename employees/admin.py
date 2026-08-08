@@ -24,7 +24,8 @@ from .models import (
     LeaveCreditLog,
     LeaveType,
     LeaveAdjustment,
-    Holiday
+    Holiday,
+    AttendanceRule
 )
 
 from .models import Office, OfficeAdmin
@@ -588,4 +589,4 @@ class EmployeeIDCardAdmin(admin.ModelAdmin):
     )
 from django.contrib import admin
 
-admin.site.register([PaidLeaveAdjustment, LeaveType, EmployeeLeaveBalance, LeaveCreditLog, LeaveAdjustment, Holiday])
+admin.site.register([PaidLeaveAdjustment, LeaveType, EmployeeLeaveBalance, LeaveCreditLog, LeaveAdjustment, Holiday, AttendanceRule])

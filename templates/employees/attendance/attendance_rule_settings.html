@@ -1,0 +1,61 @@
+<!-- employees/attendance/attendance_rule_settings.html -->
+{% extends layout_path %}
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">Attendance Rule — {{ office.name }}</h5>
+    <small class="text-muted">
+      If disabled, the system default applies: {{ default_full_day_percentage }}% of shift hours = Present,
+      {{ default_half_day_percentage }}% = Half Day.
+    </small>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-check form-switch mb-3">
+        {{ form.is_active }}
+        <label class="form-check-label">Use custom rule for this office</label>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Mode</label>
+        {{ form.threshold_mode }}
+      </div>
+
+      <div id="percentage-fields" class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Full Day — % of shift hours</label>
+          {{ form.full_day_percentage }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Half Day — % of shift hours</label>
+          {{ form.half_day_percentage }}
+        </div>
+      </div>
+
+      <div id="fixed-fields" class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Full Day — fixed hours</label>
+          {{ form.full_day_hours }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Half Day — fixed hours</label>
+          {{ form.half_day_hours }}
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function toggleFields() {
+  const mode = document.getElementById('id_threshold_mode').value;
+  document.getElementById('percentage-fields').style.display = mode === 'shift_percentage' ? 'flex' : 'none';
+  document.getElementById('fixed-fields').style.display = mode === 'fixed_hours' ? 'flex' : 'none';
+}
+document.getElementById('id_threshold_mode').addEventListener('change', toggleFields);
+document.addEventListener('DOMContentLoaded', toggleFields);
+</script>
+{% endblock %}

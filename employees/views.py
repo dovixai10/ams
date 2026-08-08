@@ -8636,3 +8636,64 @@ def employee_leave_balances(request):
         'balances': balances,
     })
     return render(request, 'employees/leave/employee_leave_balances.html', context)
+
+
+# New attendance hours logic
+
+# views.py
+from .models import AttendanceRule
+from .forms import AttendanceRuleForm
+from .shift_attendance_logic import DEFAULT_FULL_DAY_PERCENTAGE, DEFAULT_HALF_DAY_PERCENTAGE
+from django.contrib import messages
+from django.shortcuts import redirect
+
+@login_required
+@user_passes_test(office_admin_required)
+def attendance_rule_settings(request):
+    """Office admin screen to configure Present/Half-Day thresholds."""
+
+    office_admin = getattr(request.user, "office_admin_profile", None)
+
+    if not office_admin or not office_admin.office:
+        messages.error(request, "No office is associated with your account.")
+        return redirect("employees:admin_dashboard")
+
+    office = office_admin.office
+
+    rule, _ = AttendanceRule.objects.get_or_create(
+        office=office
+    )
+
+    if request.method == "POST":
+        form = AttendanceRuleForm(
+            request.POST,
+            instance=rule
+        )
+
+        if form.is_valid():
+            form.save()
+
+            messages.success(
+                request,
+                "Attendance rule updated successfully."
+            )
+
+            return redirect("employees:attendance_rule_settings")
+
+    else:
+        form = AttendanceRuleForm(
+            instance=rule
+        )
+
+    context = TemplateLayout.init(request, {
+        "form": form,
+        "office": office,
+        "default_full_day_percentage": DEFAULT_FULL_DAY_PERCENTAGE,
+        "default_half_day_percentage": DEFAULT_HALF_DAY_PERCENTAGE,
+    })
+
+    return render(
+        request,
+        "employees/attendance/attendance_rule_settings.html",
+        context
+    )

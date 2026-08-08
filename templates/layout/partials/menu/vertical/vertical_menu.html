@@ -134,6 +134,11 @@
       <ul class="menu-sub">
         <li class="menu-item"><a href="{% url 'employees:holidays_calendar' %}" class="menu-link"><div>Holidays Calendar</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_rules' %}" class="menu-link"><div>Rules & Regulations</div></a></li>
+         <li class="menu-item {% if 'attendance/rule-settings' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:attendance_rule_settings' %}" class="menu-link">
+            <div>Attendance Rule</div>
+          </a>
+        </li>
       </ul>
     </li>
 

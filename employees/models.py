@@ -7,6 +7,8 @@ from datetime import date, timedelta
 import json
 from decimal import Decimal
 import uuid
+from decimal import Decimal
+from django.core.exceptions import ValidationError
 
 class Office(models.Model):
     """A tenant / company using this HRMS. Every Employee, Attendance,
@@ -1526,6 +1528,92 @@ class AttendanceBreak(models.Model):
         # Ensure exceedance flag is set when relevant and report whether it changed now
         return self.check_and_mark_exceeded(commit=True)
 
+
+class AttendanceRule(models.Model):
+    """
+    Per-office configurable thresholds for Present / Half Day / Absent.
+    If no rule exists for an office (or it's inactive), the system falls
+    back to the default: 100% of shift hours = Present, 50% = Half Day.
+    """
+
+    class ThresholdMode(models.TextChoices):
+        SHIFT_PERCENTAGE = 'shift_percentage', 'Percentage of Shift Hours'
+        FIXED_HOURS = 'fixed_hours', 'Fixed Hours (same for every shift)'
+
+    office = models.OneToOneField(
+        Office,
+        on_delete=models.CASCADE,
+        related_name='attendance_rule',
+    )
+
+    threshold_mode = models.CharField(
+        max_length=20,
+        choices=ThresholdMode.choices,
+        default=ThresholdMode.SHIFT_PERCENTAGE,
+    )
+
+    # Mode: shift_percentage
+    full_day_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('100.00'),
+        help_text="% of shift hours worked required to be marked Present"
+    )
+    half_day_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('50.00'),
+        help_text="% of shift hours worked required to be marked Half Day"
+    )
+
+    # Mode: fixed_hours
+    full_day_hours = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Fixed hours required for Present (Fixed Hours mode only)"
+    )
+    half_day_hours = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Fixed hours required for Half Day (Fixed Hours mode only)"
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Turn off to fall back to the system default (100% / 50%)"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Attendance Rule'
+        verbose_name_plural = 'Attendance Rules'
+
+    def __str__(self):
+        return f"Attendance Rule - {self.office}"
+
+    def clean(self):
+        errors = {}
+        if self.threshold_mode == self.ThresholdMode.SHIFT_PERCENTAGE:
+            if not self.full_day_percentage or not self.half_day_percentage:
+                errors['full_day_percentage'] = "Both percentages are required."
+            elif self.half_day_percentage >= self.full_day_percentage:
+                errors['half_day_percentage'] = "Half-day % must be less than full-day %."
+            elif self.half_day_percentage <= 0:
+                errors['half_day_percentage'] = "Must be greater than 0."
+        else:
+            if not self.full_day_hours or not self.half_day_hours:
+                errors['full_day_hours'] = "Both fixed-hour values are required in Fixed Hours mode."
+            elif self.half_day_hours >= self.full_day_hours:
+                errors['half_day_hours'] = "Half-day hours must be less than full-day hours."
+        if errors:
+            raise ValidationError(errors)
+
+    def get_thresholds(self, shift_total_hours: Decimal) -> tuple:
+        """Returns (full_day_threshold_hours, half_day_threshold_hours)."""
+        if self.threshold_mode == self.ThresholdMode.FIXED_HOURS and self.full_day_hours and self.half_day_hours:
+            return (
+                self.full_day_hours.quantize(Decimal('0.01')),
+                self.half_day_hours.quantize(Decimal('0.01')),
+            )
+        full = (shift_total_hours * self.full_day_percentage / Decimal('100')).quantize(Decimal('0.01'))
+        half = (shift_total_hours * self.half_day_percentage / Decimal('100')).quantize(Decimal('0.01'))
+        return full, half
 
 class LeaveRequest(models.Model):
     """Track employee leave applications and their approval workflow."""

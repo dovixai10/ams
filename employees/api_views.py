@@ -10,6 +10,7 @@ from calendar import monthrange
 import json
 
 from .models import Employee, Attendance, AttendanceDayComment, Holiday
+from employees.shift_attendance_logic import calculate_attendance_status_for_record
 
 
 def _get_status_display(attendance):
@@ -29,13 +30,11 @@ def _get_status_display(attendance):
         'present': ('present', 'Present', 'present'),
         'absent': ('absent', 'Absent', 'absent'),
         'half_day': ('halfday', 'Half Day', 'halfday'),
+        'checked_in_only': ('checked_in', 'Checked In', 'checked_in'),
     }
-    
-    # Handle calculated status from attendance model (new duration-based logic)
-    if hasattr(attendance, 'calculate_attendance_status'):
-        att_status, color_code = attendance.calculate_attendance_status()
-        if att_status in status_map:
-            return status_map[att_status]
+    att_status, color_code = attendance.calculate_shift_based_status()  # was calculate_attendance_status
+    if att_status in status_map:
+        return status_map[att_status]
     
     # Fallback to absent if no attendance
     return ('absent', 'Absent', 'absent')
@@ -1306,17 +1305,22 @@ def attendance_calendar_ajax(request):
                     return True
             return False
         
+        # api_views.py — top of file, with your other imports
+
+
+        # inside attendance_calendar_ajax(), replace the whole get_attendance_status() with:
+
         def get_attendance_status(date_obj, attendance_record):
             """Unified status calculation
-            
+
             Returns: "present", "half", "absent", "holiday", or "paid_leave"
-            
+
             CRITICAL FIX: LWP/Without Paid leaves should show as ABSENT (red), not PAID_LEAVE (blue)
             """
             # Check if holiday
             if is_holiday(date_obj):
                 return "holiday"
-            
+
             # Check if approved leave (PAID or LWP)
             for leave in leave_requests:
                 if leave.start_date <= date_obj <= leave.end_date:
@@ -1330,37 +1334,24 @@ def attendance_calendar_ajax(request):
                             days_since_joining = (date_obj - employee.joining_date).days
                             if days_since_joining >= 91:
                                 return "paid_leave"
-            
+
             # If no attendance record and past date, mark as absent
             if not attendance_record:
                 if date_obj < current_date.date():
                     return "absent"
                 return None  # Future date with no record
-            
-            # Calculate status based on working duration
-            if not attendance_record.check_in_time or not attendance_record.check_out_time:
-                return "absent"
-            
-            # Make times timezone-aware
-            check_in = attendance_record.check_in_time
-            check_out = attendance_record.check_out_time
-            
-            if timezone.is_naive(check_in):
-                check_in = timezone.make_aware(check_in)
-            if timezone.is_naive(check_out):
-                check_out = timezone.make_aware(check_out)
-            
-            # Calculate duration in hours
-            duration_seconds = (check_out - check_in).total_seconds()
-            duration_hours = duration_seconds / 3600
-            
-            # Apply rules
-            if duration_hours < 4:
-                return "absent"
-            elif duration_hours >= 4 and duration_hours < 8:
-                return "half"
-            else:  # >= 8 hours
-                return "present"
+
+            # Calculate status using the office-configurable shift-based logic
+            # (replaces the old manual 4h/8h duration math)
+            status, _ = calculate_attendance_status_for_record(attendance_record)
+
+            status_map = {
+                'present': 'present',
+                'half_day': 'half',
+                'absent': 'absent',
+                'checked_in_only': 'absent',
+            }
+            return status_map.get(status, 'absent')
         
         # Build response data
         dates_data = []
