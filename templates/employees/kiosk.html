@@ -1,74 +1,39 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Attendance Kiosk</title>
-
 <style>
-
-body{
-    margin:0;
-    background:#111;
-    color:white;
-    font-family:Arial;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
+body{margin:0;background:#111;color:white;font-family:Arial;display:flex;justify-content:center;align-items:center;height:100vh;}
+.container{width:900px;text-align:center;}
+video{width:700px;border-radius:15px;border:5px solid white;transform: scaleX(-1);}
+canvas{display:none;}
+#status{margin-top:20px;font-size:30px;font-weight:bold;}
+.success{color:#00ff88;}
+.error{color:#ff5555;}
+.scanning{color:orange;}
+#start-overlay{
+    position:fixed;inset:0;background:#111;display:flex;
+    align-items:center;justify-content:center;z-index:10;cursor:pointer;
 }
-
-.container{
-    width:900px;
-    text-align:center;
-}
-
-video{
-    width:700px;
-    border-radius:15px;
-    border:5px solid white;
-    transform: scaleX(-1);
-}
-
-canvas{
-    display:none;
-}
-
-#status{
-    margin-top:20px;
-    font-size:30px;
-    font-weight:bold;
-}
-
-.success{
-    color:#00ff88;
-}
-
-.error{
-    color:#ff5555;
-}
-
-.scanning{
-    color:orange;
-}
-
 </style>
-
 </head>
 <body>
 
+<div id="start-overlay">
+  <h2 style="color:white;">Tap to Start Kiosk</h2>
+</div>
+
 <div class="container">
-
 <h1>Face Attendance System</h1>
-
 <video id="video" autoplay playsinline></video>
-
 <canvas id="canvas"></canvas>
-
-<div id="status" class="scanning">
-Looking for face...
+<div id="status" class="scanning">Looking for face...</div>
 </div>
 
-</div>
+<!-- Preloaded success sound -->
+<audio id="success-sound" src="{% static 'audio/thankyou.mp3' %}" preload="auto"></audio>
 
 <script>
 
@@ -76,55 +41,70 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const statusDiv = document.getElementById("status");
 const OFFICE_TOKEN = "{{ office.kiosk_token }}";
-navigator.mediaDevices.getUserMedia({
-    video:{
-        facingMode:"user"
-    }
-})
-.then(stream=>{
-    video.srcObject=stream;
-})
-.catch(()=>{
-    statusDiv.innerHTML="Camera Permission Denied";
-});
+const successSound = document.getElementById("success-sound");
 
-let processing=false;
+let audioUnlocked = false;
+let processing = false;
+
+function playSuccessSound() {
+    if (!audioUnlocked) return;
+    try {
+        successSound.pause();
+        successSound.currentTime = 0;
+        successSound.play().catch(err => console.log("Audio play blocked:", err));
+    } catch (e) {
+        console.log("Audio error:", e);
+    }
+}
+
+// One-time unlock on first tap — starts camera + primes audio + starts the scan loop
+document.getElementById("start-overlay").addEventListener("click", () => {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+        .then(stream => {
+            video.srcObject = stream;
+        })
+        .catch(() => {
+            statusDiv.innerHTML = "Camera Permission Denied";
+        });
+
+    // Play + immediately pause to unlock audio for the rest of the session
+    successSound.play().then(() => {
+        successSound.pause();
+        successSound.currentTime = 0;
+        audioUnlocked = true;
+    }).catch(() => {
+        // Some browsers still allow later plays even if this unlock attempt errors
+        audioUnlocked = true;
+    });
+
+    document.getElementById("start-overlay").remove();
+    setInterval(captureAndSend, 2500);
+});
 
 async function captureAndSend(){
 
     if(processing) return;
-
     if(video.readyState!==4) return;
 
     processing=true;
 
     canvas.width=video.videoWidth;
     canvas.height=video.videoHeight;
-
     const ctx = canvas.getContext("2d");
-
     ctx.save();
     ctx.scale(-1, 1);
     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
     ctx.restore();
 
     const image=canvas.toDataURL("image/jpeg");
-
     const formData=new FormData();
     formData.append("image",image);
 
     try{
-
         const response=await fetch(`/mark-attendance/${OFFICE_TOKEN}/`,{
-
             method:"POST",
-
-            headers:{
-                "X-CSRFToken":"{{ csrf_token }}"
-            },
-
+            headers:{ "X-CSRFToken":"{{ csrf_token }}" },
             body:formData
-
         });
 
         const data=await response.json();
@@ -132,19 +112,19 @@ async function captureAndSend(){
         if(data.success){
 
             statusDiv.className="success";
+            statusDiv.innerHTML=data.message+"<br>"+data.time;
 
-            statusDiv.innerHTML=
-            data.message+
-            "<br>"+data.time;
+            // Only sound on genuine check-in/check-out/update — not "ignored" duplicate scans
+            if (data.action !== "ignored") {
+                playSuccessSound();
+            }
 
             setTimeout(()=>{
                 statusDiv.className="scanning";
                 statusDiv.innerHTML="Looking for face...";
             },4000);
 
-        }
-
-        else{
+        } else {
 
             statusDiv.className="error";
             statusDiv.innerHTML=data.error;
@@ -156,19 +136,12 @@ async function captureAndSend(){
 
         }
 
-    }
-
-    catch(e){
-
+    } catch(e){
         console.log(e);
-
     }
 
     processing=false;
-
 }
-
-setInterval(captureAndSend,2500);
 
 </script>
 
