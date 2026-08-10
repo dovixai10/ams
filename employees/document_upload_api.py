@@ -124,42 +124,39 @@ def upload_document(request, doc_type):
                 "message": error_msg
             }, status=400)
 
-        # CHECK FOR VERIFICATION LOCK
+        # Do not allow an upload if the verification state cannot be established.
+        from employees.models import Employee, EmployeeDocument
         try:
-            from employees.models import Employee, EmployeeDocument
             employee = Employee.objects.get(user=request.user)
-            
-            # Map document type to EmployeeDocument type
-            doc_type_mapping = {
-                '10th': 'marksheet_10th',
-                '12th': 'marksheet_12th',
-                'aadhaar': 'aadhar_front',
-                'aadhaar-back': 'aadhar_back',
-                'pan': 'pan',
-                'bank': 'bank_proof',
-                'education': 'education_proof'
-            }
-            
-            mapped_doc_type = doc_type_mapping.get(doc_type)
-            if mapped_doc_type:
-                # Check if there's a verified document of this type
-                verified_doc = EmployeeDocument.objects.filter(
-                    employee=employee,
-                    document_type=mapped_doc_type,
-                    status='verified'
-                ).first()
-                
-                if verified_doc:
-                    return JsonResponse({
-                        "status": "locked",
-                        "message": "This document has been verified and cannot be re-uploaded. Please contact admin if you need to make changes.",
-                        "verified_at": verified_doc.verified_at.isoformat() if verified_doc.verified_at else None,
-                        "verified_by": verified_doc.verified_by.get_full_name() if verified_doc.verified_by else None
-                    }, status=403)
-                    
-        except Exception as e:
-            print(f"Warning: Could not check verification status: {str(e)}")
-            # Continue with upload if verification check fails
+        except Employee.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "Employee profile not found."
+            }, status=403)
+
+        doc_type_mapping = {
+            '10th': 'marksheet_10th',
+            '12th': 'marksheet_12th',
+            'aadhaar': 'aadhar_front',
+            'aadhaar-back': 'aadhar_back',
+            'pan': 'pan',
+            'bank': 'bank_proof',
+            'education': 'education_proof'
+        }
+        mapped_doc_type = doc_type_mapping.get(doc_type)
+        if mapped_doc_type:
+            verified_doc = EmployeeDocument.objects.filter(
+                employee=employee,
+                document_type=mapped_doc_type,
+                status='verified'
+            ).first()
+            if verified_doc:
+                return JsonResponse({
+                    "status": "locked",
+                    "message": "This document has been verified and cannot be re-uploaded. Please contact admin if you need to make changes.",
+                    "verified_at": verified_doc.verified_at.isoformat() if verified_doc.verified_at else None,
+                    "verified_by": verified_doc.verified_by.get_full_name() if verified_doc.verified_by else None
+                }, status=403)
 
         # Generate upload path
         upload_path = get_upload_path(doc_type, file.name)
@@ -172,8 +169,7 @@ def upload_document(request, doc_type):
 
         # Create/update EmployeeDocument record
         try:
-            from employees.models import Employee, EmployeeDocument
-            employee = Employee.objects.get(user=request.user)
+            from employees.models import EmployeeDocument
             
             # Map document type to EmployeeDocument type
             doc_type_mapping = {

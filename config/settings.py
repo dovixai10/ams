@@ -43,29 +43,24 @@ if not SECRET_KEY:
         SECRET_KEY_FILE.write_text(SECRET_KEY, encoding="utf-8")
 
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", 'True').lower() in ['true', 'yes', '1']
+# Production-safe defaults; local development can explicitly set DEBUG=True.
+DEBUG = os.environ.get("DEBUG", "False").lower() in ["true", "yes", "1"]
 
-
-# https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = [
-    "localhost",
-    "0.0.0.0",
-    "127.0.0.1",
-    "192.168.1.12",
-    "*",
-    "https://zona-nonexpendable-dismally.ngrok-free.dev",
-    "https://transmeridionally-monologic-wynona.ngrok-free.dev",
-    "polo-utility-portable.ngrok-free.dev"
+    host.strip()
+    for host in os.environ.get(
+        "ALLOWED_HOSTS",
+        "localhost,127.0.0.1,0.0.0.0",
+    ).split(",")
+    if host.strip()
 ]
 CSRF_TRUSTED_ORIGINS = [
-    "https://zona-nonexpendable-dismally.ngrok-free.dev",
-    "https://transmeridionally-monologic-wynona.ngrok-free.dev",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://0.0.0.0:8000",
-    "https://polo-utility-portable.ngrok-free.dev"
-
+    origin.strip()
+    for origin in os.environ.get(
+        "CSRF_TRUSTED_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000",
+    ).split(",")
+    if origin.strip()
 ]
 
 # Current DJANGO_ENVIRONMENT
@@ -231,8 +226,9 @@ THEME_VARIABLES = {
 # Your stuff...
 # ------------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
-    "https://zona-nonexpendable-dismally.ngrok-free.dev" 
-    "https://transmeridionally-monologic-wynona.ngrok-free.dev"# if React
+    origin.strip()
+    for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
 ]
 # Face recognition settings
 # Default tolerance for face_recognition.compare_faces (lower is stricter)
@@ -243,8 +239,8 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "info@thekwikster.com").strip()
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "ocls bdrk bcqq kvis").replace(" ", "")
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "").strip()
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "").replace(" ", "")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Weather API Configuration

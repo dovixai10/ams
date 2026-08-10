@@ -16,7 +16,7 @@ import logging
 from datetime import datetime
 
 from .models import Employee, EmployeeDocument
-from .permissions import is_office_admin
+from .permissions import is_office_admin, is_platform_admin
 logger = logging.getLogger(__name__)
 
 # Allowed file extensions
@@ -27,6 +27,33 @@ ALLOWED_EXTENSIONS = {
 }
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+
+def office_document_queryset(request):
+    """Return documents visible to the current office administrator."""
+    queryset = EmployeeDocument.objects.select_related('employee')
+    if is_platform_admin(request.user):
+        return queryset
+    if is_office_admin(request.user):
+        return queryset.filter(
+            employee__office=request.user.office_admin_profile.office
+        )
+    return queryset.none()
+
+
+def can_access_document(request, document):
+    """Allow an employee's own document or an administrator in its office."""
+    if is_platform_admin(request.user):
+        return True
+    if is_office_admin(request.user):
+        return (
+            document.employee.office_id
+            == request.user.office_admin_profile.office_id
+        )
+    return (
+        hasattr(request.user, 'employee_profile')
+        and document.employee_id == request.user.employee_profile.id
+    )
 
 
 def validate_file(file_obj):
@@ -151,13 +178,18 @@ def get_employee_documents(request, employee_id=None):
         if employee_id is None:
             employee = request.user.employee_profile
         else:
-            # Admin can view any employee's documents
-            if not is_office_admin(request.user):
+            # Office administrators can view only their own office's employees.
+            if not (is_office_admin(request.user) or is_platform_admin(request.user)):
                 return JsonResponse({
                     'success': False,
                     'error': 'Permission denied'
                 }, status=403)
-            employee = get_object_or_404(Employee, id=employee_id)
+            employee_queryset = Employee.objects.all()
+            if not is_platform_admin(request.user):
+                employee_queryset = employee_queryset.filter(
+                    office=request.user.office_admin_profile.office
+                )
+            employee = get_object_or_404(employee_queryset, id=employee_id)
         
         documents = EmployeeDocument.objects.filter(employee=employee).order_by('-uploaded_at')
         
@@ -205,15 +237,14 @@ def verify_document(request, pk):
     Returns JSON response with document details
     """
     try:
-        # Check if user is admin/staff
-        if not request.user.is_staff:
+        # Only platform or same-office administrators may verify documents.
+        if not (is_office_admin(request.user) or is_platform_admin(request.user)):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied. Admin access required.'
             }, status=403)
         
-        # Get document
-        document = get_object_or_404(EmployeeDocument, id=pk)
+        document = get_object_or_404(office_document_queryset(request), id=pk)
         
         # Prevent re-verification (idempotent)
         if document.status == EmployeeDocument.VerificationStatus.VERIFIED:
@@ -309,7 +340,7 @@ def delete_document(request, document_id):
         document = get_object_or_404(EmployeeDocument, id=document_id)
         
         # Check permission
-        if document.employee != request.user.employee_profile and not is_office_admin(request.user):
+        if not can_access_document(request, document):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'
@@ -342,7 +373,7 @@ def delete_document(request, document_id):
 @require_http_methods(["POST"])
 def request_document_resubmission(request, pk):
     """Allow admins to request that an employee re-upload a document."""
-    document = get_object_or_404(EmployeeDocument, id=pk)
+    document = get_object_or_404(office_document_queryset(request), id=pk)
     reason = (request.POST.get('reason') or '').strip()
     document.status = EmployeeDocument.VerificationStatus.REJECTED
     document.needs_resubmission = True
@@ -377,8 +408,7 @@ def view_document(request, document_id):
     try:
         document = get_object_or_404(EmployeeDocument, id=document_id)
         
-        # Check permission - employee can only view their own, admin can view all
-        if document.employee != request.user.employee_profile and not is_office_admin(request.user):
+        if not can_access_document(request, document):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'

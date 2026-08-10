@@ -579,6 +579,7 @@ def dashboard_api(request):
         
         # Get top 3 performers this month
         top_performers = EmployeePoints.objects.filter(
+            employee__office=employee.office,
             month=current_month,
             year=current_year
         ).select_related('employee').order_by('-points')[:3]

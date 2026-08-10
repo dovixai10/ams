@@ -13,6 +13,7 @@ from django.contrib.auth.views import (
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy, reverse
 from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q, Min, Max, Count
 from django.utils import timezone
@@ -27,7 +28,7 @@ from web_project.template_helpers.theme import TemplateHelper
 from employees.models import Employee, PaidLeaveAdjustment
 # from .models import LeaveAdjustment, Employee
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from .models import LeaveType, EmployeeLeaveBalance, LeaveCreditLog
 
 from datetime import date
@@ -2601,6 +2602,9 @@ class EmployeeDeleteView(DeleteView):
     template_name = 'employees/employee_confirm_delete.html'
     success_url = reverse_lazy('employees:employee_list')
 
+    def get_queryset(self):
+        return tenant_queryset(self.request, super().get_queryset())
+
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         context.update({
@@ -2622,7 +2626,7 @@ class EmployeeDeleteView(DeleteView):
 @user_passes_test(office_admin_required)
 def employee_toggle_status(request, pk):
     """Toggle employee active/inactive status (Super-admin only)"""
-    employee = get_object_or_404(Employee, pk=pk)
+    employee = tenant_object_or_404(request, Employee, pk=pk)
 
     if request.method == 'POST':
         # Toggle the user's active status
@@ -2633,7 +2637,11 @@ def employee_toggle_status(request, pk):
         messages.success(request, f'Employee {employee.full_name} has been {status} successfully!')
 
         next_url = request.POST.get('next')
-        if next_url:
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
             return redirect(next_url)
 
         # Redirect back to the page that made the request
@@ -2652,7 +2660,7 @@ def employee_toggle_status(request, pk):
 @user_passes_test(office_admin_required)
 def employee_detail(request, pk):
     """View employee details (Super-admin only)"""
-    employee = get_object_or_404(Employee, pk=pk)
+    employee = tenant_object_or_404(request, Employee, pk=pk)
     from django.utils import timezone
 
     # Get attendance statistics
@@ -2715,7 +2723,7 @@ def employee_detail(request, pk):
 def employee_attendance_logs(request, pk):
     """Interactive activity log view for a specific employee (Super-admin only)."""
 
-    employee = get_object_or_404(Employee, pk=pk)
+    employee = tenant_object_or_404(request, Employee, pk=pk)
 
     logs_qs = AttendanceLog.objects.filter(employee=employee).select_related('attendance').order_by('-timestamp')
 
@@ -4047,6 +4055,9 @@ def mark_attendance(request, token):
     )
     if request.method == 'POST' and 'image' in request.POST:
         try:
+            ip_address = get_client_ip(request)
+            user_agent = request.META.get("HTTP_USER_AGENT", "")
+
             # Get the base64 image data
             image_data = request.POST['image'].split('base64,')[1]
             image_data = base64.b64decode(image_data)
@@ -4176,9 +4187,6 @@ def mark_attendance(request, token):
                                 f"checkout_{employee.id}"
                             )
 
-                            ip_address = get_client_ip(request)
-                            user_agent = request.META.get("HTTP_USER_AGENT", "")
-
                             attendance._auto_end_context = {
                                 "origin": "face recognition update",
                                 "ip_address": ip_address,
@@ -4240,8 +4248,12 @@ def mark_attendance(request, token):
             
             return JsonResponse({'success': False, 'error': 'Face not recognized'})
             
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
+        except Exception:
+            logger.exception("Kiosk attendance scan failed for office %s", office.id)
+            return JsonResponse({
+                'success': False,
+                'error': 'Unable to process the attendance scan. Please try again.'
+            }, status=400)
     
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
@@ -5994,13 +6006,13 @@ def process_password_reset_request(request, request_id):
             
             # Update request
             reset_request.status = 'approved'
-            reset_request.new_password = new_password  # Store temporarily for notification
+            reset_request.new_password = None
             reset_request.processed_by = request.user
             reset_request.processed_at = timezone.now()
             reset_request.admin_notes = admin_notes
             reset_request.save()
             
-            messages.success(request, f'Password reset approved for {employee.name}. New password: {new_password}')
+            messages.success(request, f'Password reset approved for {employee.name}.')
             
         elif action == 'reject':
             reset_request.status = 'rejected'
@@ -6042,7 +6054,7 @@ def employee_change_password(request, employee_id):
                 email=employee.email,
                 reason=f'Password changed by admin: {admin_notes}',
                 status='approved',
-                new_password=new_password,
+                new_password=None,
                 processed_by=request.user,
                 processed_at=timezone.now(),
                 admin_notes=admin_notes
@@ -7021,7 +7033,11 @@ def admin_id_cards(request):
             date_of_joining = request.POST.get('date_of_joining')
             
             try:
-                employee = Employee.objects.get(id=employee_id)
+                employee = tenant_object_or_404(
+                    request,
+                    Employee,
+                    id=employee_id,
+                )
                 
                 id_card, created = EmployeeIDCard.objects.update_or_create(
                     employee=employee,
@@ -7050,7 +7066,10 @@ def admin_id_cards(request):
         request,
         Employee.objects.all()
     ).order_by('full_name')
-    id_cards = EmployeeIDCard.objects.all().order_by('-created_at')
+    id_cards = tenant_queryset(
+        request,
+        EmployeeIDCard.objects.all(),
+    ).order_by('-created_at')
     
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -7085,9 +7104,11 @@ def download_id_card(request, pk):
     from employees.models import EmployeeIDCard
     
     id_card = get_object_or_404(EmployeeIDCard, id=pk)
-    
-    # Check permissions
-    if request.user.employee_profile != id_card.employee and not request.user.is_superuser:
+    is_owner = (
+        hasattr(request.user, 'employee_profile')
+        and request.user.employee_profile == id_card.employee
+    )
+    if not (is_owner or is_platform_admin(request.user)):
         messages.error(request, 'You do not have permission to access this file.')
         return redirect('employees:employee_dashboard')
     
@@ -7108,7 +7129,11 @@ def get_employee_data_api(request):
         return JsonResponse({'success': False, 'error': 'employee_id is required.'}, status=400)
 
     try:
-        employee = Employee.objects.get(id=employee_id)
+        employee = tenant_object_or_404(
+            request,
+            Employee,
+            id=employee_id,
+        )
     except Employee.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Employee not found.'}, status=404)
 
@@ -7580,7 +7605,7 @@ def get_employee_data(request):
         return JsonResponse({'error': 'Employee ID is required'}, status=400)
     
     try:
-        employee = Employee.objects.get(id=employee_id)
+        employee = tenant_object_or_404(request, Employee, id=employee_id)
 
         # Prefer ID card metadata if it exists, otherwise fall back to core employee fields
         joining_date_obj = None
@@ -7826,16 +7851,11 @@ def admin_adjust_paid_leave(request):
     selected_employee = None
     current_balance = None
 
-    if request.method == "GET":
-        print("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP")
-        return render(request, "admin/adjust_paid_leave.html")
-
     if request.method == "POST":
         employee_id = request.POST.get("employee")
         amount = request.POST.get("amount")
         adjustment_type = request.POST.get("adjustment_type")
         reason = request.POST.get("reason", "")
-        print(employee_id, amount, adjustment_type, reason, 'OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO')
 
         # selected_employee = Employee.objects.get(id=employee_id)
         selected_employee = get_object_or_404(
@@ -7844,17 +7864,31 @@ def admin_adjust_paid_leave(request):
         )
         current_balance = selected_employee.calculate_paid_leave_balance()
 
-        amount = float(amount)
+        try:
+            amount = Decimal(amount)
+        except (InvalidOperation, TypeError):
+            messages.error(request, "Enter a valid numeric amount.")
+            return redirect("employees:adjust_paid_leave")
+        if amount <= 0:
+            messages.error(request, "Amount must be greater than 0.")
+            return redirect("employees:adjust_paid_leave")
 
         if adjustment_type == "increase":
             new_balance = current_balance + amount
+            selected_employee.manual_extra_leaves += amount
         else:
             new_balance = max(0, current_balance - amount)
+            if current_balance < amount:
+                messages.error(request, "Cannot reduce paid leave below zero.")
+                return redirect("employees:adjust_paid_leave")
+            selected_employee.manual_extra_leaves -= amount
+        selected_employee.save(update_fields=["manual_extra_leaves"])
 
         # Create adjustment log
         PaidLeaveAdjustment.objects.create(
+            office=selected_employee.office,
             employee=selected_employee,
-            adjustment_type=adjustment_type,
+            adjustment_type=adjustment_type.upper(),
             amount=amount,
             reason=reason,
             previous_balance=current_balance,
@@ -7864,7 +7898,7 @@ def admin_adjust_paid_leave(request):
 
         messages.success(request, "Paid leave updated successfully!")
 
-        return redirect("admin_adjust_paid_leave")
+        return redirect("employees:adjust_paid_leave")
 
     # For showing current balance on GET request
     if request.GET.get("employee"):
@@ -7881,12 +7915,15 @@ def admin_adjust_paid_leave(request):
         PaidLeaveAdjustment.objects.select_related('employee').all()
     ).order_by("-adjusted_at")
 
-    return render(request, "admin/paid_leave_adjustment.html", {
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        "layout_path": TemplateHelper.set_layout("layout_vertical.html", context),
         "employees": employees,
         "selected_employee": selected_employee,
         "current_balance": current_balance,
         "adjustments": adjustments,
     })
+    return render(request, "employees/adjust_paid_leave.html", context)
 
 from decimal import Decimal
 

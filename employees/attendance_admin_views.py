@@ -50,14 +50,14 @@ def manual_attendance(request):
             
             # Handle paid leave deduction/refund
             if status == 'paid_leave' and old_status != 'paid_leave':
-                if employee.paid_leaves <= 0:
+                if employee.calculate_paid_leave_balance() <= 0:
                     messages.error(request, f"❌ {employee.full_name} has no paid leaves available!")
                     return redirect('employees:manual_attendance')
-                employee.paid_leaves -= 1
+                employee.manual_extra_leaves -= Decimal('1.0')
                 employee.save()
                 
             elif status != 'paid_leave' and old_status == 'paid_leave':
-                employee.paid_leaves += 1
+                employee.manual_extra_leaves += Decimal('1.0')
                 employee.save()
             
             # Update attendance with manual override fields
@@ -166,7 +166,7 @@ def get_employee_details(request):
             'shift': shift_info,
             'today_status': today_status,
             'worked_hours': worked_hours,
-            'paid_leaves': float(employee.paid_leaves),
+            'paid_leaves': float(employee.calculate_paid_leave_balance()),
             'last_attendance': last_attendance_list,
         })
     except Employee.DoesNotExist:
@@ -198,14 +198,14 @@ def adjust_paid_leave(request):
                 messages.warning(request, "⚠ Adjustment amount cannot be zero!")
                 return redirect('employees:adjust_paid_leave')
 
-            old_balance = employee.paid_leaves
+            old_balance = employee.calculate_paid_leave_balance()
             new_balance = old_balance + adjustment
 
             if new_balance < 0:
                 messages.error(request, f"❌ Cannot reduce leaves below 0! Current: {old_balance}, Requested: {new_balance}")
                 return redirect('employees:adjust_paid_leave')
 
-            employee.paid_leaves = new_balance
+            employee.manual_extra_leaves += adjustment
             employee.save()
 
             LeaveAdjustment.objects.create(
@@ -387,11 +387,11 @@ def get_leave_balance(request):
         # Get recent adjustments
         recent_adjustments = LeaveAdjustment.objects.filter(
             employee=employee
-        ).order_by('-timestamp')[:5]
+        ).order_by('-created_at')[:5]
         
         adjustments_list = [
             {
-                'date': adj.timestamp.strftime('%d %b %Y %H:%M'),
+                'date': adj.created_at.strftime('%d %b %Y %H:%M'),
                 'reason': adj.get_reason_display(),
                 'amount': f"{adj.change_amount:+.1f}",
                 'new_balance': f"{adj.new_balance:.1f}",
@@ -402,7 +402,7 @@ def get_leave_balance(request):
         
         return JsonResponse({
             'success': True,
-            'current_balance': float(employee.paid_leaves),
+            'current_balance': float(employee.calculate_paid_leave_balance()),
             'recent_adjustments': adjustments_list,
         })
     except Employee.DoesNotExist:

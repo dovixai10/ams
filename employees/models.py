@@ -499,8 +499,8 @@ class Employee(models.Model):
         if days_since_joining < 0:
             return Decimal('0.0')
         
-        # Calculate total credited leaves (1.5 leaves per 30 days)
-        total_credited = Decimal(str((days_since_joining // 30) * 0))
+        # Calculate total credited leaves (1.5 leaves per completed 30 days).
+        total_credited = Decimal(days_since_joining // 30) * Decimal('1.5')
         
         # Calculate total approved leaves taken (only after 90 days from joining)
         cutoff_date = joining_date + timedelta(days=90)
@@ -533,8 +533,7 @@ class Employee(models.Model):
                 total_days_taken += Decimal(str(leave_days))
         
         # Calculate balance
-        balance = total_credited - total_days_taken
-        print(balance, 'QQQQQQQQQQQQQQQQQQ')
+        balance = total_credited + self.manual_extra_leaves - total_days_taken
         return max(balance, Decimal('0.0'))  # Return 0 if negative
 
 #--------------------------------------------------------------------------------------
