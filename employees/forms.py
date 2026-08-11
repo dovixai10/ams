@@ -1239,33 +1239,36 @@ class TaskForm(forms.ModelForm):
             'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
 
-    def __init__(self, *args, assigned_by=None, request=None, **kwargs):
-        self.assigned_by = assigned_by 
+    def __init__(self, *args, assigned_by=None, request=None, employee=None, **kwargs):
+        self.assigned_by = assigned_by
         self.request = request
+        self.employee = employee
 
         super().__init__(*args, **kwargs)
 
-        employees = Employee.objects.select_related("user")
+        if employee is not None:
+            # Employee self-assignment: lock the field to themselves.
+            self.fields['assigned_to'].queryset = Employee.objects.filter(pk=employee.pk)
+            self.fields['assigned_to'].initial = employee.pk
+            self.fields['assigned_to'].widget = forms.HiddenInput()
+        else:
+            employees = Employee.objects.select_related("user")
+            if self.request:
+                employees = tenant_queryset(self.request, employees)
 
-        if self.request:
-            employees = tenant_queryset(
-                self.request,
-                employees
+            self.fields["assigned_to"].queryset = employees.order_by(
+                "full_name",
+                "email",
+            )
+            self.fields['assigned_to'].label_from_instance = (
+                lambda obj: f"{obj.full_name or obj.name} ({obj.email})"
             )
 
-
-        self.fields["assigned_to"].queryset = employees.order_by(
-            "full_name",
-            "email",
-        )
-        self.fields['assigned_to'].label_from_instance = (
-            lambda obj: f"{obj.full_name or obj.name} ({obj.email})"
-        )
         if 'status' in self.fields:
             self.fields['status'].choices = Task.Status.choices
         if 'priority' in self.fields:
             self.fields['priority'].choices = Task.Priority.choices
-
+            
     def save(self, commit=True):
         task = super().save(commit=False)
         if self.assigned_by and not task.assigned_by:

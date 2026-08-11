@@ -161,7 +161,7 @@
   ============================= -->
   <div class="task-overview">
     <div class="card shadow-sm">
-      <div class="card-header">
+      {% comment %} <div class="card-header">
         <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between gap-3">
           <div>
             <h5 class="mb-0">Tasks Overview</h5>
@@ -193,8 +193,75 @@
             </select>
           </form>
         </div>
-      </div>
+      </div> {% endcomment %}
 
+      <div class="card-header">
+  <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between gap-3">
+    <div>
+      <h5 class="mb-0">Tasks Overview</h5>
+      <small class="text-muted">Monitor progress and update statuses in real time.</small>
+    </div>
+    <button type="submit" form="taskFilterForm"
+            formaction="{% url 'employees:admin_tasks_excel' %}"
+            class="btn btn-sm"
+            style="background:linear-gradient(135deg,#696CFF,#8B5CF6); color:#fff; border:none;">
+      <i class="bx bx-download me-1"></i>Download Excel Report
+    </button>
+  </div>
+
+  <form method="get" id="taskFilterForm" class="row g-2 mt-3">
+    <div class="col-6 col-md-2">
+      <select class="form-select task-filter-select" name="status">
+        <option value="">All statuses</option>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <select class="form-select task-filter-select" name="priority">
+        <option value="">All priorities</option>
+        {% for value, label in priority_choices %}
+        <option value="{{ value }}" {% if selected_priority == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-12 col-md-3">
+      <select class="form-select task-filter-select" name="assigned_to">
+        <option value="">All employees</option>
+        {% for emp in employees %}
+        <option value="{{ emp.pk }}" {% if selected_assignee|default:'' == emp.pk|stringformat:'s' %}selected{% endif %}>
+          {{ emp.full_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <input type="date" name="date_from" class="form-control" value="{{ selected_date_from|default:'' }}">
+    </div>
+
+    <div class="col-6 col-md-2">
+      <input type="date" name="date_to" class="form-control" value="{{ selected_date_to|default:'' }}">
+    </div>
+
+    <div class="col-12 col-md-1 d-grid">
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="bx bx-filter-alt"></i>
+      </button>
+    </div>
+  </form>
+
+  {% if selected_status or selected_priority or selected_assignee or selected_date_from or selected_date_to %}
+    <div class="mt-2">
+      <a href="{% url 'employees:admin_tasks' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bx bx-reset me-1"></i>Clear Filters
+      </a>
+    </div>
+  {% endif %}
+</div>
       <!-- Existing Task List (no changes made) -->
        <!-- Task List -->
       <div class="table-responsive">
@@ -202,6 +269,7 @@
           <thead class="table-light">
             <tr>
               <th>Title</th>
+              <th>Created By</th>
               <th>Assigned To</th>
               <th>Priority</th>
               <th>Status</th>
@@ -217,6 +285,13 @@
                 <div class="fw-semibold">{{ task.title }}</div>
                 {% if task.is_overdue %}
                   <span class="badge bg-danger bg-opacity-10 text-danger">Overdue</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if task.assigned_by == task.assigned_to.user %}
+                  <span class="badge bg-info bg-opacity-10 text-info">Self-created</span>
+                {% else %}
+                  {{ task.assigned_by.get_full_name|default:task.assigned_by.username|default:"—" }}
                 {% endif %}
               </td>
               <td>{{ task.assigned_to.full_name }}</td>

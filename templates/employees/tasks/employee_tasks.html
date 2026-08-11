@@ -401,7 +401,54 @@
       </div>
     </div>
   </div>
+  <div class="app-card">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0">Create a Task</h5>
+    <span class="badge bg-primary bg-opacity-10 text-primary">For yourself</span>
+  </div>
 
+  <form method="post">
+    {% csrf_token %}
+    {{ create_form.assigned_to }}  {# hidden, locked to this employee #}
+
+    <div class="mb-3">
+      <label class="form-label">Title</label>
+      {{ create_form.title }}
+      {% if create_form.title.errors %}
+        <div class="invalid-feedback d-block">{{ create_form.title.errors|join:', ' }}</div>
+      {% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Description</label>
+      {{ create_form.description }}
+      {% if create_form.description.errors %}
+        <div class="invalid-feedback d-block">{{ create_form.description.errors|join:', ' }}</div>
+      {% endif %}
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Due date</label>
+        {{ create_form.due_date }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Priority</label>
+        {{ create_form.priority }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Status</label>
+        {{ create_form.status }}
+      </div>
+    </div>
+
+    <div class="d-grid mt-4">
+      <button type="submit" class="btn btn-primary">
+        <i class="bx bx-task"></i><span class="ms-1">Create Task</span>
+      </button>
+    </div>
+  </form>
+</div>
   <div class="app-card">
     <div class="d-flex flex-column flex-sm-row justify-content-between gap-3 align-items-start align-items-sm-center mb-3">
       <h5 class="mb-0">Tasks in progress</h5>

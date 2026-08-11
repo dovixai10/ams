@@ -35,7 +35,11 @@ from .leave_accrual import initialize_balances_for_new_type, get_employee_leave_
 
 from .permissions import office_admin_required, is_platform_admin, get_request_office
 from django.urls import reverse
-import sys
+import sys, re
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from django.http import HttpResponse
+from openpyxl.utils import get_column_letter
 
 # Do not discard working image libraries merely because the optional
 # face-recognition package is unavailable.
@@ -4848,6 +4852,8 @@ def admin_tasks(request):
     status_filter = request.GET.get('status')
     priority_filter = request.GET.get('priority')
     assignee_filter = request.GET.get('assigned_to')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
 
     if status_filter:
         tasks = tasks.filter(status=status_filter)
@@ -4855,6 +4861,19 @@ def admin_tasks(request):
         tasks = tasks.filter(priority=priority_filter)
     if assignee_filter:
         tasks = tasks.filter(assigned_to_id=assignee_filter)
+
+    if date_from:
+        try:
+            parsed_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+            tasks = tasks.filter(created_at__date__gte=parsed_from)
+        except ValueError:
+            date_from = None
+    if date_to:
+        try:
+            parsed_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+            tasks = tasks.filter(created_at__date__lte=parsed_to)
+        except ValueError:
+            date_to = None
 
     form = TaskForm(request.POST or None, assigned_by=request.user, request=request)
     if request.method == 'POST':
@@ -4927,6 +4946,8 @@ def admin_tasks(request):
         'selected_status': status_filter,
         'selected_priority': priority_filter,
         'selected_assignee': assignee_filter,
+        'selected_date_from': date_from,
+        'selected_date_to': date_to,
         'status_choices': Task.Status.choices,
         'priority_choices': Task.Priority.choices,
         'status_summary': status_summary,
@@ -4935,6 +4956,117 @@ def admin_tasks(request):
         'overdue_count': overdue_count,
     })
     return render(request, 'employees/tasks/admin_tasks.html', context)
+
+@login_required
+@user_passes_test(office_admin_required)
+def admin_tasks_excel(request):
+    """Export filtered tasks to Excel — one sheet per employee, or a single
+    sheet when a specific employee is selected."""
+
+    tasks = tenant_queryset(
+        request,
+        Task.objects.select_related(
+            "assigned_to__user",
+            "assigned_by",
+        ).prefetch_related(
+            "updates__updated_by"
+        )
+    ).order_by("assigned_to__full_name", "-created_at")
+
+    status_filter = request.GET.get('status')
+    priority_filter = request.GET.get('priority')
+    assignee_filter = request.GET.get('assigned_to')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+
+    if status_filter:
+        tasks = tasks.filter(status=status_filter)
+    if priority_filter:
+        tasks = tasks.filter(priority=priority_filter)
+    if assignee_filter:
+        tasks = tasks.filter(assigned_to_id=assignee_filter)
+    if date_from:
+        try:
+            parsed_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+            tasks = tasks.filter(created_at__date__gte=parsed_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            parsed_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+            tasks = tasks.filter(created_at__date__lte=parsed_to)
+        except ValueError:
+            pass
+
+    task_list = list(tasks)
+
+    headers = [
+        'Title', 'Description', 'Priority', 'Status', 'Due Date',
+        'Created By', 'Created At', 'Status Updated At',
+        'Latest Update By', 'Latest Update Comment', 'Overdue',
+    ]
+
+    def write_sheet(ws, employee_tasks):
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+        for task in employee_tasks:
+            latest = task.latest_update
+            ws.append([
+                task.title,
+                task.description,
+                task.get_priority_display(),
+                task.get_status_display(),
+                task.due_date.strftime('%d %b %Y') if task.due_date else '',
+                (task.assigned_by.get_full_name() or task.assigned_by.username) if task.assigned_by else '',
+                task.created_at.strftime('%d %b %Y %H:%M') if task.created_at else '',
+                task.status_updated_at.strftime('%d %b %Y %H:%M') if task.status_updated_at else '',
+                (latest.updated_by.get_full_name() or latest.updated_by.username) if latest and latest.updated_by else '',
+                latest.comment if latest else '',
+                'Yes' if task.is_overdue else 'No',
+            ])
+        for col_idx in range(1, len(headers) + 1):
+            ws.column_dimensions[get_column_letter(col_idx)].width = 22
+
+    def sanitize_sheet_name(name):
+        name = re.sub(r'[\[\]:*?/\\]', '', name or 'Employee')
+        return (name[:31] or 'Employee')
+
+    wb = Workbook()
+    wb.remove(wb.active)  # drop the default blank sheet
+
+    if assignee_filter:
+        employee = task_list[0].assigned_to if task_list else Employee.objects.filter(pk=assignee_filter).first()
+        sheet_name = sanitize_sheet_name(employee.full_name if employee else 'Employee')
+        ws = wb.create_sheet(title=sheet_name)
+        write_sheet(ws, task_list)
+    else:
+        grouped = {}
+        for task in task_list:
+            grouped.setdefault(task.assigned_to, []).append(task)
+
+        if not grouped:
+            ws = wb.create_sheet(title='Tasks')
+            ws.append(headers)
+        else:
+            used_names = set()
+            for employee, emp_tasks in grouped.items():
+                base_name = sanitize_sheet_name(employee.full_name)
+                sheet_name = base_name
+                suffix = 1
+                while sheet_name in used_names:
+                    suffix += 1
+                    sheet_name = sanitize_sheet_name(f"{base_name} ({suffix})")
+                used_names.add(sheet_name)
+                ws = wb.create_sheet(title=sheet_name)
+                write_sheet(ws, emp_tasks)
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="task_report.xlsx"'
+    wb.save(response)
+    return response
 
 
 @login_required
@@ -4996,7 +5128,7 @@ def update_task_status(request, pk):
         pk=pk,
     )
 
-    is_admin = request.user.is_superuser
+    is_admin = is_office_admin(request.user)
     is_assigned_employee = hasattr(request.user, 'employee_profile') and task.assigned_to == request.user.employee_profile
 
     if not (is_admin or is_assigned_employee):
@@ -5023,13 +5155,90 @@ def update_task_status(request, pk):
     return redirect('employees:employee_tasks')
 
 
+# @login_required
+# @user_passes_test(is_employee)
+# def employee_tasks(request):
+#     """Employee view to track assigned tasks and post updates."""
+
+#     employee = request.user.employee_profile
+#     # tasks = Task.objects.filter(assigned_to=employee).select_related('assigned_by').prefetch_related('updates__updated_by').order_by('-status_updated_at', '-created_at')
+#     tasks = tenant_queryset(
+#         request,
+#         Task.objects.filter(
+#             assigned_to=employee
+#         ).select_related(
+#             "assigned_by"
+#         ).prefetch_related(
+#             "updates__updated_by"
+#         )
+#     ).order_by(
+#         "-status_updated_at",
+#         "-created_at",
+#     )
+
+#     task_forms = [(task, TaskUpdateForm(task=task)) for task in tasks]
+
+#     status_counts = {
+#         key: tasks.filter(status=key).count()
+#         for key, _ in Task.Status.choices
+#     }
+#     status_styles = {
+#         Task.Status.PENDING: 'secondary',
+#         Task.Status.IN_PROGRESS: 'info',
+#         Task.Status.COMPLETED: 'success',
+#         Task.Status.BLOCKED: 'danger',
+#     }
+#     status_summary = [
+#         {
+#             'value': key,
+#             'label': label,
+#             'count': status_counts.get(key, 0),
+#             'style': status_styles.get(key, 'primary'),
+#         }
+#         for key, label in Task.Status.choices
+#     ]
+
+#     context = TemplateLayout.init(request, context={})
+#     context.update({
+#         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+#         'employee': employee,
+#         'task_forms': task_forms,
+#         'status_choices': Task.Status.choices,
+#         'priority_choices': Task.Priority.choices,
+#         'status_summary': status_summary,
+#     })
+#     return render(request, 'employees/tasks/employee_tasks.html', context)
+
 @login_required
 @user_passes_test(is_employee)
 def employee_tasks(request):
-    """Employee view to track assigned tasks and post updates."""
+    """Employee view to track assigned tasks, self-create tasks, and post updates."""
 
     employee = request.user.employee_profile
-    # tasks = Task.objects.filter(assigned_to=employee).select_related('assigned_by').prefetch_related('updates__updated_by').order_by('-status_updated_at', '-created_at')
+
+    create_form = TaskForm(
+        request.POST or None,
+        assigned_by=request.user,
+        request=request,
+        employee=employee,   # locks assigned_to to this employee
+    )
+
+    if request.method == 'POST':
+        if create_form.is_valid():
+            task = create_form.save()
+            TaskUpdate.objects.create(
+                office=task.office,
+                task=task,
+                updated_by=request.user,
+                previous_status=None,
+                new_status=task.status,
+                comment=create_form.cleaned_data.get('description', '')[:200],
+            )
+            messages.success(request, f"Task '{task.title}' created.")
+            return redirect('employees:employee_tasks')
+        else:
+            messages.error(request, 'Please correct the errors before creating the task.')
+
     tasks = tenant_queryset(
         request,
         Task.objects.filter(
@@ -5071,12 +5280,12 @@ def employee_tasks(request):
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'employee': employee,
         'task_forms': task_forms,
+        'create_form': create_form,
         'status_choices': Task.Status.choices,
         'priority_choices': Task.Priority.choices,
         'status_summary': status_summary,
     })
     return render(request, 'employees/tasks/employee_tasks.html', context)
-
 
 # Ticket System Views
 
@@ -8565,9 +8774,7 @@ def employee_salary_excel_report(request):
     """Export monthly, attendance-adjusted salary report as Excel, using the
     salary entry that was EFFECTIVE for each employee during the selected
     month (not just their latest entry)."""
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from django.http import HttpResponse
+    
 
     today = date_cls.today()
     try:

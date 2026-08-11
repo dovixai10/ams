@@ -103,7 +103,8 @@ urlpatterns = [
     path('tasks/manage/<int:pk>/', views.admin_task_detail, name='admin_task_detail'),  # Admin - Task detail
     path('tasks/<int:pk>/update-status/', views.update_task_status, name='update_task_status'),  # Shared update
     path('tasks/', views.employee_tasks, name='employee_tasks'),  # Employee - My tasks
-
+    path('tasks/manage/export/', views.admin_tasks_excel, name='admin_tasks_excel'),
+    
     # Password Reset URLs
     path('password-reset/', views.EmployeePasswordResetView.as_view(), name='password_reset'),
     path('password-reset/request/', views.password_reset_request, name='password_reset_request'),
