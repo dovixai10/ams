@@ -4035,6 +4035,218 @@ def admin_face_update_requests(request):
 
 
 
+# def mark_attendance(request, token):
+#     """
+#     View for marking attendance using face recognition
+#     """
+
+#     office = get_object_or_404(
+#         Office,
+#         kiosk_token=token,
+#         status=Office.Status.APPROVED,
+#     )
+#     if request.method == 'POST' and 'image' in request.POST:
+#         try:
+#             # Get the base64 image data
+#             image_data = request.POST['image'].split('base64,')[1]
+#             image_data = base64.b64decode(image_data)
+            
+#             # Convert to numpy array
+#             nparr = np.frombuffer(image_data, np.uint8)
+#             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+#             # Convert BGR to RGB
+#             rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            
+#             # Find face locations and encodings
+#             face_locations = face_recognition.face_locations(rgb_img)
+            
+#             if not face_locations:
+#                 return JsonResponse({'success': False, 'error': 'No face detected'})
+                
+#             if len(face_locations) > 1:
+#                 return JsonResponse({'success': False, 'error': 'Multiple faces detected'})
+            
+#             # Get the face encoding
+#             unknown_encoding = face_recognition.face_encodings(rgb_img, face_locations)[0]
+            
+#             # Get all employees with face encodings
+#             # employees = Employee.objects.filter(face_registered=True).exclude(face_encoding__isnull=True)
+#             employees = Employee.objects.filter(
+#                 office=office,
+#                 face_registered=True,
+#             ).exclude(
+#                 face_encoding__isnull=True
+#             )
+#             # employees = tenant_queryset(
+#             #     request,
+#             #     Employee.objects.filter(
+#             #         face_registered=True
+#             #     ).exclude(face_encoding__isnull=True)
+#             # )
+            
+#             # Compare with known faces
+#             for employee in employees:
+#                 known_encoding = employee.get_face_encoding()
+#                 if known_encoding is not None:
+#                     distance = face_recognition.face_distance(
+#                         [known_encoding],
+#                         unknown_encoding
+#                     )[0]
+
+#                     confidence = max(0, min(100, round((1 - distance) * 100, 2)))
+
+#                     print(f"Distance: {distance:.4f}")
+#                     print(f"Confidence: {confidence}%")
+#                     result = face_recognition.compare_faces([known_encoding], unknown_encoding, tolerance=0.5)
+#                     if result[0]:
+#                         # Face recognized, mark attendance
+#                         attendance, created = Attendance.objects.get_or_create(
+#                             office=office,
+#                             employee=employee,
+#                             date=timezone.now().date(),
+#                             defaults={
+#                                 "office": office,
+#                                 'check_in_time': timezone.now(),
+#                                 'check_in_photo': save_attendance_image(img, f"checkin_{employee.id}")
+#                             }
+#                         )
+                        
+#                         # if not created:
+#                         #     # If already checked in, update check out
+#                         #     if not attendance.check_out_time:
+#                         #         checkout_time = timezone.now()
+#                         #         attendance.check_out_time = checkout_time
+#                         #         attendance.check_out_photo = save_attendance_image(img, f"checkout_{employee.id}")
+
+#                         #         ip_address = get_client_ip(request)
+#                         #         user_agent = request.META.get('HTTP_USER_AGENT', '')
+#                         #         attendance._auto_end_context = {
+#                         #             'origin': 'face recognition check-out',
+#                         #             'ip_address': ip_address,
+#                         #             'user_agent': user_agent,
+#                         #         }
+#                         #         attendance.save()
+#                         #         ended_breaks = getattr(attendance, '_auto_end_results', [])
+
+#                         #         AttendanceLog.objects.create(
+#                         #             employee=employee,
+#                         #             attendance=attendance,
+#                         #             action='check_out_success',
+#                         #             success=True,
+#                         #             ip_address=ip_address or None,
+#                         #             user_agent=user_agent or None,
+#                         #             notes='Check-out recorded via face recognition kiosk.'
+#                         #         )
+#                         #         message = f'Check out recorded for {employee.name}'
+#                         #         if ended_breaks:
+#                         #             message += ' (active break automatically ended)'
+#                         #         return JsonResponse({
+#                         #             'success': True,
+#                         #             'message': message,
+#                         #             'employee_name': employee.name,
+#                         #             'action': 'check_out',
+#                         #             'time': checkout_time.strftime('%H:%M:%S')
+#                         #         })
+#                         #     else:
+#                         #         return JsonResponse({
+#                         #             'success': False,
+#                         #             'error': f'Attendance already marked for today',
+#                         #             'employee_name': employee.name
+#                         #         })
+                        
+#                         if not created:
+
+#                             now = timezone.localtime()
+
+#                             # Prevent duplicate scans within 30 seconds
+#                             if attendance.check_out_time:
+#                                 diff = (now - attendance.check_out_time).total_seconds()
+#                                 if diff < 30:
+#                                     return JsonResponse({
+#                                         "success": True,
+#                                         "message": f"Attendance marked for {employee.name}",
+#                                         "action": "ignored",
+#                                         "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
+#                                     })
+
+#                             attendance.check_out_time = now
+#                             attendance.check_out_photo = save_attendance_image(
+#                                 img,
+#                                 f"checkout_{employee.id}"
+#                             )
+
+#                             ip_address = get_client_ip(request)
+#                             user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+#                             attendance._auto_end_context = {
+#                                 "origin": "face recognition update",
+#                                 "ip_address": ip_address,
+#                                 "user_agent": user_agent,
+#                             }
+
+#                             from decimal import Decimal
+
+#                             worked_seconds = (
+#                                 attendance.check_out_time - attendance.check_in_time
+#                             ).total_seconds()
+
+#                             worked_seconds -= attendance.total_break_seconds
+
+#                             attendance.total_work_hours = Decimal(
+#                                 str(round(worked_seconds / 3600, 2))
+#                             )
+
+#                             attendance.save()
+
+#                             AttendanceLog.objects.create(
+#                                 office=office,
+#                                 employee=employee,
+#                                 attendance=attendance,
+#                                 action="check_out_success",
+#                                 success=True,
+#                                 ip_address=ip_address,
+#                                 user_agent=user_agent,
+#                                 notes="Latest face scan updated checkout time."
+#                             )
+
+#                             return JsonResponse({
+#                                 "success": True,
+#                                 "message": f"Attendance updated for {employee.name}",
+#                                 "employee_name": employee.name,
+#                                 "action": "updated",
+#                                 "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
+#                             })
+
+#                         # ---- First capture of the day: this IS the check-in ----
+#                         AttendanceLog.objects.create(
+#                             office=office,
+#                             employee=employee,
+#                             attendance=attendance,
+#                             action="check_in_success",
+#                             success=True,
+#                             confidence=confidence,
+#                             ip_address=ip_address,
+#                             user_agent=user_agent,
+#                             notes="First face scan of the day recorded as check-in."
+#                         )
+#                         return JsonResponse({
+#                             'success': True,
+#                             'message': f'Check in recorded for {employee.name}',
+#                             'employee_name': employee.name,
+#                             'action': 'check_in',
+#                             'time': timezone.localtime().strftime("%d-%m-%Y %I:%M:%S %p")
+#                         })
+            
+#             return JsonResponse({'success': False, 'error': 'Face not recognized'})
+            
+#         except Exception as e:
+#             return JsonResponse({'success': False, 'error': str(e)})
+    
+#     return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+# optimize mark_attendance 
+
 def mark_attendance(request, token):
     """
     View for marking attendance using face recognition
@@ -4047,204 +4259,191 @@ def mark_attendance(request, token):
     )
     if request.method == 'POST' and 'image' in request.POST:
         try:
-            # Get the base64 image data
+            # ---- Get the base thing we always need regardless of outcome ----
             image_data = request.POST['image'].split('base64,')[1]
             image_data = base64.b64decode(image_data)
-            
-            # Convert to numpy array
+
             nparr = np.frombuffer(image_data, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            
-            # Convert BGR to RGB
+
+            # Safety-net resize: face_recognition's speed scales with pixel
+            # count. The kiosk frontend already downscales before sending,
+            # but resize again here so backend latency stays low even if a
+            # frame slips through larger than expected.
+            MAX_WIDTH = 480
+            h, w = img.shape[:2]
+            if w > MAX_WIDTH:
+                scale = MAX_WIDTH / w
+                img = cv2.resize(
+                    img,
+                    (MAX_WIDTH, int(h * scale)),
+                    interpolation=cv2.INTER_AREA
+                )
+
             rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            
-            # Find face locations and encodings
-            face_locations = face_recognition.face_locations(rgb_img)
-            
+
+            # ---- Detect a face FIRST, before touching the database at all.
+            # A kiosk sits idle with no one in frame most of the time — that
+            # needs to be the cheap path. Previously every single scan (idle
+            # or not) loaded and decoded all registered employees' encodings
+            # from the DB before ever checking whether a face was present,
+            # which is why the log showed DB work firing every ~1s with
+            # nobody standing there.
+            face_locations = face_recognition.face_locations(rgb_img, model='hog')
+
             if not face_locations:
                 return JsonResponse({'success': False, 'error': 'No face detected'})
-                
+
             if len(face_locations) > 1:
                 return JsonResponse({'success': False, 'error': 'Multiple faces detected'})
-            
+
+            # A face IS present — now, and only now, load employees/encodings.
+            employees = list(
+                Employee.objects.filter(
+                    office=office,
+                    face_registered=True,
+                ).exclude(face_encoding__isnull=True)
+            )
+
+            if not employees:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No employees registered for face recognition'
+                })
+
+            known_encodings = []
+            known_employees = []
+            for employee in employees:
+                enc = employee.get_face_encoding()
+                if enc is not None:
+                    known_encodings.append(enc)
+                    known_employees.append(employee)
+
+            if not known_encodings:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No employees registered for face recognition'
+                })
+
             # Get the face encoding
             unknown_encoding = face_recognition.face_encodings(rgb_img, face_locations)[0]
-            
-            # Get all employees with face encodings
-            # employees = Employee.objects.filter(face_registered=True).exclude(face_encoding__isnull=True)
-            employees = Employee.objects.filter(
-                office=office,
-                face_registered=True,
-            ).exclude(
-                face_encoding__isnull=True
-            )
-            # employees = tenant_queryset(
-            #     request,
-            #     Employee.objects.filter(
-            #         face_registered=True
-            #     ).exclude(face_encoding__isnull=True)
-            # )
-            
-            # Compare with known faces
-            for employee in employees:
-                known_encoding = employee.get_face_encoding()
-                if known_encoding is not None:
-                    distance = face_recognition.face_distance(
-                        [known_encoding],
-                        unknown_encoding
-                    )[0]
 
-                    confidence = max(0, min(100, round((1 - distance) * 100, 2)))
+            # Compare against the encodings we just loaded — this is cheap
+            # vector math, not the bottleneck, so a plain loop is fine.
+            for employee, known_encoding in zip(known_employees, known_encodings):
+                distance = face_recognition.face_distance(
+                    [known_encoding],
+                    unknown_encoding
+                )[0]
 
-                    print(f"Distance: {distance:.4f}")
-                    print(f"Confidence: {confidence}%")
-                    result = face_recognition.compare_faces([known_encoding], unknown_encoding, tolerance=0.5)
-                    if result[0]:
-                        # Face recognized, mark attendance
-                        attendance, created = Attendance.objects.get_or_create(
-                            office=office,
-                            employee=employee,
-                            date=timezone.now().date(),
-                            defaults={
-                                "office": office,
-                                'check_in_time': timezone.now(),
-                                'check_in_photo': save_attendance_image(img, f"checkin_{employee.id}")
-                            }
+                confidence = max(0, min(100, round((1 - distance) * 100, 2)))
+
+                result = face_recognition.compare_faces([known_encoding], unknown_encoding, tolerance=0.5)
+                if result[0]:
+                    # Face recognized, mark attendance
+                    attendance, created = Attendance.objects.get_or_create(
+                        office=office,
+                        employee=employee,
+                        date=timezone.now().date(),
+                        defaults={
+                            "office": office,
+                            'check_in_time': timezone.now(),
+                            'check_in_photo': save_attendance_image(img, f"checkin_{employee.id}")
+                        }
+                    )
+
+                    if not created:
+
+                        now = timezone.localtime()
+
+                        # Prevent duplicate scans within 30 seconds
+                        if attendance.check_out_time:
+                            diff = (now - attendance.check_out_time).total_seconds()
+                            if diff < 30:
+                                return JsonResponse({
+                                    "success": True,
+                                    "message": f"Attendance marked for {employee.name}",
+                                    "action": "ignored",
+                                    "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
+                                })
+
+                        attendance.check_out_time = now
+                        attendance.check_out_photo = save_attendance_image(
+                            img,
+                            f"checkout_{employee.id}"
                         )
-                        
-                        # if not created:
-                        #     # If already checked in, update check out
-                        #     if not attendance.check_out_time:
-                        #         checkout_time = timezone.now()
-                        #         attendance.check_out_time = checkout_time
-                        #         attendance.check_out_photo = save_attendance_image(img, f"checkout_{employee.id}")
 
-                        #         ip_address = get_client_ip(request)
-                        #         user_agent = request.META.get('HTTP_USER_AGENT', '')
-                        #         attendance._auto_end_context = {
-                        #             'origin': 'face recognition check-out',
-                        #             'ip_address': ip_address,
-                        #             'user_agent': user_agent,
-                        #         }
-                        #         attendance.save()
-                        #         ended_breaks = getattr(attendance, '_auto_end_results', [])
+                        ip_address = get_client_ip(request)
+                        user_agent = request.META.get("HTTP_USER_AGENT", "")
 
-                        #         AttendanceLog.objects.create(
-                        #             employee=employee,
-                        #             attendance=attendance,
-                        #             action='check_out_success',
-                        #             success=True,
-                        #             ip_address=ip_address or None,
-                        #             user_agent=user_agent or None,
-                        #             notes='Check-out recorded via face recognition kiosk.'
-                        #         )
-                        #         message = f'Check out recorded for {employee.name}'
-                        #         if ended_breaks:
-                        #             message += ' (active break automatically ended)'
-                        #         return JsonResponse({
-                        #             'success': True,
-                        #             'message': message,
-                        #             'employee_name': employee.name,
-                        #             'action': 'check_out',
-                        #             'time': checkout_time.strftime('%H:%M:%S')
-                        #         })
-                        #     else:
-                        #         return JsonResponse({
-                        #             'success': False,
-                        #             'error': f'Attendance already marked for today',
-                        #             'employee_name': employee.name
-                        #         })
-                        
-                        if not created:
+                        attendance._auto_end_context = {
+                            "origin": "face recognition update",
+                            "ip_address": ip_address,
+                            "user_agent": user_agent,
+                        }
 
-                            now = timezone.localtime()
+                        from decimal import Decimal
 
-                            # Prevent duplicate scans within 30 seconds
-                            if attendance.check_out_time:
-                                diff = (now - attendance.check_out_time).total_seconds()
-                                if diff < 30:
-                                    return JsonResponse({
-                                        "success": True,
-                                        "message": f"Attendance marked for {employee.name}",
-                                        "action": "ignored",
-                                        "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
-                                    })
+                        worked_seconds = (
+                            attendance.check_out_time - attendance.check_in_time
+                        ).total_seconds()
 
-                            attendance.check_out_time = now
-                            attendance.check_out_photo = save_attendance_image(
-                                img,
-                                f"checkout_{employee.id}"
-                            )
+                        worked_seconds -= attendance.total_break_seconds
 
-                            ip_address = get_client_ip(request)
-                            user_agent = request.META.get("HTTP_USER_AGENT", "")
+                        attendance.total_work_hours = Decimal(
+                            str(round(worked_seconds / 3600, 2))
+                        )
 
-                            attendance._auto_end_context = {
-                                "origin": "face recognition update",
-                                "ip_address": ip_address,
-                                "user_agent": user_agent,
-                            }
+                        attendance.save()
 
-                            from decimal import Decimal
-
-                            worked_seconds = (
-                                attendance.check_out_time - attendance.check_in_time
-                            ).total_seconds()
-
-                            worked_seconds -= attendance.total_break_seconds
-
-                            attendance.total_work_hours = Decimal(
-                                str(round(worked_seconds / 3600, 2))
-                            )
-
-                            attendance.save()
-
-                            AttendanceLog.objects.create(
-                                office=office,
-                                employee=employee,
-                                attendance=attendance,
-                                action="check_out_success",
-                                success=True,
-                                ip_address=ip_address,
-                                user_agent=user_agent,
-                                notes="Latest face scan updated checkout time."
-                            )
-
-                            return JsonResponse({
-                                "success": True,
-                                "message": f"Attendance updated for {employee.name}",
-                                "employee_name": employee.name,
-                                "action": "updated",
-                                "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
-                            })
-
-                        # ---- First capture of the day: this IS the check-in ----
                         AttendanceLog.objects.create(
                             office=office,
                             employee=employee,
                             attendance=attendance,
-                            action="check_in_success",
+                            action="check_out_success",
                             success=True,
-                            confidence=confidence,
                             ip_address=ip_address,
                             user_agent=user_agent,
-                            notes="First face scan of the day recorded as check-in."
+                            notes="Latest face scan updated checkout time."
                         )
+
                         return JsonResponse({
-                            'success': True,
-                            'message': f'Check in recorded for {employee.name}',
-                            'employee_name': employee.name,
-                            'action': 'check_in',
-                            'time': timezone.localtime().strftime("%d-%m-%Y %I:%M:%S %p")
+                            "success": True,
+                            "message": f"Attendance updated for {employee.name}",
+                            "employee_name": employee.name,
+                            "action": "updated",
+                            "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
                         })
-            
+
+                    # ---- First capture of the day: this IS the check-in ----
+                    ip_address = get_client_ip(request)
+                    user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+                    AttendanceLog.objects.create(
+                        office=office,
+                        employee=employee,
+                        attendance=attendance,
+                        action="check_in_success",
+                        success=True,
+                        confidence=confidence,
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        notes="First face scan of the day recorded as check-in."
+                    )
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'Check in recorded for {employee.name}',
+                        'employee_name': employee.name,
+                        'action': 'check_in',
+                        'time': timezone.localtime().strftime("%d-%m-%Y %I:%M:%S %p")
+                    })
+
             return JsonResponse({'success': False, 'error': 'Face not recognized'})
-            
+
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
-    
-    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 def save_attendance_image(image, prefix):
     """Helper function to save attendance images"""

@@ -9,13 +9,24 @@ body{margin:0;background:#111;color:white;font-family:Arial;display:flex;justify
 .container{width:900px;text-align:center;}
 video{width:700px;border-radius:15px;border:5px solid white;transform: scaleX(-1);}
 canvas{display:none;}
-#status{margin-top:20px;font-size:30px;font-weight:bold;}
+#status{margin-top:20px;font-size:30px;font-weight:bold;min-height:40px;}
 .success{color:#00ff88;}
 .error{color:#ff5555;}
 .scanning{color:orange;}
+.verifying{color:#4da6ff;}
 #start-overlay{
     position:fixed;inset:0;background:#111;display:flex;
     align-items:center;justify-content:center;z-index:10;cursor:pointer;
+}
+/* simple pulsing dot so "scanning" doesn't look frozen */
+.dot{
+    display:inline-block;width:10px;height:10px;border-radius:50%;
+    background:currentColor;margin-left:8px;
+    animation:pulse 1s infinite ease-in-out;
+}
+@keyframes pulse{
+    0%,100%{opacity:0.25;transform:scale(0.8);}
+    50%{opacity:1;transform:scale(1.15);}
 }
 </style>
 </head>
@@ -29,7 +40,8 @@ canvas{display:none;}
 <h1>Face Attendance System</h1>
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
-<div id="status" class="scanning">Looking for face...</div>
+<canvas id="send-canvas"></canvas>
+<div id="status" class="scanning">Looking for face...<span class="dot"></span></div>
 </div>
 
 <!-- Preloaded success sound -->
@@ -38,13 +50,33 @@ canvas{display:none;}
 <script>
 
 const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
+const canvas = document.getElementById("canvas");        // full-res capture (for framing math only)
+const sendCanvas = document.getElementById("send-canvas"); // downscaled canvas actually sent to server
 const statusDiv = document.getElementById("status");
 const OFFICE_TOKEN = "{{ office.kiosk_token }}";
 const successSound = document.getElementById("success-sound");
 
 let audioUnlocked = false;
 let processing = false;
+let scanTimer = null;
+
+// How wide the image we send to the server should be.
+// Face recognition speed scales with pixel count, so we don't need
+// full camera resolution — this alone cuts server time from
+// several seconds down to a few hundred ms in most cases.
+const SEND_WIDTH = 480;
+
+// How long to wait for the server before giving up on a scan and
+// trying again, so a slow/stuck request never blocks the kiosk.
+const REQUEST_TIMEOUT_MS = 6000;
+
+// Scan cadence. Kept snappy since each request is now cheap.
+const SCAN_INTERVAL_MS = 1200;
+
+function setStatus(text, className, showDot){
+    statusDiv.className = className;
+    statusDiv.innerHTML = text + (showDot ? '<span class="dot"></span>' : "");
+}
 
 function playSuccessSound() {
     if (!audioUnlocked) return;
@@ -64,7 +96,7 @@ document.getElementById("start-overlay").addEventListener("click", () => {
             video.srcObject = stream;
         })
         .catch(() => {
-            statusDiv.innerHTML = "Camera Permission Denied";
+            setStatus("Camera Permission Denied", "error", false);
         });
 
     // Play + immediately pause to unlock audio for the rest of the session
@@ -78,7 +110,7 @@ document.getElementById("start-overlay").addEventListener("click", () => {
     });
 
     document.getElementById("start-overlay").remove();
-    setInterval(captureAndSend, 2500);
+    scanTimer = setInterval(captureAndSend, SCAN_INTERVAL_MS);
 });
 
 async function captureAndSend(){
@@ -86,33 +118,51 @@ async function captureAndSend(){
     if(processing) return;
     if(video.readyState!==4) return;
 
-    processing=true;
+    processing = true;
+    setStatus("Verifying...", "verifying", true);
 
-    canvas.width=video.videoWidth;
-    canvas.height=video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.save();
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-    ctx.restore();
+    try {
+        // Downscale to SEND_WIDTH before sending. This is the single
+        // biggest lever on end-to-end speed: smaller image -> faster
+        // upload -> faster face_recognition processing server-side.
+        const scale = SEND_WIDTH / video.videoWidth;
+        const sendWidth = SEND_WIDTH;
+        const sendHeight = Math.round(video.videoHeight * scale);
 
-    const image=canvas.toDataURL("image/jpeg");
-    const formData=new FormData();
-    formData.append("image",image);
+        sendCanvas.width = sendWidth;
+        sendCanvas.height = sendHeight;
+        const ctx = sendCanvas.getContext("2d");
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, -sendWidth, 0, sendWidth, sendHeight);
+        ctx.restore();
 
-    try{
-        const response=await fetch(`/mark-attendance/${OFFICE_TOKEN}/`,{
-            method:"POST",
-            headers:{ "X-CSRFToken":"{{ csrf_token }}" },
-            body:formData
-        });
+        // Moderate JPEG quality keeps payload small without hurting
+        // recognition accuracy noticeably.
+        const image = sendCanvas.toDataURL("image/jpeg", 0.7);
+        const formData = new FormData();
+        formData.append("image", image);
 
-        const data=await response.json();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+        let response;
+        try {
+            response = await fetch(`/mark-attendance/${OFFICE_TOKEN}/`, {
+                method: "POST",
+                headers: { "X-CSRFToken": "{{ csrf_token }}" },
+                body: formData,
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timeoutId);
+        }
+
+        const data = await response.json();
 
         if(data.success){
 
-            statusDiv.className="success";
-            statusDiv.innerHTML=data.message+"<br>"+data.time;
+            setStatus(data.message + "<br>" + data.time, "success", false);
 
             // Only sound on genuine check-in/check-out/update — not "ignored" duplicate scans
             if (data.action !== "ignored") {
@@ -120,27 +170,32 @@ async function captureAndSend(){
             }
 
             setTimeout(()=>{
-                statusDiv.className="scanning";
-                statusDiv.innerHTML="Looking for face...";
+                setStatus("Looking for face...", "scanning", true);
             },4000);
 
         } else {
 
-            statusDiv.className="error";
-            statusDiv.innerHTML=data.error;
+            setStatus(data.error, "error", false);
 
             setTimeout(()=>{
-                statusDiv.className="scanning";
-                statusDiv.innerHTML="Looking for face...";
-            },2000);
+                setStatus("Looking for face...", "scanning", true);
+            },1500);
 
         }
 
     } catch(e){
-        console.log(e);
+        if (e.name === "AbortError") {
+            setStatus("Taking longer than usual, retrying...", "error", false);
+        } else {
+            console.log(e);
+            setStatus("Connection issue, retrying...", "error", false);
+        }
+        setTimeout(()=>{
+            setStatus("Looking for face...", "scanning", true);
+        },1500);
+    } finally {
+        processing = false;
     }
-
-    processing=false;
 }
 
 </script>
