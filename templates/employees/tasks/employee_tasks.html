@@ -417,7 +417,10 @@
                 <h6 class="app-task__name">{{ task.title }}</h6>
                 <p class="app-task__desc">{{ task.description|default:'No description provided.' }}</p>
               </div>
-              <span class="badge bg-{{ task.priority_badge }} text-capitalize">{{ task.get_priority_display }}</span>
+              <div class="d-flex flex-column align-items-end gap-2">
+                <span class="badge bg-{{ task.priority_badge }} text-capitalize">{{ task.get_priority_display }}</span>
+                <a href="{% url 'employees:employee_task_detail' task.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+              </div>
             </div>
 
             <div class="app-task__meta">

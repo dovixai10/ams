@@ -1,0 +1,85 @@
+{% extends layout_path %}
+
+{% block title %}Engagement programs{% endblock %}
+
+{% block content %}
+<div class="container-xxl py-4">
+  <h4 class="mb-4">Engagement workspace</h4>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card shadow-sm">
+        <div class="card-header"><h5 class="mb-0">Create program</h5></div>
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label">Type</label>
+              <select name="program_type" class="form-select" id="programType">
+                {% for val, label in type_choices %}
+                <option value="{{ val }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Title</label>
+              <input type="text" name="title" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Body</label>
+              <textarea name="body" class="form-control" rows="4"></textarea>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col"><label class="form-label">Start</label><input type="date" name="start_date" class="form-control"></div>
+              <div class="col"><label class="form-label">End</label><input type="date" name="end_date" class="form-control"></div>
+            </div>
+            <div id="pollOptions" class="mb-3 d-none">
+              <label class="form-label">Poll options</label>
+              <input type="text" name="poll_option" class="form-control mb-2" placeholder="Option 1">
+              <input type="text" name="poll_option" class="form-control mb-2" placeholder="Option 2">
+              <input type="text" name="poll_option" class="form-control" placeholder="Option 3">
+            </div>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="comments_enabled" id="commentsEnabled" checked>
+              <label class="form-check-label" for="commentsEnabled">Comments enabled</label>
+            </div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" name="allow_anonymous" id="allowAnon">
+              <label class="form-check-label" for="allowAnon">Allow anonymous comments</label>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Save as draft</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-header"><h5 class="mb-0">Programs</h5></div>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Engagement</th><th></th></tr></thead>
+            <tbody>
+              {% for p in programs %}
+              <tr>
+                <td>{{ p.title }}</td>
+                <td>{{ p.get_program_type_display }}</td>
+                <td><span class="badge bg-label-secondary">{{ p.get_status_display }}</span></td>
+                <td class="small">{{ p.reaction_count }} reactions · {{ p.comment_count }} comments · {{ p.vote_count }} votes</td>
+                <td><a href="{% url 'employees:engagement_admin_detail' p.pk %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-4">No programs yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.getElementById('programType').addEventListener('change', function () {
+  document.getElementById('pollOptions').classList.toggle('d-none', this.value !== 'poll');
+});
+</script>
+{% endblock %}

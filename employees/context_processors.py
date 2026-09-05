@@ -2,7 +2,14 @@
 from django.utils import timezone
 
 from .models import Attendance
-from .permissions import get_request_office, is_office_admin
+from .permissions import (
+    get_profile_url_name,
+    get_request_office,
+    get_user_display_role,
+    is_office_admin,
+    is_office_owner,
+    is_platform_admin,
+)
 
 
 
@@ -45,7 +52,11 @@ def office_branding(request):
     return {
         'current_office': office,
         'is_office_admin': is_office_admin(user) if user else False,
+        'is_office_owner': is_office_owner(user) if user else False,
+        'is_platform_admin': is_platform_admin(user) if user else False,
         'site_name': office.name if office else 'Dovix CRM',
         'site_logo_url': office.logo.url if office and office.logo else None,
-        'site_url': office.website if office else 'Dovix.ai'
+        'site_url': office.website if office else 'Dovix.ai',
+        'user_display_role': get_user_display_role(user) if user and user.is_authenticated else None,
+        'profile_url_name': get_profile_url_name(user) if user and user.is_authenticated else 'employees:login',
     }

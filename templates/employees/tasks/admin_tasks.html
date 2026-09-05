@@ -6,6 +6,86 @@
 {% block page_css %}
 {{ block.super }}
 <style>
+  /* Insight / priority tiles — WCAG-friendly contrast (#42) */
+  :root {
+    --ams-insight-solid: #4f46e5;
+    --ams-insight-solid-text: #ffffff;
+    --ams-priority-low-bg: #e0f2fe;
+    --ams-priority-low-text: #0c4a6e;
+    --ams-priority-medium-bg: #4f46e5;
+    --ams-priority-medium-text: #ffffff;
+    --ams-priority-high-bg: #fef3c7;
+    --ams-priority-high-text: #92400e;
+    --ams-priority-critical-bg: #fee2e2;
+    --ams-priority-critical-text: #991b1b;
+  }
+
+  .insight-chip {
+    background: var(--ams-insight-solid) !important;
+    color: var(--ams-insight-solid-text) !important;
+    font-weight: 600;
+  }
+
+  .insight-chip--muted {
+    background: rgba(79, 70, 229, 0.12) !important;
+    color: #3730a3 !important;
+  }
+
+  .priority-tile {
+    border-width: 2px !important;
+    border-radius: 12px !important;
+  }
+
+  .priority-tile .priority-tile__label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .priority-tile .priority-tile__count {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .priority-tile--low {
+    background: var(--ams-priority-low-bg) !important;
+    border-color: #7dd3fc !important;
+    color: var(--ams-priority-low-text) !important;
+  }
+
+  .priority-tile--medium {
+    background: var(--ams-priority-medium-bg) !important;
+    border-color: #4338ca !important;
+    color: var(--ams-priority-medium-text) !important;
+  }
+
+  .priority-tile--high {
+    background: var(--ams-priority-high-bg) !important;
+    border-color: #fcd34d !important;
+    color: var(--ams-priority-high-text) !important;
+  }
+
+  .priority-tile--critical {
+    background: var(--ams-priority-critical-bg) !important;
+    border-color: #fca5a5 !important;
+    color: var(--ams-priority-critical-text) !important;
+  }
+
+  .priority-tile--critical .priority-tile__label,
+  .priority-tile--critical .priority-tile__count,
+  .priority-tile--medium .priority-tile__label,
+  .priority-tile--medium .priority-tile__count {
+    color: inherit !important;
+  }
+
+  .task-assign-badge {
+    background: var(--ams-insight-solid) !important;
+    color: #fff !important;
+    font-weight: 600;
+  }
+</style>
+<style>
 
   /* MAIN GRID */
   .task-layout {
@@ -65,7 +145,7 @@
         <div class="card-body">
           <div class="d-flex flex-column gap-3">
             <div>
-              <span class="badge bg-primary bg-opacity-10 text-primary">Overview</span>
+              <span class="badge insight-chip">Overview</span>
               <h4 class="mt-2 mb-0">Task Insights</h4>
               <p class="text-muted small mb-0">{{ total_tasks }} total · {{ overdue_count }} overdue</p>
             </div>
@@ -82,9 +162,9 @@
 
               <div class="d-flex gap-2 flex-wrap">
                 {% for entry in priority_summary %}
-                <div class="flex-fill bg-{{ entry.style }} bg-opacity-10 border border-{{ entry.style }} border-opacity-25 rounded-3 p-2">
-                  <div class="text-muted text-uppercase small">{{ entry.label }}</div>
-                  <div class="fs-6 fw-semibold text-{{ entry.style }}">{{ entry.count }}</div>
+                <div class="flex-fill priority-tile priority-tile--{{ entry.value }} p-2">
+                  <div class="priority-tile__label">{{ entry.label }}</div>
+                  <div class="priority-tile__count">{{ entry.count }}</div>
                 </div>
                 {% endfor %}
               </div>
@@ -100,7 +180,7 @@
       <div class="card shadow-sm">
         <div class="card-header d-flex align-items-center justify-content-between">
           <h5 class="mb-0">Assign New Task</h5>
-          <span class="badge bg-primary bg-opacity-10 text-primary">Admin</span>
+          <span class="badge task-assign-badge"><i class="bx bx-shield-quarter me-1"></i>Assign task</span>
         </div>
 
         <div class="card-body">

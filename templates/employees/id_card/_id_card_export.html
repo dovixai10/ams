@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: 54mm 85.6mm; margin: 0; }
+  body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; }
+  .page {
+    width: 54mm; height: 85.6mm; box-sizing: border-box;
+    page-break-after: always; overflow: hidden;
+    background: #f8fafc; position: relative;
+  }
+  .wave {
+    height: 14mm;
+    background: linear-gradient(135deg, #1d4ed8, #2563eb, #38bdf8);
+  }
+  .wave-bottom { position: absolute; bottom: 0; left: 0; right: 0; transform: rotate(180deg); }
+  .body { padding: 3mm 4mm; text-align: center; }
+  .brand-primary { font-size: 11pt; font-weight: bold; color: #1e3a8a; }
+  .brand-accent { font-size: 10pt; font-weight: bold; color: #2563eb; }
+  .photo-ring {
+    width: 22mm; height: 22mm; margin: 2mm auto; border-radius: 50%;
+    padding: 1mm; background: linear-gradient(135deg, #2563eb, #06b6d4);
+  }
+  .photo {
+    width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: #e2e8f0;
+  }
+  .name { font-size: 10pt; font-weight: bold; color: #0f172a; margin: 1mm 0; }
+  .role { font-size: 8pt; color: #64748b; margin: 0 0 2mm; }
+  .details { text-align: left; font-size: 7pt; color: #334155; margin: 0; padding: 0; list-style: none; }
+  .details li { border-bottom: 0.2mm solid #e2e8f0; padding: 1mm 0; }
+  .details strong { color: #64748b; display: inline-block; width: 18mm; }
+  .qr { text-align: center; margin-top: 2mm; }
+  .qr img { width: 18mm; height: 18mm; }
+  .qr-cap { font-size: 6pt; font-weight: bold; text-transform: uppercase; color: #475569; }
+  .back-header {
+    background: linear-gradient(135deg, #1e40af, #2563eb);
+    color: white; text-align: center; font-weight: bold; font-size: 9pt; padding: 2mm;
+  }
+  .back-building {
+    height: 12mm; background: #dbeafe; text-align: center; line-height: 12mm; color: #1e40af;
+  }
+</style>
+</head>
+<body>
+  <!-- FRONT -->
+  <div class="page">
+    <div class="wave"></div>
+    <div class="body">
+      {% if card.logo_url %}<img src="{{ card.logo_url }}" style="max-height:8mm;max-width:30mm;margin-bottom:1mm;">{% endif %}
+      <div class="brand-primary">{{ card.company_name }}</div>
+      {% if card.company_name_accent %}<div class="brand-accent">{{ card.company_name_accent }}</div>{% endif %}
+      <div class="photo-ring">
+        {% if card.photo_url %}<img src="{{ card.photo_url }}" class="photo" alt="">{% else %}
+        <div class="photo" style="line-height:20mm;font-size:14pt;font-weight:bold;color:#475569;">{{ card.employee_name|slice:":1"|upper }}</div>{% endif %}
+      </div>
+      <div class="name">{{ card.employee_name }}</div>
+      {% if card.designation %}<div class="role">{{ card.designation }}</div>{% endif %}
+      <ul class="details">
+        {% for label, value, icon in card.visible_rows_front %}
+        <li><strong>{{ label }}</strong> {{ value }}</li>
+        {% endfor %}
+      </ul>
+      {% if card.qr_maps_data_uri %}
+      <div class="qr">
+        <img src="{{ card.qr_maps_data_uri }}" alt="">
+        <div class="qr-cap">Scan for Location</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="wave wave-bottom"></div>
+  </div>
+
+  <!-- BACK -->
+  <div class="page">
+    <div class="wave"></div>
+    <div class="back-header">{{ card.company_name }}{% if card.company_name_accent %} {{ card.company_name_accent }}{% endif %}</div>
+    <div class="back-building">&#127970;</div>
+    <div class="body">
+      {% if card.qr_website_data_uri %}
+      <div class="qr">
+        <img src="{{ card.qr_website_data_uri }}" alt="">
+        <div class="qr-cap">Scan for Website</div>
+      </div>
+      {% endif %}
+      <ul class="details">
+        {% for label, value, icon in card.visible_rows_back %}
+        <li><strong>{{ label }}</strong> {{ value }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="wave wave-bottom"></div>
+  </div>
+</body>
+</html>

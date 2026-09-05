@@ -1,0 +1,82 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}{{ role.name }} | PMS{% endblock %}
+
+{% block page_css %}{{ block.super }}{% include 'pms/_styles.html' %}{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+  <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+    <div>
+      <nav class="breadcrumb-pms"><a href="{% url 'pms:role_list' %}">Roles</a> &rsaquo; {{ role.name }}</nav>
+      <h4 class="mb-0 mt-1">{{ role.name }}{% if role.is_system %} <span class="badge bg-label-primary">System</span>{% endif %}</h4>
+      <p class="text-muted mb-0">{{ role.description }}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'pms:role_edit' role.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+      <form method="post" action="{% url 'pms:role_clone' role.pk %}" class="d-inline">
+        {% csrf_token %}
+        <input type="hidden" name="name" value="{{ role.name }} (copy)">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Clone</button>
+      </form>
+      {% if not role.is_system %}
+      <form method="post" action="{% url 'pms:role_delete' role.pk %}" onsubmit="return confirm('Delete this role?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card pms-card">
+        <div class="card-header"><h5 class="mb-0">Module access</h5></div>
+        <div class="card-body">
+          <ul class="list-unstyled mb-0">
+            {% for row in module_rows %}
+            <li class="d-flex justify-content-between py-2 border-bottom">
+              <span>{{ row.module.name }}</span>
+              <span class="badge bg-label-info">{{ row.level }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          <a href="{% url 'pms:module_permissions' %}?role={{ role.pk }}" class="btn btn-sm btn-primary mt-3">Edit matrix</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card pms-card">
+        <div class="card-header"><h5 class="mb-0">Granted permissions ({{ permissions.count }})</h5></div>
+        <div class="card-body" style="max-height: 320px; overflow-y: auto;">
+          <ul class="list-unstyled mb-0 small">
+            {% for rp in permissions %}
+            <li class="py-1"><code>{{ rp.permission.key }}</code></li>
+            {% empty %}
+            <li class="text-muted">No permissions granted.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="card pms-card">
+        <div class="card-header"><h5 class="mb-0">Assigned users</h5></div>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead><tr><th>User</th><th>Assigned</th></tr></thead>
+            <tbody>
+              {% for a in assignments %}
+              <tr><td>{{ a.user.get_full_name|default:a.user.username }}</td><td>{{ a.assigned_at|date:"M d, Y" }}</td></tr>
+              {% empty %}
+              <tr><td colspan="2" class="text-muted">No users assigned.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

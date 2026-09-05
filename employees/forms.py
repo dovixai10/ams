@@ -1298,18 +1298,38 @@ class TaskUpdateForm(forms.ModelForm):
             self.fields['new_status'].choices = Task.Status.choices
             self.fields['new_status'].initial = task.status
 
+    def clean(self):
+        cleaned = super().clean()
+        new_status = cleaned.get('new_status')
+        comment = (cleaned.get('comment') or '').strip()
+        if self.task:
+            status_changed = new_status and new_status != self.task.status
+            if not status_changed and not comment:
+                raise forms.ValidationError(
+                    'Change the status or add a comment before submitting.'
+                )
+        return cleaned
+
     def save(self, commit=True):
         update = super().save(commit=False)
         if self.user:
             update.updated_by = self.user
-        if self.task:
-            update.task = self.task
-            update.previous_status = self.task.status
+        if not self.task:
+            if commit:
+                update.save()
+            return update
+
+        update.task = self.task
+        update.previous_status = self.task.status
+        status_changed = update.new_status != self.task.status
+        comment = (update.comment or '').strip()
+
+        if not status_changed and not comment:
+            return update
 
         if commit:
             update.save()
-            # Update task with latest status
-            if self.task and update.new_status != self.task.status:
+            if status_changed:
                 self.task.status = update.new_status
                 self.task.save(update_fields=['status', 'status_updated_at', 'updated_at'])
         return update

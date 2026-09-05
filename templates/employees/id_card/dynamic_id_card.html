@@ -1,696 +1,165 @@
 {% extends layout_path %}
 
-{% load static %}
-
-{% block title %}Dynamic ID Card Generator | Admin Panel{% endblock %}
+{% block title %}ID Card Generator | Admin{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="mb-3">
-                <i class="bx bx-id-card me-2"></i>Dynamic ID Card Generator
-            </h2>
-            <p class="text-muted">Select an employee to generate and preview their ID card</p>
-        </div>
+  <div class="row mb-3">
+    <div class="col-12">
+      <h2 class="mb-1"><i class="bx bx-id-card me-2"></i>Employee ID Card Studio</h2>
+      <p class="text-muted mb-0">Preview and download use the same unified card component.</p>
     </div>
-
-    <div class="row">
-        <!-- Employee Selection & Form -->
-        <div class="col-lg-3 mb-4">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="bx bx-user me-2"></i>Select Employee
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <form id="idCardForm">
-                        <div class="mb-3">
-                            <label for="employeeSelect" class="form-label">Employee</label>
-                            <select id="employeeSelect" class="form-select" onchange="loadEmployeeData()" required>
-                                <option value="">-- Select an Employee --</option>
-                                {% for employee in employees %}
-                                    <option value="{{ employee.id }}">{{ employee.full_name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="employeeCode" class="form-label">Employee Code</label>
-                            <input type="text" id="employeeCode" class="form-control" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label for="employeeDesignation" class="form-label">Designation</label>
-                            <input type="text" id="employeeDesignation" class="form-control">
-                        </div>
-                        <div class="mb-3">
-                            <label for="employeeJoining" class="form-label">Date of Joining</label>
-                            <input type="date" id="employeeJoining" class="form-control">
-                        </div>
-                        <button type="button" id="generateIdCardBtn" class="btn btn-success w-100 d-none" onclick="generateIDCard()">
-                            <i class="bx bx-save me-2"></i>Generate & Download ID Card
-                        </button>
-                    </form>
-                    <div id="loadingSpinner" class="d-none mt-3">
-                        <div class="spinner-border spinner-border-sm text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <span class="ms-2">Loading employee data...</span>
-                    </div>
-                    <div id="errorMessage" class="alert alert-danger d-none mt-3" role="alert"></div>
-                </div>
-            </div>
+  </div>
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <div class="card shadow-sm">
+        <div class="card-header"><h5 class="mb-0">Select employee</h5></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">Employee</label>
+            <select id="employeeSelect" class="form-select">
+              <option value="">— Select —</option>
+              {% for emp in employees %}
+              <option value="{{ emp.id }}">{{ emp.full_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Employee code</label>
+            <input type="text" id="employeeCode" class="form-control" readonly>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Designation</label>
+            <input type="text" id="employeeDesignation" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Date of joining</label>
+            <input type="date" id="employeeJoining" class="form-control">
+          </div>
+          <div class="d-grid gap-2">
+            <button type="button" class="btn btn-outline-primary" id="previewBtn" disabled>
+              <i class="bx bx-show me-1"></i>Refresh preview
+            </button>
+            <button type="button" class="btn btn-primary" id="downloadBtn" disabled>
+              <i class="bx bx-download me-1"></i>Download PDF
+            </button>
+          </div>
+          <div id="errorBox" class="alert alert-danger d-none mt-3 small"></div>
         </div>
-
-        <!-- ID Card Preview -->
-        <div class="col-lg-9">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="bx bx-image me-2"></i>ID Card Preview
-                    </h5>
-                </div>
-                <div class="card-body" style="background-color: #f0f0f0; padding: 20px; border-radius: 8px; overflow-x: auto;">
-                    <div id="idCardContainer" class="d-none">
-                        <!-- ID Card will be rendered here -->
-                    </div>
-                    <div id="noSelectionMessage" class="alert alert-info" role="alert">
-                        <i class="bx bx-info-circle me-2"></i>Select an employee from the left panel to preview their ID card
-                    </div>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Live preview</h5>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelector('.ams-id-card-inner')?.classList.toggle('is-flipped')">
+            <i class="bx bx-refresh"></i> Flip
+          </button>
+        </div>
+        <div class="card-body bg-light" id="previewHost">
+          <p class="text-muted text-center py-5 mb-0">Select an employee to preview their ID card.</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<style>
-    /* ===== DOVIX AI brand tokens — tweak here to retune the whole card ===== */
-    :root {
-        --dovix-navy: #0b0f19;
-        --dovix-navy-soft: #131a2b;
-        --dovix-accent-start: #4f46e5;   /* indigo  */
-        --dovix-accent-end: #06b6d4;     /* cyan    */
-        --dovix-accent-solid: #4f46e5;
-        --dovix-ink: #0b0f19;
-        --dovix-muted: #5b6472;
-        --dovix-card-bg: #f7f8fb;
-    }
-
-    .id-card {
-        width: 450px;
-        height: 720px;
-        background: white;
-        border: 1px solid #e2e4ea;
-        display: flex;
-        position: relative;
-        box-shadow: 0 10px 30px rgba(11,15,25,0.15);
-        margin: 0 auto;
-        border-radius: 6px;
-        overflow: hidden;
-    }
-
-    .sidebar {
-        width: 140px;
-        background: linear-gradient(180deg, var(--dovix-navy) 0%, var(--dovix-navy-soft) 100%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 20px 0;
-        position: relative;
-    }
-
-    .sidebar-text {
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        font-size: 20px;
-        font-weight: 800;
-        letter-spacing: 0.5px;
-        border-radius: 4px;
-        overflow: hidden;
-    }
-
-    .brand-navy {
-        background: var(--dovix-navy);
-        color: white;
-        padding: 5px 8px;
-    }
-
-    .brand-accent {
-        background: linear-gradient(135deg, var(--dovix-accent-start), var(--dovix-accent-end));
-        color: white;
-        padding: 5px 8px;
-    }
-
-    .vertical-text {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translateX(-50%) translateY(-50%) rotate(-90deg);
-        color: rgba(255,255,255,0.85);
-        font-size: 15px;
-        white-space: nowrap;
-        width: 400px;
-        text-align: center;
-        font-weight: 400;
-        letter-spacing: 0.5px;
-    }
-
-    .content {
-        flex: 1;
-        padding: 30px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        background: var(--dovix-card-bg);
-    }
-
-    .logo {
-        font-size: 28px;
-        font-weight: 800;
-        margin-bottom: 30px;
-        letter-spacing: 1px;
-        display: flex;
-        border-radius: 4px;
-        overflow: hidden;
-    }
-
-    .brand-navy-badge {
-        background: var(--dovix-navy);
-        color: white;
-        padding: 8px 12px;
-    }
-
-    .brand-accent-badge {
-        background: linear-gradient(135deg, var(--dovix-accent-start), var(--dovix-accent-end));
-        color: white;
-        padding: 8px 12px;
-    }
-
-    .photo-circle {
-        width: 180px;
-        height: 180px;
-        border-radius: 50%;
-        overflow: hidden;
-        margin-bottom: 20px;
-        border: 3px solid var(--dovix-accent-start);
-        box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
-    }
-
-    .photo-circle img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .employee-name {
-        font-size: 22px;
-        font-weight: 700;
-        margin-bottom: 20px;
-        text-align: center;
-        color: var(--dovix-ink);
-    }
-
-    .details {
-        width: 100%;
-        margin-bottom: 20px;
-    }
-
-    .detail-row {
-        display: flex;
-        margin-bottom: 8px;
-        font-size: 14px;
-        color: var(--dovix-ink);
-    }
-
-    .label {
-        width: 110px;
-        font-weight: 400;
-        color: var(--dovix-muted);
-    }
-
-    .colon {
-        width: 20px;
-        text-align: center;
-        color: var(--dovix-muted);
-    }
-
-    .value {
-        flex: 1;
-        font-weight: 700;
-        color: var(--dovix-accent-solid);
-    }
-
-    .qr-code {
-        margin-top: 10px;
-        margin-bottom: 10px;
-    }
-
-    .qr-code-back {
-        margin-top: 40px;
-        margin-bottom: 15px;
-    }
-
-    .scan-text {
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--dovix-ink);
-        text-align: center;
-    }
-
-    .company-info {
-        margin-top: 30px;
-        text-align: center;
-    }
-
-    .company-name {
-        font-size: 34px;
-        font-weight: 800;
-        margin-bottom: 5px;
-        display: flex;
-        justify-content: center;
-    }
-
-    .brand-navy-text {
-        color: var(--dovix-ink);
-    }
-
-    .brand-accent-text {
-        background: linear-gradient(135deg, var(--dovix-accent-start), var(--dovix-accent-end));
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    .company-tagline {
-        font-size: 13px;
-        margin-bottom: 20px;
-        color: var(--dovix-muted);
-    }
-
-    .address {
-        font-size: 12px;
-        line-height: 1.6;
-        color: var(--dovix-ink);
-    }
-
-    .address p {
-        margin-bottom: 5px;
-    }
-
-    .container-flex {
-        display: flex;
-        gap: 30px;
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    @media (max-width: 768px) {
-        .id-card {
-            width: 100%;
-            max-width: 450px;
-        }
-    }
-</style>
-
 <script>
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
+(function () {
+  const sel = document.getElementById('employeeSelect');
+  const previewBtn = document.getElementById('previewBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const previewHost = document.getElementById('previewHost');
+  const errorBox = document.getElementById('errorBox');
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.remove('d-none');
+  }
+  function clearError() {
+    errorBox.classList.add('d-none');
+  }
+
+  async function loadMeta() {
+    const id = sel.value;
+    if (!id) {
+      previewBtn.disabled = true;
+      downloadBtn.disabled = true;
+      return;
     }
-
-    function loadEmployeeData() {
-        const employeeId = document.getElementById('employeeSelect').value;
-        
-        if (!employeeId) {
-            document.getElementById('idCardContainer').classList.add('d-none');
-            document.getElementById('noSelectionMessage').classList.remove('d-none');
-            document.getElementById('errorMessage').classList.add('d-none');
-            document.getElementById('generateIdCardBtn').classList.add('d-none');
-            return;
-        }
-
-        // Show loading spinner
-        document.getElementById('loadingSpinner').classList.remove('d-none');
-        document.getElementById('errorMessage').classList.add('d-none');
-
-        // Fetch employee data via AJAX
-        fetch(`/api/get-employee-data/?employee_id=${employeeId}`)
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('loadingSpinner').classList.add('d-none');
-                
-                if (data.success) {
-                    // Populate form fields
-                    document.getElementById('employeeCode').value = data.employee_code;
-                    document.getElementById('employeeDesignation').value = data.employee_designation;
-                    document.getElementById('employeeJoining').value = data.employee_joining_date_iso || '';
-                    
-                    renderIDCard(data);
-                    document.getElementById('noSelectionMessage').classList.add('d-none');
-                    document.getElementById('idCardContainer').classList.remove('d-none');
-                    document.getElementById('generateIdCardBtn').classList.remove('d-none');
-                } else {
-                    showError(data.error || 'Failed to load employee data');
-                }
-            })
-            .catch(error => {
-                document.getElementById('loadingSpinner').classList.add('d-none');
-                showError('Error loading employee data: ' + error.message);
-            });
+    clearError();
+    const res = await fetch(`{% url 'employees:get_employee_data_api' %}?employee_id=${id}`);
+    const data = await res.json();
+    if (!data.success) {
+      showError(data.error || 'Could not load employee.');
+      return;
     }
+    document.getElementById('employeeCode').value = data.employee_code;
+    document.getElementById('employeeDesignation').value = data.employee_designation;
+    document.getElementById('employeeJoining').value = data.employee_joining_date_iso || '';
+    previewBtn.disabled = false;
+    downloadBtn.disabled = false;
+    refreshPreview();
+  }
 
-    function generateIDCard() {
-        const employeeSelect = document.getElementById('employeeSelect');
-        const employeeId = employeeSelect.value;
-        if (!employeeId) {
-            alert('Please select an employee');
-            return;
-        }
-
-        const employeeName = employeeSelect.options[employeeSelect.selectedIndex].text;
-        const employeeCode = document.getElementById('employeeCode').value;
-
-        const payload = {
-            employee_id: parseInt(employeeId),
-            employee_code: employeeCode,
-            job_position: document.getElementById('employeeDesignation').value,
-            date_of_joining: document.getElementById('employeeJoining').value
-        };
-
-        const url = "{% url 'employees:dynamic_id_card_generator' %}";
-        const btn = document.getElementById('generateIdCardBtn');
-        const originalBtnHtml = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
-
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(async response => {
-            const contentType = response.headers.get('content-type') || '';
-
-            if (contentType.includes('application/pdf')) {
-                // Saved successfully — response body IS the PDF. Download it now.
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = `ID_Card_${employeeCode || employeeId}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(downloadUrl);
-            } else {
-                // Error — response is JSON
-                const data = await response.json();
-                alert('Failed to generate ID Card: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error generating ID card:', error);
-            alert('An error occurred while generating the ID card.');
-        })
-        .finally(() => {
-            btn.disabled = false;
-            btn.innerHTML = originalBtnHtml;
-        });
+  async function refreshPreview() {
+    const id = sel.value;
+    if (!id) return;
+    previewHost.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+    const params = new URLSearchParams({
+      employee_id: id,
+      employee_code: document.getElementById('employeeCode').value,
+      job_position: document.getElementById('employeeDesignation').value,
+      date_of_joining: document.getElementById('employeeJoining').value,
+    });
+    const res = await fetch(`{% url 'employees:id_card_preview' %}?${params}`);
+    if (!res.ok) {
+      showError('Preview failed.');
+      return;
     }
+    previewHost.innerHTML = await res.text();
+  }
 
-    function showError(message) {
-        const errorDiv = document.getElementById('errorMessage');
-        errorDiv.textContent = message;
-        errorDiv.classList.remove('d-none');
-        document.getElementById('idCardContainer').classList.add('d-none');
-        document.getElementById('noSelectionMessage').classList.add('d-none');
+  async function downloadPdf() {
+    const id = sel.value;
+    if (!id) return;
+    clearError();
+    downloadBtn.disabled = true;
+    try {
+      const res = await fetch(`{% url 'employees:id_card_download_pdf' %}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({
+          employee_id: id,
+          employee_code: document.getElementById('employeeCode').value,
+          job_position: document.getElementById('employeeDesignation').value,
+          date_of_joining: document.getElementById('employeeJoining').value,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showError(err.error || 'Download failed.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ID_Card_${document.getElementById('employeeCode').value || id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      downloadBtn.disabled = false;
     }
+  }
 
-    function renderIDCard(data) {
-        const container = document.getElementById('idCardContainer');
-        
-        const idCardHTML = `
-            <div class="container-flex">
-                <!-- Front Side -->
-                <div class="id-card">
-                    <div class="sidebar">
-                        <div class="sidebar-text">
-                            <span class="brand-navy">{{site_name}}</span><span class="brand-accent">By DOVIX AI</span>
-                        </div>
-                        <div class="vertical-text">AI-Powered | Future-Ready</div>
-                    </div>
-                    <div class="content">
-                        <div class="logo">
-                            <span class="brand-navy-badge">{{site_name}}</span><span class="brand-accent-badge">By DOVIX AI</span>
-                        </div>
-                        <div class="photo-circle">
-                            <img src="${data.employee_photo_url}" alt="Employee Photo" onerror="this.src='/static/default-avatar.png'">
-                        </div>
-                        <div class="employee-name">${data.employee_name}</div>
-                        <div class="details">
-                            <div class="detail-row">
-                                <span class="label">Empl. Code</span>
-                                <span class="colon">:</span>
-                                <span class="value">${data.employee_code}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Designation</span>
-                                <span class="colon">:</span>
-                                <span class="value">${data.employee_designation}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">D.O.J.</span>
-                                <span class="colon">:</span>
-                                <span class="value">${data.employee_joining_date}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Contact No.</span>
-                                <span class="colon">:</span>
-                                <span class="value">${data.employee_contact_number}</span>
-                            </div>
-                        </div>
-                        <div class="qr-code">
-                            <svg width="150" height="150" viewBox="0 0 150 150">
-                                <rect x="0" y="0" width="150" height="150" fill="white"/>
-                                <rect x="10" y="10" width="10" height="10" fill="black"/>
-                                <rect x="20" y="10" width="10" height="10" fill="black"/>
-                                <rect x="30" y="10" width="10" height="10" fill="black"/>
-                                <rect x="40" y="10" width="10" height="10" fill="black"/>
-                                <rect x="50" y="10" width="10" height="10" fill="black"/>
-                                <rect x="60" y="10" width="10" height="10" fill="black"/>
-                                <rect x="70" y="10" width="10" height="10" fill="black"/>
-                                <rect x="10" y="20" width="10" height="10" fill="black"/>
-                                <rect x="70" y="20" width="10" height="10" fill="black"/>
-                                <rect x="10" y="30" width="10" height="10" fill="black"/>
-                                <rect x="30" y="30" width="10" height="10" fill="black"/>
-                                <rect x="40" y="30" width="10" height="10" fill="black"/>
-                                <rect x="50" y="30" width="10" height="10" fill="black"/>
-                                <rect x="70" y="30" width="10" height="10" fill="black"/>
-                                <rect x="10" y="40" width="10" height="10" fill="black"/>
-                                <rect x="30" y="40" width="10" height="10" fill="black"/>
-                                <rect x="40" y="40" width="10" height="10" fill="black"/>
-                                <rect x="50" y="40" width="10" height="10" fill="black"/>
-                                <rect x="70" y="40" width="10" height="10" fill="black"/>
-                                <rect x="10" y="50" width="10" height="10" fill="black"/>
-                                <rect x="30" y="50" width="10" height="10" fill="black"/>
-                                <rect x="40" y="50" width="10" height="10" fill="black"/>
-                                <rect x="50" y="50" width="10" height="10" fill="black"/>
-                                <rect x="70" y="50" width="10" height="10" fill="black"/>
-                                <rect x="10" y="60" width="10" height="10" fill="black"/>
-                                <rect x="70" y="60" width="10" height="10" fill="black"/>
-                                <rect x="10" y="70" width="10" height="10" fill="black"/>
-                                <rect x="20" y="70" width="10" height="10" fill="black"/>
-                                <rect x="30" y="70" width="10" height="10" fill="black"/>
-                                <rect x="40" y="70" width="10" height="10" fill="black"/>
-                                <rect x="50" y="70" width="10" height="10" fill="black"/>
-                                <rect x="60" y="70" width="10" height="10" fill="black"/>
-                                <rect x="70" y="70" width="10" height="10" fill="black"/>
-                                <rect x="90" y="10" width="10" height="10" fill="black"/>
-                                <rect x="100" y="10" width="10" height="10" fill="black"/>
-                                <rect x="110" y="10" width="10" height="10" fill="black"/>
-                                <rect x="120" y="10" width="10" height="10" fill="black"/>
-                                <rect x="130" y="10" width="10" height="10" fill="black"/>
-                                <rect x="90" y="20" width="10" height="10" fill="black"/>
-                                <rect x="130" y="20" width="10" height="10" fill="black"/>
-                                <rect x="90" y="30" width="10" height="10" fill="black"/>
-                                <rect x="110" y="30" width="10" height="10" fill="black"/>
-                                <rect x="130" y="30" width="10" height="10" fill="black"/>
-                                <rect x="90" y="40" width="10" height="10" fill="black"/>
-                                <rect x="110" y="40" width="10" height="10" fill="black"/>
-                                <rect x="130" y="40" width="10" height="10" fill="black"/>
-                                <rect x="90" y="50" width="10" height="10" fill="black"/>
-                                <rect x="110" y="50" width="10" height="10" fill="black"/>
-                                <rect x="130" y="50" width="10" height="10" fill="black"/>
-                                <rect x="90" y="60" width="10" height="10" fill="black"/>
-                                <rect x="130" y="60" width="10" height="10" fill="black"/>
-                                <rect x="90" y="70" width="10" height="10" fill="black"/>
-                                <rect x="100" y="70" width="10" height="10" fill="black"/>
-                                <rect x="110" y="70" width="10" height="10" fill="black"/>
-                                <rect x="120" y="70" width="10" height="10" fill="black"/>
-                                <rect x="130" y="70" width="10" height="10" fill="black"/>
-                                <rect x="20" y="90" width="10" height="10" fill="black"/>
-                                <rect x="30" y="90" width="10" height="10" fill="black"/>
-                                <rect x="50" y="90" width="10" height="10" fill="black"/>
-                                <rect x="60" y="90" width="10" height="10" fill="black"/>
-                                <rect x="80" y="90" width="10" height="10" fill="black"/>
-                                <rect x="100" y="90" width="10" height="10" fill="black"/>
-                                <rect x="120" y="90" width="10" height="10" fill="black"/>
-                                <rect x="10" y="100" width="10" height="10" fill="black"/>
-                                <rect x="30" y="100" width="10" height="10" fill="black"/>
-                                <rect x="50" y="100" width="10" height="10" fill="black"/>
-                                <rect x="70" y="100" width="10" height="10" fill="black"/>
-                                <rect x="90" y="100" width="10" height="10" fill="black"/>
-                                <rect x="110" y="100" width="10" height="10" fill="black"/>
-                                <rect x="130" y="100" width="10" height="10" fill="black"/>
-                                <rect x="10" y="110" width="10" height="10" fill="black"/>
-                                <rect x="20" y="110" width="10" height="10" fill="black"/>
-                                <rect x="30" y="110" width="10" height="10" fill="black"/>
-                                <rect x="50" y="110" width="10" height="10" fill="black"/>
-                                <rect x="70" y="110" width="10" height="10" fill="black"/>
-                                <rect x="90" y="110" width="10" height="10" fill="black"/>
-                                <rect x="110" y="110" width="10" height="10" fill="black"/>
-                                <rect x="130" y="110" width="10" height="10" fill="black"/>
-                                <rect x="10" y="120" width="10" height="10" fill="black"/>
-                                <rect x="30" y="120" width="10" height="10" fill="black"/>
-                                <rect x="50" y="120" width="10" height="10" fill="black"/>
-                                <rect x="70" y="120" width="10" height="10" fill="black"/>
-                                <rect x="90" y="120" width="10" height="10" fill="black"/>
-                                <rect x="110" y="120" width="10" height="10" fill="black"/>
-                                <rect x="130" y="120" width="10" height="10" fill="black"/>
-                                <rect x="20" y="130" width="10" height="10" fill="black"/>
-                                <rect x="40" y="130" width="10" height="10" fill="black"/>
-                                <rect x="60" y="130" width="10" height="10" fill="black"/>
-                                <rect x="80" y="130" width="10" height="10" fill="black"/>
-                                <rect x="100" y="130" width="10" height="10" fill="black"/>
-                                <rect x="120" y="130" width="10" height="10" fill="black"/>
-                            </svg>
-                        </div>
-                        <div class="scan-text">Scan for Location</div>
-                    </div>
-                </div>
-
-                <!-- Back Side -->
-                <div class="id-card">
-                    <div class="sidebar">
-                        <div class="sidebar-text">
-                            <span class="brand-navy">{{site_name}}</span><span class="brand-accent">By DOVIX AI</span>
-                        </div>
-                        <div class="vertical-text">AI-Powered | Future-Ready</div>
-                    </div>
-                    <div class="content">
-                        <div class="logo">
-                            <span class="brand-navy-badge">{{site_name}}</span><span class="brand-accent-badge">By DOVIX AI</span>
-                        </div>
-                        <div class="qr-code-back">
-                            <svg width="180" height="180" viewBox="0 0 180 180">
-                                <rect x="0" y="0" width="180" height="180" fill="white"/>
-                                <rect x="10" y="10" width="15" height="15" fill="black"/>
-                                <rect x="25" y="10" width="15" height="15" fill="black"/>
-                                <rect x="40" y="10" width="15" height="15" fill="black"/>
-                                <rect x="55" y="10" width="15" height="15" fill="black"/>
-                                <rect x="70" y="10" width="15" height="15" fill="black"/>
-                                <rect x="85" y="10" width="15" height="15" fill="black"/>
-                                <rect x="100" y="10" width="15" height="15" fill="black"/>
-                                <rect x="10" y="25" width="15" height="15" fill="black"/>
-                                <rect x="100" y="25" width="15" height="15" fill="black"/>
-                                <rect x="10" y="40" width="15" height="15" fill="black"/>
-                                <rect x="40" y="40" width="15" height="15" fill="black"/>
-                                <rect x="55" y="40" width="15" height="15" fill="black"/>
-                                <rect x="70" y="40" width="15" height="15" fill="black"/>
-                                <rect x="100" y="40" width="15" height="15" fill="black"/>
-                                <rect x="10" y="55" width="15" height="15" fill="black"/>
-                                <rect x="40" y="55" width="15" height="15" fill="black"/>
-                                <rect x="55" y="55" width="15" height="15" fill="black"/>
-                                <rect x="70" y="55" width="15" height="15" fill="black"/>
-                                <rect x="100" y="55" width="15" height="15" fill="black"/>
-                                <rect x="10" y="70" width="15" height="15" fill="black"/>
-                                <rect x="40" y="70" width="15" height="15" fill="black"/>
-                                <rect x="55" y="70" width="15" height="15" fill="black"/>
-                                <rect x="70" y="70" width="15" height="15" fill="black"/>
-                                <rect x="100" y="70" width="15" height="15" fill="black"/>
-                                <rect x="10" y="85" width="15" height="15" fill="black"/>
-                                <rect x="100" y="85" width="15" height="15" fill="black"/>
-                                <rect x="10" y="100" width="15" height="15" fill="black"/>
-                                <rect x="25" y="100" width="15" height="15" fill="black"/>
-                                <rect x="40" y="100" width="15" height="15" fill="black"/>
-                                <rect x="55" y="100" width="15" height="15" fill="black"/>
-                                <rect x="70" y="100" width="15" height="15" fill="black"/>
-                                <rect x="85" y="100" width="15" height="15" fill="black"/>
-                                <rect x="100" y="100" width="15" height="15" fill="black"/>
-                                <rect x="130" y="10" width="15" height="15" fill="black"/>
-                                <rect x="145" y="10" width="15" height="15" fill="black"/>
-                                <rect x="160" y="10" width="15" height="15" fill="black"/>
-                                <rect x="130" y="25" width="15" height="15" fill="black"/>
-                                <rect x="160" y="25" width="15" height="15" fill="black"/>
-                                <rect x="130" y="40" width="15" height="15" fill="black"/>
-                                <rect x="145" y="40" width="15" height="15" fill="black"/>
-                                <rect x="160" y="40" width="15" height="15" fill="black"/>
-                                <rect x="130" y="55" width="15" height="15" fill="black"/>
-                                <rect x="145" y="55" width="15" height="15" fill="black"/>
-                                <rect x="160" y="55" width="15" height="15" fill="black"/>
-                                <rect x="130" y="70" width="15" height="15" fill="black"/>
-                                <rect x="145" y="70" width="15" height="15" fill="black"/>
-                                <rect x="160" y="70" width="15" height="15" fill="black"/>
-                                <rect x="130" y="85" width="15" height="15" fill="black"/>
-                                <rect x="160" y="85" width="15" height="15" fill="black"/>
-                                <rect x="130" y="100" width="15" height="15" fill="black"/>
-                                <rect x="145" y="100" width="15" height="15" fill="black"/>
-                                <rect x="160" y="100" width="15" height="15" fill="black"/>
-                                <rect x="25" y="130" width="15" height="15" fill="black"/>
-                                <rect x="40" y="130" width="15" height="15" fill="black"/>
-                                <rect x="70" y="130" width="15" height="15" fill="black"/>
-                                <rect x="85" y="130" width="15" height="15" fill="black"/>
-                                <rect x="115" y="130" width="15" height="15" fill="black"/>
-                                <rect x="145" y="130" width="15" height="15" fill="black"/>
-                                <rect x="10" y="145" width="15" height="15" fill="black"/>
-                                <rect x="40" y="145" width="15" height="15" fill="black"/>
-                                <rect x="70" y="145" width="15" height="15" fill="black"/>
-                                <rect x="100" y="145" width="15" height="15" fill="black"/>
-                                <rect x="130" y="145" width="15" height="15" fill="black"/>
-                                <rect x="160" y="145" width="15" height="15" fill="black"/>
-                                <rect x="10" y="160" width="15" height="15" fill="black"/>
-                                <rect x="25" y="160" width="15" height="15" fill="black"/>
-                                <rect x="40" y="160" width="15" height="15" fill="black"/>
-                                <rect x="70" y="160" width="15" height="15" fill="black"/>
-                                <rect x="100" y="160" width="15" height="15" fill="black"/>
-                                <rect x="130" y="160" width="15" height="15" fill="black"/>
-                                <rect x="160" y="160" width="15" height="15" fill="black"/>
-                            </svg>
-                        </div>
-                        <div class="scan-text">Scan for Website</div>
-                        <div class="company-info">
-                            <div class="company-name"><span class="brand-navy-text">{{site_name}}</span><span class="brand-accent-text">By Dovix AI</span></div>
-                            <div class="company-tagline">Intelligent Solutions. Real-World Impact.</div>
-                            <div class="address">
-                                <p><strong>B-18, 2nd Floor, Shiv Marg, Opposite Maharishi Raman Diagnostic Center, Kanti Nagar, Bani Park, Jaipur, Rajasthan 302015, India</strong></p>
-                                <p><strong>Mob. : +91 91163 82399</strong></p>
-                                <p><strong>Website :</strong></p>
-                                <p><strong>{{ site_url}}</strong></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        container.innerHTML = idCardHTML;
-    }
+  sel.addEventListener('change', loadMeta);
+  previewBtn.addEventListener('click', refreshPreview);
+  downloadBtn.addEventListener('click', downloadPdf);
+})();
 </script>
 {% endblock %}

@@ -1,0 +1,52 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Module permissions | PMS{% endblock %}
+
+{% block page_css %}{{ block.super }}{% include 'pms/_styles.html' %}{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+  <nav class="breadcrumb-pms mb-2"><a href="{% url 'pms:people_access_hub' %}">People & Access</a> &rsaquo; Module permissions</nav>
+  <h4 class="mb-4">Module permissions matrix</h4>
+
+  {% if not roles %}
+  <div class="alert alert-warning">Create at least one role first.</div>
+  {% else %}
+  <div class="card pms-card p-4">
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-4">
+        <label class="form-label">Role</label>
+        <select class="form-select" onchange="window.location='?role='+this.value">
+          {% for r in roles %}
+          <option value="{{ r.pk }}" {% if selected_role.pk == r.pk %}selected{% endif %}>{{ r.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <input type="hidden" name="role_id" value="{{ selected_role.pk }}">
+      <div class="table-responsive">
+        <table class="table">
+          <thead><tr><th>Module</th><th>Access level</th></tr></thead>
+          <tbody>
+            {% for row in module_rows %}
+            <tr>
+              <td>{{ row.module.name }}</td>
+              <td>
+                <select name="module_{{ row.module.key }}" class="form-select form-select-sm">
+                  {% for val, label in access_levels %}
+                  <option value="{{ val }}" {% if row.level == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <button type="submit" class="btn btn-primary mt-3">Save module access</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

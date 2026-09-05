@@ -3117,7 +3117,11 @@ def superadmin_profile(request):
     office = _get_admin_office(request)
 
     kiosk_url = None
-    if office:
+    show_kiosk_url = False
+    if office and (is_platform_admin(request.user) or (
+        hasattr(request.user, 'office_admin_profile') and request.user.office_admin_profile.is_owner
+    )):
+        show_kiosk_url = True
         kiosk_url = request.build_absolute_uri(
             reverse("employees:attendance_kiosk", args=[office.kiosk_token])
         )
@@ -3129,6 +3133,7 @@ def superadmin_profile(request):
         'today_checkins': today_checkins,
         'office': _get_admin_office(request),
         "kiosk_url": kiosk_url,
+        "show_kiosk_url": show_kiosk_url,
     })
     return render(request, 'employees/superadmin_profile.html', context)
 
@@ -4096,158 +4101,147 @@ def mark_attendance(request, token):
             #     ).exclude(face_encoding__isnull=True)
             # )
             
-            # Compare with known faces
-            for employee in employees:
-                known_encoding = employee.get_face_encoding()
-                if known_encoding is not None:
-                    distance = face_recognition.face_distance(
-                        [known_encoding],
-                        unknown_encoding
-                    )[0]
+            # Compare with known faces using strict best-match (not first-match loop)
+            match = find_best_face_match(
+                unknown_encoding,
+                employees,
+            )
+            if match is None:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Face not recognized. Please ensure good lighting and try again.',
+                })
 
-                    confidence = max(0, min(100, round((1 - distance) * 100, 2)))
+            employee = match['employee']
+            confidence = round(match['confidence'], 2)
+            min_confidence = getattr(settings, 'FACE_MIN_CONFIDENCE_PERCENT', 65)
+            if confidence < min_confidence:
+                AttendanceLog.objects.create(
+                    office=office,
+                    employee=employee,
+                    action='check_in_failed',
+                    success=False,
+                    confidence=confidence,
+                    ip_address=ip_address or None,
+                    user_agent=user_agent or None,
+                    notes=(
+                        f'Kiosk match rejected: {employee.full_name} at {confidence}% '
+                        f'(minimum {min_confidence}%).'
+                    ),
+                )
+                return JsonResponse({
+                    'success': False,
+                    'error': (
+                        f'Match confidence too low ({confidence}%). '
+                        'Please try again or contact HR.'
+                    ),
+                    'confidence': confidence,
+                    'employee_name': employee.full_name,
+                })
 
-                    print(f"Distance: {distance:.4f}")
-                    print(f"Confidence: {confidence}%")
-                    result = face_recognition.compare_faces([known_encoding], unknown_encoding, tolerance=0.5)
-                    if result[0]:
-                        # Face recognized, mark attendance
-                        attendance, created = Attendance.objects.get_or_create(
-                            office=office,
-                            employee=employee,
-                            date=timezone.now().date(),
-                            defaults={
-                                "office": office,
-                                'check_in_time': timezone.now(),
-                                'check_in_photo': save_attendance_image(img, f"checkin_{employee.id}")
-                            }
-                        )
-                        
-                        # if not created:
-                        #     # If already checked in, update check out
-                        #     if not attendance.check_out_time:
-                        #         checkout_time = timezone.now()
-                        #         attendance.check_out_time = checkout_time
-                        #         attendance.check_out_photo = save_attendance_image(img, f"checkout_{employee.id}")
+            if request.POST.get('confirm') != '1':
+                return JsonResponse({
+                    'success': False,
+                    'requires_confirmation': True,
+                    'employee_name': employee.full_name,
+                    'employee_id': employee.pk,
+                    'confidence': confidence,
+                    'message': f'Confirm attendance for {employee.full_name}?',
+                })
 
-                        #         ip_address = get_client_ip(request)
-                        #         user_agent = request.META.get('HTTP_USER_AGENT', '')
-                        #         attendance._auto_end_context = {
-                        #             'origin': 'face recognition check-out',
-                        #             'ip_address': ip_address,
-                        #             'user_agent': user_agent,
-                        #         }
-                        #         attendance.save()
-                        #         ended_breaks = getattr(attendance, '_auto_end_results', [])
+            attendance, created = Attendance.objects.get_or_create(
+                office=office,
+                employee=employee,
+                date=timezone.now().date(),
+                defaults={
+                    "office": office,
+                    'check_in_time': timezone.now(),
+                    'check_in_photo': save_attendance_image(img, f"checkin_{employee.id}")
+                }
+            )
 
-                        #         AttendanceLog.objects.create(
-                        #             employee=employee,
-                        #             attendance=attendance,
-                        #             action='check_out_success',
-                        #             success=True,
-                        #             ip_address=ip_address or None,
-                        #             user_agent=user_agent or None,
-                        #             notes='Check-out recorded via face recognition kiosk.'
-                        #         )
-                        #         message = f'Check out recorded for {employee.name}'
-                        #         if ended_breaks:
-                        #             message += ' (active break automatically ended)'
-                        #         return JsonResponse({
-                        #             'success': True,
-                        #             'message': message,
-                        #             'employee_name': employee.name,
-                        #             'action': 'check_out',
-                        #             'time': checkout_time.strftime('%H:%M:%S')
-                        #         })
-                        #     else:
-                        #         return JsonResponse({
-                        #             'success': False,
-                        #             'error': f'Attendance already marked for today',
-                        #             'employee_name': employee.name
-                        #         })
-                        
-                        if not created:
+            if not created:
+                now = timezone.localtime()
 
-                            now = timezone.localtime()
-
-                            # Prevent duplicate scans within 30 seconds
-                            if attendance.check_out_time:
-                                diff = (now - attendance.check_out_time).total_seconds()
-                                if diff < 30:
-                                    return JsonResponse({
-                                        "success": True,
-                                        "message": f"Attendance marked for {employee.name}",
-                                        "action": "ignored",
-                                        "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
-                                    })
-
-                            attendance.check_out_time = now
-                            attendance.check_out_photo = save_attendance_image(
-                                img,
-                                f"checkout_{employee.id}"
-                            )
-
-                            attendance._auto_end_context = {
-                                "origin": "face recognition update",
-                                "ip_address": ip_address,
-                                "user_agent": user_agent,
-                            }
-
-                            from decimal import Decimal
-
-                            worked_seconds = (
-                                attendance.check_out_time - attendance.check_in_time
-                            ).total_seconds()
-
-                            worked_seconds -= attendance.total_break_seconds
-
-                            attendance.total_work_hours = Decimal(
-                                str(round(worked_seconds / 3600, 2))
-                            )
-
-                            attendance.save()
-
-                            AttendanceLog.objects.create(
-                                office=office,
-                                employee=employee,
-                                attendance=attendance,
-                                action="check_out_success",
-                                success=True,
-                                ip_address=ip_address,
-                                user_agent=user_agent,
-                                notes="Latest face scan updated checkout time."
-                            )
-
-                            return JsonResponse({
-                                "success": True,
-                                "message": f"Attendance updated for {employee.name}",
-                                "employee_name": employee.name,
-                                "action": "updated",
-                                "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
-                            })
-
-                        # ---- First capture of the day: this IS the check-in ----
-                        AttendanceLog.objects.create(
-                            office=office,
-                            employee=employee,
-                            attendance=attendance,
-                            action="check_in_success",
-                            success=True,
-                            confidence=confidence,
-                            ip_address=ip_address,
-                            user_agent=user_agent,
-                            notes="First face scan of the day recorded as check-in."
-                        )
+                if attendance.check_out_time:
+                    diff = (now - attendance.check_out_time).total_seconds()
+                    if diff < 30:
                         return JsonResponse({
-                            'success': True,
-                            'message': f'Check in recorded for {employee.name}',
-                            'employee_name': employee.name,
-                            'action': 'check_in',
-                            'time': timezone.localtime().strftime("%d-%m-%Y %I:%M:%S %p")
+                            "success": True,
+                            "message": f"Attendance marked for {employee.name}",
+                            "employee_name": employee.full_name,
+                            "confidence": confidence,
+                            "action": "ignored",
+                            "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
                         })
-            
-            return JsonResponse({'success': False, 'error': 'Face not recognized'})
-            
+
+                attendance.check_out_time = now
+                attendance.check_out_photo = save_attendance_image(
+                    img,
+                    f"checkout_{employee.id}"
+                )
+
+                attendance._auto_end_context = {
+                    "origin": "face recognition update",
+                    "ip_address": ip_address,
+                    "user_agent": user_agent,
+                }
+
+                from decimal import Decimal
+
+                worked_seconds = (
+                    attendance.check_out_time - attendance.check_in_time
+                ).total_seconds()
+
+                worked_seconds -= attendance.total_break_seconds
+
+                attendance.total_work_hours = Decimal(
+                    str(round(worked_seconds / 3600, 2))
+                )
+
+                attendance.save()
+
+                AttendanceLog.objects.create(
+                    office=office,
+                    employee=employee,
+                    attendance=attendance,
+                    action="check_out_success",
+                    success=True,
+                    confidence=confidence,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    notes="Latest face scan updated checkout time."
+                )
+
+                return JsonResponse({
+                    "success": True,
+                    "message": f"Attendance updated for {employee.name}",
+                    "employee_name": employee.full_name,
+                    "confidence": confidence,
+                    "action": "updated",
+                    "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
+                })
+
+            AttendanceLog.objects.create(
+                office=office,
+                employee=employee,
+                attendance=attendance,
+                action="check_in_success",
+                success=True,
+                confidence=confidence,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                notes="First face scan of the day recorded as check-in."
+            )
+            return JsonResponse({
+                'success': True,
+                'message': f'Check in recorded for {employee.name}',
+                'employee_name': employee.full_name,
+                'confidence': confidence,
+                'action': 'check_in',
+                'time': timezone.localtime().strftime("%d-%m-%Y %I:%M:%S %p")
+            })
+
         except Exception:
             logger.exception("Kiosk attendance scan failed for office %s", office.id)
             return JsonResponse({
@@ -4694,7 +4688,10 @@ def admin_tasks(request):
         "full_name",
         "email",
     )
-    task_list = list(tasks)
+    task_list = sorted(
+        list(tasks),
+        key=lambda t: (0 if t.is_overdue else 1, t.due_date or date.max, t.title.lower()),
+    )
 
     status_styles = {
         Task.Status.PENDING: 'secondary',
@@ -4852,15 +4849,15 @@ def employee_tasks(request):
         ).prefetch_related(
             "updates__updated_by"
         )
-    ).order_by(
-        "-status_updated_at",
-        "-created_at",
     )
-
-    task_forms = [(task, TaskUpdateForm(task=task)) for task in tasks]
+    task_list = sorted(
+        list(tasks),
+        key=lambda t: (0 if t.is_overdue else 1, t.due_date or date.max, t.title.lower()),
+    )
+    task_forms = [(task, TaskUpdateForm(task=task)) for task in task_list]
 
     status_counts = {
-        key: tasks.filter(status=key).count()
+        key: sum(1 for t in task_list if t.status == key)
         for key, _ in Task.Status.choices
     }
     status_styles = {
@@ -4889,6 +4886,35 @@ def employee_tasks(request):
         'status_summary': status_summary,
     })
     return render(request, 'employees/tasks/employee_tasks.html', context)
+
+
+@login_required
+@user_passes_test(is_employee)
+def employee_task_detail(request, pk):
+    """Employee detail view for a single assigned task with full update history."""
+    employee = request.user.employee_profile
+    task = get_object_or_404(
+        tenant_queryset(
+            request,
+            Task.objects.filter(assigned_to=employee).select_related(
+                'assigned_by'
+            ).prefetch_related('updates__updated_by'),
+        ),
+        pk=pk,
+    )
+    task_updates = list(task.updates.select_related('updated_by').order_by('-created_at'))
+    update_form = TaskUpdateForm(task=task, user=request.user)
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'task': task,
+        'task_updates': task_updates,
+        'update_form': update_form,
+        'has_updates': bool(task_updates),
+        'employee': employee,
+    })
+    return render(request, 'employees/tasks/employee_task_detail.html', context)
 
 
 # Ticket System Views
@@ -6977,43 +7003,20 @@ def download_salary_slip(request, pk):
 def view_id_card(request):
     """Employee view of their digital ID card"""
     from employees.models import EmployeeIDCard
-    import qrcode
-    from io import BytesIO
-    import base64
-    
+    from employees.id_card_service import build_id_card_context
+
     employee = request.user.employee_profile
     id_card = EmployeeIDCard.objects.filter(employee=employee).first()
-    
-    if not id_card:
-        context = TemplateLayout.init(request, context={})
-        context.update({
-            'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
-            'employee': employee,
-            'has_id_card': False,
-        })
-        return render(request, 'employees/id_card/view_id_card.html', context)
-    
-    # Generate QR code if not already present
-    if not id_card.qr_code:
-        qr_data = f"ID:{id_card.employee_id_number}|NAME:{id_card.employee.full_name}|DOJ:{id_card.date_of_joining}"
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(qr_data)
-        qr.make(fit=True)
-        
-        img = qr.make_image(fill_color="black", back_color="white")
-        buffer = BytesIO()
-        img.save(buffer, format='PNG')
-        img_str = base64.b64encode(buffer.getvalue()).decode()
-        id_card.qr_code = img_str
-        id_card.save(update_fields=['qr_code'])
-    
+
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'employee': employee,
+        'has_id_card': bool(id_card),
         'id_card': id_card,
-        'has_id_card': True,
     })
+    if id_card:
+        context['card'] = build_id_card_context(employee, id_card, request)
     return render(request, 'employees/id_card/view_id_card.html', context)
 
 
@@ -7083,13 +7086,75 @@ def admin_id_cards(request):
 @login_required
 @user_passes_test(office_admin_required)
 def dynamic_id_card_generator(request):
-    """Dynamic ID card generator with real-time preview"""
-    # employees = Employee.objects.all().order_by('full_name')
-    employees = tenant_queryset(
-        request,
-        Employee.objects.all()
-    ).order_by('full_name')
-    
+    """Alias for admin ID card studio."""
+    return admin_idcard_generator(request)
+
+
+@login_required
+@user_passes_test(office_admin_required)
+def id_card_preview(request):
+    """Return unified card HTML for admin live preview."""
+    from django.http import HttpResponse
+    from django.utils.dateparse import parse_date
+    from employees.id_card_service import build_id_card_context, ensure_id_card_record, render_id_card_preview_html
+
+    employee_id = request.GET.get('employee_id')
+    if not employee_id:
+        return HttpResponse('employee_id required', status=400)
+    employee = tenant_object_or_404(request, Employee, id=employee_id)
+    joining_date = parse_date(request.GET.get('date_of_joining') or '') or employee.joining_date
+    id_card = ensure_id_card_record(
+        employee,
+        employee_code=request.GET.get('employee_code'),
+        job_position=request.GET.get('job_position'),
+        joining_date=joining_date,
+    )
+    card = build_id_card_context(employee, id_card, request)
+    return HttpResponse(render_id_card_preview_html(card, request))
+
+
+@login_required
+@user_passes_test(office_admin_required)
+def id_card_download_pdf(request):
+    """Download PDF rendered from the same export template as preview."""
+    from django.http import HttpResponse, JsonResponse
+    from django.utils.dateparse import parse_date
+    from employees.id_card_service import build_id_card_context, ensure_id_card_record, render_id_card_pdf
+    import json
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    employee_id = payload.get('employee_id')
+    if not employee_id:
+        return JsonResponse({'error': 'Employee is required.'}, status=400)
+
+    employee = tenant_object_or_404(request, Employee, id=employee_id)
+    joining_date = parse_date(payload.get('date_of_joining') or '') or employee.joining_date
+    id_card = ensure_id_card_record(
+        employee,
+        employee_code=payload.get('employee_code'),
+        job_position=payload.get('job_position'),
+        joining_date=joining_date,
+    )
+    card = build_id_card_context(employee, id_card, request)
+    pdf_buffer = render_id_card_pdf(card, request)
+    code = id_card.employee_id_number
+    response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="ID_Card_{code}.pdf"'
+    return response
+
+
+@login_required
+@user_passes_test(office_admin_required)
+def admin_idcard_generator(request):
+    """Admin ID card studio — preview + PDF from unified component."""
+    employees = tenant_queryset(request, Employee.objects.all()).order_by('full_name')
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
@@ -7100,23 +7165,30 @@ def dynamic_id_card_generator(request):
 
 @login_required
 def download_id_card(request, pk):
-    """Download ID card as PDF or image"""
+    """Download ID card PDF for employee or admin."""
     from employees.models import EmployeeIDCard
-    
+    from employees.id_card_service import build_id_card_context, render_id_card_pdf
+
     id_card = get_object_or_404(EmployeeIDCard, id=pk)
     is_owner = (
         hasattr(request.user, 'employee_profile')
         and request.user.employee_profile == id_card.employee
     )
-    if not (is_owner or is_platform_admin(request.user)):
+    if not (is_owner or office_admin_required(request.user)):
         messages.error(request, 'You do not have permission to access this file.')
         return redirect('employees:employee_dashboard')
-    
-    if id_card.employee_photo:
-        return FileResponse(id_card.employee_photo.open('rb'), as_attachment=True)
-    
-    messages.error(request, 'Photo not found.')
-    return redirect('employees:view_id_card')
+
+    card = build_id_card_context(id_card.employee, id_card, request)
+    pdf_buffer = render_id_card_pdf(card, request)
+    filename = f"ID_Card_{id_card.employee_id_number}.pdf"
+    from django.http import HttpResponse
+    response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+# Legacy ReportLab PDF removed — use render_id_card_pdf from id_card_service.
+
 
 @login_required
 @user_passes_test(office_admin_required)
@@ -7129,11 +7201,7 @@ def get_employee_data_api(request):
         return JsonResponse({'success': False, 'error': 'employee_id is required.'}, status=400)
 
     try:
-        employee = tenant_object_or_404(
-            request,
-            Employee,
-            id=employee_id,
-        )
+        employee = tenant_object_or_404(request, Employee, id=employee_id)
     except Employee.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Employee not found.'}, status=404)
 
@@ -7150,6 +7218,7 @@ def get_employee_data_api(request):
         'employee_contact_number': employee.contact or '',
         'employee_photo_url': photo_url,
     })
+
 
 @login_required
 @user_passes_test(office_admin_required)
@@ -7263,213 +7332,6 @@ from .shift_assignment_views import (
     get_employee_shifts_data,
 )
 
-
-@login_required
-@user_passes_test(office_admin_required)
-def admin_idcard_generator(request):
-    """Admin view for generating employee ID cards.
-
-    On a successful AJAX POST this now returns the PDF binary directly
-    (not JSON) — the browser starts downloading it immediately with no
-    separate download step. On any failure it still returns JSON with
-    an 'error' key so the frontend can show a message.
-    """
-    from .models import EmployeeIDCard
-    from django.http import JsonResponse, HttpResponse
-    from django.utils.dateparse import parse_date
-    import json
-    import io
-
-    if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        try:
-            payload = json.loads(request.body.decode('utf-8'))
-            employee_id = payload.get('employee_id')
-            employee_code = payload.get('employee_code') or ''
-            job_position = payload.get('job_position') or ''
-            joining_str = payload.get('date_of_joining') or ''
-            company_name = payload.get('company_name') or 'Dovix'
-            company_address = payload.get('company_address') or 'Jaipur, Rajasthan, India'
-
-            if not employee_id:
-                return JsonResponse({'success': False, 'error': 'Employee is required.'}, status=400)
-
-            try:
-                employee = Employee.objects.get(id=employee_id)
-            except Employee.DoesNotExist:
-                return JsonResponse({'success': False, 'error': 'Employee not found.'}, status=404)
-
-            joining_date = None
-            if joining_str:
-                joining_date = parse_date(joining_str)
-            if not joining_date:
-                joining_date = employee.joining_date
-            if not joining_date:
-                joining_date = employee.created_at.date()
-
-            if not employee_code:
-                employee_code = f"KI{employee.id:05d}"
-            if not job_position and hasattr(employee, 'designation'):
-                job_position = employee.designation or ''
-
-            employee_photo = getattr(employee, 'profile_picture', None)
-
-            id_card, created = EmployeeIDCard.objects.update_or_create(
-                employee=employee,
-                defaults={
-                    'employee_id_number': employee_code,
-                    'job_position': job_position or 'Employee',
-                    'date_of_joining': joining_date,
-                    'employee_photo': employee_photo,
-                },
-            )
-
-            # ---- Build the PDF (front + back, CR80 card size) ----
-            pdf_buffer = _build_id_card_pdf(
-                employee=employee,
-                employee_code=employee_code,
-                job_position=job_position or 'Employee',
-                joining_date=joining_date,
-                company_name=company_name,
-                company_address=company_address,
-            )
-
-            filename = f"ID_Card_{employee_code}.pdf"
-            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            return response
-
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'error': 'Invalid JSON payload.'}, status=400)
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
-    # GET request – render generator UI
-    # employees = Employee.objects.all().order_by('full_name')
-    employees = tenant_queryset(
-        request,
-        Employee.objects.all()
-    ).order_by('full_name')
-
-    context = TemplateLayout.init(request, context={})
-    context.update(
-        {
-            'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
-            'employees': employees,
-        }
-    )
-    return render(request, 'employees/id_card/dynamic_id_card.html', context)
-
-
-def _build_id_card_pdf(employee, employee_code, job_position, joining_date,
-                        company_name, company_address):
-    """Draws a two-page (front/back) CR80-sized (85.6mm x 54mm) ID card PDF
-    and returns an in-memory BytesIO buffer."""
-    from reportlab.lib.pagesizes import landscape
-    from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.colors import HexColor, white
-    from reportlab.lib.utils import ImageReader
-    import io
-
-    CARD_W, CARD_H = 85.6 * mm, 54 * mm
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(CARD_W, CARD_H))
-
-    purple_top = HexColor('#667eea')
-    purple_bottom = HexColor('#764ba2')
-
-    # ---------------- FRONT ----------------
-    _draw_gradient_bg(c, CARD_W, CARD_H, purple_top, purple_bottom)
-
-    c.setFillColor(white)
-    c.setFont('Helvetica-Bold', 11)
-    c.drawString(6 * mm, CARD_H - 8 * mm, 'DOVIX')
-
-    # Chip placeholder (top-right)
-    c.setFillColor(HexColor('#ffffff'))
-    c.setStrokeColor(white)
-    c.roundRect(CARD_W - 16 * mm, CARD_H - 11 * mm, 10 * mm, 6 * mm, 1.5, fill=0, stroke=1)
-
-    # Photo
-    photo_size = 18 * mm
-    photo_x = (CARD_W - photo_size) / 2
-    photo_y = CARD_H - 30 * mm
-    try:
-        if employee.profile_picture and employee.profile_picture.name:
-            img = ImageReader(employee.profile_picture.path)
-            c.drawImage(img, photo_x, photo_y, width=photo_size, height=photo_size,
-                        preserveAspectRatio=True, mask='auto')
-        else:
-            raise ValueError('no photo')
-    except Exception:
-        c.setFillColor(HexColor('#ffffff'))
-        c.roundRect(photo_x, photo_y, photo_size, photo_size, 2, fill=1, stroke=0)
-        c.setFillColor(purple_bottom)
-        c.setFont('Helvetica-Bold', 14)
-        initial = (employee.full_name or '?')[0].upper()
-        c.drawCentredString(CARD_W / 2, photo_y + photo_size / 2 - 4, initial)
-
-    # Name / designation / details
-    c.setFillColor(white)
-    c.setFont('Helvetica-Bold', 9)
-    c.drawCentredString(CARD_W / 2, photo_y - 5 * mm, employee.full_name or '')
-    c.setFont('Helvetica', 6.5)
-    c.drawCentredString(CARD_W / 2, photo_y - 9 * mm, job_position)
-    c.setFont('Helvetica', 6)
-    c.drawCentredString(CARD_W / 2, photo_y - 13 * mm, f'ID: {employee_code}')
-    c.drawCentredString(CARD_W / 2, photo_y - 16.5 * mm, f'DOJ: {joining_date.strftime("%d/%m/%Y")}')
-
-    c.setFont('Helvetica', 6)
-    c.drawCentredString(CARD_W / 2, 4 * mm, 'Valid ID Card')
-
-    c.showPage()
-
-    # ---------------- BACK ----------------
-    c.setPageSize((CARD_W, CARD_H))
-    _draw_gradient_bg(c, CARD_W, CARD_H, purple_bottom, purple_top)
-
-    # QR placeholder box
-    qr_size = 18 * mm
-    qr_x = (CARD_W - qr_size) / 2
-    qr_y = CARD_H - 24 * mm
-    c.setFillColor(white)
-    c.roundRect(qr_x, qr_y, qr_size, qr_size, 2, fill=1, stroke=0)
-    c.setFillColor(purple_top)
-    c.setFont('Helvetica', 7)
-    c.drawCentredString(CARD_W / 2, qr_y + qr_size / 2 - 3, 'QR')
-
-    c.setFillColor(white)
-    c.setFont('Helvetica-Bold', 8)
-    c.drawCentredString(CARD_W / 2, qr_y - 5 * mm, company_name)
-
-    c.setFont('Helvetica', 6)
-    text_obj = c.beginText(6 * mm, qr_y - 10 * mm)
-    text_obj.setLeading(8)
-    for line in company_address.split('\n'):
-        text_obj.textLine(line)
-    text_obj.textLine('')
-    text_obj.textLine(f'Contact: {employee.contact}')
-    c.drawText(text_obj)
-
-    c.showPage()
-    c.save()
-    buffer.seek(0)
-    return buffer
-
-
-def _draw_gradient_bg(c, width, height, color_top, color_bottom, steps=40):
-    """Simulates a vertical gradient by stacking thin colored bands,
-    since reportlab canvas has no native linear gradient fill."""
-    from reportlab.lib.colors import Color
-
-    for i in range(steps):
-        frac = i / float(steps - 1)
-        r = color_top.red + (color_bottom.red - color_top.red) * frac
-        g = color_top.green + (color_bottom.green - color_top.green) * frac
-        b = color_top.blue + (color_bottom.blue - color_top.blue) * frac
-        c.setFillColor(Color(r, g, b))
-        band_h = height / steps
-        c.rect(0, height - (i + 1) * band_h, width, band_h + 0.5, fill=1, stroke=0)
 
 @login_required
 def modern_dashboard(request):

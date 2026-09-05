@@ -1,0 +1,46 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}{{ page_title }} | PMS{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+{% include 'pms/_styles.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y pms-page">
+  <div class="pms-hero">
+    <h4 class="mb-1">Project Management System</h4>
+    <p>Manage projects, people, permissions and delivery from one hub.</p>
+  </div>
+
+  <div class="pms-grid">
+    {% for section in sections %}
+      {% if section.url_name %}
+        <a href="{% url section.url_name %}" class="service-card">
+          <div class="service-card__icon" style="background: {{ section.gradient }};">
+            <i class="bx {{ section.icon }}"></i>
+          </div>
+          <div>
+            <p class="service-card__title">{{ section.title }}</p>
+            <p class="service-card__caption">{{ section.description }}</p>
+            {% if section.live_count %}<small class="text-muted">{{ section.live_count }} modules live</small>{% endif %}
+          </div>
+        </a>
+      {% else %}
+        <div class="service-card service-card--disabled">
+          <div class="service-card__icon" style="background: {{ section.gradient }};">
+            <i class="bx {{ section.icon }}"></i>
+          </div>
+          <div>
+            <p class="service-card__title">{{ section.title }}</p>
+            <p class="service-card__caption">{{ section.description }}</p>
+            <span class="badge bg-label-secondary">Coming soon</span>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

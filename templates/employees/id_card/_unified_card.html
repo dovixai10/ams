@@ -1,0 +1,231 @@
+{# Unified ID card — single component for portal preview, admin preview, and PDF source (#39-41) #}
+<style>
+  .ams-id-card-scene {
+    width: min(340px, 100%);
+    aspect-ratio: 54 / 85.6;
+    perspective: 1400px;
+    margin: 0 auto;
+  }
+  .ams-id-card-scene--interactive { cursor: pointer; }
+  .ams-id-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.65s ease;
+  }
+  .ams-id-card-inner.is-flipped { transform: rotateY(180deg); }
+  .ams-id-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #f8fafc;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+    display: flex;
+    flex-direction: column;
+  }
+  .ams-id-face--back { transform: rotateY(180deg); }
+  .ams-id-wave {
+    height: 52px;
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #38bdf8 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .ams-id-wave::after {
+    content: '';
+    position: absolute;
+    left: -10%;
+    right: -10%;
+    bottom: -18px;
+    height: 36px;
+    background: #f8fafc;
+    border-radius: 50% 50% 0 0;
+  }
+  .ams-id-wave--bottom {
+    margin-top: auto;
+    transform: rotate(180deg);
+  }
+  .ams-id-body {
+    flex: 1;
+    padding: 0.85rem 1rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .ams-id-brand {
+    text-align: center;
+    line-height: 1.1;
+    margin-top: 0.15rem;
+  }
+  .ams-id-brand__primary {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #1e3a8a;
+    letter-spacing: 0.02em;
+  }
+  .ams-id-brand__accent {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #2563eb;
+  }
+  .ams-id-logo {
+    max-height: 28px;
+    max-width: 120px;
+    object-fit: contain;
+    margin-bottom: 0.15rem;
+  }
+  .ams-id-photo-ring {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    padding: 4px;
+    background: linear-gradient(135deg, #2563eb, #06b6d4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ams-id-photo {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #475569;
+  }
+  .ams-id-name {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #0f172a;
+    text-align: center;
+    margin: 0;
+  }
+  .ams-id-role {
+    font-size: 0.78rem;
+    color: #64748b;
+    text-align: center;
+    margin: 0;
+  }
+  .ams-id-details {
+    width: 100%;
+    list-style: none;
+    padding: 0;
+    margin: 0.25rem 0 0;
+    font-size: 0.72rem;
+  }
+  .ams-id-details li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    padding: 0.28rem 0;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+  }
+  .ams-id-details li:last-child { border-bottom: none; }
+  .ams-id-details i { color: #2563eb; font-size: 0.95rem; margin-top: 1px; }
+  .ams-id-details strong { color: #64748b; font-weight: 600; min-width: 5.5rem; }
+  .ams-id-qr-block {
+    text-align: center;
+    margin-top: auto;
+    padding-bottom: 0.35rem;
+  }
+  .ams-id-qr-block img {
+    width: 72px;
+    height: 72px;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+    background: #fff;
+  }
+  .ams-id-qr-caption {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #475569;
+    margin-top: 0.25rem;
+  }
+  .ams-id-back-header {
+    background: linear-gradient(135deg, #1e40af, #2563eb);
+    color: #fff;
+    padding: 0.65rem 0.85rem;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  .ams-id-back-building {
+    height: 48px;
+    background: linear-gradient(180deg, #93c5fd 0%, #dbeafe 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1e40af;
+    font-size: 1.4rem;
+  }
+</style>
+
+<div class="ams-id-card-scene{% if card.flip_enabled %} ams-id-card-scene--interactive{% endif %}"{% if card.flip_enabled %} onclick="this.querySelector('.ams-id-card-inner').classList.toggle('is-flipped')" title="Click to flip"{% endif %}>
+  <div class="ams-id-card-inner{% if flipped %} is-flipped{% endif %}">
+    <!-- FRONT -->
+    <div class="ams-id-face ams-id-face--front">
+      <div class="ams-id-wave"></div>
+      <div class="ams-id-body">
+        {% if card.logo_url %}
+        <img src="{{ card.logo_url }}" alt="" class="ams-id-logo">
+        {% endif %}
+        <div class="ams-id-brand">
+          <div class="ams-id-brand__primary">{{ card.company_name }}</div>
+          {% if card.company_name_accent %}<div class="ams-id-brand__accent">{{ card.company_name_accent }}</div>{% endif %}
+        </div>
+        <div class="ams-id-photo-ring">
+          {% if card.photo_url %}
+          <img src="{{ card.photo_url }}" alt="" class="ams-id-photo">
+          {% else %}
+          <div class="ams-id-photo">{{ card.employee_name|slice:":1"|upper }}</div>
+          {% endif %}
+        </div>
+        <h3 class="ams-id-name">{{ card.employee_name }}</h3>
+        {% if card.designation %}<p class="ams-id-role">{{ card.designation }}</p>{% endif %}
+        <ul class="ams-id-details">
+          {% for label, value, icon in card.visible_rows_front %}
+          <li><i class="bx {{ icon }}"></i><strong>{{ label }}</strong><span>{{ value }}</span></li>
+          {% endfor %}
+        </ul>
+        {% if card.qr_maps_data_uri %}
+        <div class="ams-id-qr-block">
+          <img src="{{ card.qr_maps_data_uri }}" alt="Location QR">
+          <div class="ams-id-qr-caption">Scan for Location</div>
+        </div>
+        {% endif %}
+      </div>
+      <div class="ams-id-wave ams-id-wave--bottom"></div>
+    </div>
+
+    <!-- BACK -->
+    <div class="ams-id-face ams-id-face--back">
+      <div class="ams-id-wave"></div>
+      <div class="ams-id-back-header">{{ card.company_name }}{% if card.company_name_accent %} {{ card.company_name_accent }}{% endif %}</div>
+      <div class="ams-id-back-building"><i class="bx bx-buildings"></i></div>
+      <div class="ams-id-body" style="align-items: stretch;">
+        {% if card.qr_website_data_uri %}
+        <div class="ams-id-qr-block">
+          <img src="{{ card.qr_website_data_uri }}" alt="Website QR">
+          <div class="ams-id-qr-caption">Scan for Website</div>
+        </div>
+        {% endif %}
+        <ul class="ams-id-details">
+          {% for label, value, icon in card.visible_rows_back %}
+          <li><i class="bx {{ icon }}"></i><strong>{{ label }}</strong><span>{{ value }}</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="ams-id-wave ams-id-wave--bottom"></div>
+    </div>
+  </div>
+</div>

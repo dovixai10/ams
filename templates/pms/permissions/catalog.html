@@ -1,0 +1,50 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Permission catalog | PMS{% endblock %}
+
+{% block page_css %}{{ block.super }}{% include 'pms/_styles.html' %}{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <nav class="breadcrumb-pms"><a href="{% url 'pms:people_access_hub' %}">People & Access</a> &rsaquo; Permissions</nav>
+      <h4 class="mb-0 mt-1">Permission catalog</h4>
+      <p class="text-muted mb-0 small">Read-only registry of every permission key in PMS.</p>
+    </div>
+    <form method="get" class="d-flex gap-2">
+      <input type="search" name="q" value="{{ query }}" class="form-control" placeholder="Search permissions…">
+      <button class="btn btn-outline-primary" type="submit">Search</button>
+    </form>
+  </div>
+
+  {% for module_key, perms in grouped.items %}
+  <div class="card pms-card mb-3">
+    <div class="card-header">
+      <h5 class="mb-0">
+        {% for m in modules %}{% if m.key == module_key %}{{ m.name }}{% endif %}{% endfor %}
+        <span class="badge bg-label-secondary ms-2">{{ perms|length }}</span>
+      </h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Key</th><th>Name</th><th>Description</th><th>Roles granted</th></tr></thead>
+        <tbody>
+          {% for perm in perms %}
+          <tr>
+            <td><code>{{ perm.key }}</code></td>
+            <td>{{ perm.name }}</td>
+            <td class="text-muted">{{ perm.description }}</td>
+            <td>{{ perm.role_count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% empty %}
+  <div class="alert alert-info">No permissions found. Run <code>python manage.py seed_pms_permissions</code>.</div>
+  {% endfor %}
+</div>
+{% endblock %}

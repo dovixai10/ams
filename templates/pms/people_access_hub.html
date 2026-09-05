@@ -1,0 +1,40 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}{{ page_title }} | PMS{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+{% include 'pms/_styles.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y pms-page">
+  {% if breadcrumb %}
+  <nav class="breadcrumb-pms mb-2">
+    {% for label, url in breadcrumb %}
+      {% if url %}<a href="{{ url }}">{{ label }}</a> &rsaquo;{% else %}{{ label }}{% endif %}
+    {% endfor %}
+  </nav>
+  {% endif %}
+
+  <div class="pms-hero" style="background: linear-gradient(135deg, #6366f1, #a855f7);">
+    <h4 class="mb-1">{{ page_title }}</h4>
+    <p>Roles, permissions, users, skills and workforce visibility.</p>
+  </div>
+
+  <div class="pms-grid">
+    {% for card in cards %}
+    <a href="{% url card.url_name %}" class="service-card">
+      <div class="service-card__icon" style="background: {{ card.gradient }};">
+        <i class="bx {{ card.icon }}"></i>
+      </div>
+      <div>
+        <p class="service-card__title">{{ card.title }}</p>
+        <p class="service-card__caption">{{ card.description }}</p>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

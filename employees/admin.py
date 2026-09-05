@@ -25,7 +25,14 @@ from .models import (
     LeaveType,
     LeaveAdjustment,
     Holiday,
-    AttendanceRule
+    AttendanceRule,
+    PayrollRun,
+    PayrollRunLine,
+    EngagementProgram,
+    EngagementPollOption,
+    EngagementPollVote,
+    EngagementReaction,
+    EngagementComment,
 )
 
 from .models import Office, OfficeAdmin
@@ -587,6 +594,46 @@ class EmployeeIDCardAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(PayrollRun)
+class PayrollRunAdmin(admin.ModelAdmin):
+    list_display = ('office', 'period_month', 'status', 'computed_at', 'approved_at', 'created_at')
+    list_filter = ('status', 'period_month', 'office')
+    search_fields = ('office__name', 'notes')
+    ordering = ('-period_month',)
+    readonly_fields = ('created_at', 'updated_at', 'computed_at', 'approved_at', 'closed_at')
+
+
+@admin.register(PayrollRunLine)
+class PayrollRunLineAdmin(admin.ModelAdmin):
+    list_display = ('run', 'employee', 'gross_earnings', 'total_deductions', 'net_pay')
+    list_filter = ('run__period_month', 'run__office')
+    search_fields = ('employee__full_name', 'employee__email')
+    raw_id_fields = ('run', 'employee')
+
+
+class EngagementPollOptionInline(admin.TabularInline):
+    model = EngagementPollOption
+    extra = 0
+
+
+@admin.register(EngagementProgram)
+class EngagementProgramAdmin(admin.ModelAdmin):
+    list_display = ('title', 'office', 'program_type', 'status', 'published_at', 'created_at')
+    list_filter = ('program_type', 'status', 'office')
+    search_fields = ('title', 'body')
+    inlines = [EngagementPollOptionInline]
+    readonly_fields = ('published_at', 'created_at', 'updated_at')
+
+
+@admin.register(EngagementComment)
+class EngagementCommentAdmin(admin.ModelAdmin):
+    list_display = ('program', 'author', 'is_hidden', 'is_anonymous', 'created_at')
+    list_filter = ('is_hidden', 'is_anonymous', 'created_at')
+    search_fields = ('body', 'author__username', 'program__title')
+
+
 from django.contrib import admin
 
 admin.site.register([PaidLeaveAdjustment, LeaveType, EmployeeLeaveBalance, LeaveCreditLog, LeaveAdjustment, Holiday, AttendanceRule])

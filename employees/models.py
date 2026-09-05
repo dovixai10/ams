@@ -3377,6 +3377,23 @@ class SalarySlip(models.Model):
         null=True,
         help_text="PDF file of the salary slip"
     )
+    payroll_run = models.ForeignKey(
+        'PayrollRun',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payslips',
+    )
+    paid_days = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    lop_days = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    working_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    gross_earnings = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    earnings_json = models.JSONField(default=dict, blank=True)
+    deductions_json = models.JSONField(default=dict, blank=True)
+    employer_contrib_json = models.JSONField(default=dict, blank=True)
+    net_pay_words = models.CharField(max_length=255, blank=True)
+    payment_date = models.DateField(null=True, blank=True)
+    payment_mode = models.CharField(max_length=30, blank=True)
 
     salary_profile = models.ForeignKey(
         EmployeeSalary,
@@ -3767,3 +3784,14 @@ class PaidLeaveAdjustment(models.Model):
     new_balance = models.DecimalField(max_digits=5, decimal_places=1, default=0)
     adjusted_at = models.DateTimeField(auto_now_add=True)
     adjusted_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+
+
+from .payroll_engagement_models import (  # noqa: E402,F401
+    EngagementComment,
+    EngagementPollOption,
+    EngagementPollVote,
+    EngagementProgram,
+    EngagementReaction,
+    PayrollRun,
+    PayrollRunLine,
+)

@@ -1,0 +1,122 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}{{ task.title }} | My Tasks{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .task-detail-layout { display: grid; gap: 1.5rem; }
+  @media (min-width: 992px) { .task-detail-layout { grid-template-columns: minmax(0, 1fr) 320px; } }
+  .history-accordion .accordion-item { border-radius: 18px; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.2); margin-bottom: 0.5rem; }
+  .detail-sidebar .card { position: sticky; top: calc(var(--layout-navbar-height, 4rem) + 1.25rem); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3 g-md-4 mb-3">
+  <div class="col-12">
+    <a href="{% url 'employees:employee_tasks' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bx bx-chevron-left"></i> Back to My Tasks
+    </a>
+  </div>
+
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex flex-column flex-md-row justify-content-md-between gap-3">
+        <div>
+          <h4 class="mb-1">{{ task.title }}</h4>
+          <div class="d-flex flex-wrap align-items-center gap-3 text-muted small">
+            <span class="badge bg-{{ task.status_badge }} text-capitalize">{{ task.get_status_display }}</span>
+            {% if task.due_date %}<span><i class="bx bx-calendar me-1"></i> Due {{ task.due_date|date:'M j, Y' }}</span>{% endif %}
+            <span class="badge bg-{{ task.priority_badge }} text-capitalize">{{ task.get_priority_display }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p class="mb-4">{{ task.description|default:'No description provided.' }}</p>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <div class="border rounded-3 p-3 h-100 bg-light bg-opacity-50">
+              <span class="small text-muted d-block">Assigned by</span>
+              <span class="fw-semibold">{{ task.assigned_by.get_full_name|default:task.assigned_by.username|default:'System' }}</span>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="border rounded-3 p-3 h-100">
+              <span class="small text-muted d-block">Created</span>
+              <span class="fw-semibold">{{ task.created_at|date:'M j, Y g:i A' }}</span>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="border rounded-3 p-3 h-100">
+              <span class="small text-muted d-block">Last updated</span>
+              <span class="fw-semibold">{{ task.status_updated_at|default:task.updated_at|date:'M j, Y g:i A' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="task-detail-layout col-12">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Update history</h5>
+        <span class="badge bg-label-primary">{{ task_updates|length }} entries</span>
+      </div>
+      <div class="card-body">
+        {% if has_updates %}
+        <div class="history-accordion accordion" id="historyAccordion">
+          {% for update in task_updates %}
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="updateHeader{{ update.pk }}">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#updateCollapse{{ update.pk }}">
+                <div class="d-flex flex-column flex-grow-1 text-start">
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-semibold text-capitalize">{{ update.get_new_status_display }}</span>
+                    {% if update.previous_status %}
+                    <span class="badge bg-light text-muted">from {{ update.get_previous_status_display }}</span>
+                    {% endif %}
+                  </div>
+                  <span class="text-muted small">{{ update.updated_by.get_full_name|default:update.updated_by.username }} · {{ update.created_at|date:'M j, Y g:i A' }} · {{ update.created_at|timesince }} ago</span>
+                </div>
+              </button>
+            </h2>
+            <div id="updateCollapse{{ update.pk }}" class="accordion-collapse collapse" data-bs-parent="#historyAccordion">
+              <div class="accordion-body">
+                {% if update.comment %}<p class="mb-0">{{ update.comment }}</p>{% else %}<p class="text-muted mb-0">No comment.</p>{% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4 mb-0">No updates recorded yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="detail-sidebar">
+      <div class="card shadow-sm">
+        <div class="card-header"><h5 class="mb-0">Quick status update</h5></div>
+        <div class="card-body">
+          <form method="post" action="{% url 'employees:update_task_status' task.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'employees:employee_task_detail' task.pk %}">
+            <div class="mb-3">
+              <label class="form-label">Status</label>
+              {{ update_form.new_status }}
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Comment</label>
+              {{ update_form.comment }}
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Submit update</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

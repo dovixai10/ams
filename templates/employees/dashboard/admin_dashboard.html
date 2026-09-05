@@ -755,7 +755,7 @@
         <div class="d-flex align-items-start row g-0">
           <div class="col-lg-7 p-4 p-md-5">
             <div class="card-body p-0">
-              <h2 class="text-white mb-3 animate__animated animate__fadeInUp">👋 Welcome Back, Admin!</h2>
+              <h2 class="text-white mb-3 animate__animated animate__fadeInUp">👋 Welcome Back{% if user.first_name %}, {{ user.first_name }}{% elif user.get_full_name %}, {{ user.get_full_name }}{% endif %}!</h2>
               <p class="text-white-75 mb-4 animate__animated animate__fadeInUp animate__delay-1s" style="font-size: 1.1rem;">
                 Manage your workforce efficiently with real-time insights and powerful tools.<br/>
                 Your command center for all HR operations.

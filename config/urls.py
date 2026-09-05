@@ -32,6 +32,8 @@ urlpatterns = [
     # Employee Management System URLs (before other apps to catch login/ first)
     path("", include("employees.urls")),
 
+    path("pms/", include("pms.urls")),
+
     # Dashboard urls
     # path("", include("apps.dashboards.urls")),
 

@@ -1,0 +1,71 @@
+{% extends layout_path %}
+
+{% block title %}{{ program.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <a href="{% url 'employees:engagement_portal' %}" class="btn btn-sm btn-outline-secondary mb-3">&larr; Back</a>
+  <h4>{{ program.title }}</h4>
+  <p>{{ program.body|linebreaks }}</p>
+
+  {% if program.program_type == 'poll' %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header"><h6 class="mb-0">Cast your vote</h6></div>
+    <div class="card-body">
+      {% if user_vote %}
+      <p class="text-success">You voted for: <strong>{{ user_vote.option.label }}</strong></p>
+      {% else %}
+      <form method="post">
+        {% csrf_token %}
+        {% for opt in poll_options %}
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="radio" name="poll_option_id" value="{{ opt.id }}" id="opt{{ opt.id }}" required>
+          <label class="form-check-label" for="opt{{ opt.id }}">{{ opt.label }} ({{ opt.votes }} votes)</label>
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary btn-sm mt-2">Submit vote</button>
+        <input type="hidden" name="action" value="vote">
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="mb-4">
+    <form method="post" class="d-inline">
+      {% csrf_token %}
+      <button name="reaction" value="like" class="btn btn-outline-primary btn-sm">Like</button>
+      <button name="reaction" value="love" class="btn btn-outline-danger btn-sm">Love</button>
+      <button name="reaction" value="interested" class="btn btn-outline-info btn-sm">Interested</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if program.comments_enabled %}
+  <div class="card shadow-sm">
+    <div class="card-header"><h6 class="mb-0">Comments</h6></div>
+    <div class="card-body">
+      <form method="post" class="mb-3">
+        {% csrf_token %}
+        <textarea name="comment" class="form-control mb-2" rows="2" placeholder="Add a comment…" required></textarea>
+        {% if program.allow_anonymous %}
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="anonymous" id="anon">
+          <label class="form-check-label" for="anon">Post anonymously</label>
+        </div>
+        {% endif %}
+        <button type="submit" class="btn btn-primary btn-sm">Post</button>
+      </form>
+      {% for c in comments %}
+      <div class="border-bottom py-2 small">
+        <strong>{% if c.is_anonymous %}Anonymous{% else %}{{ c.author.get_full_name|default:c.author.username }}{% endif %}</strong>
+        · {{ c.created_at|timesince }} ago
+        <p class="mb-0">{{ c.body }}</p>
+      </div>
+      {% empty %}
+      <p class="text-muted small mb-0">No comments yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

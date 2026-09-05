@@ -1,0 +1,82 @@
+{% extends layout_path %}
+{% load static widget_tweaks %}
+
+{% block title %}Skills | PMS{% endblock %}
+
+{% block page_css %}{{ block.super }}{% include 'pms/_styles.html' %}{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+  <nav class="breadcrumb-pms mb-2"><a href="{% url 'pms:people_access_hub' %}">People & Access</a> &rsaquo; Skills</nav>
+  <h4 class="mb-4">Skills matrix</h4>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card pms-card p-4">
+        <h6>Add skill</h6>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="skill">
+          {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field|add_class:"form-control" }}
+          </div>
+          {% endfor %}
+          <button type="submit" class="btn btn-primary">Create skill</button>
+        </form>
+      </div>
+      <div class="card pms-card p-4 mt-4">
+        <h6>Assign to employee</h6>
+        <form method="post" action="{% url 'pms:skill_assign' %}">
+          {% csrf_token %}
+          {% for field in assign_form %}
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field|add_class:"form-control" }}
+          </div>
+          {% endfor %}
+          <button type="submit" class="btn btn-outline-primary">Assign</button>
+        </form>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <form method="get" class="mb-3 d-flex gap-2">
+        <input type="search" name="q" value="{{ search_query }}" class="form-control" placeholder="Search by skill name…">
+        <button class="btn btn-outline-secondary" type="submit">Search</button>
+      </form>
+      {% if search_results %}
+      <div class="card pms-card mb-4">
+        <div class="card-header">Search results</div>
+        <ul class="list-group list-group-flush">
+          {% for es in search_results %}
+          <li class="list-group-item d-flex justify-content-between">
+            <span>{{ es.employee.full_name }} — {{ es.skill.name }}</span>
+            <span class="badge bg-label-info">{{ es.get_proficiency_display }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      <div class="card pms-card">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead><tr><th>Skill</th><th>Category</th><th>People</th></tr></thead>
+            <tbody>
+              {% for skill in skills %}
+              <tr>
+                <td>{{ skill.name }}</td>
+                <td>{{ skill.category|default:"—" }}</td>
+                <td>{{ skill.people_count }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-muted text-center py-4">No skills defined yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

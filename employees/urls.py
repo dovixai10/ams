@@ -1,6 +1,7 @@
 from django.urls import path, include
 from django.views.generic import RedirectView
 from . import views, holiday_views, api_views, leave_views, attendance_admin_views
+from . import payroll_views, engagement_views
 
 app_name = 'employees'
 
@@ -101,6 +102,7 @@ urlpatterns = [
     # Task Management URLs
     path('tasks/manage/', views.admin_tasks, name='admin_tasks'),  # Admin - Task dashboard
     path('tasks/manage/<int:pk>/', views.admin_task_detail, name='admin_task_detail'),  # Admin - Task detail
+    path('tasks/detail/<int:pk>/', views.employee_task_detail, name='employee_task_detail'),
     path('tasks/<int:pk>/update-status/', views.update_task_status, name='update_task_status'),  # Shared update
     path('tasks/', views.employee_tasks, name='employee_tasks'),  # Employee - My tasks
 
@@ -163,6 +165,11 @@ urlpatterns = [
     path('salary-slips/', views.salary_slips, name='salary_slips'),
     path('salary-slips/manage/', views.admin_salary_slips, name='admin_salary_slips'),
     path('salary-slips/<int:pk>/download/', views.download_salary_slip, name='download_salary_slip'),
+    # Payroll run engine (#43–44)
+    path('payroll/runs/', payroll_views.payroll_run_list, name='payroll_run_list'),
+    path('payroll/runs/<int:pk>/', payroll_views.payroll_run_detail, name='payroll_run_detail'),
+    path('payroll/payslips/<int:pk>/preview/', payroll_views.payslip_preview, name='payslip_preview'),
+    path('payroll/payslips/<int:pk>/download/', payroll_views.payslip_download_pdf, name='payslip_download_pdf'),
     path("shift/", views.admin_shifts, name="admin_shifts"),
     path("shift-assignment/", views.shift_assignment, name="shift_assignment"),
     path("shift/update/", views.update_employee_shift, name="update_employee_shift"),
@@ -173,6 +180,8 @@ urlpatterns = [
     path('id-card/', views.view_id_card, name='view_id_card'),
     path('id-card/manage/', views.admin_id_cards, name='admin_id_cards'),
     path('id-card/<int:pk>/download/', views.download_id_card, name='download_id_card'),
+    path('id-card/preview/', views.id_card_preview, name='id_card_preview'),
+    path('id-card/download-pdf/', views.id_card_download_pdf, name='id_card_download_pdf'),
     # ID Card Management (dynamic generator UI)
     # Named "dynamic_id_card_generator" to match existing template references
     path('id-card/generator/', views.admin_idcard_generator, name='dynamic_id_card_generator'),
@@ -239,4 +248,10 @@ urlpatterns = [
     # attendance rule 
 
     path('attendance/rule-settings/', views.attendance_rule_settings, name='attendance_rule_settings'),
+
+    # Engagement programs (#48)
+    path('engagement/', engagement_views.engagement_portal, name='engagement_portal'),
+    path('engagement/<int:pk>/', engagement_views.engagement_program_detail, name='engagement_program_detail'),
+    path('engagement/manage/', engagement_views.engagement_admin_list, name='engagement_admin_list'),
+    path('engagement/manage/<int:pk>/', engagement_views.engagement_admin_detail, name='engagement_admin_detail'),
 ]

@@ -1,0 +1,49 @@
+{% extends layout_path %}
+
+{% block title %}Payroll processing{% endblock %}
+
+{% block content %}
+<div class="container-xxl py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-0">Payroll processing</h4>
+      <p class="text-muted mb-0 small">Create a run, compute, review, approve and close.</p>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <form method="post" class="row g-3 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-4">
+          <label class="form-label">Payroll month</label>
+          <input type="month" name="period_month" class="form-control" required>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary">Create payroll run</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead><tr><th>Period</th><th>Status</th><th>Computed</th><th></th></tr></thead>
+        <tbody>
+          {% for run in runs %}
+          <tr>
+            <td>{{ run.period_month|date:"F Y" }}</td>
+            <td><span class="badge bg-label-primary">{{ run.get_status_display }}</span></td>
+            <td>{% if run.computed_at %}{{ run.computed_at|date:"M d, Y H:i" }}{% else %}—{% endif %}</td>
+            <td><a href="{% url 'employees:payroll_run_detail' run.pk %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-center text-muted py-4">No payroll runs yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

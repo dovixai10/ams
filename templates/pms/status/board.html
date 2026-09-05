@@ -1,0 +1,58 @@
+{% extends layout_path %}
+{% load static widget_tweaks %}
+
+{% block title %}User status | PMS{% endblock %}
+
+{% block page_css %}{{ block.super }}{% include 'pms/_styles.html' %}{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+  <nav class="breadcrumb-pms mb-2"><a href="{% url 'pms:people_access_hub' %}">People & Access</a> &rsaquo; User status</nav>
+  <h4 class="mb-4">Workforce status board</h4>
+
+  <div class="kanban mb-4">
+    {% for col in status_columns %}
+    <div class="kanban-col">
+      <h6>{{ col.label }} ({{ col.count }})</h6>
+      {% for emp in col.employees %}
+      <div class="kanban-item">
+        {{ emp.full_name }}
+        <span class="status-pill status-pill--{{ col.value }}">{{ col.label }}</span>
+      </div>
+      {% empty %}
+      <p class="text-muted small mb-0">Empty</p>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="card pms-card p-4">
+    <h6>Update employee status</h6>
+    <form method="post" class="row g-3 align-items-end">
+      {% csrf_token %}
+      <div class="col-md-4">
+        <label class="form-label">Employee</label>
+        <select name="employee_id" class="form-select" required>
+          <option value="">Select…</option>
+          {% for emp in employees %}
+          <option value="{{ emp.pk }}">{{ emp.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Status</label>
+        {{ form.status|add_class:"form-select" }}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Reason</label>
+        {{ form.reason|add_class:"form-control" }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Effective date</label>
+        {{ form.effective_date|add_class:"form-control" }}
+      </div>
+      <div class="col-md-1"><button type="submit" class="btn btn-primary w-100">Save</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

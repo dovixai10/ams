@@ -1,0 +1,65 @@
+{% extends layout_path %}
+
+{% block title %}{{ program.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <a href="{% url 'employees:engagement_admin_list' %}" class="btn btn-sm btn-outline-secondary mb-3">&larr; Programs</a>
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h4>{{ program.title }}</h4>
+      <span class="badge bg-label-primary">{{ program.get_program_type_display }}</span>
+      <span class="badge bg-label-secondary">{{ program.get_status_display }}</span>
+    </div>
+    <form method="post" class="d-flex gap-2">
+      {% csrf_token %}
+      {% if program.status == 'draft' %}
+      <button name="action" value="publish" class="btn btn-success btn-sm">Publish</button>
+      {% endif %}
+      {% if program.status == 'published' %}
+      <button name="action" value="close" class="btn btn-outline-secondary btn-sm">Close</button>
+      {% endif %}
+      <button name="action" value="delete" class="btn btn-outline-danger btn-sm" onclick="return confirm('Delete program?')">Delete</button>
+    </form>
+  </div>
+
+  <div class="card shadow-sm mb-4"><div class="card-body">{{ program.body|linebreaks }}</div></div>
+
+  {% if program.program_type == 'poll' %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header"><h6 class="mb-0">Poll results</h6></div>
+    <ul class="list-group list-group-flush">
+      {% for opt in poll_options %}
+      <li class="list-group-item d-flex justify-content-between">{{ opt.label }} <span class="badge bg-primary">{{ opt.votes }}</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header"><h6 class="mb-0">Reactions</h6></div>
+        <ul class="list-group list-group-flush">
+          {% for r in reactions %}
+          <li class="list-group-item d-flex justify-content-between">{{ r.reaction|title }} <span>{{ r.c }}</span></li>
+          {% empty %}<li class="list-group-item text-muted">None yet</li>{% endfor %}
+        </ul>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header"><h6 class="mb-0">Comments</h6></div>
+        <ul class="list-group list-group-flush">
+          {% for c in comments %}
+          <li class="list-group-item small">
+            <strong>{% if c.is_anonymous %}Anonymous{% else %}{{ c.author.get_full_name|default:c.author.username }}{% endif %}</strong>
+            · {{ c.created_at|timesince }} ago<br>{{ c.body }}
+          </li>
+          {% empty %}<li class="list-group-item text-muted">No comments</li>{% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

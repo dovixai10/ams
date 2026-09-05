@@ -105,6 +105,22 @@
         <li class="menu-item"><a href="{% url 'employees:admin_loans' %}" class="menu-link"><div>Loan Requests</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_reimbursements' %}" class="menu-link"><div>Reimbursements</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_salary_slips' %}" class="menu-link"><div>Payslips</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:payroll_run_list' %}" class="menu-link"><div>Payroll Processing</div></a></li>
+      </ul>
+    </li>
+
+
+    <!-- ===============================
+           EMPLOYEE EXPERIENCE GROUP
+    =================================-->
+    <li class="menu-item menu-item-open">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-heart"></i>
+        <div>Employee Experience</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item"><a href="{% url 'employees:engagement_admin_list' %}" class="menu-link"><div>Engagement Programs</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:engagement_portal' %}" class="menu-link"><div>Engagement Feed</div></a></li>
       </ul>
     </li>
 
@@ -158,9 +174,30 @@
     </li>
 
 
-    <!-- Profile -->
-    <li class="menu-item {% if '/admin-profile/' in request.path %}active{% endif %}">
-      <a href="{% url 'employees:superadmin_profile' %}" class="menu-link">
+    <!-- ===============================
+           PMS GROUP
+    =================================-->
+    <li class="menu-item {% if '/pms/' in request.path %}active open{% endif %}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-briefcase-alt-2"></i>
+        <div>PMS</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if request.resolver_match.url_name == 'hub' %}active{% endif %}">
+          <a href="{% url 'pms:hub' %}" class="menu-link"><div>PMS Hub</div></a>
+        </li>
+        <li class="menu-item {% if 'people-access' in request.path %}active{% endif %}">
+          <a href="{% url 'pms:people_access_hub' %}" class="menu-link"><div>People & Access</div></a>
+        </li>
+        <li class="menu-item"><a href="{% url 'pms:role_list' %}" class="menu-link"><div>Roles</div></a></li>
+        <li class="menu-item"><a href="{% url 'pms:user_list' %}" class="menu-link"><div>Users</div></a></li>
+        <li class="menu-item"><a href="{% url 'pms:skill_list' %}" class="menu-link"><div>Skills</div></a></li>
+      </ul>
+    </li>
+
+
+    <li class="menu-item {% if '/admin-profile/' in request.path or '/profile/' in request.path %}active{% endif %}">
+      <a href="{% url profile_url_name %}" class="menu-link">
         <i class="menu-icon bx bx-user-circle"></i>
         <div>My Profile</div>
       </a>

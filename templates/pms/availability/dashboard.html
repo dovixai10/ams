@@ -1,0 +1,55 @@
+{% extends layout_path %}
+{% load static widget_tweaks %}
+
+{% block title %}User availability | PMS{% endblock %}
+
+{% block page_css %}{{ block.super }}{% include 'pms/_styles.html' %}{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+  <nav class="breadcrumb-pms mb-2"><a href="{% url 'pms:people_access_hub' %}">People & Access</a> &rsaquo; Availability</nav>
+  <h4 class="mb-1">User availability</h4>
+  <p class="text-muted">Week of {{ week_start|date:"M d, Y" }}</p>
+
+  <div class="card pms-card p-4 mb-4">
+    <h6>Add allocation</h6>
+    <form method="post" class="row g-3">
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="col-md-6 col-lg-3">
+        <label class="form-label">{{ field.label }}</label>
+        {{ field|add_class:"form-control" }}
+      </div>
+      {% endfor %}
+      <div class="col-12"><button type="submit" class="btn btn-primary">Save allocation</button></div>
+    </form>
+  </div>
+
+  <div class="card pms-card">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead><tr><th>Employee</th><th>Allocated</th><th>Free</th><th>Status</th><th>Allocations</th></tr></thead>
+        <tbody>
+          {% for row in rows %}
+          <tr class="{% if row.over_allocated %}table-warning{% endif %}">
+            <td>{{ row.employee.full_name }}</td>
+            <td>{{ row.allocated }}%</td>
+            <td>{{ row.free }}%</td>
+            <td>
+              {% if row.on_leave %}<span class="badge bg-label-info">On leave</span>
+              {% elif row.over_allocated %}<span class="badge bg-label-warning">Over-allocated</span>
+              {% else %}<span class="badge bg-label-success">Available</span>{% endif %}
+            </td>
+            <td class="small text-muted">
+              {% for a in row.allocations %}{{ a.label }} ({{ a.allocation_percent }}%){% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="text-center text-muted py-4">No active employees.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

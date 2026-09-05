@@ -1,0 +1,82 @@
+{% extends layout_path %}
+{% load humanize %}
+
+{% block title %}Payroll {{ run.period_month|date:"F Y" }}{% endblock %}
+
+{% block content %}
+<div class="container-xxl py-4">
+  <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+    <div>
+      <a href="{% url 'employees:payroll_run_list' %}" class="btn btn-sm btn-outline-secondary mb-2">&larr; All runs</a>
+      <h4 class="mb-0">Payroll — {{ run.period_month|date:"F Y" }}</h4>
+      <span class="badge bg-label-info">{{ run.get_status_display }}</span>
+    </div>
+    <form method="post" class="d-flex gap-2 flex-wrap">
+      {% csrf_token %}
+      {% if run.status == 'draft' %}
+      <button name="action" value="compute" class="btn btn-primary">Compute payroll</button>
+      {% elif run.status == 'computed' %}
+      <button name="action" value="review" class="btn btn-outline-primary">Send to review</button>
+      {% elif run.status == 'under_review' %}
+      <button name="action" value="approve" class="btn btn-success">Approve & publish payslips</button>
+      {% elif run.status == 'approved' %}
+      <button name="action" value="close" class="btn btn-dark">Close run</button>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if exceptions %}
+  <div class="alert alert-warning">
+    <strong>{{ exceptions|length }} exception(s)</strong> must be cleared before payment.
+  </div>
+  {% endif %}
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Paid days</th>
+            <th>LOP</th>
+            <th>Gross</th>
+            <th>Deductions</th>
+            <th>Net</th>
+            <th>Variance</th>
+            <th>Flags</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in lines %}
+          <tr class="{% if line.exception_flags %}table-warning{% endif %}">
+            <td>{{ line.employee.full_name }}</td>
+            <td>{{ line.paid_days }}</td>
+            <td>{{ line.lop_days }}</td>
+            <td>₹{{ line.gross_earnings|floatformat:2|intcomma }}</td>
+            <td>₹{{ line.total_deductions|floatformat:2|intcomma }}</td>
+            <td><strong>₹{{ line.net_pay|floatformat:2|intcomma }}</strong></td>
+            <td>
+              {% if line.variance_pct is not None %}
+              ₹{{ line.variance|floatformat:2|intcomma }} ({{ line.variance_pct|floatformat:1 }}%)
+              {% else %}—{% endif %}
+            </td>
+            <td class="small text-muted">{{ line.exception_flags|join:", " }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-4">Run compute to populate the register.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if run.status != 'draft' %}
+  <div class="card shadow-sm mt-4">
+    <div class="card-header"><h6 class="mb-0">Deduction audit (sample line)</h6></div>
+    <div class="card-body small text-muted">
+      Each deduction is stored as its own line in <code>deductions_json</code> (PF, ESI, PT, TDS, LOP) — not folded into a single opaque total.
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -266,6 +266,7 @@
                   <p class="mb-0">{{ office.address|default:"Not set" }}</p>
                 </div>
                 <div class="col-12 mb-3">
+    {% if show_kiosk_url %}
     <label class="form-label text-muted">Attendance Kiosk URL</label>
 
     <div class="input-group">
@@ -288,8 +289,9 @@
     </div>
 
     <small class="text-muted">
-        Share this URL with the attendance kiosk device. Only employees belonging to this office can mark attendance using this link.
+        Share this URL with the attendance kiosk device. Only the office owner should distribute this link.
     </small>
+    {% endif %}
 </div>
 
                 <div class="col-md-6 mb-3">

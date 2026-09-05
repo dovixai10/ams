@@ -89,6 +89,7 @@ INSTALLED_APPS = [
     # "apps.form_layouts",
     # "apps.tables",
     "employees",  # Employee Management System
+    "pms",  # Project Management System (Phase 1)
 ]
 
 MIDDLEWARE = [
@@ -232,7 +233,11 @@ CORS_ALLOWED_ORIGINS = [
 ]
 # Face recognition settings
 # Default tolerance for face_recognition.compare_faces (lower is stricter)
-FACE_MATCH_TOLERANCE = float(os.environ.get("FACE_MATCH_TOLERANCE", 0.6))
+# Face match: L2 distance threshold (lower = stricter). 0.35 ≈ 65% confidence minimum.
+# Production target: 0.15–0.25 (~75–85% confidence). Reject matches below this.
+FACE_MATCH_TOLERANCE = float(os.environ.get("FACE_MATCH_TOLERANCE", 0.35))
+FACE_STRICT_MATCH_TOLERANCE = float(os.environ.get("FACE_STRICT_MATCH_TOLERANCE", 0.25))
+FACE_MIN_CONFIDENCE_PERCENT = float(os.environ.get("FACE_MIN_CONFIDENCE_PERCENT", 65))
 
 # Email configuration (Gmail SMTP)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
