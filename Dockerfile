@@ -17,8 +17,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
+RUN pip install --upgrade pip wheel \
+    && pip install "setuptools>=75.0.0,<81" \
+    && pip install -r requirements.txt \
+    && python -c "import face_recognition_models; import face_recognition; print('face_recognition OK')"
 
 COPY . ./
 RUN sed -i 's/\r$//' /app/docker/entrypoint.sh \
