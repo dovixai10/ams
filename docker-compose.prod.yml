@@ -1,0 +1,31 @@
+# Production VPS stack: Gunicorn + Nginx (uses external PostgreSQL via .env)
+services:
+  web:
+    build:
+      context: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DEBUG: ${DEBUG:-False}
+    expose:
+      - "8000"
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "${APP_PORT:-80}:80"
+    volumes:
+      - ./nginx/ams.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_data:/app/staticfiles:ro
+      - media_data:/app/media:ro
+
+volumes:
+  media_data:
+  static_data:

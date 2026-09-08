@@ -18,5 +18,6 @@ done
 
 python manage.py migrate --run-syncdb --noinput
 python manage.py collectstatic --noinput
+python manage.py seed_pms_permissions || true
 
 exec "$@"
