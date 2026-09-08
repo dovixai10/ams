@@ -30,7 +30,9 @@ try:
 
     FACE_RECOGNITION_IMPORT_ERROR = None
 
-except Exception as e:
+except BaseException as e:
+    if isinstance(e, KeyboardInterrupt):
+        raise
     import traceback
 
     print(

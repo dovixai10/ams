@@ -54,7 +54,7 @@ except ImportError as e:
 
 try:
     import face_recognition
-except ImportError as e:
+except BaseException as e:
     print(f"⚠️  Face recognition is unavailable: {e}", file=sys.stderr)
     face_recognition = None
 
