@@ -2817,6 +2817,22 @@ def employee_profile(request):
 
 @login_required
 @user_passes_test(is_employee)
+def employee_profile_mobile(request):
+    """Mobile profile page. Renders a shell only - all profile data (personal
+    info, employment, leave balance, salary) is loaded client-side from the
+    DRF endpoint (/api/v1/profile/), the same JSON API external platforms use."""
+    if request.user.is_superuser:
+        return redirect('employees:superadmin_profile')
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_mobile.html', context),
+    })
+    return render(request, 'employees/employee_profile_mobile.html', context)
+
+
+@login_required
+@user_passes_test(is_employee)
 @require_http_methods(["GET", "POST"])
 def employee_documents(request):
     """Allow employees to upload and manage their key documents."""

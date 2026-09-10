@@ -802,6 +802,10 @@
             <div class="top-menu-title">Top Menu</div>
             <div class="menu-scroll-container" id="menuScroll">
                 <div class="menu-items" id="menuItems">
+                    <a href="{% url 'employees:employee_profile_mobile' %}" class="menu-item">
+                        <i class='bx bx-user'></i>
+                        <span class="menu-item-label">Profile</span>
+                    </a>
                     <a href="{% url 'employees:employee_tasks' %}" class="menu-item">
                         <i class='bx bx-check-square'></i>
                         <span class="menu-item-label">My Tasks</span>

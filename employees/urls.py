@@ -1,6 +1,6 @@
 from django.urls import path, include
 from django.views.generic import RedirectView
-from . import views, holiday_views, api_views, leave_views, attendance_admin_views
+from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views
 
 app_name = 'employees'
 
@@ -35,6 +35,7 @@ urlpatterns = [
     # Employee Profile URL (Employee only)
     path('profile/', views.employee_profile, name='employee_profile'),
     path('profile/documents/', views.employee_documents, name='employee_documents'),
+    path('profile/view/', views.employee_profile_mobile, name='employee_profile_mobile'),
 
     # SuperAdmin Profile URLs (SuperAdmin only)
     path('admin-profile/', views.superadmin_profile, name='superadmin_profile'),
@@ -178,6 +179,11 @@ urlpatterns = [
     # Named "dynamic_id_card_generator" to match existing template references
     path('id-card/generator/', views.admin_idcard_generator, name='dynamic_id_card_generator'),
     path('api/get-employee-data/', views.get_employee_data_api, name='get_employee_data_api'),
+
+    # DRF API (token-authenticated, for external platforms)
+    path('api/v1/token-auth/', drf_views.TokenAuthView.as_view(), name='api_token_auth'),
+    path('api/v1/profile/', drf_views.EmployeeProfileAPIView.as_view(), name='employee_profile_api'),
+
     # Dashboard API
     path('api/dashboard/', api_views.dashboard_api, name='dashboard_api'),
     path('api/checkin-dashboard/', api_views.checkin_dashboard_api, name='checkin_dashboard_api'),

@@ -1,0 +1,434 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}My Profile | Employee Portal{% endblock %}
+
+{% block extra_css %}
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background-color: #f5f5f5;
+    }
+
+    .mobile-container {
+        width: 100%;
+        background-color: #f5f5f5;
+        min-height: 100vh;
+        padding-bottom: 100px;
+    }
+
+    /* HEADER */
+    .header {
+        padding: 16px 16px 22px;
+        background: linear-gradient(135deg, #00695c, #009688);
+        border-bottom-left-radius: 18px;
+        border-bottom-right-radius: 18px;
+        color: white;
+    }
+
+    .header-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .back-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.18);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        text-decoration: none;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .header-title {
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    .profile-card {
+        margin: -14px 16px 0;
+        background: white;
+        border-radius: 16px;
+        padding: 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        position: relative;
+        z-index: 2;
+    }
+
+    .profile-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #e0f2f1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #02897c;
+        font-size: 28px;
+        flex-shrink: 0;
+    }
+
+    .profile-name {
+        font-size: 17px;
+        font-weight: 700;
+        color: #1a1a1a;
+    }
+
+    .profile-meta {
+        font-size: 12.5px;
+        color: #777;
+        margin-top: 2px;
+    }
+
+    .badge-row {
+        margin-top: 6px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .badge {
+        font-size: 10.5px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 20px;
+    }
+
+    .badge-success { background: #d4edda; color: #155724; }
+    .badge-warning { background: #fff3cd; color: #856404; }
+
+    .content {
+        padding: 20px 16px 0;
+    }
+
+    .section-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #333;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin: 18px 0 10px;
+    }
+
+    .section-title:first-child {
+        margin-top: 0;
+    }
+
+    .card {
+        background: white;
+        border-radius: 14px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        padding: 4px 16px;
+    }
+
+    .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .row:last-child {
+        border-bottom: none;
+    }
+
+    .row-label {
+        font-size: 13px;
+        color: #777;
+        flex-shrink: 0;
+    }
+
+    .row-value {
+        font-size: 13.5px;
+        color: #1a1a1a;
+        font-weight: 600;
+        text-align: right;
+        word-break: break-word;
+    }
+
+    .row-value.empty {
+        color: #aaa;
+        font-weight: 400;
+    }
+
+    .doc-status {
+        font-size: 12px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 20px;
+    }
+
+    .doc-status.uploaded { background: #d4edda; color: #155724; }
+    .doc-status.missing { background: #fdecea; color: #a12622; }
+
+    .salary-highlight {
+        background: linear-gradient(135deg, #00695c, #009688);
+        border-radius: 14px;
+        padding: 18px;
+        color: white;
+        margin-bottom: 12px;
+    }
+
+    .salary-highlight .label {
+        font-size: 12px;
+        opacity: 0.85;
+    }
+
+    .salary-highlight .amount {
+        font-size: 26px;
+        font-weight: 700;
+        margin-top: 2px;
+    }
+
+    .salary-highlight .sub {
+        font-size: 11.5px;
+        opacity: 0.85;
+        margin-top: 6px;
+    }
+
+    .empty-state {
+        text-align: center;
+        color: #999;
+        font-size: 13px;
+        padding: 24px 0;
+    }
+
+    .loading-state {
+        text-align: center;
+        color: #999;
+        font-size: 13px;
+        padding: 60px 0;
+    }
+
+    .loading-state i {
+        font-size: 28px;
+        display: block;
+        margin-bottom: 8px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    #profileContent {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mobile-container">
+    <div class="header">
+        <div class="header-top">
+            <a href="{% url 'employees:mobile_dashboard' %}" class="back-btn">
+                <i class='bx bx-arrow-back'></i>
+            </a>
+            <div class="header-title">My Profile</div>
+        </div>
+    </div>
+
+    <div class="profile-card">
+        <div class="profile-avatar" id="avatarWrap">
+            <i class='bx bx-user'></i>
+        </div>
+        <div>
+            <div class="profile-name" id="profileName">Loading...</div>
+            <div class="profile-meta" id="profileMeta"></div>
+            <div class="badge-row" id="profileBadges"></div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="loading-state" id="loadingState">
+            <i class='bx bx-loader-alt'></i>
+            Fetching your profile&hellip;
+        </div>
+
+        <div id="profileContent">
+            <div class="section-title">Salary</div>
+            <div id="salarySection"></div>
+
+            <div class="section-title">Employment</div>
+            <div class="card" id="employmentSection"></div>
+
+            <div class="section-title">Leave Balance</div>
+            <div class="card" id="leaveSection"></div>
+
+            <div class="section-title">Contact & Address</div>
+            <div class="card" id="contactSection"></div>
+
+            <div class="section-title">Bank & ID Details</div>
+            <div class="card" id="bankSection"></div>
+
+            <div class="section-title">Documents</div>
+            <div class="card" id="documentsSection"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // This page renders no server-side data - everything below comes from
+    // the DRF JSON API at /api/v1/profile/, the same endpoint used by
+    // external platforms (authenticated there via a token instead of the
+    // session cookie used here).
+    fetch('/api/v1/profile/', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+        .then(function (res) {
+            if (!res.ok) throw new Error('Request failed: ' + res.status);
+            return res.json();
+        })
+        .then(renderProfile)
+        .catch(function (err) {
+            document.getElementById('loadingState').innerHTML =
+                '<i class="bx bx-error-circle" style="animation:none;color:#c41e3a;"></i>Could not load your profile. Please try again.';
+            console.error(err);
+        });
+
+    function money(v) {
+        if (v === null || v === undefined) return '—';
+        var n = parseFloat(v);
+        return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function rowsHtml(rows) {
+        return rows.map(function (r) {
+            var cls = (r.value === null || r.value === undefined || r.value === '') ? 'row-value empty' : 'row-value';
+            var val = (r.value === null || r.value === undefined || r.value === '') ? 'Not provided' : r.value;
+            return '<div class="row"><div class="row-label">' + r.label + '</div><div class="' + cls + '">' + val + '</div></div>';
+        }).join('');
+    }
+
+    function docRow(label, url) {
+        var status = url
+            ? '<span class="doc-status uploaded">Uploaded</span>'
+            : '<span class="doc-status missing">Missing</span>';
+        return '<div class="row"><div class="row-label">' + label + '</div><div class="row-value">' + status + '</div></div>';
+    }
+
+    function renderProfile(data) {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('profileContent').style.display = 'block';
+
+        document.getElementById('profileName').textContent = data.full_name || data.name || '—';
+        document.getElementById('profileMeta').textContent =
+            (data.employee_code || '') + (data.email ? ' • ' + data.email : '');
+
+        if (data.profile_picture) {
+            document.getElementById('avatarWrap').innerHTML =
+                '<img src="' + data.profile_picture + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+        }
+
+        var badges = '';
+        badges += data.has_registered_face
+            ? '<span class="badge badge-success">Face Registered</span>'
+            : '<span class="badge badge-warning">Face Not Registered</span>';
+        document.getElementById('profileBadges').innerHTML = badges;
+
+        // Salary
+        var salaryEl = document.getElementById('salarySection');
+        if (data.salary) {
+            var s = data.salary;
+            var cm = s.current_month;
+            var html = '<div class="salary-highlight">' +
+                '<div class="label">Net Salary (monthly)</div>' +
+                '<div class="amount">' + money(s.net_salary_before_attendance) + '</div>';
+            if (cm) {
+                html += '<div class="sub">This month\'s payable (after attendance): ' + money(cm.payable_salary) + '</div>';
+            }
+            html += '</div>';
+
+            html += '<div class="card">' + rowsHtml([
+                { label: 'Basic Salary', value: money(s.basic_salary) },
+                { label: 'HRA', value: money(s.hra) },
+                { label: 'DA', value: money(s.da) },
+                { label: 'Conveyance Allowance', value: money(s.conveyance_allowance) },
+                { label: 'Medical Allowance', value: money(s.medical_allowance) },
+                { label: 'Special Allowance', value: money(s.special_allowance) },
+                { label: 'Bonus', value: money(s.bonus) },
+                { label: 'Gross Salary', value: money(s.gross_salary) },
+                { label: 'PF', value: money(s.pf) },
+                { label: 'ESI', value: money(s.esi) },
+                { label: 'Professional Tax', value: money(s.professional_tax) },
+                { label: 'TDS', value: money(s.tds) },
+                { label: 'Total Deductions', value: money(s.fixed_deductions) },
+                { label: 'Payment Mode', value: s.payment_mode },
+                { label: 'Effective From', value: s.effective_from },
+            ]) + '</div>';
+
+            if (cm) {
+                html += '<div class="card" style="margin-top:12px;">' + rowsHtml([
+                    { label: 'Working Days', value: cm.working_days },
+                    { label: 'Present Days', value: cm.present_days },
+                    { label: 'Half Days', value: cm.half_days },
+                    { label: 'Leave Without Pay Days', value: cm.lwp_days },
+                    { label: 'Per Day Salary', value: money(cm.per_day_salary) },
+                    { label: 'LWP Deduction', value: money(cm.lwp_deduction) },
+                ]) + '</div>';
+            }
+            salaryEl.innerHTML = html;
+        } else {
+            salaryEl.innerHTML = '<div class="card"><div class="empty-state">No salary profile has been set up yet. Contact your admin.</div></div>';
+        }
+
+        // Employment
+        document.getElementById('employmentSection').innerHTML = rowsHtml([
+            { label: 'Office', value: data.office ? data.office.name : null },
+            { label: 'Shift', value: data.shift ? (data.shift.name + ' (' + data.shift.start_time + ' - ' + data.shift.end_time + ')') : null },
+            { label: 'Joining Date', value: data.joining_date },
+        ]);
+
+        // Leave balance
+        document.getElementById('leaveSection').innerHTML = rowsHtml([
+            { label: 'Casual Leave Available', value: data.available_cl },
+            { label: 'Sick Leave Available', value: data.available_sl },
+            { label: 'Total Paid Leave Balance', value: data.paid_leave_balance },
+        ]);
+
+        // Contact & Address
+        document.getElementById('contactSection').innerHTML = rowsHtml([
+            { label: 'Contact Number', value: data.contact },
+            { label: 'Email', value: data.email },
+            { label: 'Current Address', value: data.current_address },
+            { label: 'Permanent Address', value: data.permanent_address },
+        ]);
+
+        // Bank & ID
+        document.getElementById('bankSection').innerHTML = rowsHtml([
+            { label: 'Aadhar Number', value: data.aadhar_card_number },
+            { label: 'PAN Number', value: data.pan_card },
+            { label: 'Bank Account Number', value: data.account_number },
+            { label: 'IFSC Code', value: data.ifsc_code },
+            { label: 'UPI ID', value: data.upi_id },
+        ]);
+
+        // Documents
+        var docs = data.documents || {};
+        document.getElementById('documentsSection').innerHTML =
+            docRow('Aadhar Document', docs.aadhar_document) +
+            docRow('PAN Document', docs.pan_document) +
+            docRow('Bank Passbook', docs.bank_passbook_document) +
+            docRow('Educational Qualifications', docs.educational_qualifications);
+    }
+});
+</script>
+{% endblock %}

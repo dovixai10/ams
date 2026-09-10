@@ -82,6 +82,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.humanize",
     "widget_tweaks",  # Django Widget Tweaks for form styling
+    "rest_framework",
+    "rest_framework.authtoken",
     # "apps.dashboards",
     # "apps.layouts",
     # "apps.pages",
@@ -167,6 +169,20 @@ DATABASES = {
     }
 }
 
+# Django REST Framework
+# Token auth lets other platforms call the API with a static per-user token
+# (obtained via /api/v1/token-auth/); session auth keeps it usable from the
+# browser (e.g. the DRF browsable API) while logged in.
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
@@ -231,8 +247,13 @@ THEME_VARIABLES = {
 # Your stuff...
 # ------------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
-    "https://zona-nonexpendable-dismally.ngrok-free.dev" 
-    "https://transmeridionally-monologic-wynona.ngrok-free.dev"# if React
+    "https://zona-nonexpendable-dismally.ngrok-free.dev",
+    "https://transmeridionally-monologic-wynona.ngrok-free.dev",# if React,
+    "https://*.trycloudflare.com",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.trycloudflare.com",
 ]
 # Face recognition settings
 # Default tolerance for face_recognition.compare_faces (lower is stricter)
