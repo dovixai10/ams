@@ -1,0 +1,113 @@
+<!-- Branch switcher: floating top-right on every office-admin page.
+     Employees never see this - they're fixed to one branch. -->
+<style>
+  .branch-switcher {
+    position: fixed;
+    top: 14px;
+    right: 16px;
+    z-index: 1045; /* above sidebar/menu, below modals */
+  }
+
+  .branch-switcher > summary {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.28);
+    white-space: nowrap;
+    max-width: 55vw;
+  }
+
+  .branch-switcher > summary::-webkit-details-marker { display: none; }
+
+  .branch-switcher__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .branch-switcher__panel {
+    margin-top: 0.5rem;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    min-width: 220px;
+    max-width: 80vw;
+    overflow: hidden;
+  }
+
+  .branch-switcher__item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border: none;
+    background: none;
+    font-size: 0.85rem;
+    color: #1f2937;
+    cursor: pointer;
+  }
+
+  .branch-switcher__item:hover {
+    background: #f3f4f6;
+  }
+
+  .branch-switcher__item--current {
+    color: #4f46e5;
+    font-weight: 600;
+    cursor: default;
+  }
+
+  .branch-switcher__manage {
+    display: block;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.8rem;
+    color: #6b7280;
+    text-decoration: none;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .branch-switcher__manage:hover {
+    background: #f3f4f6;
+    color: #4f46e5;
+  }
+
+  @media (max-width: 420px) {
+    .branch-switcher { top: 8px; right: 8px; }
+    .branch-switcher > summary { font-size: 0.78rem; padding: 0.4rem 0.7rem; }
+  }
+</style>
+
+<details class="branch-switcher">
+  <summary>
+    <i class="bx bx-buildings"></i>
+    <span class="branch-switcher__label">{{ active_branch.name }}</span>
+    <i class="bx bx-chevron-down"></i>
+  </summary>
+  <div class="branch-switcher__panel">
+    {% for branch in available_branches %}
+      {% if branch.id == active_branch.id %}
+        <span class="branch-switcher__item branch-switcher__item--current">
+          <i class="bx bx-check me-1"></i>{{ branch.name }}
+        </span>
+      {% else %}
+        <form method="post" action="{% url 'employees:switch_branch' %}">
+          {% csrf_token %}
+          <input type="hidden" name="branch_id" value="{{ branch.id }}">
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <button type="submit" class="branch-switcher__item">{{ branch.name }}</button>
+        </form>
+      {% endif %}
+    {% endfor %}
+    <a href="{% url 'employees:admin_branches' %}" class="branch-switcher__manage">
+      <i class="bx bx-cog me-1"></i>Manage branches
+    </a>
+  </div>
+</details>

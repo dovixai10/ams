@@ -516,6 +516,9 @@ textarea.form-control {
           <div class="rule-header">
             <h3 class="rule-title">{{ rule.title }}</h3>
             <div class="rule-status">
+              <span class="badge bg-label-primary me-1">
+                <i class="bx bx-buildings me-1"></i>{% if rule.branch %}{{ rule.branch.name }}{% else %}All branches{% endif %}
+              </span>
               <span class="status-badge {% if rule.is_active %}status-active{% else %}status-inactive{% endif %}">
                 {% if rule.is_active %}Active{% else %}Inactive{% endif %}
               </span>

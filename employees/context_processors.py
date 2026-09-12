@@ -33,6 +33,7 @@ def mobile_nav(request):
 def office_branding(request):
     office = None
     user = getattr(request, 'user', None)
+    admin_is_office_admin = is_office_admin(user) if user else False
 
     if user and user.is_authenticated:
         if hasattr(user, 'office_admin_profile'):
@@ -42,10 +43,31 @@ def office_branding(request):
         else:
             office = get_request_office(request)
 
+    # Branch-switcher data - only meaningful for an office admin (an
+    # employee is fixed to their own branch, nothing to switch between).
+    active_branch = None
+    available_branches = None
+    if admin_is_office_admin and office is not None:
+        from .permissions import get_request_branch
+        active_branch = get_request_branch(request)
+        available_branches = office.branches.filter(is_active=True).order_by('-is_head_office', 'name')
+
+    # Delegated permissions (dynamic roles) - only meaningful for a plain
+    # employee. An office admin already sees everything, so this stays empty
+    # for them (the sidebar just checks is_office_admin first).
+    employee_permissions = set()
+    if user and user.is_authenticated and hasattr(user, 'employee_profile') and not admin_is_office_admin:
+        from .permissions import employee_permission_keys
+        employee_permissions = employee_permission_keys(user.employee_profile)
+
     return {
         'current_office': office,
-        'is_office_admin': is_office_admin(user) if user else False,
+        'is_office_admin': admin_is_office_admin,
         'site_name': office.name if office else 'Dovix CRM',
         'site_logo_url': office.logo.url if office and office.logo else None,
-        'site_url': office.website if office else 'Dovix.ai'
+        'site_url': office.website if office else 'Dovix.ai',
+        'active_branch': active_branch,
+        'available_branches': available_branches,
+        'employee_permissions': employee_permissions,
+        'has_any_permission': bool(employee_permissions),
     }

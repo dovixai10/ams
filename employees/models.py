@@ -73,6 +73,22 @@ class Office(models.Model):
         if owner and not owner.user.is_active:
             owner.user.is_active = True
             owner.user.save(update_fields=['is_active'])
+        # Every office needs at least one branch to operate against - give
+        # it a default "Head Office" branch seeded from its own registered
+        # location, same as the one-off backfill did for pre-existing
+        # offices. The admin can rename it or add more branches afterwards.
+        self.branches.get_or_create(
+            slug='head-office',
+            defaults={
+                'name': f"{self.name} - Head Office",
+                'is_head_office': True,
+                'is_active': True,
+                'address': self.address,
+                'contact_number': self.contact_number,
+                'latitude': self.latitude,
+                'longitude': self.longitude,
+            },
+        )
 
     def reject(self, admin_user, reason=''):
         self.status = self.Status.REJECTED
@@ -105,6 +121,103 @@ class OfficeAdmin(models.Model):
     def __str__(self):
         return f"{self.full_name or self.user.username} — {self.office.name}"
 
+
+class Branch(models.Model):
+    """A physical location/branch under an Office. An Office can have many
+    Branches; the office admin creates them and switches which one is
+    'active' in their session to scope everything they view/create to that
+    branch. Every Employee (and everything tied to them - attendance,
+    leave, holidays, tasks, etc.) belongs to exactly one Branch."""
+
+    office = models.ForeignKey(
+        Office, on_delete=models.CASCADE, related_name='branches',
+        help_text="The office/company this branch belongs to",
+    )
+    name = models.CharField(max_length=200, help_text="Branch name, e.g. 'Jaipur Branch'")
+    slug = models.SlugField(max_length=120, help_text="Used for URLs; unique within the office")
+
+    is_head_office = models.BooleanField(
+        default=False,
+        help_text="The default branch auto-created for every office (usually its registered address)",
+    )
+    is_active = models.BooleanField(default=True, help_text="Inactive branches are hidden from switch/create menus")
+
+    # Location details
+    address = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=100, blank=True)
+    pincode = models.CharField(max_length=10, blank=True)
+    contact_number = models.CharField(
+        max_length=15, blank=True,
+        validators=[RegexValidator(r'^\+?1?\d{9,15}$', 'Enter a valid phone number.')],
+    )
+    email = models.EmailField(blank=True)
+
+    # Attendance geofencing - each branch is its own physical location
+    latitude = models.DecimalField(max_digits=9, decimal_places=7, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=7, null=True, blank=True)
+    attendance_radius_meters = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Allowed check-in distance from this branch's coordinates, in meters. Defaults to 250m if unset.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Branch'
+        verbose_name_plural = 'Branches'
+        unique_together = ['office', 'slug']
+        ordering = ['-is_head_office', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.office.name})"
+
+
+class Role(models.Model):
+    """A delegated-permission role an office admin can define and hand out
+    to employees (e.g. 'HR', 'Team Lead') - branch-specific, same as
+    Holiday/CompanyRule: a role created while 'Mansarovar' is the active
+    branch only applies to (and is only assignable within) Mansarovar. An
+    employee's granted permissions only ever count while the role's branch
+    matches their own (see employee_has_permission in permissions.py) -
+    so even a stale/foreign-branch assignment can't leak authority.
+
+    `permissions` stores a list of permission-key strings from
+    employees.permissions.FEATURE_PERMISSIONS - kept as a plain JSON list
+    (not a separate Permission table) so new permission keys can be added
+    in code later without a migration."""
+
+    office = models.ForeignKey(
+        Office, on_delete=models.CASCADE, related_name='roles',
+        help_text="The office this role belongs to",
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.CASCADE, related_name='roles',
+        null=True, blank=True,
+        help_text="The branch this role applies to - only employees in this branch can hold it",
+    )
+    name = models.CharField(max_length=100, help_text="e.g. 'HR', 'Team Lead', 'Branch Manager'")
+    description = models.CharField(max_length=255, blank=True)
+    permissions = models.JSONField(
+        default=list,
+        help_text="List of permission keys this role grants, e.g. ['attendance.manage', 'leave.manage']",
+    )
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Role'
+        verbose_name_plural = 'Roles'
+        unique_together = ['office', 'branch', 'name']
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.branch.name if self.branch else self.office.name})"
+
+
 class Shift(models.Model):
     """Shift model for managing employee work shifts"""
 
@@ -116,6 +229,10 @@ class Shift(models.Model):
         blank=True,
         db_index=True,
         help_text='Office/company that owns this shift'
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
     )
 
     class ShiftType(models.TextChoices):
@@ -200,6 +317,10 @@ class Employee(models.Model):
         'Office', on_delete=models.CASCADE, related_name='employees',
         null=True, blank=True,  # nullable at first for migration safety, tighten later
         help_text="The office/company this employee belongs to"
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
     )
     # Basic Information
     name = models.CharField(max_length=100, help_text="Employee's first name")
@@ -352,6 +473,15 @@ class Employee(models.Model):
         null=True,
         related_name='employees',
         help_text="Shift allocated to this employee"
+    )
+
+    roles = models.ManyToManyField(
+        'Role',
+        blank=True,
+        related_name='members',
+        help_text="Delegated admin permissions this employee holds (e.g. HR, Team Lead). "
+                   "An employee can hold several roles at once; their effective permissions "
+                   "are the union of all of them.",
     )
 
     # Leave Balance (Auto-credit system)
@@ -586,6 +716,10 @@ class LeaveType(models.Model):
         blank=True,
         db_index=True
     )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
 
     name = models.CharField(
         max_length=100,
@@ -750,6 +884,10 @@ class EmployeeLeaveBalance(models.Model):
         blank=True,
         db_index=True
     )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -836,6 +974,8 @@ class EmployeeLeaveBalance(models.Model):
 
         return LeaveCreditLog.objects.create(
             employee=self.employee,
+            office=self.employee.office,
+            branch=self.employee.branch,
             leave_type=self.leave_type,
             amount=amount,
             balance_after=self.balance,
@@ -854,6 +994,8 @@ class EmployeeLeaveBalance(models.Model):
             self.save(update_fields=['balance', 'updated_at'])
         return LeaveCreditLog.objects.create(
             employee=self.employee,
+            office=self.employee.office,
+            branch=self.employee.branch,
             leave_type=self.leave_type,
             amount=-amount,
             balance_after=self.balance,
@@ -881,6 +1023,10 @@ class LeaveCreditLog(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -966,6 +1112,10 @@ class Attendance(models.Model):
         null=True,
         blank=True,
         db_index=True
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
     )
     employee = models.ForeignKey(
         Employee,
@@ -1239,6 +1389,8 @@ class Attendance(models.Model):
 
             AttendanceLog.objects.create(
                 employee=self.employee,
+                office=self.office,
+                branch=self.branch,
                 attendance=self,
                 action='break_end_success',
                 success=True,
@@ -1252,6 +1404,8 @@ class Attendance(models.Model):
                 exceeded_display = break_record.exceeded_by_display or 'unknown'
                 AttendanceLog.objects.create(
                     employee=self.employee,
+                    office=self.office,
+                    branch=self.branch,
                     attendance=self,
                     action='break_duration_exceeded',
                     success=False,
@@ -1328,6 +1482,10 @@ class AttendanceDayComment(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -1391,6 +1549,10 @@ class AttendanceBreak(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
 
     attendance = models.ForeignKey(
         Attendance,
@@ -1639,6 +1801,10 @@ class LeaveRequest(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -1901,6 +2067,10 @@ class FaceUpdateRequest(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
@@ -2025,6 +2195,10 @@ class AttendanceLog(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -2143,6 +2317,10 @@ class Task(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     title = models.CharField(
         max_length=150,
@@ -2267,6 +2445,10 @@ class TaskUpdate(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
@@ -2345,6 +2527,10 @@ class Ticket(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
 
     ticket_number = models.CharField(
         max_length=20,
@@ -2511,6 +2697,10 @@ class TicketComment(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     ticket = models.ForeignKey(
         Ticket,
         on_delete=models.CASCADE,
@@ -2564,6 +2754,10 @@ class PasswordResetRequest(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -2665,6 +2859,10 @@ class EmployeeDocument(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -2761,6 +2959,10 @@ class LeaveVerificationDocument(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     leave = models.ForeignKey(
         LeaveRequest,
@@ -2810,6 +3012,10 @@ class Holiday(models.Model):
         ("optional", "Optional Holiday"),
     )
     office = models.ForeignKey('Office', on_delete=models.CASCADE, related_name='holidays', null=True, blank=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
 
     name = models.CharField(max_length=255)
     date = models.DateField()
@@ -2859,6 +3065,10 @@ class CompanyRule(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     title = models.CharField(max_length=200, help_text="Rule title")
     description = models.TextField(help_text="Rule description")
@@ -2902,6 +3112,10 @@ class RuleAcknowledgement(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -2934,6 +3148,10 @@ class RulesAcceptance(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.OneToOneField(
         Employee,
@@ -2977,6 +3195,10 @@ class AssetAssignment(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -3090,6 +3312,10 @@ class LoanRequest(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -3172,6 +3398,10 @@ class ReimbursementRequest(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -3256,6 +3486,10 @@ class EmployeeSalary(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -3346,6 +3580,10 @@ class SalarySlip(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -3413,6 +3651,10 @@ class EmployeeIDCard(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.OneToOneField(
         Employee,
@@ -3465,6 +3707,10 @@ class EmployeePoints(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -3539,6 +3785,10 @@ class EmployeeTask(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -3607,6 +3857,10 @@ class LeaveAdjustment(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -3693,6 +3947,10 @@ class EmployeeNotification(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         Employee,
@@ -3752,6 +4010,10 @@ class PaidLeaveAdjustment(models.Model):
             blank=True,
             db_index=True
         )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
     
     employee = models.ForeignKey(
         'Employee',

@@ -29,40 +29,54 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return earth_radius_meters * c
 
 
-def is_within_office_premises(office, user_latitude, user_longitude, radius_meters=None):
+def is_within_office_premises(office, user_latitude, user_longitude, radius_meters=None, branch=None):
     """
-    Check if the user's location is within the allowed radius of THEIR office.
+    Check if the user's location is within the allowed radius of their
+    workplace - their branch if it has coordinates set, otherwise falling
+    back to the office's own coordinates (e.g. a single-branch office that
+    hasn't filled in its branch's location separately yet).
 
     Args:
-        office (Office): The employee's office. Must have latitude/longitude set.
+        office (Office): The employee's office. Used as a location fallback.
         user_latitude (float): User's current latitude
         user_longitude (float): User's current longitude
-        radius_meters (float, optional): Override radius. Defaults to
-            office.attendance_radius_meters if that field exists and is set,
-            else DEFAULT_ALLOWED_RADIUS_METERS.
+        radius_meters (float, optional): Override radius. Defaults to the
+            branch's/office's own attendance_radius_meters if set, else
+            DEFAULT_ALLOWED_RADIUS_METERS.
+        branch (Branch, optional): The employee's branch. Its own
+            latitude/longitude/attendance_radius_meters take priority over
+            the office's when both are present.
 
     Returns:
         tuple: (is_valid, distance, message)
             - is_valid (bool): True if within allowed radius, False otherwise
-            - distance (float | None): Distance from office in meters
+            - distance (float | None): Distance from the workplace in meters
             - message (str): Success or error message
     """
-    if office is None:
+    if office is None and branch is None:
         return False, None, "No office is associated with your account. Contact your admin."
 
-    if office.latitude is None or office.longitude is None:
-        return False, None, "Your office hasn't set its location yet. Contact your admin to configure it."
+    # Prefer the branch's own location; fall back to the office's.
+    location_source = None
+    if branch is not None and branch.latitude is not None and branch.longitude is not None:
+        location_source = branch
+    elif office is not None and office.latitude is not None and office.longitude is not None:
+        location_source = office
+
+    if location_source is None:
+        where = "branch" if branch is not None else "office"
+        return False, None, f"Your {where} hasn't set its location yet. Contact your admin to configure it."
 
     allowed_radius = (
         radius_meters
-        or getattr(office, 'attendance_radius_meters', None)
+        or getattr(location_source, 'attendance_radius_meters', None)
         or DEFAULT_ALLOWED_RADIUS_METERS
     )
 
     try:
         distance = haversine_distance(
-            float(office.latitude),
-            float(office.longitude),
+            float(location_source.latitude),
+            float(location_source.longitude),
             user_latitude,
             user_longitude
         )

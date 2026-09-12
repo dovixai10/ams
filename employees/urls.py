@@ -129,6 +129,13 @@ urlpatterns = [
     path('api/leaves/<int:leave_id>/upload-receipt/', leave_views.upload_leave_receipt, name='upload_leave_receipt'),
     path('leaves/<int:leave_id>/documents/', leave_views.leave_verification_documents, name='leave_documents'),
     
+    # Branch Management
+    path('branches/', views.admin_branches, name='admin_branches'),
+    path('branches/switch/', views.switch_branch, name='switch_branch'),
+
+    # Roles & Permissions
+    path('roles/', views.admin_roles, name='admin_roles'),
+
     # Rules & Regulations
     path('rules/', views.company_rules, name='company_rules'),
     path('rules/manage/', views.admin_rules, name='admin_rules'),

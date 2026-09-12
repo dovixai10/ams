@@ -32,6 +32,7 @@ def initialize_balances_for_new_type(leave_type: LeaveType, credited_by=None):
 
         balance_obj, _ = EmployeeLeaveBalance.objects.get_or_create(
             employee=employee,
+            branch=employee.branch,
             leave_type=leave_type,
             defaults={'balance': 0, 'credit_year': fiscal_year_for(today)},
         )
@@ -103,6 +104,7 @@ def apply_year_end_carry_forward_if_due(balance_obj: EmployeeLeaveBalance, today
     if forfeited > 0:
         LeaveCreditLog.objects.create(
             employee=balance_obj.employee, leave_type=lt,
+            branch=balance_obj.employee.branch,
             amount=-forfeited, balance_after=balance_obj.balance,
             credit_type='deduction',
             note=f"Forfeited {forfeited} day(s) not carried forward into FY {current_fy}-{current_fy + 1}",
@@ -110,6 +112,7 @@ def apply_year_end_carry_forward_if_due(balance_obj: EmployeeLeaveBalance, today
     else:
         LeaveCreditLog.objects.create(
             employee=balance_obj.employee, leave_type=lt,
+            branch=balance_obj.employee.branch,
             amount=Decimal('0.0'), balance_after=balance_obj.balance,
             credit_type='carry_forward',
             note=f"Balance carried forward into FY {current_fy}-{current_fy + 1}",
@@ -171,6 +174,7 @@ def get_employee_leave_type_balances(employee):
 
         balance_obj, _ = EmployeeLeaveBalance.objects.get_or_create(
             employee=employee,
+            branch=employee.branch,
             leave_type=lt,
             defaults={'balance': 0, 'credit_year': fiscal_year_for(today)},
         )
@@ -231,6 +235,7 @@ def resync_balances_for_type_change(leave_type: LeaveType, old_amount, admin_use
 
         LeaveCreditLog.objects.create(
             employee=balance_obj.employee,
+            branch=balance_obj.employee.branch,
             leave_type=leave_type,
             amount=actual_change,
             balance_after=balance_obj.balance,

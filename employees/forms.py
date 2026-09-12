@@ -17,37 +17,17 @@ from .models import (
 )
 
 from django.utils import timezone
-from .permissions import office_admin_required, is_platform_admin, get_request_office
+from .permissions import (
+    office_admin_required, is_platform_admin, get_request_office,
+    tenant_queryset, tenant_object_or_404,
+)
 
 from django import forms
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 
 from .models import Office, OfficeAdmin
-from .models import Employee, Shift
-
-def tenant_queryset(request, queryset):
-    """
-    Scope a queryset to the current office.
-
-    Platform admin:
-        Can see all offices.
-
-    Approved office admin:
-        Can see only their own office.
-
-    User with no office:
-        Gets no tenant data.
-    """
-    if is_platform_admin(request.user):
-        return queryset
-
-    office = get_request_office(request)
-
-    if office is None:
-        return queryset.none()
-
-    return queryset.filter(office=office)
+from .models import Employee, Shift, Branch, Role
 
 
 class OfficeRegistrationForm(forms.Form):
@@ -300,12 +280,44 @@ class EmployeeForm(forms.ModelForm):
         help_text="Confirm the password"
     )
 
-    def __init__(self, *args, **kwargs): 
-        """ Receive the request and show only shifts belonging to the current office/company. """ 
+    def __init__(self, *args, **kwargs):
+        """ Receive the request and show only shifts/branches belonging to the current office/company. """
         self.request = kwargs.pop('request', None)
-        super().__init__(*args, **kwargs) # Never show all shifts by default. 
-        self.fields['shift'].queryset = Shift.objects.none() 
+        super().__init__(*args, **kwargs) # Never show all shifts by default.
+        self.fields['shift'].queryset = Shift.objects.none()
         if self.request: self.fields['shift'].queryset = ( tenant_queryset( self.request, Shift.objects.filter(is_active=True) ) .order_by('name') )
+
+        # Branch: restrict to the admin's own office, default to whichever
+        # branch is currently active in their session.
+        self.fields['branch'].queryset = Branch.objects.none()
+        self.fields['branch'].required = True
+        if self.request:
+            office = get_request_office(self.request)
+            if office is not None:
+                self.fields['branch'].queryset = Branch.objects.filter(
+                    office=office, is_active=True
+                ).order_by('-is_head_office', 'name')
+                if not self.is_bound:
+                    from .permissions import get_request_branch
+                    active_branch = get_request_branch(self.request)
+                    if active_branch is not None:
+                        self.fields['branch'].initial = active_branch.id
+
+        # Roles: delegated permissions (e.g. "HR"), scoped to the SAME
+        # branch this employee is being created into (branch-specific,
+        # same as CompanyRule/Holiday - a role only applies within the
+        # branch it was created for). Optional - most employees hold none.
+        self.fields['roles'].queryset = Role.objects.none()
+        self.fields['roles'].required = False
+        if self.request:
+            from .permissions import get_request_branch
+            office = get_request_office(self.request)
+            branch = get_request_branch(self.request)
+            if office is not None and branch is not None:
+                self.fields['roles'].queryset = Role.objects.filter(
+                    office=office, branch=branch, is_active=True
+                ).order_by('name')
+
     class Meta:
         model = Employee
         fields = [
@@ -315,9 +327,11 @@ class EmployeeForm(forms.ModelForm):
             'relative_name', 'relative_contact', 'relation_with_employee',
             'educational_qualifications',
             'aadhar_document', 'pan_document', 'bank_passbook_document',
-            'joining_date', 'shift'
+            'joining_date', 'shift', 'branch', 'roles',
         ]
         widgets = {
+            'roles': forms.CheckboxSelectMultiple(),
+            'branch': forms.Select(attrs={'class': 'form-select'}),
             'full_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter full name'
@@ -479,12 +493,39 @@ class EmployeeDocumentForm(forms.ModelForm):
 class EmployeeUpdateForm(forms.ModelForm):
     """Form for updating existing employees"""
 
-    def __init__(self, *args, **kwargs): 
-        """ Receive the request and show only shifts belonging to the current office/company. """ 
-        self.request = kwargs.pop('request', None) 
-        super().__init__(*args, **kwargs) # Never expose every company's shifts. 
-        self.fields['shift'].queryset = Shift.objects.none() 
+    def __init__(self, *args, **kwargs):
+        """ Receive the request and show only shifts/branches belonging to the current office/company. """
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs) # Never expose every company's shifts.
+        self.fields['shift'].queryset = Shift.objects.none()
         if self.request: self.fields['shift'].queryset = ( tenant_queryset( self.request, Shift.objects.filter(is_active=True) ) .order_by('name') )
+
+        # Branch: any branch in the admin's own office (including inactive
+        # ones, so an employee already parked there doesn't lose their
+        # current value) - lets the admin transfer this employee.
+        self.fields['branch'].queryset = Branch.objects.none()
+        self.fields['branch'].required = True
+        if self.request:
+            office = get_request_office(self.request)
+            if office is not None:
+                self.fields['branch'].queryset = Branch.objects.filter(
+                    office=office
+                ).order_by('-is_head_office', 'name')
+
+        # Roles: delegated permissions, scoped to THIS employee's own
+        # branch (branch-specific, same as CompanyRule/Holiday). If you
+        # transfer them to a different branch, reopen Edit afterwards to
+        # pick that branch's roles - their old branch's roles stop
+        # granting anything the moment the transfer saves regardless
+        # (see employee_has_permission), this queryset just keeps the
+        # checkbox list itself relevant.
+        self.fields['roles'].queryset = Role.objects.none()
+        self.fields['roles'].required = False
+        if self.request and self.instance and self.instance.pk and self.instance.branch_id:
+            self.fields['roles'].queryset = Role.objects.filter(
+                office=self.instance.office_id, branch=self.instance.branch_id
+            ).order_by('name')
+
     class Meta:
         model = Employee
         fields = [
@@ -494,9 +535,11 @@ class EmployeeUpdateForm(forms.ModelForm):
             'relative_name', 'relative_contact', 'relation_with_employee',
             'educational_qualifications',
             'aadhar_document', 'pan_document', 'bank_passbook_document',
-            'joining_date', 'shift'
+            'joining_date', 'shift', 'branch', 'roles',
         ]
         widgets = {
+            'branch': forms.Select(attrs={'class': 'form-select'}),
+            'roles': forms.CheckboxSelectMultiple(),
             'full_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter full name'
@@ -1276,6 +1319,8 @@ class TaskForm(forms.ModelForm):
 
         if not task.office and task.assigned_to:
             task.office = task.assigned_to.office
+        if not task.branch and task.assigned_to:
+            task.branch = task.assigned_to.branch
         if commit:
             task.save()
             self.save_m2m()

@@ -35,6 +35,8 @@ def create_notification(employee, notification_type, title, message, action_url=
     
     notification = EmployeeNotification.objects.create(
         employee=employee,
+        office=employee.office,
+        branch=employee.branch,
         notification_type=notification_type,
         title=title,
         message=message,

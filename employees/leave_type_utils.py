@@ -14,7 +14,7 @@ def get_or_create_leave_balance(employee, leave_type):
     balance, _ = EmployeeLeaveBalance.objects.get_or_create(
         employee=employee,
         leave_type=leave_type,
-        defaults={'credit_year': date.today().year}
+        defaults={'credit_year': date.today().year, 'office': employee.office, 'branch': employee.branch}
     )
     return balance
 
@@ -113,6 +113,8 @@ def run_year_end_carry_forward(new_year=None):
                     balance.balance = Decimal('0.0')
                     LeaveCreditLog.objects.create(
                         employee=balance.employee,
+                        office=balance.employee.office,
+                        branch=balance.employee.branch,
                         leave_type=leave_type,
                         amount=-lost,
                         balance_after=Decimal('0.0'),
@@ -124,6 +126,8 @@ def run_year_end_carry_forward(new_year=None):
                 balance.balance = leave_type.carry_forward_cap
                 LeaveCreditLog.objects.create(
                     employee=balance.employee,
+                    office=balance.employee.office,
+                    branch=balance.employee.branch,
                     leave_type=leave_type,
                     amount=-lost,
                     balance_after=balance.balance,

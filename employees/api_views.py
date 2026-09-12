@@ -393,6 +393,7 @@ def attendance_comment_api_v2(request, employee_id, date_str):
 
         obj, created = AttendanceDayComment.objects.update_or_create(
             employee=employee,
+            branch=employee.branch,
             date=attendance_date,
             is_admin_comment=bool(request.user.is_superuser),
             defaults={

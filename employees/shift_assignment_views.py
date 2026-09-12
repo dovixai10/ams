@@ -11,7 +11,10 @@ from django.contrib import messages
 from django.db.models import Q
 from .models import Employee, Shift
 import json
-from .permissions import office_admin_required, is_platform_admin, get_request_office
+from .permissions import (
+    office_admin_required, is_platform_admin, get_request_office,
+    tenant_queryset, tenant_object_or_404, feature_required,
+)
 
 def is_office_admin(user):
     """An HR user tied to a specific approved office."""
@@ -20,55 +23,13 @@ def is_office_admin(user):
 from django.core.exceptions import PermissionDenied
 
 
-def tenant_queryset(request, queryset):
-    """
-    Scope a queryset to the current office.
-
-    Platform admin:
-        Can see all offices.
-
-    Approved office admin:
-        Can see only their own office.
-
-    User with no office:
-        Gets no tenant data.
-    """
-    if is_platform_admin(request.user):
-        return queryset
-
-    office = get_request_office(request)
-
-    if office is None:
-        return queryset.none()
-
-    return queryset.filter(office=office)
-
-
-def tenant_object_or_404(request, model, **lookup):
-    """
-    Fetch an object only if it belongs to the current office.
-
-    Platform admin can access every office.
-    Office admin can access only their own office.
-    """
-    queryset = tenant_queryset(
-        request,
-        model.objects.all()
-    )
-
-    return get_object_or_404(
-        queryset,
-        **lookup
-    )
-
-
 # def is_superadmin(user):
 #     """Check if user is superadmin"""
 #     return user.is_superuser
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('shifts.manage'))
 def shift_assignment(request):
     """
     Display all employees with their current shifts
@@ -102,7 +63,7 @@ def shift_assignment(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('shifts.manage'))
 @require_http_methods(["POST"])
 def update_employee_shift(request):
     """
@@ -171,7 +132,7 @@ def update_employee_shift(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('shifts.manage'))
 @require_http_methods(["POST"])
 def bulk_assign_shift(request):
     """
@@ -254,7 +215,7 @@ def bulk_assign_shift(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('shifts.manage'))
 @require_http_methods(["POST"])
 def remove_employee_shift(request):
     """
@@ -305,7 +266,7 @@ def remove_employee_shift(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('shifts.manage'))
 def get_employee_shifts_data(request):
     """
     AJAX endpoint to get all employees with their shifts

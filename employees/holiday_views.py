@@ -17,7 +17,10 @@ import json
 from .models import Holiday
 from web_project import TemplateLayout
 from web_project.template_helpers.theme import TemplateHelper
-from .permissions import office_admin_required, is_platform_admin, get_request_office, is_office_admin
+from .permissions import (
+    office_admin_required, is_platform_admin, get_request_office, is_office_admin,
+    get_request_branch, has_permission,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ def holidays_calendar(request):
     context.update({
         "current_year": timezone.now().year,
         "layout_path": TemplateHelper.set_layout('layout_vertical.html', context),
-        'is_office_admin': is_office_admin(request.user),
+        'is_office_admin': has_permission(request.user, 'holidays.manage'),
     })
     return render(request, "employees/holidays_calendar.html", context)
 
@@ -64,6 +67,7 @@ def get_holidays(request):
         
         # Get all holidays for the year
         office = get_request_office(request)
+        branch = get_request_branch(request)
 
         # holidays = Holiday.objects.filter(
         #     office=office,
@@ -71,6 +75,7 @@ def get_holidays(request):
         # ).order_by("date")
         holidays = Holiday.objects.filter(
             office=office,
+            branch=branch,
             date__year=year
         ).order_by("date").values(
             "id",
@@ -122,28 +127,31 @@ def create_holiday(request):
     Admin only
     """
     try:
-        if not is_office_admin(request.user):   # was: office_admin_required(request.user)
+        if not has_permission(request.user, 'holidays.manage'):
             return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
 
         office = get_request_office(request)
-        
+        branch = get_request_branch(request)
+        if branch is None:
+            return JsonResponse({'success': False, 'error': 'Select an active branch before creating a holiday.'}, status=400)
+
         # Parse request data
         try:
             data = json.loads(request.body)
         except:
             data = request.POST
-        
+
         date_str = data.get('date')
         name = data.get('name')
         description = data.get('description', '')
-        
+
         # Validate inputs
         if not date_str or not name:
             return JsonResponse({
                 'success': False,
                 'error': 'Date and name are required'
             }, status=400)
-        
+
         # Parse date
         try:
             holiday_date = parse_date(date_str)
@@ -157,21 +165,22 @@ def create_holiday(request):
                 'success': False,
                 'error': f'Date parsing error: {str(e)}'
             }, status=400)
-        
-        # Check if holiday already exists
-        if Holiday.objects.filter(date=holiday_date, office=office).exists():
+
+        # Check if holiday already exists (for this branch)
+        if Holiday.objects.filter(date=holiday_date, office=office, branch=branch).exists():
             return JsonResponse({
                 'success': False,
                 'error': 'Holiday already exists for this date'
             }, status=400)
-        
-        # Create holiday
+
+        # Create holiday - scoped to whichever branch is active for this admin
         holiday = Holiday.objects.create(
             date=holiday_date,
             name=name,
             description=description,
             created_by=request.user,
-            office=office
+            office=office,
+            branch=branch,
         )
         
         logger.info(f"Holiday created: {holiday.id} - {holiday.name} on {holiday.date}")
@@ -210,7 +219,7 @@ def update_holiday(request, holiday_id):
     Admin only
     """
     try:
-        if not is_office_admin(request.user):
+        if not has_permission(request.user, 'holidays.manage'):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'
@@ -218,19 +227,21 @@ def update_holiday(request, holiday_id):
         
         # holiday = get_object_or_404(Holiday, id=holiday_id)
         office = get_request_office(request)
+        branch = get_request_branch(request)
 
         holiday = get_object_or_404(
             Holiday,
             id=holiday_id,
-            office=office
+            office=office,
+            branch=branch,
         )
-        
+
         # Parse request data
         try:
             data = json.loads(request.body)
         except:
             data = request.POST
-        
+
         # Update fields if provided
         if 'date' in data:
             try:
@@ -240,11 +251,12 @@ def update_holiday(request, holiday_id):
                         'success': False,
                         'error': 'Invalid date format'
                     }, status=400)
-                
+
                 # Check if new date already exists
                 # if Holiday.objects.filter(date=new_date).exclude(id=holiday_id).exists():
                 if Holiday.objects.filter(
                     office=office,
+                    branch=branch,
                     date=new_date
                 ).exclude(id=holiday_id).exists():
                     return JsonResponse({
@@ -298,7 +310,7 @@ def delete_holiday(request, holiday_id):
     Admin only
     """
     try:
-        if not is_office_admin(request.user):
+        if not has_permission(request.user, 'holidays.manage'):
             return JsonResponse({
                 'success': False,
                 'error': 'Permission denied'
@@ -306,11 +318,13 @@ def delete_holiday(request, holiday_id):
         
         # holiday = get_object_or_404(Holiday, id=holiday_id)
         office = get_request_office(request)
+        branch = get_request_branch(request)
 
         holiday = get_object_or_404(
             Holiday,
             id=holiday_id,
-            office=office
+            office=office,
+            branch=branch,
         )
         holiday_name = holiday.name
         holiday_date = holiday.date
@@ -365,9 +379,11 @@ def check_holiday(request):
         
         # holiday = Holiday.objects.filter(date=check_date).first()
         office = get_request_office(request)
+        branch = get_request_branch(request)
 
         holiday = Holiday.objects.filter(
             office=office,
+            branch=branch,
             date=check_date
         ).first()
         

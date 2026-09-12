@@ -2,7 +2,7 @@
 
   {% if not navbar_full %}
   <div class="app-brand demo">
-    <a href="{% url 'employees:admin_dashboard' %}" class="app-brand-link">
+    <a href="{% if is_office_admin %}{% url 'employees:admin_dashboard' %}{% else %}{% url 'employees:employee_dashboard' %}{% endif %}" class="app-brand-link">
       <span class="app-brand-logo demo">
         {% include 'partials/logo.html' %}
       </span>
@@ -15,15 +15,27 @@
 
   <ul class="menu-inner py-1">
 
+    {% if not is_office_admin %}
+      <!-- A permitted employee keeps a way back to their own personal
+           dashboard (service cards, own attendance/leave/tasks etc). -->
+      <li class="menu-item">
+        <a href="{% url 'employees:employee_dashboard' %}" class="menu-link">
+          <i class="menu-icon bx bx-arrow-back"></i>
+          <div class="text-truncate">My Dashboard</div>
+        </a>
+      </li>
+    {% endif %}
+
     <!-- Dashboard -->
     <li class="menu-item {% if 'dashboard' in request.resolver_match.url_name %}active{% endif %}">
-      <a href="{% url 'employees:admin_dashboard' %}" class="menu-link">
+      <a href="{% if is_office_admin %}{% url 'employees:admin_dashboard' %}{% else %}{% url 'employees:employee_dashboard' %}{% endif %}" class="menu-link">
         <i class="menu-icon bx bx-home-smile"></i>
         <div class="text-truncate">Dashboard</div>
       </a>
     </li>
 
 
+    {% if is_office_admin or 'employees.manage' in employee_permissions %}
     <!-- ===============================
            EMPLOYEE MANAGEMENT GROUP
     =================================-->
@@ -39,8 +51,10 @@
         <li class="menu-item"><a href="{% url 'employees:asset_management' %}" class="menu-link"><div>Asset Management</div></a></li>
       </ul>
     </li>
+    {% endif %}
 
 
+    {% if is_office_admin or 'attendance.manage' in employee_permissions or 'leave.manage' in employee_permissions %}
     <!-- ===============================
            ATTENDANCE GROUP
     =================================-->
@@ -50,9 +64,12 @@
         <div>Attendance</div>
       </a>
       <ul class="menu-sub">
+        {% if is_office_admin or 'attendance.manage' in employee_permissions %}
         <li class="menu-item"><a href="{% url 'employees:attendance_list' %}" class="menu-link"><div>Attendance List</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_attendance_calendar' %}" class="menu-link"><div>Attendance Calendar</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_attendance_logs' %}" class="menu-link"><div>Activity Logs</div></a></li>
+        {% endif %}
+        {% if is_office_admin or 'leave.manage' in employee_permissions %}
         <li class="menu-item {% if 'leave-types' in request.path %}active{% endif %}">
           <a href="{% url 'employees:admin_leave_types' %}" class="menu-link">
             <div>Leave Types</div>
@@ -63,20 +80,24 @@
             <div>Leave Requests</div>
           </a>
         </li>
-        <!-- <li class="menu-item {% if 'manual-attendance' in request.path %}active{% endif %}"><a href="{% url 'employees:manual_attendance' %}" class="menu-link"></i><div>Manual Attendance</div></a></li> -->
         <li class="menu-item {% if 'adjust-paid-leave' in request.path %}active{% endif %}"><a href="{% url 'employees:adjust_paid_leave' %}" class="menu-link"></i><div>Adjust Paid Leave</div></a></li>
+        {% endif %}
       </ul>
     </li>
+    {% endif %}
+    {% if is_office_admin or 'attendance.manage' in employee_permissions %}
     <li class="menu-item {% if 'manual-attendance' in request.path %}active{% endif %}">
       <a href="{% url 'employees:manual_attendance' %}" class="menu-link">
           <i class="menu-icon bx bx-calendar-check"></i>
           <div>Manual Attendance</div>
       </a>
     </li>
+    {% endif %}
 
 
 
 
+    {% if is_office_admin or 'tasks.manage' in employee_permissions %}
     <!-- ===============================
            TASKS & WORKFLOWS GROUP
     =================================-->
@@ -90,8 +111,10 @@
         <li class="menu-item"><a href="{% url 'employees:admin_face_update_requests' %}" class="menu-link"><div>Face Update Requests</div></a></li>
       </ul>
     </li>
+    {% endif %}
 
 
+    {% if is_office_admin or 'finance.manage' in employee_permissions %}
     <!-- ===============================
            FINANCE GROUP
     =================================-->
@@ -107,8 +130,10 @@
         <li class="menu-item"><a href="{% url 'employees:admin_salary_slips' %}" class="menu-link"><div>Payslips</div></a></li>
       </ul>
     </li>
+    {% endif %}
 
 
+    {% if is_office_admin or 'tickets.manage' in employee_permissions %}
     <!-- ===============================
            SUPPORT GROUP
     =================================-->
@@ -121,8 +146,10 @@
         <li class="menu-item"><a href="{% url 'employees:admin_tickets' %}" class="menu-link"><div>Support Tickets</div></a></li>
       </ul>
     </li>
+    {% endif %}
 
 
+    {% if is_office_admin or 'branches.manage' in employee_permissions or 'roles.manage' in employee_permissions or 'holidays.manage' in employee_permissions or 'rules.manage' in employee_permissions or 'attendance.manage' in employee_permissions %}
     <!-- ===============================
            COMPANY MANAGEMENT GROUP
     =================================-->
@@ -132,17 +159,31 @@
         <div>Company Settings</div>
       </a>
       <ul class="menu-sub">
+        {% if is_office_admin or 'branches.manage' in employee_permissions %}
+        <li class="menu-item"><a href="{% url 'employees:admin_branches' %}" class="menu-link"><div>Branches</div></a></li>
+        {% endif %}
+        {% if is_office_admin or 'roles.manage' in employee_permissions %}
+        <li class="menu-item"><a href="{% url 'employees:admin_roles' %}" class="menu-link"><div>Roles & Permissions</div></a></li>
+        {% endif %}
+        {% if is_office_admin or 'holidays.manage' in employee_permissions %}
         <li class="menu-item"><a href="{% url 'employees:holidays_calendar' %}" class="menu-link"><div>Holidays Calendar</div></a></li>
+        {% endif %}
+        {% if is_office_admin or 'rules.manage' in employee_permissions %}
         <li class="menu-item"><a href="{% url 'employees:admin_rules' %}" class="menu-link"><div>Rules & Regulations</div></a></li>
-         <li class="menu-item {% if 'attendance/rule-settings' in request.path %}active{% endif %}">
+        {% endif %}
+        {% if is_office_admin or 'attendance.manage' in employee_permissions %}
+        <li class="menu-item {% if 'attendance/rule-settings' in request.path %}active{% endif %}">
           <a href="{% url 'employees:attendance_rule_settings' %}" class="menu-link">
             <div>Attendance Rule</div>
           </a>
         </li>
+        {% endif %}
       </ul>
     </li>
+    {% endif %}
 
 
+    {% if is_office_admin or 'shifts.manage' in employee_permissions %}
     <!-- ===============================
            SHIFT MANAGEMENT GROUP
     =================================-->
@@ -156,11 +197,12 @@
         <li class="menu-item"><a href="{% url 'employees:shift_assignment' %}" class="menu-link"><div>Shift Assignment</div></a></li>
       </ul>
     </li>
+    {% endif %}
 
 
     <!-- Profile -->
-    <li class="menu-item {% if '/admin-profile/' in request.path %}active{% endif %}">
-      <a href="{% url 'employees:superadmin_profile' %}" class="menu-link">
+    <li class="menu-item {% if '/admin-profile/' in request.path or '/profile/' in request.path %}active{% endif %}">
+      <a href="{% if is_office_admin %}{% url 'employees:superadmin_profile' %}{% else %}{% url 'employees:employee_profile' %}{% endif %}" class="menu-link">
         <i class="menu-icon bx bx-user-circle"></i>
         <div>My Profile</div>
       </a>

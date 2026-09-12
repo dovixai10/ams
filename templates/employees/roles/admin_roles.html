@@ -1,0 +1,263 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}Roles & Permissions | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .form-section {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .form-section h5 {
+    margin-bottom: 1.25rem;
+    color: #1f2937;
+    font-weight: 600;
+  }
+
+  .perm-group {
+    margin-bottom: 1rem;
+  }
+
+  .perm-group-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+
+  .perm-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+  }
+
+  .perm-check label {
+    font-size: 0.9rem;
+    color: #1f2937;
+    margin: 0;
+  }
+
+  .role-item {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .role-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .role-name {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 1.05rem;
+  }
+
+  .role-desc {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.15rem;
+  }
+
+  .role-perms {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .perm-pill {
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+  }
+
+  .role-stats {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 0.6rem;
+  }
+
+  .badge-inactive {
+    background: #f59e0b;
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-sm {
+    padding: 0.45rem 0.9rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
+  .btn-outline { background: #fff; border: 1px solid #d1d5db; color: #374151; }
+  .btn-warning { background: #f59e0b; color: #fff; }
+  .btn-danger { background: #ef4444; color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="card-title mb-0">
+          <i class="bx bx-shield-quarter me-2"></i>Roles & Permissions
+        </h4>
+      </div>
+      <div class="card-body">
+
+        <!-- Create Role Form -->
+        <div class="form-section">
+          <h5>Create New Role <small class="text-muted fw-normal">for branch: {{ active_branch.name }}</small></h5>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create">
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label">Role Name</label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. HR" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Description <small class="text-muted">(optional)</small></label>
+                <input type="text" name="description" class="form-control" placeholder="What this role is for">
+              </div>
+            </div>
+
+            <label class="form-label">Permissions</label>
+            <div class="row">
+              {% for group, perms in grouped_permissions.items %}
+                <div class="col-md-4 perm-group">
+                  <div class="perm-group-title">{{ group }}</div>
+                  {% for perm in perms %}
+                    <div class="perm-check">
+                      <input type="checkbox" name="permissions" value="{{ perm.key }}" id="new-{{ perm.key }}">
+                      <label for="new-{{ perm.key }}">{{ perm.label }}</label>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endfor %}
+            </div>
+
+            <button type="submit" class="btn-sm btn-primary mt-3">
+              <i class="bx bx-plus me-1"></i>Create Role
+            </button>
+          </form>
+        </div>
+
+        <!-- Roles List -->
+        <h5 class="mb-3">All Roles</h5>
+        {% if roles %}
+          {% for role in roles %}
+            <div class="role-item">
+              <div class="role-header">
+                <div>
+                  <div class="role-name">
+                    {{ role.name }}
+                    <span class="perm-pill"><i class="bx bx-buildings me-1"></i>{{ role.branch.name|default:"All branches" }}</span>
+                    {% if not role.is_active %}<span class="badge-inactive">Inactive</span>{% endif %}
+                  </div>
+                  {% if role.description %}<div class="role-desc">{{ role.description }}</div>{% endif %}
+                  <div class="role-perms">
+                    {% for label in role.permission_display %}
+                      <span class="perm-pill">{{ label }}</span>
+                    {% empty %}
+                      <span class="text-muted small">No permissions granted yet</span>
+                    {% endfor %}
+                  </div>
+                  <div class="role-stats"><i class="bx bx-group"></i> {{ role.member_count }} employee{{ role.member_count|pluralize }} assigned</div>
+                </div>
+                <div class="btn-group">
+                  <button type="button" class="btn-sm btn-outline" onclick="document.getElementById('edit-role-{{ role.id }}').classList.toggle('d-none')">
+                    <i class="bx bx-edit me-1"></i>Edit
+                  </button>
+                  <form method="post" onsubmit="return confirm('{% if role.is_active %}Deactivate{% else %}Activate{% endif %} this role?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_active">
+                    <input type="hidden" name="role_id" value="{{ role.id }}">
+                    <button type="submit" class="btn-sm btn-warning">
+                      {% if role.is_active %}Deactivate{% else %}Activate{% endif %}
+                    </button>
+                  </form>
+                  <form method="post" onsubmit="return confirm('Delete role \'{{ role.name }}\'? Employees holding it will lose these permissions.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="role_id" value="{{ role.id }}">
+                    <button type="submit" class="btn-sm btn-danger"><i class="bx bx-trash me-1"></i>Delete</button>
+                  </form>
+                </div>
+              </div>
+
+              <div id="edit-role-{{ role.id }}" class="d-none form-section mt-3 mb-0">
+                <form method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="update">
+                  <input type="hidden" name="role_id" value="{{ role.id }}">
+                  <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                      <label class="form-label">Role Name</label>
+                      <input type="text" name="name" class="form-control" value="{{ role.name }}" required>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Description</label>
+                      <input type="text" name="description" class="form-control" value="{{ role.description }}">
+                    </div>
+                  </div>
+                  <label class="form-label">Permissions</label>
+                  <div class="row">
+                    {% for group, perms in grouped_permissions.items %}
+                      <div class="col-md-4 perm-group">
+                        <div class="perm-group-title">{{ group }}</div>
+                        {% for perm in perms %}
+                          <div class="perm-check">
+                            <input type="checkbox" name="permissions" value="{{ perm.key }}" id="edit-{{ role.id }}-{{ perm.key }}" {% if perm.key in role.permissions %}checked{% endif %}>
+                            <label for="edit-{{ role.id }}-{{ perm.key }}">{{ perm.label }}</label>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% endfor %}
+                  </div>
+                  <button type="submit" class="btn-sm btn-primary mt-3"><i class="bx bx-save me-1"></i>Save Changes</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="alert alert-info">
+            <i class="bx bx-info-circle me-2"></i>No roles created yet.
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

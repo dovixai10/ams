@@ -197,6 +197,8 @@ def upload_document(request, doc_type):
                 # Create new document record
                 EmployeeDocument.objects.create(
                     employee=employee,
+                    office=employee.office,
+                    branch=employee.branch,
                     document_type=mapped_doc_type,
                     file=file_url,
                     status='submitted'

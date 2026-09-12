@@ -6,6 +6,10 @@
 <div class="layout-wrapper layout-content-navbar {{ is_menu|yesno:',layout-without-menu' }}">
   <div class="layout-container">
 
+    {% if is_office_admin and active_branch %}
+      {% include "../layout/partials/branch_switcher.html" %}
+    {% endif %}
+
     {% if is_menu %}
     <!-- Menu: Start -->
     {% include "../layout/partials/menu/vertical/vertical_menu.html" %}

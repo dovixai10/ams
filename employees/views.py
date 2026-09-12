@@ -142,52 +142,14 @@ logger = logging.getLogger(__name__)
 # office _registration 
 from .models import Office, OfficeAdmin
 from .forms import OfficeRegistrationForm
-from .permissions import office_admin_required, is_platform_admin, get_request_office, is_office_admin, is_employee
+from .permissions import (
+    office_admin_required, is_platform_admin, get_request_office, is_office_admin, is_employee,
+    get_request_branch, tenant_queryset, tenant_object_or_404,
+    feature_required, has_permission, FEATURE_PERMISSION_KEYS,
+)
 
 
 from django.core.exceptions import PermissionDenied
-
-
-def tenant_queryset(request, queryset):
-    """
-    Scope a queryset to the current office.
-
-    Platform admin:
-        Can see all offices.
-
-    Approved office admin:
-        Can see only their own office.
-
-    User with no office:
-        Gets no tenant data.
-    """
-    if is_platform_admin(request.user):
-        return queryset
-
-    office = get_request_office(request)
-
-    if office is None:
-        return queryset.none()
-
-    return queryset.filter(office=office)
-
-
-def tenant_object_or_404(request, model, **lookup):
-    """
-    Fetch an object only if it belongs to the current office.
-
-    Platform admin can access every office.
-    Office admin can access only their own office.
-    """
-    queryset = tenant_queryset(
-        request,
-        model.objects.all()
-    )
-
-    return get_object_or_404(
-        queryset,
-        **lookup
-    )
 
 
 def require_same_office(request, obj):
@@ -591,6 +553,7 @@ def create_attendance_day_comment(request):
     with transaction.atomic():
         comment_obj, created = AttendanceDayComment.objects.update_or_create(
             employee=employee,
+            branch=employee.branch,
             date=target_date,
             is_admin_comment=is_admin_user,
             defaults={
@@ -682,7 +645,7 @@ def _pending_leave_verifications_for_employee(employee):
         LeaveRequest.VerificationStatus.UNDER_REVIEW,
     ]
     leaves = (
-        LeaveRequest.objects.filter(office=employee.office, employee=employee, verification_status__in=statuses)
+        LeaveRequest.objects.filter(office=employee.office, branch=employee.branch, employee=employee, verification_status__in=statuses)
         .order_by('-created_at')
         .prefetch_related('verification_documents')
     )
@@ -1476,7 +1439,7 @@ def employee_breaks(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('attendance.manage'))
 def admin_breaks_dashboard(request):
     """Interactive dashboard for admins to monitor employee breaks."""
 
@@ -1651,6 +1614,7 @@ def employee_leave_requests(request):
             leave_request = form.save(commit=False)
             leave_request.employee = employee
             leave_request.office = employee.office
+            leave_request.branch = employee.branch
             leave_request.status = LeaveRequest.Status.PENDING
             leave_request.save()
 
@@ -1702,6 +1666,8 @@ def leave_verification_portal(request):
             leave = form.cleaned_data['leave']
             LeaveVerificationDocument.objects.create(
                 leave=leave,
+                office=leave.office,
+                branch=leave.branch,
                 uploaded_by=employee,
                 file=form.cleaned_data['receipt'],
                 notes=form.cleaned_data['notes']
@@ -1763,6 +1729,8 @@ def upload_leave_receipt(request, leave_id):
 
     doc = LeaveVerificationDocument.objects.create(
         leave=leave,
+        office=leave.office,
+        branch=leave.branch,
         uploaded_by=request.user.employee_profile,
         file=file
     )
@@ -1795,7 +1763,7 @@ def upload_leave_receipt(request, leave_id):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('leave.manage'))
 @require_http_methods(["GET"])
 def leave_verification_documents(request, leave_id):
     """Return verification documents for a leave (admin use).
@@ -1839,7 +1807,7 @@ def leave_verification_documents(request, leave_id):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('leave.manage'))
 def admin_leave_requests(request):
     """Admin view to manage employee leave requests.
     
@@ -1919,6 +1887,7 @@ def admin_leave_requests(request):
                 if leave_request.leave_type_ref:
                     balance_obj, _ = EmployeeLeaveBalance.objects.get_or_create(
                         employee=employee,
+                        branch=employee.branch,
                         leave_type=leave_request.leave_type_ref,
                         defaults={'balance': 0, 'credit_year': date.today().year},
                     )
@@ -1942,6 +1911,7 @@ def admin_leave_requests(request):
             while current_date <= leave_request.end_date:
                 attendance, created = Attendance.objects.get_or_create(
                     employee=leave_request.employee,
+                    branch=leave_request.employee.branch,
                     date=current_date,
                     defaults={
                         'final_status': attendance_status,
@@ -2084,6 +2054,7 @@ def start_break(request):
     if not attendance:
         AttendanceLog.objects.create(
             employee=employee,
+            branch=employee.branch,
             action='break_start_failed',
             success=False,
             failure_reason='not_checked_in',
@@ -2097,6 +2068,7 @@ def start_break(request):
     if attendance.check_out_time:
         AttendanceLog.objects.create(
             employee=employee,
+            branch=employee.branch,
             attendance=attendance,
             action='break_start_failed',
             success=False,
@@ -2111,6 +2083,7 @@ def start_break(request):
     if attendance.active_break:
         AttendanceLog.objects.create(
             employee=employee,
+            branch=employee.branch,
             attendance=attendance,
             action='break_start_failed',
             success=False,
@@ -2135,6 +2108,7 @@ def start_break(request):
     AttendanceBreak.objects.create(
         attendance=attendance,
         employee=employee,
+        branch=employee.branch,
         reason_type=reason_type,
         reason=reason_text,
         expected_duration_minutes=expected_minutes
@@ -2142,6 +2116,7 @@ def start_break(request):
 
     AttendanceLog.objects.create(
         employee=employee,
+        branch=employee.branch,
         attendance=attendance,
         action='break_start_success',
         success=True,
@@ -2177,6 +2152,7 @@ def end_break(request):
     if not attendance:
         AttendanceLog.objects.create(
             employee=employee,
+            branch=employee.branch,
             action='break_end_failed',
             success=False,
             failure_reason='not_checked_in',
@@ -2191,6 +2167,7 @@ def end_break(request):
     if not active_break:
         AttendanceLog.objects.create(
             employee=employee,
+            branch=employee.branch,
             attendance=attendance,
             action='break_end_failed',
             success=False,
@@ -2208,6 +2185,7 @@ def end_break(request):
 
     AttendanceLog.objects.create(
         employee=employee,
+        branch=employee.branch,
         attendance=attendance,
         action='break_end_success',
         success=True,
@@ -2220,6 +2198,7 @@ def end_break(request):
     if exceeded:
         AttendanceLog.objects.create(
             employee=employee,
+            branch=employee.branch,
             attendance=attendance,
             action='break_duration_exceeded',
             success=False,
@@ -2330,7 +2309,7 @@ def my_attendance_logs(request):
 
 # Employee CRUD Views
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(office_admin_required), name='dispatch')
+@method_decorator(user_passes_test(feature_required('employees.manage')), name='dispatch')
 class EmployeeListView(ListView):
     """List all employees"""
     model = Employee
@@ -2363,7 +2342,7 @@ class EmployeeListView(ListView):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 def employee_live_search(request):
     """Return filtered employees for live search (AJAX only)."""
     if request.headers.get('x-requested-with') != 'XMLHttpRequest':
@@ -2397,14 +2376,14 @@ def employee_live_search(request):
 
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(office_admin_required), name='dispatch')
+@method_decorator(user_passes_test(feature_required('employees.manage')), name='dispatch')
 @method_decorator(
     login_required,
     name='dispatch'
 )
 @method_decorator(
     user_passes_test(
-        is_office_admin
+        feature_required('employees.manage')
     ),
     name='dispatch'
 )
@@ -2414,6 +2393,14 @@ class EmployeeCreateView(CreateView):
     form_class = EmployeeForm
     template_name = 'employees/employee_form.html'
     success_url = reverse_lazy('employees:employee_list')
+
+    def get_form_kwargs(self):
+        # EmployeeForm needs the request to scope its shift/branch dropdowns
+        # to the current office (this was previously never wired up, so
+        # those dropdowns silently rendered empty).
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
@@ -2488,6 +2475,7 @@ class EmployeeCreateView(CreateView):
                 employee.face_registered_at = None
 
                 employee.save()
+                form.save_m2m()  # persists the 'roles' selection (deferred by commit=False)
                 login_url = self.request.build_absolute_uri(reverse('employees:login'))
                 try:
                     send_employee_onboarding_email(employee, password, login_url)
@@ -2574,18 +2562,28 @@ def send_leave_notification_email(leave_request: LeaveRequest, *, subject: str, 
 
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(office_admin_required), name='dispatch')
+@method_decorator(user_passes_test(feature_required('employees.manage')), name='dispatch')
 class EmployeeUpdateView(UpdateView):
     """Update existing employee"""
     model = Employee
     form_class = EmployeeUpdateForm
     template_name = 'employees/employee_form.html'
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
+
     def get_queryset(self):
-        return tenant_queryset(
-            self.request,
-            super().get_queryset()
-        )
+        # Not tenant_queryset() here: an admin editing an employee (e.g. to
+        # transfer them) needs to reach employees in ANY of their office's
+        # branches, not just the currently active one.
+        if is_platform_admin(self.request.user):
+            return super().get_queryset()
+        office = get_request_office(self.request)
+        if office is None:
+            return super().get_queryset().none()
+        return super().get_queryset().filter(office=office)
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         context.update({
@@ -2604,7 +2602,7 @@ class EmployeeUpdateView(UpdateView):
 
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(office_admin_required), name='dispatch')
+@method_decorator(user_passes_test(feature_required('employees.manage')), name='dispatch')
 class EmployeeDeleteView(DeleteView):
     """Delete employee"""
     model = Employee
@@ -2629,7 +2627,7 @@ class EmployeeDeleteView(DeleteView):
 
 # Employee Status Toggle View (for super-admins to activate/deactivate employees)
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 def employee_toggle_status(request, pk):
     """Toggle employee active/inactive status (Super-admin only)"""
     employee = get_object_or_404(Employee, pk=pk)
@@ -2659,7 +2657,7 @@ def employee_toggle_status(request, pk):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 def employee_detail(request, pk):
     """View employee details (Super-admin only)"""
     employee = get_object_or_404(Employee, pk=pk)
@@ -2721,7 +2719,7 @@ def employee_detail(request, pk):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('attendance.manage'))
 def employee_attendance_logs(request, pk):
     """Interactive activity log view for a specific employee (Super-admin only)."""
 
@@ -2940,7 +2938,7 @@ def update_asset_status(request, asset_id):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 @require_http_methods(["POST"])
 def verify_asset_status(request, asset_id):
     """API endpoint for admin to manage asset lifecycle.
@@ -2990,6 +2988,9 @@ def verify_asset_status(request, asset_id):
             asset_queryset = asset_queryset.filter(
                 employee__office=office
             )
+            branch = get_request_branch(request)
+            if branch is not None:
+                asset_queryset = asset_queryset.filter(employee__branch=branch)
 
         # Get the asset only after applying the correct tenant filter.
         asset = asset_queryset.filter(
@@ -3056,25 +3057,25 @@ def verify_asset_status(request, asset_id):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 def asset_management(request):
     """Admin interface to assign and track company assets."""
     employee_filter = request.GET.get('employee') or ''
     # assignments = AssetAssignment.objects.select_related('employee').order_by('-assigned_date', '-created_at')
-    assignments = (
-    AssetAssignment.objects
-    .select_related(
+    assignments = AssetAssignment.objects.select_related(
         "employee",
         "employee__user",
         "employee__office",
     )
-    .filter(
-        employee__office=get_request_office(request)
-    ).order_by(
+    if not is_platform_admin(request.user):
+        assignments = assignments.filter(employee__office=get_request_office(request))
+        branch = get_request_branch(request)
+        if branch is not None:
+            assignments = assignments.filter(employee__branch=branch)
+    assignments = assignments.order_by(
         "-assigned_date",
         "-created_at",
     )
-)
     if employee_filter:
         assignments = assignments.filter(employee_id=employee_filter)
 
@@ -3261,7 +3262,7 @@ def check_in(request):
     #     Attendance.objects.all()
     # ).filter(employee=employee, date=today).first()
         # Get today's attendance record if it exists
-    today_attendance = Attendance.objects.filter(office=employee.office, employee=employee, date=today).first()
+    today_attendance = Attendance.objects.filter(office=employee.office, branch=employee.branch, employee=employee, date=today).first()
     # GUARD 1: Face must be registered
     if not employee.face_registered:
         face_register_url = f"{reverse('employees:face_register')}?next={reverse('employees:check_in')}"
@@ -3275,6 +3276,7 @@ def check_in(request):
         if not check_in_photo:
             AttendanceLog.objects.create(
                 employee=employee,
+                branch=employee.branch,
                 action='check_in_failed',
                 success=False,
                 failure_reason='photo_required',
@@ -3295,6 +3297,7 @@ def check_in(request):
         if not user_latitude or not user_longitude:
             AttendanceLog.objects.create(
                 employee=employee,
+                branch=employee.branch,
                 action='check_in_failed',
                 success=False,
                 failure_reason='location_not_provided',
@@ -3312,6 +3315,7 @@ def check_in(request):
         if not is_valid_coords:
             AttendanceLog.objects.create(
                 employee=employee,
+                branch=employee.branch,
                 action='check_in_failed',
                 success=False,
                 failure_reason='invalid_coordinates',
@@ -3325,10 +3329,11 @@ def check_in(request):
             return redirect('employees:check_in')
         
         # VALIDATION 4: Must be within office premises
-        is_within, distance, location_message = is_within_office_premises(employee.office, float(user_latitude), float(user_longitude))
+        is_within, distance, location_message = is_within_office_premises(employee.office, float(user_latitude), float(user_longitude), branch=employee.branch)
         if not is_within:
             AttendanceLog.objects.create(
                 employee=employee,
+                branch=employee.branch,
                 action='check_in_failed',
                 success=False,
                 failure_reason='outside_office_premises',
@@ -3351,6 +3356,7 @@ def check_in(request):
             if checkin_encoding is None:
                 AttendanceLog.objects.create(
                     employee=employee,
+                    branch=employee.branch,
                     action='check_in_failed',
                     success=False,
                     failure_reason='no_face_detected',
@@ -3375,6 +3381,7 @@ def check_in(request):
             if stored_encoding is None:
                 AttendanceLog.objects.create(
                     employee=employee,
+                    branch=employee.branch,
                     action='check_in_failed',
                     success=False,
                     failure_reason='no_face_registered',
@@ -3398,6 +3405,7 @@ def check_in(request):
             if not result['match']:
                 AttendanceLog.objects.create(
                     employee=employee,
+                    branch=employee.branch,
                     action='check_in_failed',
                     success=False,
                     failure_reason='face_not_matched',
@@ -3414,6 +3422,7 @@ def check_in(request):
             # SECURITY: All validations passed - create attendance record
             attendance, created = Attendance.objects.get_or_create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 date=today,
                 defaults={"office": employee.office, 'check_in_time': timezone.now()}
@@ -3429,6 +3438,7 @@ def check_in(request):
             AttendanceLog.objects.create(
                 employee=employee,
                 office=employee.office,
+                branch=employee.branch,
                 action='check_in_success',
                 success=True,
                 confidence=result['confidence'],
@@ -3453,6 +3463,7 @@ def check_in(request):
             AttendanceLog.objects.create(
                 employee=employee,
                 office=employee.office,
+                branch=employee.branch,
                 action='check_in_failed',
                 success=False,
                 failure_reason='other',
@@ -3495,7 +3506,7 @@ def check_in(request):
 
 # Attendance Views (for admin)
 @method_decorator(login_required, name='dispatch')
-@method_decorator(user_passes_test(office_admin_required), name='dispatch')
+@method_decorator(user_passes_test(feature_required('attendance.manage')), name='dispatch')
 class AttendanceListView(ListView):
     """List all attendance records"""
     model = Attendance
@@ -3637,7 +3648,7 @@ def _get_filtered_attendance_logs(request):
 # ---------------------------------------------------------------------------
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('attendance.manage'))
 def admin_attendance_logs(request):
     """Admin view for all attendance activity logs including failed attempts"""
     from django.core.paginator import Paginator
@@ -3699,7 +3710,7 @@ def admin_attendance_logs(request):
 # ---------------------------------------------------------------------------
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('attendance.manage'))
 def admin_attendance_logs_excel(request):
     """Exports the currently filtered attendance activity logs as an Excel file.
 
@@ -3940,7 +3951,7 @@ def request_face_update(request):
             return redirect('employees:request_face_update')
 
         reason = (request.POST.get('reason') or '').strip()
-        FaceUpdateRequest.objects.create(office=employee.office, employee=employee, reason=reason)
+        FaceUpdateRequest.objects.create(office=employee.office, branch=employee.branch, employee=employee, reason=reason)
         messages.success(request, 'Face update request submitted. An administrator will review it shortly.')
         return redirect('employees:employee_dashboard')
 
@@ -3955,7 +3966,7 @@ def request_face_update(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('tasks.manage'))
 @require_http_methods(["GET", "POST"])
 def admin_face_update_requests(request):
     status_filter = request.GET.get('status', '').strip()
@@ -4370,9 +4381,11 @@ def mark_attendance(request, token):
                     attendance, created = Attendance.objects.get_or_create(
                         office=office,
                         employee=employee,
+                        branch=employee.branch,
                         date=timezone.now().date(),
                         defaults={
                             "office": office,
+                            "branch": employee.branch,
                             'check_in_time': timezone.now(),
                             'check_in_photo': save_attendance_image(img, f"checkin_{employee.id}")
                         }
@@ -4424,6 +4437,7 @@ def mark_attendance(request, token):
 
                         AttendanceLog.objects.create(
                             office=office,
+                            branch=employee.branch,
                             employee=employee,
                             attendance=attendance,
                             action="check_out_success",
@@ -4447,6 +4461,7 @@ def mark_attendance(request, token):
 
                     AttendanceLog.objects.create(
                         office=office,
+                        branch=employee.branch,
                         employee=employee,
                         attendance=attendance,
                         action="check_in_success",
@@ -4511,13 +4526,14 @@ def check_out(request):
     ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     # Get today's attendance record
-    attendance = Attendance.objects.filter(office=employee.office, employee=employee, date=today).first()
+    attendance = Attendance.objects.filter(office=employee.office, branch=employee.branch, employee=employee, date=today).first()
 
     # Validation 1: Must be checked in first
     if not attendance:
         # Log failed attempt
         AttendanceLog.objects.create(
             office=employee.office,
+            branch=employee.branch,
             employee=employee,
             action='check_out_failed',
             success=False,
@@ -4560,6 +4576,7 @@ def check_out(request):
             remaining_minutes = max(1, remaining_seconds // 60)
             AttendanceLog.objects.create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4591,6 +4608,7 @@ def check_out(request):
         if not user_latitude or not user_longitude:
             AttendanceLog.objects.create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4610,6 +4628,7 @@ def check_out(request):
         if not is_valid_coords:
             AttendanceLog.objects.create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4627,13 +4646,15 @@ def check_out(request):
         # Check if within office premises
         is_within, distance, location_message = is_within_office_premises(
             employee.office,
-            float(user_latitude), 
-            float(user_longitude)
+            float(user_latitude),
+            float(user_longitude),
+            branch=employee.branch,
         )
         
         if not is_within:
             AttendanceLog.objects.create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4654,6 +4675,7 @@ def check_out(request):
             # Log failed attempt
             AttendanceLog.objects.create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4673,6 +4695,7 @@ def check_out(request):
             # Log failed attempt
             AttendanceLog.objects.create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4697,6 +4720,7 @@ def check_out(request):
             if checkout_encoding is None:
                 AttendanceLog.objects.create(
                     office=employee.office,
+                    branch=employee.branch,
                     employee=employee,
                     action='check_out_failed',
                     success=False,
@@ -4714,6 +4738,7 @@ def check_out(request):
             if stored_encoding is None:
                 AttendanceLog.objects.create(
                     office=employee.office,
+                    branch=employee.branch,
                     employee=employee,
                     action='check_out_failed',
                     success=False,
@@ -4736,6 +4761,7 @@ def check_out(request):
             if not result['match']:
                 AttendanceLog.objects.create(
                     office=employee.office,
+                    branch=employee.branch,
                     employee=employee,
                     action='check_out_failed',
                     success=False,
@@ -4761,6 +4787,7 @@ def check_out(request):
                 matched_employee = match_info['employee'].full_name if match_info else None
                 AttendanceLog.objects.create(
                     office=employee.office,
+                    branch=employee.branch,
                     employee=employee,
                     action='check_out_failed',
                     success=False,
@@ -4807,6 +4834,7 @@ def check_out(request):
             # Log successful check-out
             AttendanceLog.objects.create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 action='check_out_success',
                 success=True,
@@ -4836,6 +4864,7 @@ def check_out(request):
             # Log exception
             AttendanceLog.objects.create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 action='check_out_failed',
                 success=False,
@@ -4856,7 +4885,7 @@ def check_out(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('tasks.manage'))
 def admin_tasks(request):
     """Admin view to assign and monitor employee tasks."""
 
@@ -4903,6 +4932,7 @@ def admin_tasks(request):
             task = form.save()
             TaskUpdate.objects.create(
                 office=task.office,
+                branch=task.branch,
                 task=task,
                 updated_by=request.user,
                 previous_status=None,
@@ -4980,7 +5010,7 @@ def admin_tasks(request):
     return render(request, 'employees/tasks/admin_tasks.html', context)
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('tasks.manage'))
 def admin_tasks_excel(request):
     """Export filtered tasks to Excel — one sheet per employee, or a single
     sheet when a specific employee is selected."""
@@ -5092,7 +5122,7 @@ def admin_tasks_excel(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('tasks.manage'))
 def admin_task_detail(request, pk):
     """Detailed admin view for a single task with history."""
 
@@ -5250,6 +5280,7 @@ def employee_tasks(request):
             task = create_form.save()
             TaskUpdate.objects.create(
                 office=task.office,
+                branch=task.branch,
                 task=task,
                 updated_by=request.user,
                 previous_status=None,
@@ -5331,6 +5362,7 @@ def support_tickets(request):
         else:
             ticket = Ticket.objects.create(
                 office=employee.office,
+                branch=employee.branch,
                 employee=employee,
                 subject=subject,
                 description=description,
@@ -5446,6 +5478,7 @@ def add_ticket_comment(request, pk):
         if comment_text:
             TicketComment.objects.create(
                 office=ticket.office,
+                branch=ticket.branch,
                 ticket=ticket,
                 user=request.user,
                 comment=comment_text,
@@ -5459,7 +5492,7 @@ def add_ticket_comment(request, pk):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('tickets.manage'))
 def admin_tickets(request):
     """Admin view for all tickets"""
     from employees.models import Ticket
@@ -5556,7 +5589,7 @@ def admin_tickets(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('tickets.manage'))
 def admin_update_ticket(request, pk):
     """Admin update ticket status and add notes"""
     from employees.models import Ticket, TicketComment
@@ -5599,6 +5632,7 @@ def admin_update_ticket(request, pk):
                 
                 TicketComment.objects.create(
                     office=ticket.office,
+                    branch=ticket.branch,
                     ticket=ticket,
                     user=request.user,
                     comment=status_comment,
@@ -5614,6 +5648,7 @@ def admin_update_ticket(request, pk):
             if comment_text:
                 TicketComment.objects.create(
                     office=ticket.office,
+                    branch=ticket.branch,
                     ticket=ticket,
                     user=request.user,
                     comment=comment_text,
@@ -5667,10 +5702,12 @@ def employee_attendance_calendar(request):
     
     # Create a dictionary for quick lookup
     attendance_dict = {record.date: record for record in attendance_records}
-    
-    # Get holidays for this month from Holiday model
+
+    # Get holidays for this month from Holiday model (this employee's own office + branch)
     from .models import Holiday
     holidays = Holiday.objects.filter(
+        office=employee.office,
+        branch=employee.branch,
         date__gte=first_day,
         date__lte=last_day
     )
@@ -5972,7 +6009,7 @@ def employee_attendance_calendar(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('attendance.manage'))
 def admin_attendance_calendar(request):
     """Admin view for attendance calendar with detailed insights"""
     from datetime import datetime, timedelta
@@ -6016,32 +6053,35 @@ def admin_attendance_calendar(request):
     # Get all attendance records for this month
     attendance_records = Attendance.objects.select_related( 'employee', 'employee__office' ).filter( date__gte=first_day, date__lte=last_day )
 
-    if not is_platform_admin(request.user): 
-        office = get_request_office(request) 
-        if office is None: 
-            attendance_records = attendance_records.none() 
-        else: attendance_records = attendance_records.filter( employee__office=office )
+    if not is_platform_admin(request.user):
+        office = get_request_office(request)
+        if office is None:
+            attendance_records = attendance_records.none()
+        else:
+            attendance_records = attendance_records.filter(employee__office=office)
+            branch = get_request_branch(request)
+            if branch is not None:
+                attendance_records = attendance_records.filter(employee__branch=branch)
 
     # Apply selected employee after company filtering.
-    if selected_employee: 
-        attendance_records = attendance_records.filter( employee=selected_employee ) 
+    if selected_employee:
+        attendance_records = attendance_records.filter( employee=selected_employee )
         attendance_records = attendance_records.order_by( 'date', 'employee__name' )
     # if employee_id:
     #     attendance_records = attendance_records.filter(employee_id=employee_id)
-    
+
     # Create attendance lookup by date and employee
     attendance_by_date = {}
     for record in attendance_records:
         if record.date not in attendance_by_date:
             attendance_by_date[record.date] = []
         attendance_by_date[record.date].append(record)
-    
-    # Get holidays for this month from Holiday model
+
+    # Get holidays for this month from Holiday model (scoped to the admin's office + active branch)
     from .models import Holiday
-    holidays = Holiday.objects.filter(
-        date__gte=first_day,
-        date__lte=last_day
-    )
+    holidays = Holiday.objects.filter(date__gte=first_day, date__lte=last_day)
+    if not is_platform_admin(request.user):
+        holidays = holidays.filter(office=get_request_office(request), branch=get_request_branch(request))
     holiday_dates = {h.date: h for h in holidays}
     
     # Helper function to check if a date is a holiday
@@ -6237,7 +6277,7 @@ def admin_attendance_calendar(request):
 
 #     return response
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('attendance.manage'))
 def attendance_excel_report(request):
     from datetime import datetime
     from calendar import monthrange
@@ -6469,6 +6509,7 @@ def employee_change_password(request, employee_id):
             # Create a record of this change
             PasswordResetRequest.objects.create(
                 employee=employee,
+                branch=employee.branch,
                 email=employee.email,
                 reason=f'Password changed by admin: {admin_notes}',
                 status='approved',
@@ -6661,6 +6702,7 @@ def attendance_details_api(request, date):
         from .models import AttendanceDayComment
         comments_qs = AttendanceDayComment.objects.filter(
             office=employee.office,
+            branch=employee.branch,
             employee=employee,
             date=selected_date
         ).order_by('-created_at')
@@ -6856,6 +6898,7 @@ def company_rules(request):
                     # RuleAcknowledgement.objects.get_or_create(employee=employee, rule=rule)
                     RuleAcknowledgement.objects.get_or_create(
                         employee=employee,
+                        branch=employee.branch,
                         rule=rule,
                         defaults={
                             "office": employee.office,
@@ -6864,6 +6907,7 @@ def company_rules(request):
                 RulesAcceptance.objects.update_or_create(
                     employee=employee,
                     office=employee.office,
+                    branch=employee.branch,
                     defaults={'version': rules_version, 'accepted_at': timezone.now()},
                 )
             messages.success(request, 'Thanks! Your acknowledgement has been recorded.')
@@ -6884,7 +6928,209 @@ def company_rules(request):
 
 
 @login_required
+@user_passes_test(feature_required('branches.manage'))
+def admin_branches(request):
+    """Office admin's branch management: create branches for their office,
+    edit their details, and activate/deactivate them. Not itself branch-
+    scoped - it always shows every branch under the current office
+    regardless of which one is 'active' in the session."""
+    from django.utils.text import slugify
+    from .models import Branch
+
+    office = get_request_office(request)
+    if office is None:
+        messages.error(request, 'Your account is not linked to an approved office.')
+        return redirect('employees:employee_dashboard')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'create':
+            name = (request.POST.get('name') or '').strip()
+            if not name:
+                messages.error(request, 'Branch name is required.')
+            else:
+                base_slug = slugify(name) or 'branch'
+                slug = base_slug
+                suffix = 1
+                while Branch.objects.filter(office=office, slug=slug).exists():
+                    suffix += 1
+                    slug = f"{base_slug}-{suffix}"
+
+                Branch.objects.create(
+                    office=office,
+                    name=name,
+                    slug=slug,
+                    address=request.POST.get('address', '').strip(),
+                    city=request.POST.get('city', '').strip(),
+                    state=request.POST.get('state', '').strip(),
+                    pincode=request.POST.get('pincode', '').strip(),
+                    contact_number=request.POST.get('contact_number', '').strip(),
+                    email=request.POST.get('email', '').strip(),
+                    latitude=request.POST.get('latitude') or None,
+                    longitude=request.POST.get('longitude') or None,
+                    attendance_radius_meters=request.POST.get('attendance_radius_meters') or None,
+                )
+                messages.success(request, f'Branch "{name}" created successfully!')
+
+        elif action == 'update':
+            branch = get_object_or_404(Branch, id=request.POST.get('branch_id'), office=office)
+            branch.name = (request.POST.get('name') or branch.name).strip()
+            branch.address = request.POST.get('address', '').strip()
+            branch.city = request.POST.get('city', '').strip()
+            branch.state = request.POST.get('state', '').strip()
+            branch.pincode = request.POST.get('pincode', '').strip()
+            branch.contact_number = request.POST.get('contact_number', '').strip()
+            branch.email = request.POST.get('email', '').strip()
+            branch.latitude = request.POST.get('latitude') or None
+            branch.longitude = request.POST.get('longitude') or None
+            branch.attendance_radius_meters = request.POST.get('attendance_radius_meters') or None
+            branch.save()
+            messages.success(request, f'Branch "{branch.name}" updated successfully!')
+
+        elif action == 'toggle_active':
+            branch = get_object_or_404(Branch, id=request.POST.get('branch_id'), office=office)
+            if branch.is_head_office and branch.is_active:
+                messages.error(request, 'The head office branch cannot be deactivated.')
+            else:
+                branch.is_active = not branch.is_active
+                branch.save(update_fields=['is_active'])
+                messages.success(
+                    request,
+                    f'Branch "{branch.name}" {"activated" if branch.is_active else "deactivated"}.'
+                )
+
+        return redirect('employees:admin_branches')
+
+    branches = Branch.objects.filter(office=office).annotate(
+        employee_count=Count('employee', distinct=True)
+    ).order_by('-is_head_office', 'name')
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'branches': branches,
+        'active_branch_id': get_request_branch(request).id if get_request_branch(request) else None,
+    })
+    return render(request, 'employees/branches/admin_branches.html', context)
+
+
+@login_required
 @user_passes_test(office_admin_required)
+def switch_branch(request):
+    """Sets which branch is 'active' in the office admin's session. Every
+    tenant_queryset() call and every new record they create from here on
+    is scoped to this branch, until they switch again."""
+    from .models import Branch
+    from employees.middleware import OfficeMiddleware
+
+    if request.method != 'POST':
+        return redirect('employees:employee_dashboard')
+
+    office = get_request_office(request)
+    branch_id = request.POST.get('branch_id')
+    branch = get_object_or_404(Branch, id=branch_id, office=office, is_active=True)
+
+    request.session[OfficeMiddleware.SESSION_BRANCH_KEY] = branch.id
+    messages.success(request, f'Switched to branch "{branch.name}".')
+
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or reverse('employees:employee_dashboard')
+    return redirect(next_url)
+
+
+@login_required
+@user_passes_test(feature_required('roles.manage'))
+def admin_roles(request):
+    """Create/edit delegated-permission roles (e.g. 'HR') and see who holds
+    each one. Gated by the 'roles.manage' permission itself, so an admin can
+    choose to delegate role management too - not just office_admin_required."""
+    from .models import Role
+    from .permissions import FEATURE_PERMISSIONS
+
+    office = get_request_office(request)
+    if office is None:
+        messages.error(request, 'Your account is not linked to an approved office.')
+        return redirect('employees:employee_dashboard')
+
+    valid_keys = FEATURE_PERMISSION_KEYS
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        selected_perms = [p for p in request.POST.getlist('permissions') if p in valid_keys]
+
+        if action == 'create':
+            branch = get_request_branch(request)
+            name = (request.POST.get('name') or '').strip()
+            if not name:
+                messages.error(request, 'Role name is required.')
+            elif branch is None:
+                messages.error(request, 'Switch to a branch before creating a role.')
+            elif Role.objects.filter(office=office, branch=branch, name__iexact=name).exists():
+                messages.error(request, f'A role named "{name}" already exists for "{branch.name}".')
+            else:
+                Role.objects.create(
+                    office=office,
+                    branch=branch,
+                    name=name,
+                    description=request.POST.get('description', '').strip(),
+                    permissions=selected_perms,
+                )
+                messages.success(request, f'Role "{name}" created for "{branch.name}"!')
+
+        elif action == 'update':
+            role = get_object_or_404(tenant_queryset(request, Role.objects.all()), id=request.POST.get('role_id'))
+            role.name = (request.POST.get('name') or role.name).strip()
+            role.description = request.POST.get('description', '').strip()
+            role.permissions = selected_perms
+            role.save()
+            messages.success(request, f'Role "{role.name}" updated successfully!')
+
+        elif action == 'toggle_active':
+            role = get_object_or_404(tenant_queryset(request, Role.objects.all()), id=request.POST.get('role_id'))
+            role.is_active = not role.is_active
+            role.save(update_fields=['is_active'])
+            messages.success(
+                request,
+                f'Role "{role.name}" {"activated" if role.is_active else "deactivated"}.'
+            )
+
+        elif action == 'delete':
+            role = get_object_or_404(tenant_queryset(request, Role.objects.all()), id=request.POST.get('role_id'))
+            role.delete()
+            messages.success(request, 'Role deleted.')
+
+        return redirect('employees:admin_roles')
+
+    roles = list(
+        tenant_queryset(request, Role.objects.filter(office=office)).annotate(
+            member_count=Count('members', distinct=True)
+        ).order_by('name')
+    )
+
+    # Group (key, label, group) tuples by group, for checkbox sections.
+    grouped_permissions = {}
+    permission_labels = {}
+    for key, label, group in FEATURE_PERMISSIONS:
+        grouped_permissions.setdefault(group, []).append({'key': key, 'label': label})
+        permission_labels[key] = label
+
+    # Attach human-readable labels for the granted permissions directly on
+    # each role instance (Django templates can't do a dict[key] lookup by
+    # variable, so resolve it here instead of in the template).
+    for role in roles:
+        role.permission_display = [permission_labels.get(key, key) for key in (role.permissions or [])]
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'roles': roles,
+        'grouped_permissions': grouped_permissions,
+    })
+    return render(request, 'employees/roles/admin_roles.html', context)
+
+
+@login_required
+@user_passes_test(feature_required('rules.manage'))
 def admin_rules(request):
     """Admin CRUD for company rules"""
     # rules = CompanyRule.objects.all().order_by('order', 'created_at').annotate(
@@ -6912,27 +7158,26 @@ def admin_rules(request):
                         points.append(point)
             
             office = get_request_office(request)
+            branch = get_request_branch(request)
 
             rule = CompanyRule.objects.create(
                 office=office,
+                branch=branch,
                 title=request.POST.get("title"),
                 description=request.POST.get("description"),
                 points=points,
                 order=int(request.POST.get("order", 0)),
                 created_by=request.user,
             )
-            messages.success(request, 'Rule created successfully!')
+            messages.success(request, f'Rule created successfully for "{branch.name}"!' if branch else 'Rule created successfully!')
             return redirect('employees:admin_rules')
-        
+
         elif action == 'update':
             rule_id = request.POST.get('rule_id')
             # rule = get_object_or_404(CompanyRule, id=rule_id)
-            office = get_request_office(request)
-
             rule = get_object_or_404(
-                CompanyRule,
+                tenant_queryset(request, CompanyRule.objects.all()),
                 id=rule_id,
-                office=office
             )
             rule.title = request.POST.get('title')
             rule.description = request.POST.get('description')
@@ -6954,12 +7199,9 @@ def admin_rules(request):
         elif action == 'delete':
             rule_id = request.POST.get('rule_id')
             # rule = get_object_or_404(CompanyRule, id=rule_id)
-            office = get_request_office(request)
-
             rule = get_object_or_404(
-                CompanyRule,
+                tenant_queryset(request, CompanyRule.objects.all()),
                 id=rule_id,
-                office=office
             )
             rule.delete()
             messages.success(request, 'Rule deleted successfully!')
@@ -7030,6 +7272,7 @@ def loan_request(request):
             loan = form.save(commit=False)
             loan.employee = employee
             loan.office = employee.office
+            loan.branch = employee.branch
             loan.save()
             messages.success(request, 'Loan request submitted successfully!')
             return redirect(f"{reverse('employees:loan_request')}?tab=history")
@@ -7057,7 +7300,7 @@ def my_loans(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('finance.manage'))
 def admin_loans(request):
     """Admin dashboard for loan requests"""
     # loans = LoanRequest.objects.all().order_by('-created_at')
@@ -7149,6 +7392,7 @@ def reimbursement_request(request):
             reimbursement = form.save(commit=False)
             reimbursement.employee = employee
             reimbursement.office = employee.office
+            reimbursement.branch = employee.branch
             reimbursement.upi_id = form.cleaned_data.get('upi_id') or employee.upi_id
             reimbursement.save()
 
@@ -7187,7 +7431,7 @@ def my_reimbursements(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('finance.manage'))
 def admin_reimbursements(request):
     """Admin dashboard for reimbursement requests"""
     # reimbursements = ReimbursementRequest.objects.all().order_by('-created_at')
@@ -7282,7 +7526,7 @@ def salary_slips(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('finance.manage'))
 def admin_salary_slips(request):
     """Admin dashboard for salary slip management"""
     from employees.models import SalarySlip
@@ -7311,6 +7555,7 @@ def admin_salary_slips(request):
                 
                 salary_slip, created = SalarySlip.objects.update_or_create(
                     office=employee.office,
+                    branch=employee.branch,
                     employee=employee,
                     month=month_date,
                     defaults={
@@ -7570,7 +7815,7 @@ def view_id_card(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 def admin_id_cards(request):
     """Admin dashboard for employee ID card management"""
     from employees.models import EmployeeIDCard
@@ -7589,6 +7834,7 @@ def admin_id_cards(request):
                 
                 id_card, created = EmployeeIDCard.objects.update_or_create(
                     employee=employee,
+                    branch=employee.branch,
                     defaults={
                         'employee_id_number': employee_id_number,
                         'job_position': job_position,
@@ -7626,7 +7872,7 @@ def admin_id_cards(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 def dynamic_id_card_generator(request):
     """Dynamic ID card generator with real-time preview"""
     # employees = Employee.objects.all().order_by('full_name')
@@ -7662,7 +7908,7 @@ def download_id_card(request, pk):
     return redirect('employees:view_id_card')
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 def get_employee_data_api(request):
     """Returns employee details as JSON for the dynamic ID card preview."""
     from django.http import JsonResponse
@@ -7691,7 +7937,7 @@ def get_employee_data_api(request):
     })
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('shifts.manage'))
 def admin_shifts(request):
     """Admin view for managing shifts"""
     from .models import Shift
@@ -7804,7 +8050,7 @@ from .shift_assignment_views import (
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 def admin_idcard_generator(request):
     """Admin view for generating employee ID cards.
 
@@ -7854,6 +8100,7 @@ def admin_idcard_generator(request):
 
             id_card, created = EmployeeIDCard.objects.update_or_create(
                 employee=employee,
+                branch=employee.branch,
                 defaults={
                     'employee_id_number': employee_code,
                     'job_position': job_position or 'Employee',
@@ -8134,7 +8381,7 @@ def notification_center(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('employees.manage'))
 @require_http_methods(["GET"])
 def get_employee_data(request):
     """API endpoint to fetch employee data for ID card generation"""
@@ -8215,20 +8462,21 @@ def holiday_calendar(request):
     """Display holiday calendar for employees"""
     from datetime import datetime
     from employees.models import Holiday  # Assuming you have a Holiday model
-    from .permissions import get_request_office
+    from .permissions import get_request_office, get_request_branch
 
 
     selected_year = request.GET.get('year', datetime.now().year)
-    
+
     try:
         selected_year = int(selected_year)
     except (ValueError, TypeError):
         selected_year = datetime.now().year
 
     office = get_request_office(request)
+    branch = get_request_branch(request)
 
     # Get holidays for selected year
-    holidays = Holiday.objects.filter(office=office, date__year=selected_year).order_by('date')
+    holidays = Holiday.objects.filter(office=office, branch=branch, date__year=selected_year).order_by('date')
     
     # Get available years from holidays
     available_years = list(range(datetime.now().year, datetime.now().year + 3))
@@ -8252,7 +8500,7 @@ def holiday_calendar(request):
     return render(request, 'employees/holiday_calendar.html', context)
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('attendance.manage'))
 def manual_attendance(request):
     from django.utils import timezone
     from datetime import datetime, time, timedelta
@@ -8312,6 +8560,7 @@ def manual_attendance(request):
 
         attendance = Attendance(
             office=office,
+            branch=employee.branch,
             employee=employee,
             date=date,
         )
@@ -8379,7 +8628,7 @@ def manual_attendance(request):
     return render(request, "employees/manual_attendance.html", context)
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('leave.manage'))
 def admin_adjust_paid_leave(request):
     office = get_request_office(request)
     # employees = Employee.objects.filter(is_active=True).order_by("full_name")
@@ -8418,6 +8667,7 @@ def admin_adjust_paid_leave(request):
         # Create adjustment log
         PaidLeaveAdjustment.objects.create(
             employee=selected_employee,
+            branch=selected_employee.branch,
             adjustment_type=adjustment_type,
             amount=amount,
             reason=reason,
@@ -8459,7 +8709,7 @@ from decimal import Decimal, InvalidOperation
 
 # @user_passes_test(lambda u: u.is_superuser)
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('leave.manage'))
 def manual_leave_adjustment(request):
     # employees = Employee.objects.all()
     employees = tenant_queryset(
@@ -8522,6 +8772,7 @@ def manual_leave_adjustment(request):
         PaidLeaveAdjustment.objects.create(
             employee=employee,
             office=employee.office,
+            branch=employee.branch,
             adjustment_type=adjustment_type,
             amount=amount,
             reason=reason,
@@ -8801,7 +9052,7 @@ def _collect_salary_form_fields(post_data):
 # ---------------------------------------------------------------------------
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('finance.manage'))
 def employee_salary(request):
     """Admin dashboard for employee salary history management"""
     from employees.models import EmployeeSalary
@@ -8818,7 +9069,12 @@ def employee_salary(request):
 
             try:
                 employee = Employee.objects.get(id=employee_id)
-                EmployeeSalary.objects.create(employee=employee, **fields)
+                EmployeeSalary.objects.create(
+                    employee=employee,
+                    office=employee.office,
+                    branch=employee.branch,
+                    **fields,
+                )
                 messages.success(request, 'New salary entry created!')
             except Exception as e:
                 messages.error(request, f'Error creating salary entry: {str(e)}')
@@ -8925,7 +9181,7 @@ def employee_salary(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('finance.manage'))
 def employee_salary_excel_report(request):
     """Export monthly, attendance-adjusted salary report as Excel, using the
     salary entry that was EFFECTIVE for each employee during the selected
@@ -9023,7 +9279,7 @@ from .leave_accrual import initialize_balances_for_new_type, resync_balances_for
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('leave.manage'))
 def admin_leave_types(request):
     """Admin page to create and list configurable leave types."""
 
@@ -9075,7 +9331,7 @@ def admin_leave_types(request):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('leave.manage'))
 @require_http_methods(["POST"])
 def admin_leave_type_update(request, pk):
     """Update an existing leave type, resyncing balances if accrual_amount changed."""
@@ -9111,7 +9367,7 @@ def admin_leave_type_update(request, pk):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('leave.manage'))
 @require_http_methods(["POST"])
 def admin_leave_type_toggle(request, pk):
     """Toggle active/inactive status — inactive types are hidden from employees."""
@@ -9131,7 +9387,7 @@ def admin_leave_type_toggle(request, pk):
 
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('leave.manage'))
 @require_http_methods(["POST"])
 def admin_leave_type_delete(request, pk):
     """Delete a leave type — blocked only if it has real credit/debit history
@@ -9210,7 +9466,7 @@ from django.contrib import messages
 from django.shortcuts import redirect
 
 @login_required
-@user_passes_test(office_admin_required)
+@user_passes_test(feature_required('attendance.manage'))
 def attendance_rule_settings(request):
     """Office admin screen to configure Present/Half-Day thresholds."""
 

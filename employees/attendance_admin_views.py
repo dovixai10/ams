@@ -43,6 +43,7 @@ def manual_attendance(request):
             # Get or create attendance record
             attendance, created = Attendance.objects.get_or_create(
                 employee=employee,
+                branch=employee.branch,
                 date=att_date
             )
             
@@ -89,6 +90,7 @@ def manual_attendance(request):
             status_display = status.replace('_', ' ').title()
             EmployeeNotification.objects.create(
                 employee=employee,
+                branch=employee.branch,
                 title='Attendance Updated',
                 message=f'Your attendance for {att_date.strftime("%d-%m-%Y")} was marked as {status_display}. Reason: {comment}',
                 notification_type='attendance_updated',
@@ -210,6 +212,7 @@ def adjust_paid_leave(request):
 
             LeaveAdjustment.objects.create(
                 employee=employee,
+                branch=employee.branch,
                 old_balance=old_balance,
                 new_balance=new_balance,
                 change_amount=adjustment,

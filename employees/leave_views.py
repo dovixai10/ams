@@ -112,6 +112,8 @@ def upload_leave_receipt(request, leave_id):
     try:
         doc = LeaveVerificationDocument.objects.create(
             leave=leave,
+            office=leave.office,
+            branch=leave.branch,
             file=file,
             uploaded_by=request.user
         )

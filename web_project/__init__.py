@@ -2,7 +2,7 @@
 # from web_project.bootstrap import TemplateBootstrap
 from web_project.template_helpers.theme import TemplateHelper
 from django.conf import settings
-from employees.permissions import is_office_admin
+from employees.permissions import is_office_admin, employee_permission_keys
 
 class TemplateLayout:
     # Initialize the bootstrap files and page layout
@@ -26,8 +26,18 @@ class TemplateLayout:
                     context.setdefault("navbar_hide_toggle", True)
                     context.setdefault("hide_mobile_nav", True)
                 elif hasattr(user, "employee_profile"):
-                    context.setdefault("is_navbar", False)
-                    context.setdefault("is_menu", False)
+                    perm_keys = employee_permission_keys(user.employee_profile)
+                    if perm_keys:
+                        # This employee holds a delegated role (e.g. HR) - give
+                        # them the same admin-style sidebar shell as an office
+                        # admin. vertical_menu.html itself only renders the
+                        # specific sections perm_keys actually grants.
+                        context.setdefault("is_navbar", False)
+                        context.setdefault("navbar_hide_toggle", True)
+                        context.setdefault("hide_mobile_nav", True)
+                    else:
+                        context.setdefault("is_navbar", False)
+                        context.setdefault("is_menu", False)
 
         # Set a default layout globally using settings.py. Can be set in the page level view file as well.
         layout = "vertical"

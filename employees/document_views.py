@@ -101,6 +101,8 @@ def upload_document(request):
             employee=employee,
             document_type=document_type,
             defaults={
+                'office': employee.office,
+                'branch': employee.branch,
                 'file': file_obj,
                 'status': EmployeeDocument.VerificationStatus.SUBMITTED,
                 'uploaded_at': timezone.now(),

@@ -1,0 +1,296 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}Branch Management | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .form-section {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .form-section h5 {
+    margin-bottom: 1.5rem;
+    color: #1f2937;
+    font-weight: 600;
+  }
+
+  .branch-item {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .branch-item.is-active-branch {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 1px #6366f1 inset;
+  }
+
+  .branch-name {
+    font-weight: 600;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .branch-meta {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-top: 0.35rem;
+  }
+
+  .badge-head {
+    background: #6366f1;
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+  }
+
+  .badge-inactive {
+    background: #f59e0b;
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+  }
+
+  .badge-active-now {
+    background: #10b981;
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+  }
+
+  .branch-stats {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-sm {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+
+  .btn-outline {
+    background: white;
+    border: 1px solid #d1d5db;
+    color: #374151;
+  }
+
+  .btn-warning {
+    background: #f59e0b;
+    color: white;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="card-title mb-0">
+          <i class="bx bx-buildings me-2"></i>Branch Management
+        </h4>
+      </div>
+      <div class="card-body">
+
+        <!-- Create Branch Form -->
+        <div class="form-section">
+          <h5>Add New Branch</h5>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Branch Name</label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. Mumbai Branch" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Contact Number</label>
+                <input type="text" name="contact_number" class="form-control" placeholder="+91XXXXXXXXXX">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-control">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Address</label>
+                <input type="text" name="address" class="form-control">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">City</label>
+                <input type="text" name="city" class="form-control">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">State</label>
+                <input type="text" name="state" class="form-control">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Pincode</label>
+                <input type="text" name="pincode" class="form-control">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Latitude <small class="text-muted">(for attendance geofence)</small></label>
+                <input type="text" name="latitude" class="form-control" placeholder="e.g. 26.9124">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Longitude</label>
+                <input type="text" name="longitude" class="form-control" placeholder="e.g. 75.7873">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Check-in Radius (meters)</label>
+                <input type="number" name="attendance_radius_meters" class="form-control" placeholder="250">
+              </div>
+            </div>
+            <button type="submit" class="btn-sm btn-primary mt-3">
+              <i class="bx bx-plus me-1"></i>Create Branch
+            </button>
+          </form>
+        </div>
+
+        <!-- Branches List -->
+        <h5 class="mb-3">All Branches</h5>
+        {% if branches %}
+          {% for branch in branches %}
+            <div class="branch-item {% if branch.id == active_branch_id %}is-active-branch{% endif %}">
+              <div>
+                <div class="branch-name">
+                  {{ branch.name }}
+                  {% if branch.is_head_office %}<span class="badge-head">Head Office</span>{% endif %}
+                  {% if not branch.is_active %}<span class="badge-inactive">Inactive</span>{% endif %}
+                  {% if branch.id == active_branch_id %}<span class="badge-active-now">Currently Active</span>{% endif %}
+                </div>
+                <div class="branch-meta">
+                  {% if branch.address %}{{ branch.address }}, {% endif %}{{ branch.city }}{% if branch.state %}, {{ branch.state }}{% endif %}{% if branch.pincode %} - {{ branch.pincode }}{% endif %}
+                </div>
+                <div class="branch-meta">
+                  {% if branch.contact_number %}<i class="bx bx-phone"></i> {{ branch.contact_number }}{% endif %}
+                  {% if branch.email %} &nbsp;|&nbsp; <i class="bx bx-envelope"></i> {{ branch.email }}{% endif %}
+                </div>
+                <div class="branch-stats">
+                  <i class="bx bx-group"></i> {{ branch.employee_count }} employee{{ branch.employee_count|pluralize }}
+                </div>
+              </div>
+              <div class="btn-group">
+                {% if branch.id != active_branch_id %}
+                  <form method="post" action="{% url 'employees:switch_branch' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="branch_id" value="{{ branch.id }}">
+                    <input type="hidden" name="next" value="{% url 'employees:admin_branches' %}">
+                    <button type="submit" class="btn-sm btn-outline"><i class="bx bx-transfer-alt me-1"></i>Switch here</button>
+                  </form>
+                {% endif %}
+                <button type="button" class="btn-sm btn-outline" onclick="document.getElementById('edit-form-{{ branch.id }}').classList.toggle('d-none')">
+                  <i class="bx bx-edit me-1"></i>Edit
+                </button>
+                {% if not branch.is_head_office or not branch.is_active %}
+                  <form method="post" onsubmit="return confirm('{% if branch.is_active %}Deactivate{% else %}Activate{% endif %} this branch?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_active">
+                    <input type="hidden" name="branch_id" value="{{ branch.id }}">
+                    <button type="submit" class="btn-sm btn-warning">
+                      {% if branch.is_active %}<i class="bx bx-pause-circle me-1"></i>Deactivate{% else %}<i class="bx bx-play-circle me-1"></i>Activate{% endif %}
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+
+              <div id="edit-form-{{ branch.id }}" class="d-none w-100 mt-3">
+                <form method="post" class="form-section mb-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="update">
+                  <input type="hidden" name="branch_id" value="{{ branch.id }}">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">Branch Name</label>
+                      <input type="text" name="name" class="form-control" value="{{ branch.name }}" required>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Contact Number</label>
+                      <input type="text" name="contact_number" class="form-control" value="{{ branch.contact_number }}">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Email</label>
+                      <input type="email" name="email" class="form-control" value="{{ branch.email }}">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Address</label>
+                      <input type="text" name="address" class="form-control" value="{{ branch.address }}">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">City</label>
+                      <input type="text" name="city" class="form-control" value="{{ branch.city }}">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">State</label>
+                      <input type="text" name="state" class="form-control" value="{{ branch.state }}">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Pincode</label>
+                      <input type="text" name="pincode" class="form-control" value="{{ branch.pincode }}">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Latitude</label>
+                      <input type="text" name="latitude" class="form-control" value="{{ branch.latitude|default:'' }}">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Longitude</label>
+                      <input type="text" name="longitude" class="form-control" value="{{ branch.longitude|default:'' }}">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Check-in Radius (meters)</label>
+                      <input type="number" name="attendance_radius_meters" class="form-control" value="{{ branch.attendance_radius_meters|default:'' }}">
+                    </div>
+                  </div>
+                  <button type="submit" class="btn-sm btn-primary mt-3"><i class="bx bx-save me-1"></i>Save Changes</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="alert alert-info">
+            <i class="bx bx-info-circle me-2"></i>No branches yet.
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
