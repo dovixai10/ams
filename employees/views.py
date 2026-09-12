@@ -1271,11 +1271,17 @@ def employee_dashboard(request):
     # Recent tickets
     recent_tickets = Ticket.objects.filter(employee=employee).order_by('-created_at')[:3]
     
-    # Check salary slip eligibility (3 months from joining)
+    # Salary slip is unlocked once the employee is 3 months past joining,
+    # OR as soon as the admin has actually generated at least one slip for
+    # them - no point gating access to a payslip that already exists.
     from datetime import timedelta
+    from employees.models import SalarySlip
     three_months_ago = timezone.now() - timedelta(days=90)
-    salary_slip_eligible = employee.created_at <= three_months_ago
-    
+    salary_slip_eligible = (
+        employee.created_at <= three_months_ago
+        or SalarySlip.objects.filter(employee=employee).exists()
+    )
+
     # Check if employee has ID card
     from employees.models import EmployeeIDCard
     has_id_card = EmployeeIDCard.objects.filter(employee=employee).exists()
@@ -7256,14 +7262,15 @@ def salary_slips(request):
     from datetime import timedelta
     
     employee = request.user.employee_profile
-    
-    # Check if employee is eligible (3 months from joining)
+    salary_slips = SalarySlip.objects.filter(employee=employee).order_by('-month')
+
+    # Eligible once 3 months past joining, OR as soon as the admin has
+    # actually generated a slip for them (mirrors employee_dashboard's
+    # salary_slip_eligible check).
     three_months_ago = timezone.now() - timedelta(days=90)
-    if employee.created_at > three_months_ago:
+    if employee.created_at > three_months_ago and not salary_slips.exists():
         messages.warning(request, 'You are not eligible yet. Please contact your admin.')
         return redirect('employees:employee_dashboard')
-    
-    salary_slips = SalarySlip.objects.filter(employee=employee).order_by('-month')
     
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -7312,7 +7319,13 @@ def admin_salary_slips(request):
                         'net_salary': net_salary,
                     }
                 )
-                
+
+                # Build the payslip PDF and attach it to the record so both
+                # the admin and the employee can view/download it.
+                pdf_buffer = _build_salary_slip_pdf(salary_slip)
+                pdf_name = f"salary_slip_{employee.id}_{month_date.strftime('%Y_%m')}.pdf"
+                salary_slip.pdf_file.save(pdf_name, ContentFile(pdf_buffer.getvalue()), save=True)
+
                 if created:
                     messages.success(request, 'Salary slip generated successfully!')
                 else:
@@ -7360,24 +7373,151 @@ def download_salary_slip(request, pk):
     # if request.user.employee_profile != salary_slip.employee and not request.user.is_superuser:
     #     messages.error(request, 'You do not have permission to access this file.')
     #     return redirect('employees:employee_dashboard')
-    is_platform_admin = request.user.is_superuser
-
     is_owner = (
         hasattr(request.user, "employee_profile")
         and request.user.employee_profile == salary_slip.employee
     )
 
-    if not (is_platform_admin or is_owner):
+    # tenant_queryset() above already scoped salary_slip to the requesting
+    # office admin's own office, so is_office_admin() here can't leak
+    # another office's slip.
+    if not (is_platform_admin(request.user) or is_office_admin(request.user) or is_owner):
         messages.error(
             request,
             "You do not have permission to access this salary slip."
         )
         return redirect("employees:employee_dashboard")
     if salary_slip.pdf_file:
-        return FileResponse(salary_slip.pdf_file.open('rb'), as_attachment=True)
-    
+        # ?inline=1 opens the PDF in-browser (used by the "View" button);
+        # the default stays a forced download (used by "Download").
+        inline = request.GET.get('inline') in ('1', 'true', 'yes')
+        filename = f"salary_slip_{salary_slip.month.strftime('%b_%Y')}.pdf"
+        return FileResponse(
+            salary_slip.pdf_file.open('rb'),
+            as_attachment=not inline,
+            filename=filename,
+        )
+
     messages.error(request, 'PDF file not found.')
     return redirect('employees:salary_slips')
+
+
+def _build_salary_slip_pdf(salary_slip):
+    """Renders a one-page payslip PDF for a SalarySlip record and returns an
+    in-memory buffer ready to be saved to pdf_file or streamed as a response."""
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+    employee = salary_slip.employee
+    office = employee.office
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        topMargin=20 * mm, bottomMargin=20 * mm,
+        leftMargin=20 * mm, rightMargin=20 * mm,
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'SlipTitle', parent=styles['Heading1'], alignment=TA_CENTER, fontSize=16,
+    )
+    subtitle_style = ParagraphStyle(
+        'SlipSubtitle', parent=styles['Normal'], alignment=TA_CENTER,
+        textColor=colors.HexColor('#6b7280'),
+    )
+    section_style = ParagraphStyle(
+        'SlipSection', parent=styles['Heading3'], fontSize=11,
+        textColor=colors.HexColor('#374151'), spaceBefore=6, spaceAfter=6,
+    )
+
+    elements = []
+
+    company_name = office.name if office else 'Company'
+    company_address = office.address if office and office.address else ''
+    elements.append(Paragraph(company_name, title_style))
+    if company_address:
+        elements.append(Paragraph(company_address, subtitle_style))
+    elements.append(Spacer(1, 6 * mm))
+    elements.append(Paragraph(
+        f"Salary Slip - {salary_slip.month.strftime('%B %Y')}", section_style,
+    ))
+
+    employee_code = f"KI{employee.id:05d}"
+    designation = getattr(employee, 'designation', '') or '-'
+    info_table = Table(
+        [
+            ['Employee Name', employee.full_name, 'Employee Code', employee_code],
+            ['Designation', designation, 'Office', company_name],
+            ['Pay Period', salary_slip.month.strftime('%B %Y'), 'Slip Generated On', salary_slip.updated_at.strftime('%d %b %Y')],
+        ],
+        colWidths=[35 * mm, 55 * mm, 35 * mm, 45 * mm],
+    )
+    info_table.setStyle(TableStyle([
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#6b7280')),
+        ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#6b7280')),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 8 * mm))
+
+    amount_style = ParagraphStyle('Amount', parent=styles['Normal'], alignment=TA_RIGHT)
+    earnings_deductions = Table(
+        [
+            ['Earnings', 'Amount (₹)', 'Deductions', 'Amount (₹)'],
+            ['Basic Salary', f"{salary_slip.basic_salary:,.2f}", 'Total Deductions', f"{salary_slip.deductions:,.2f}"],
+        ],
+        colWidths=[42.5 * mm, 42.5 * mm, 42.5 * mm, 42.5 * mm],
+    )
+    earnings_deductions.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0891b2')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+        ('FONTSIZE', (0, 0), (-1, -1), 9.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(earnings_deductions)
+    elements.append(Spacer(1, 6 * mm))
+
+    net_table = Table(
+        [['Net Salary Payable', f"₹ {salary_slip.net_salary:,.2f}"]],
+        colWidths=[127.5 * mm, 42.5 * mm],
+    )
+    net_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#10b981')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(net_table)
+    elements.append(Spacer(1, 14 * mm))
+    elements.append(Paragraph(
+        "This is a system-generated salary slip and does not require a signature.",
+        ParagraphStyle('Footnote', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#9ca3af')),
+    ))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
 
 
 # ===========================

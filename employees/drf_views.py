@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .permissions import is_employee
-from .serializers import EmployeeProfileSerializer
+from .serializers import EmployeeProfileSerializer, SalarySlipSerializer
 
 
 class TokenAuthView(ObtainAuthToken):
@@ -34,4 +34,27 @@ class EmployeeProfileAPIView(APIView):
             )
         employee = request.user.employee_profile
         serializer = EmployeeProfileSerializer(employee, context={'request': request})
+        return Response(serializer.data)
+
+
+class SalarySlipListAPIView(APIView):
+    """Read-only endpoint returning the logged-in employee's own salary
+    slips (one entry per generated month), each with an absolute `pdf_url`
+    to fetch/download that month's payslip PDF. Same auth as /api/v1/profile/
+    - a DRF token via /api/v1/token-auth/."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not is_employee(request.user):
+            return Response(
+                {'detail': 'Only employee accounts can access this endpoint.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        from .models import SalarySlip
+
+        employee = request.user.employee_profile
+        slips = SalarySlip.objects.filter(employee=employee).order_by('-month')
+        serializer = SalarySlipSerializer(slips, many=True, context={'request': request})
+        print("serializer.data->",serializer.data)
         return Response(serializer.data)

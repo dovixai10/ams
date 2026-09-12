@@ -131,13 +131,17 @@
                   {{ slip.month|date:"F Y" }}
                 </div>
                 <div class="salary-slip-actions">
-                  <button class="btn-view" onclick="viewSlip({{ slip.id }})">
-                    <i class="bx bx-eye me-1"></i>View
-                  </button>
                   {% if slip.pdf_file %}
+                    <a href="{% url 'employees:download_salary_slip' slip.id %}?inline=1" target="_blank" rel="noopener" class="btn-view">
+                      <i class="bx bx-eye me-1"></i>View
+                    </a>
                     <a href="{% url 'employees:download_salary_slip' slip.id %}" class="btn-view" style="background: linear-gradient(135deg, #10b981, #059669);">
                       <i class="bx bx-download me-1"></i>Download
                     </a>
+                  {% else %}
+                    <span class="btn-view" style="background: #9ca3af; cursor: not-allowed;" title="PDF not generated yet">
+                      <i class="bx bx-time me-1"></i>Pending
+                    </span>
                   {% endif %}
                 </div>
               </div>
@@ -168,10 +172,4 @@
     </div>
   </div>
 </div>
-
-<script>
-function viewSlip(slipId) {
-  alert('Salary slip details for ID: ' + slipId);
-}
-</script>
 {% endblock %}

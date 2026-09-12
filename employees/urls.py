@@ -183,6 +183,7 @@ urlpatterns = [
     # DRF API (token-authenticated, for external platforms)
     path('api/v1/token-auth/', drf_views.TokenAuthView.as_view(), name='api_token_auth'),
     path('api/v1/profile/', drf_views.EmployeeProfileAPIView.as_view(), name='employee_profile_api'),
+    path('api/v1/salary-slips/', drf_views.SalarySlipListAPIView.as_view(), name='salary_slips_api'),
 
     # Dashboard API
     path('api/dashboard/', api_views.dashboard_api, name='dashboard_api'),

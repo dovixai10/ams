@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Employee
+from .models import Employee, SalarySlip
 
 
 def _absolute_file_url(file_field, request):
@@ -149,3 +149,27 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
                 'payable_salary': calc['payable_salary'],
             }
         return data
+
+
+class SalarySlipSerializer(serializers.ModelSerializer):
+    """One generated payslip for the logged-in employee, with an absolute
+    URL to the PDF document (None until the admin has generated a slip for
+    that month)."""
+
+    pdf_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SalarySlip
+        fields = [
+            'id',
+            'month',
+            'basic_salary',
+            'deductions',
+            'net_salary',
+            'pdf_url',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_pdf_url(self, obj):
+        return _absolute_file_url(obj.pdf_file, self.context.get('request'))

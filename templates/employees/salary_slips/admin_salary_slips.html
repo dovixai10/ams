@@ -203,6 +203,9 @@
                 </div>
                 <div class="btn-group">
                   {% if slip.pdf_file %}
+                    <a href="{% url 'employees:download_salary_slip' slip.id %}?inline=1" target="_blank" rel="noopener" class="btn-sm btn-primary">
+                      <i class="bx bx-show"></i>View
+                    </a>
                     <a href="{% url 'employees:download_salary_slip' slip.id %}" class="btn-sm btn-primary">
                       <i class="bx bx-download"></i>Download
                     </a>
