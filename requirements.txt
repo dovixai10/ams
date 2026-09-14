@@ -12,6 +12,10 @@ packaging==26.2
 pillow==10.4.0
 psycopg[binary]==3.3.4
 python-dotenv==1.0.1
+djangorestframework==3.17.1
+djangorestframework-simplejwt==5.5.1
+PyJWT==2.14.0
+drf-spectacular==0.30.0
 sqlparse==0.5.5
 typing_extensions==4.16.0
 tzdata==2026.3

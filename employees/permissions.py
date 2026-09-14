@@ -37,7 +37,7 @@ FEATURE_PERMISSIONS = [
     ('employees.manage', 'Manage Employees', 'Employees'),
     ('attendance.manage', 'Manage Attendance', 'Attendance'),
     ('leave.manage', 'Manage Leave (types & approvals)', 'Attendance'),
-    ('tasks.manage', 'Manage Tasks & Face Update Requests', 'Tasks & Workflows'),
+    ('tasks.manage', 'Manage Projects, Tasks & Face Update Requests', 'Tasks & Workflows'),
     ('tickets.manage', 'Manage Support Tickets', 'Support'),
     ('finance.manage', 'Manage Finance (salary, loans, reimbursements, payslips)', 'Finance'),
     ('holidays.manage', 'Manage Holidays Calendar', 'Company Settings'),

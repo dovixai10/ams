@@ -99,6 +99,14 @@ urlpatterns = [
     path('tickets/manage/', views.admin_tickets, name='admin_tickets'),  # Admin - All tickets
     path('tickets/manage/<int:pk>/update/', views.admin_update_ticket, name='admin_update_ticket'),  # Admin - Update ticket
 
+    # Project Management URLs
+    path('projects/', views.admin_projects, name='admin_projects'),  # Admin - Projects list + create
+    path('projects/<int:pk>/', views.admin_project_detail, name='admin_project_detail'),  # Admin - Project detail
+    path('projects/<int:pk>/add-task/', views.admin_project_add_task, name='admin_project_add_task'),
+    path('projects/<int:pk>/upload-attachment/', views.admin_project_upload_attachment, name='admin_project_upload_attachment'),
+    path('projects/<int:pk>/attachments/<int:attachment_id>/delete/', views.admin_project_delete_attachment, name='admin_project_delete_attachment'),
+    path('projects/<int:pk>/delete/', views.admin_project_delete, name='admin_project_delete'),
+
     # Task Management URLs
     path('tasks/manage/', views.admin_tasks, name='admin_tasks'),  # Admin - Task dashboard
     path('tasks/manage/<int:pk>/', views.admin_task_detail, name='admin_task_detail'),  # Admin - Task detail

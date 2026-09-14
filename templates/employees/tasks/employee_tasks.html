@@ -223,6 +223,15 @@
             {{ create_form.assigned_to }}  {# hidden, locked to this employee #}
 
             <div class="mb-3">
+              <label class="form-label">Project</label>
+              {{ create_form.project }}
+              {% if create_form.project.errors %}
+              <div class="invalid-feedback d-block">{{ create_form.project.errors|join:', ' }}</div>
+              {% endif %}
+              <small class="text-muted">Only shows projects you're on the team of.</small>
+            </div>
+
+            <div class="mb-3">
               <label class="form-label">Title</label>
               {{ create_form.title }}
               {% if create_form.title.errors %}

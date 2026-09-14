@@ -24,6 +24,7 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
     has_registered_face = serializers.SerializerMethodField()
     paid_leave_balance = serializers.SerializerMethodField()
     salary = serializers.SerializerMethodField()
+    roles = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
@@ -37,6 +38,7 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
             'profile_picture',
             'office',
             'shift',
+            'roles',
             'joining_date',
             'current_address',
             'permanent_address',
@@ -84,6 +86,25 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
             'start_time': obj.shift.start_time,
             'end_time': obj.shift.end_time,
         }
+
+    def get_roles(self, obj):
+        """Delegated-permission roles (e.g. HR) this employee holds, with
+        human-readable permission labels. Same branch-match rule as
+        employee_has_permission() - a role only counts here if it still
+        belongs to this employee's own current branch."""
+        from .permissions import FEATURE_PERMISSIONS
+
+        labels = {key: label for key, label, _ in FEATURE_PERMISSIONS}
+        roles = []
+        for role in obj.roles.filter(is_active=True):
+            if role.branch_id is not None and role.branch_id != obj.branch_id:
+                continue
+            roles.append({
+                'name': role.name,
+                'description': role.description,
+                'permissions': [labels.get(key, key) for key in (role.permissions or [])],
+            })
+        return roles
 
     def get_documents(self, obj):
         request = self.context.get('request')

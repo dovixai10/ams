@@ -73,14 +73,6 @@
       </div>
     </div>
 
-    {% if messages %}
-      {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} mb-3" role="alert">
-          {{ message }}
-        </div>
-      {% endfor %}
-    {% endif %}
-
     {% if pending_leaves %}
       <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}

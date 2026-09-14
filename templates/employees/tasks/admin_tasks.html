@@ -108,6 +108,14 @@
             {% csrf_token %}
 
             <div class="mb-3">
+              <label class="form-label">Project</label>
+              {{ task_form.project }}
+              {% if task_form.project.errors %}
+              <div class="invalid-feedback d-block">{{ task_form.project.errors|join:', ' }}</div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
               <label class="form-label">Title</label>
               {{ task_form.title }}
               {% if task_form.title.errors %}
@@ -239,6 +247,17 @@
       </select>
     </div>
 
+    <div class="col-12 col-md-2">
+      <select class="form-select task-filter-select" name="project">
+        <option value="">All projects</option>
+        {% for proj in projects %}
+        <option value="{{ proj.pk }}" {% if selected_project|default:'' == proj.pk|stringformat:'s' %}selected{% endif %}>
+          {{ proj.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div class="col-6 col-md-2">
       <input type="date" name="date_from" class="form-control" value="{{ selected_date_from|default:'' }}">
     </div>
@@ -254,7 +273,7 @@
     </div>
   </form>
 
-  {% if selected_status or selected_priority or selected_assignee or selected_date_from or selected_date_to %}
+  {% if selected_status or selected_priority or selected_assignee or selected_project or selected_date_from or selected_date_to %}
     <div class="mt-2">
       <a href="{% url 'employees:admin_tasks' %}" class="btn btn-sm btn-outline-secondary">
         <i class="bx bx-reset me-1"></i>Clear Filters
@@ -269,6 +288,7 @@
           <thead class="table-light">
             <tr>
               <th>Title</th>
+              <th>Project</th>
               <th>Created By</th>
               <th>Assigned To</th>
               <th>Priority</th>
@@ -285,6 +305,13 @@
                 <div class="fw-semibold">{{ task.title }}</div>
                 {% if task.is_overdue %}
                   <span class="badge bg-danger bg-opacity-10 text-danger">Overdue</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if task.project %}
+                  <a href="{% url 'employees:admin_project_detail' task.project.pk %}" class="text-decoration-none">{{ task.project.name }}</a>
+                {% else %}
+                  <span class="text-muted">—</span>
                 {% endif %}
               </td>
               <td>
@@ -321,7 +348,7 @@
             </tr>
             {% empty %}
             <tr>
-              <td colspan="7" class="text-center text-muted py-4">No tasks match the current filters.</td>
+              <td colspan="9" class="text-center text-muted py-4">No tasks match the current filters.</td>
             </tr>
             {% endfor %}
           </tbody>

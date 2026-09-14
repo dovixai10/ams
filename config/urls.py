@@ -32,6 +32,9 @@ urlpatterns = [
     # Employee Management System URLs (before other apps to catch login/ first)
     path("", include("employees.urls")),
 
+    # Mobile attendance app API (JWT-authenticated, DOVIX_AI_Attendance_Backend_API_Spec.pdf v1.0)
+    path("", include("employees.mobile_urls")),
+
     # Dashboard urls
     # path("", include("apps.dashboards.urls")),
 

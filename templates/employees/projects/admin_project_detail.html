@@ -1,0 +1,504 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}{{ project.name }} | Project{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .progress-mini { height: 10px; border-radius: 999px; }
+
+  .gantt-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+  .gantt-label {
+    flex: 0 0 220px;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+  }
+  .gantt-track {
+    position: relative;
+    flex: 1;
+    height: 10px;
+    background: rgba(0,0,0,0.05);
+    border-radius: 999px;
+  }
+  .gantt-marker {
+    position: absolute;
+    top: -3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ============================
+      HEADER
+============================= -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <h3 class="mb-0">{{ project.name }}</h3>
+      <span class="badge bg-{{ project.status_badge }} bg-opacity-10 text-{{ project.status_badge }}">{{ project.get_status_display }}</span>
+      <span class="badge bg-{{ project.priority_badge }} bg-opacity-10 text-{{ project.priority_badge }}">{{ project.get_priority_display }} priority</span>
+      {% if project.is_overdue %}
+        <span class="badge bg-danger bg-opacity-10 text-danger">Overdue</span>
+      {% endif %}
+    </div>
+    <p class="text-muted small mb-0">{{ project.code }}{% if project.client_department %} · {{ project.client_department }}{% endif %}</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'employees:admin_projects' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bx bx-arrow-back"></i> All Projects
+    </a>
+    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#editProjectPanel">
+      <i class="bx bx-edit"></i> Edit
+    </button>
+    <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteProjectModal">
+      <i class="bx bx-trash"></i> Delete
+    </button>
+  </div>
+</div>
+
+<!-- ============================
+      OVERVIEW STATS
+============================= -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted text-uppercase small">Progress</div>
+        <div class="fs-4 fw-semibold">{{ project.progress_percent }}%</div>
+        <div class="progress progress-mini mt-2">
+          <div class="progress-bar bg-{{ project.status_badge }}" role="progressbar" style="width: {{ project.progress_percent }}%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted text-uppercase small">Timeline</div>
+        <div class="fw-semibold">{{ project.start_date|date:"d M Y"|default:"—" }}</div>
+        <div class="text-muted small">to {{ project.end_date|date:"d M Y"|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted text-uppercase small">Team</div>
+        <div class="fs-4 fw-semibold">{{ team|length }}</div>
+        <div class="text-muted small">Manager: {{ project.manager.full_name|default:"Unassigned" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted text-uppercase small">Budget</div>
+        {% if project.estimated_budget %}
+          <div class="fw-semibold">₹{{ project.actual_spend|default:0 }} / ₹{{ project.estimated_budget }}</div>
+          <div class="text-muted small">
+            {% if project.budget_variance > 0 %}
+              <span class="text-danger">₹{{ project.budget_variance }} over</span>
+            {% else %}
+              <span class="text-success">Within budget</span>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="text-muted small">Not set</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================
+      EDIT PROJECT (collapsible)
+============================= -->
+<div class="collapse mb-4" id="editProjectPanel">
+  <div class="card shadow-sm">
+    <div class="card-header"><h5 class="mb-0">Edit Project</h5></div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="form" value="project">
+
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label">Project Name</label>
+            {{ form.name }}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Client / Department</label>
+            {{ form.client_department }}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Description / Objective</label>
+            {{ form.description }}
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Start Date</label>
+            {{ form.start_date }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Deadline</label>
+            {{ form.end_date }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Status</label>
+            {{ form.status }}
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Priority</label>
+            {{ form.priority }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Project Owner / Manager</label>
+            {{ form.manager }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Tags / Category</label>
+            {{ form.tags }}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Assigned Employees</label>
+            {{ form.assigned_employees }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Estimated Budget</label>
+            {{ form.estimated_budget }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Actual Spend</label>
+            {{ form.actual_spend }}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Notes</label>
+            {{ form.notes }}
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-primary"><i class="bx bx-save"></i> Save Changes</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#editProjectPanel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% if project.description %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h6 class="text-muted text-uppercase small mb-2">Description / Objective</h6>
+    <p class="mb-0">{{ project.description|linebreaksbr }}</p>
+  </div>
+</div>
+{% endif %}
+
+<!-- ============================
+      TABS: Tasks / Team / Timeline / Attachments
+============================= -->
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-tasks" type="button">Tasks</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-team" type="button">Team</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-timeline" type="button">Timeline</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-attachments" type="button">Attachments &amp; Notes</button></li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- TASKS TAB -->
+  <div class="tab-pane fade show active" id="tab-tasks" role="tabpanel">
+
+    <div class="row g-3 mb-3">
+      <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <span class="badge bg-primary bg-opacity-10 text-primary">Overview</span>
+            <h5 class="mt-2 mb-0">Task Insights</h5>
+            <p class="text-muted small mb-3">{{ total_tasks }} total · {{ overdue_tasks }} overdue</p>
+
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex gap-2 flex-wrap">
+                {% for entry in status_summary %}
+                <div class="flex-fill bg-{{ entry.style }} bg-opacity-10 border border-{{ entry.style }} border-opacity-25 rounded-3 p-2">
+                  <div class="text-muted text-uppercase small">{{ entry.label }}</div>
+                  <div class="fs-5 fw-semibold text-{{ entry.style }}">{{ entry.count }}</div>
+                </div>
+                {% endfor %}
+              </div>
+              <div class="d-flex gap-2 flex-wrap">
+                {% for entry in priority_summary %}
+                <div class="flex-fill bg-{{ entry.style }} bg-opacity-10 border border-{{ entry.style }} border-opacity-25 rounded-3 p-2">
+                  <div class="text-muted text-uppercase small">{{ entry.label }}</div>
+                  <div class="fs-6 fw-semibold text-{{ entry.style }}">{{ entry.count }}</div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">Assign New Task</h5>
+            <span class="badge bg-primary bg-opacity-10 text-primary">In this project</span>
+          </div>
+          <div class="card-body">
+            <form method="post" action="{% url 'employees:admin_project_add_task' project.pk %}">
+              {% csrf_token %}
+              {{ task_form.project }}
+
+              <div class="mb-3">
+                <label class="form-label">Title</label>
+                {{ task_form.title }}
+              </div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Assign to</label>
+                  {{ task_form.assigned_to }}
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Due date</label>
+                  {{ task_form.due_date }}
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Priority</label>
+                  {{ task_form.priority }}
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Status</label>
+                  {{ task_form.status }}
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Description</label>
+                  {{ task_form.description }}
+                </div>
+              </div>
+              <div class="d-grid mt-3">
+                <button type="submit" class="btn btn-primary btn-sm"><i class="bx bx-task"></i> Add Task</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Title</th>
+              <th>Assigned To</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Due Date</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task in tasks %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ task.title }}</div>
+                {% if task.is_overdue %}
+                  <span class="badge bg-danger bg-opacity-10 text-danger">Overdue</span>
+                {% endif %}
+              </td>
+              <td>{{ task.assigned_to.full_name }}</td>
+              <td>
+                <span class="badge bg-{{ task.priority_badge }} bg-opacity-10 text-{{ task.priority_badge }}">{{ task.get_priority_display }}</span>
+              </td>
+              <td>
+                <span class="badge bg-{{ task.status_badge }} bg-opacity-10 text-{{ task.status_badge }}">{{ task.get_status_display }}</span>
+              </td>
+              <td>{{ task.due_date|date:"d M Y"|default:"—" }}</td>
+              <td class="text-end">
+                <a href="{% url 'employees:admin_task_detail' task.pk %}" class="btn btn-sm btn-outline-primary">
+                  <i class="bx bx-detail"></i> View
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">No tasks in this project yet.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEAM TAB -->
+  <div class="tab-pane fade" id="tab-team" role="tabpanel">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="text-muted text-uppercase small mb-3">Project Owner / Manager</h6>
+        {% if project.manager %}
+          <div class="d-flex align-items-center gap-2 mb-4">
+            <i class="bx bxs-user-badge fs-4 text-primary"></i>
+            <div>
+              <div class="fw-semibold">{{ project.manager.full_name }}</div>
+              <div class="text-muted small">{{ project.manager.email }}</div>
+            </div>
+          </div>
+        {% else %}
+          <p class="text-muted mb-4">No manager assigned.</p>
+        {% endif %}
+
+        <h6 class="text-muted text-uppercase small mb-3">Assigned Employees ({{ team|length }})</h6>
+        {% if team %}
+          <div class="row g-2">
+            {% for member in team %}
+            <div class="col-md-6 col-lg-4">
+              <div class="border rounded-3 p-2 d-flex align-items-center gap-2">
+                <i class="bx bx-user fs-5 text-muted"></i>
+                <div>
+                  <div class="fw-semibold small">{{ member.full_name }}</div>
+                  <div class="text-muted small">{{ member.email }}</div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">No team members assigned yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE TAB -->
+  <div class="tab-pane fade" id="tab-timeline" role="tabpanel">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        {% if not project.start_date or not project.end_date %}
+          <p class="text-muted mb-0">Set both a start date and a deadline on this project to see its timeline.</p>
+        {% elif not timeline_tasks %}
+          <p class="text-muted mb-0">No tasks with a due date yet to plot on the timeline.</p>
+        {% else %}
+          <div class="d-flex justify-content-between text-muted small mb-2">
+            <span>{{ project.start_date|date:"d M Y" }}</span>
+            <span>{{ project.end_date|date:"d M Y" }}</span>
+          </div>
+          {% for entry in timeline_tasks %}
+          <div class="gantt-row">
+            <div class="gantt-label" title="{{ entry.task.title }}">{{ entry.task.title }}</div>
+            <div class="gantt-track">
+              <div class="gantt-marker bg-{{ entry.task.status_badge }}" style="left: {{ entry.left_pct }}%;" title="Due {{ entry.task.due_date|date:'d M Y' }}"></div>
+            </div>
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ATTACHMENTS & NOTES TAB -->
+  <div class="tab-pane fade" id="tab-attachments" role="tabpanel">
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-header"><h6 class="mb-0">Files &amp; Requirement Docs</h6></div>
+          <div class="card-body">
+            <form method="post" action="{% url 'employees:admin_project_upload_attachment' project.pk %}" enctype="multipart/form-data" class="d-flex flex-column flex-sm-row gap-2 mb-3">
+              {% csrf_token %}
+              {{ attachment_form.file }}
+              {{ attachment_form.name }}
+              <button type="submit" class="btn btn-primary btn-sm text-nowrap"><i class="bx bx-upload"></i> Upload</button>
+            </form>
+
+            {% if attachments %}
+              <ul class="list-group list-group-flush">
+                {% for att in attachments %}
+                <li class="list-group-item d-flex align-items-center justify-content-between px-0">
+                  <a href="{{ att.file.url }}" target="_blank" rel="noopener" class="text-decoration-none">
+                    <i class="bx bx-file me-1"></i>{{ att.name }}
+                  </a>
+                  <form method="post" action="{% url 'employees:admin_project_delete_attachment' project.pk att.pk %}" onsubmit="return confirm('Remove this file?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bx bx-trash"></i></button>
+                  </form>
+                </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="text-muted mb-0">No files uploaded yet.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-header"><h6 class="mb-0">Notes</h6></div>
+          <div class="card-body">
+            {% if project.notes %}
+              <p class="mb-0">{{ project.notes|linebreaksbr }}</p>
+            {% else %}
+              <p class="text-muted mb-0">No notes added yet. Use Edit to add some.</p>
+            {% endif %}
+            {% if project.tag_list %}
+              <div class="mt-3 d-flex gap-1 flex-wrap">
+                {% for tag in project.tag_list %}
+                  <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ tag }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal fade" id="deleteProjectModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Delete Project</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Delete <strong>{{ project.name }}</strong>? Its tasks will be kept but unlinked from this project.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <form method="post" action="{% url 'employees:admin_project_delete' project.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">Delete Project</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,286 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Projects | Admin{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+
+  .project-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .project-top-row {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 992px) {
+    .project-top-row {
+      flex-direction: row;
+    }
+  }
+
+  .project-insights {
+    flex: 1;
+    min-width: 280px;
+  }
+
+  .project-new {
+    flex: 1.3;
+    min-width: 320px;
+  }
+
+  .project-overview {
+    width: 100%;
+  }
+
+  .progress-mini {
+    height: 8px;
+    border-radius: 999px;
+  }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="project-layout">
+
+  <!-- ============================
+        TOP ROW (INSIGHTS + CREATE)
+  ============================= -->
+  <div class="project-top-row">
+
+    <!-- LEFT: PROJECT INSIGHTS -->
+    <div class="project-insights">
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex flex-column gap-3">
+            <div>
+              <span class="badge bg-primary bg-opacity-10 text-primary">Overview</span>
+              <h4 class="mt-2 mb-0">Project Insights</h4>
+              <p class="text-muted small mb-0">{{ total_projects }} total · {{ overdue_count }} overdue</p>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+              {% for entry in status_summary %}
+              <div class="flex-fill bg-{{ entry.style }} bg-opacity-10 border border-{{ entry.style }} border-opacity-25 rounded-3 p-2">
+                <div class="text-muted text-uppercase small">{{ entry.label }}</div>
+                <div class="fs-5 fw-semibold text-{{ entry.style }}">{{ entry.count }}</div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: CREATE NEW PROJECT -->
+    <div class="project-new">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h5 class="mb-0">Create New Project</h5>
+          <span class="badge bg-primary bg-opacity-10 text-primary">Admin</span>
+        </div>
+
+        <div class="card-body">
+          <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+
+            <div class="row g-3">
+              <div class="col-md-8">
+                <label class="form-label">Project Name</label>
+                {{ project_form.name }}
+                {% if project_form.name.errors %}
+                <div class="invalid-feedback d-block">{{ project_form.name.errors|join:', ' }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Client / Department</label>
+                {{ project_form.client_department }}
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Description / Objective</label>
+                {{ project_form.description }}
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Start Date</label>
+                {{ project_form.start_date }}
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Deadline</label>
+                {{ project_form.end_date }}
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Status</label>
+                {{ project_form.status }}
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Priority</label>
+                {{ project_form.priority }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Project Owner / Manager</label>
+                {{ project_form.manager }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Tags / Category</label>
+                {{ project_form.tags }}
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Assigned Employees</label>
+                {{ project_form.assigned_employees }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Estimated Budget</label>
+                {{ project_form.estimated_budget }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Actual Spend</label>
+                {{ project_form.actual_spend }}
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Notes</label>
+                {{ project_form.notes }}
+              </div>
+            </div>
+
+            <div class="d-grid mt-4">
+              <button type="submit" class="btn btn-primary">
+                <i class="bx bx-folder-plus"></i><span class="ms-1">Create Project</span>
+              </button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ============================
+          BOTTOM: PROJECTS TABLE
+  ============================= -->
+  <div class="project-overview">
+    <div class="card shadow-sm">
+
+      <div class="card-header">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between gap-3">
+          <div>
+            <h5 class="mb-0">All Projects</h5>
+            <small class="text-muted">Track ownership, timelines and progress across every project.</small>
+          </div>
+        </div>
+
+        <form method="get" class="row g-2 mt-3">
+          <div class="col-6 col-md-3">
+            <select class="form-select" name="status">
+              <option value="">All statuses</option>
+              {% for value, label in status_choices %}
+              <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <select class="form-select" name="priority">
+              <option value="">All priorities</option>
+              {% for value, label in priority_choices %}
+              <option value="{{ value }}" {% if selected_priority == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-8 col-md-4">
+            <select class="form-select" name="manager">
+              <option value="">All managers</option>
+              {% for emp in employees %}
+              <option value="{{ emp.pk }}" {% if selected_manager|default:'' == emp.pk|stringformat:'s' %}selected{% endif %}>
+                {{ emp.full_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-4 col-md-2 d-grid">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i class="bx bx-filter-alt"></i>
+            </button>
+          </div>
+        </form>
+
+        {% if selected_status or selected_priority or selected_manager %}
+        <div class="mt-2">
+          <a href="{% url 'employees:admin_projects' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bx bx-reset me-1"></i>Clear Filters
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Name</th>
+              <th>Manager</th>
+              <th>Team Size</th>
+              <th>Status</th>
+              <th>Deadline</th>
+              <th style="min-width: 160px;">Progress</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for project in projects %}
+            <tr>
+              <td>
+                <a href="{% url 'employees:admin_project_detail' project.pk %}" class="fw-semibold text-decoration-none">{{ project.name }}</a>
+                <div class="text-muted small">{{ project.code }}</div>
+                {% if project.is_overdue %}
+                  <span class="badge bg-danger bg-opacity-10 text-danger">Overdue</span>
+                {% endif %}
+              </td>
+              <td>{{ project.manager.full_name|default:"—" }}</td>
+              <td>{{ project.team_size }}</td>
+              <td>
+                <span class="badge bg-{{ project.status_badge }} bg-opacity-10 text-{{ project.status_badge }}">
+                  {{ project.get_status_display }}
+                </span>
+              </td>
+              <td>{{ project.end_date|date:"d M Y"|default:"—" }}</td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress progress-mini flex-grow-1">
+                    <div class="progress-bar bg-{{ project.status_badge }}" role="progressbar" style="width: {{ project.progress_percent }}%;"></div>
+                  </div>
+                  <small class="text-muted">{{ project.progress_percent }}%</small>
+                </div>
+              </td>
+              <td class="text-end">
+                <a href="{% url 'employees:admin_project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">
+                  <i class="bx bx-detail"></i> View
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">No projects match the current filters.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

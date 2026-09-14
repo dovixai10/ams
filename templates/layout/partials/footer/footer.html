@@ -12,7 +12,7 @@
         {% else %}
           <!-- Links for Regular Employees -->
           <a href="{% url 'employees:employee_dashboard' %}" class="footer-link me-4">Dashboard</a>
-          <a href="{% url 'employees:employee_profile' %}" class="footer-link me-4">My Profile</a>
+          <a href="{% if has_any_permission %}{% url 'employees:employee_profile_mobile' %}{% else %}{% url 'employees:employee_profile' %}{% endif %}" class="footer-link me-4">My Profile</a>
           <a href="{% url 'employees:check_in' %}" class="footer-link me-4">Check In/Out</a>
         {% endif %}
       </div>

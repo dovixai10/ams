@@ -249,6 +249,11 @@ class Shift(models.Model):
         default=ShiftType.FULL_DAY,
         help_text="Type of shift: Full Day or Half Day"
     )
+    grace_minutes = models.PositiveIntegerField(
+        default=15,
+        help_text="Minutes after start_time a check-in is still 'on time'; after this it's LATE. "
+                   "Added for the mobile attendance API (see employees/mobile_attendance_api.py).",
+    )
     start_time = models.TimeField(
         help_text="Shift start time (HH:MM)"
     )
@@ -325,6 +330,27 @@ class Employee(models.Model):
     # Basic Information
     name = models.CharField(max_length=100, help_text="Employee's first name")
     full_name = models.CharField(max_length=200, help_text="Employee's full name")
+
+    # HR-managed employment details - added for the mobile attendance app
+    # profile screen (see employees/mobile_profile_api.py). All blank/null
+    # so nothing breaks for existing employees; there's no admin UI to set
+    # these yet beyond Django admin/shell.
+    class EmployeeType(models.TextChoices):
+        FULL_TIME = 'FULL_TIME', 'Full Time'
+        PART_TIME = 'PART_TIME', 'Part Time'
+        CONTRACT = 'CONTRACT', 'Contract'
+        INTERN = 'INTERN', 'Intern'
+
+    department = models.CharField(max_length=100, blank=True)
+    designation = models.CharField(max_length=100, blank=True)
+    personal_email = models.EmailField(blank=True, help_text="Self-editable, unlike the work email")
+    employee_type = models.CharField(
+        max_length=20, choices=EmployeeType.choices, default=EmployeeType.FULL_TIME,
+    )
+    reporting_manager = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='direct_reports',
+    )
 
     # Contact Information
     contact = models.CharField(
@@ -1784,6 +1810,7 @@ class LeaveRequest(models.Model):
         PENDING = ('pending', 'Pending')
         APPROVED = ('approved', 'Approved')
         REJECTED = ('rejected', 'Rejected')
+        CANCELLED = ('cancelled', 'Cancelled')  # added for the mobile API's DELETE /leave/requests/{id}
 
     class VerificationStatus(models.TextChoices):
         NOT_REQUIRED = ('not_required', 'Not Required')
@@ -2294,6 +2321,202 @@ class AttendanceLog(models.Model):
 # ======================
 
 
+class Project(models.Model):
+    """A project groups related tasks under one owner/team/timeline/budget.
+    Sits as the parent context for Task - a task may optionally belong to
+    one project (see Task.project)."""
+
+    class Status(models.TextChoices):
+        NOT_STARTED = ('not_started', 'Not Started')
+        IN_PROGRESS = ('in_progress', 'In Progress')
+        ON_HOLD = ('on_hold', 'On Hold')
+        COMPLETED = ('completed', 'Completed')
+        CANCELLED = ('cancelled', 'Cancelled')
+
+    class Priority(models.TextChoices):
+        LOW = ('low', 'Low')
+        MEDIUM = ('medium', 'Medium')
+        HIGH = ('high', 'High')
+        CRITICAL = ('critical', 'Critical')
+
+    office = models.ForeignKey(
+        Office,
+        on_delete=models.CASCADE,
+        related_name='projects',
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
+
+    # --- Basic info ---
+    code = models.CharField(
+        max_length=20, unique=True, blank=True, editable=False,
+        help_text="Auto-generated project ID, e.g. PRJ00007",
+    )
+    name = models.CharField(max_length=200, help_text="Project name")
+    description = models.TextField(
+        blank=True, help_text="Description / objective of the project",
+    )
+    client_department = models.CharField(
+        max_length=150, blank=True,
+        help_text="Client or internal department this project is for (optional)",
+    )
+
+    # --- Timeline ---
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True, help_text="Deadline")
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.NOT_STARTED,
+    )
+
+    # --- Team ---
+    manager = models.ForeignKey(
+        'Employee', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='managed_projects',
+        help_text="Project owner / manager",
+    )
+    assigned_employees = models.ManyToManyField(
+        'Employee', blank=True, related_name='projects',
+        help_text="Team members assigned to this project",
+    )
+
+    # --- Priority / category ---
+    priority = models.CharField(
+        max_length=20, choices=Priority.choices, default=Priority.MEDIUM,
+    )
+    tags = models.CharField(
+        max_length=255, blank=True,
+        help_text="Comma-separated tags/categories, e.g. Development, Marketing, Internal",
+    )
+
+    # --- Budget (optional) ---
+    estimated_budget = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+    )
+    actual_spend = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True, default=0,
+    )
+
+    # --- Notes ---
+    notes = models.TextField(blank=True, help_text="Freeform notes")
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_projects',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Project'
+        verbose_name_plural = 'Projects'
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['office', 'branch']),
+        ]
+
+    def __str__(self):
+        return f"{self.code} — {self.name}" if self.code else self.name
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if not self.code:
+            self.code = f"PRJ{self.pk:05d}"
+            super().save(update_fields=['code'])
+
+    @property
+    def tag_list(self):
+        return [t.strip() for t in (self.tags or '').split(',') if t.strip()]
+
+    @property
+    def team_size(self):
+        return self.assigned_employees.count()
+
+    @property
+    def progress_percent(self):
+        """Auto-calculated from linked tasks - % of this project's tasks
+        that are COMPLETED. 0 when the project has no tasks yet."""
+        total = self.tasks.count()
+        if not total:
+            return 0
+        done = self.tasks.filter(status=Task.Status.COMPLETED).count()
+        return round(done * 100 / total)
+
+    @property
+    def is_overdue(self):
+        if not self.end_date or self.status in (self.Status.COMPLETED, self.Status.CANCELLED):
+            return False
+        return date.today() > self.end_date
+
+    @property
+    def budget_variance(self):
+        if self.estimated_budget is None:
+            return None
+        return (self.actual_spend or 0) - self.estimated_budget
+
+    @property
+    def status_badge(self):
+        mapping = {
+            self.Status.NOT_STARTED: 'secondary',
+            self.Status.IN_PROGRESS: 'info',
+            self.Status.ON_HOLD: 'warning',
+            self.Status.COMPLETED: 'success',
+            self.Status.CANCELLED: 'danger',
+        }
+        return mapping.get(self.status, 'secondary')
+
+    @property
+    def priority_badge(self):
+        mapping = {
+            self.Priority.LOW: 'info',
+            self.Priority.MEDIUM: 'primary',
+            self.Priority.HIGH: 'warning',
+            self.Priority.CRITICAL: 'danger',
+        }
+        return mapping.get(self.priority, 'secondary')
+
+
+class ProjectAttachment(models.Model):
+    """Files / requirement docs uploaded against a project."""
+
+    office = models.ForeignKey(
+        Office, on_delete=models.CASCADE, related_name='project_attachments',
+        null=True, blank=True, db_index=True,
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+    )
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name='attachments',
+    )
+    file = models.FileField(upload_to='project_attachments/%Y/%m/%d/')
+    name = models.CharField(max_length=255, blank=True, help_text="Display name; defaults to the file name")
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='project_attachments_uploaded',
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return self.name or self.file.name
+
+    def save(self, *args, **kwargs):
+        if not self.name and self.file:
+            import os
+            self.name = os.path.basename(self.file.name)
+        super().save(*args, **kwargs)
+
+
 class Task(models.Model):
     """Task assignments for employees with shared status updates."""
 
@@ -2321,7 +2544,12 @@ class Task(models.Model):
         'Branch', on_delete=models.SET_NULL, null=True, blank=True,
         help_text="The branch this record belongs to",
     )
-    
+    project = models.ForeignKey(
+        'Project', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='tasks',
+        help_text="Project this task belongs to, if any",
+    )
+
     title = models.CharField(
         max_length=150,
         help_text="Short summary of the task",
@@ -4030,3 +4258,142 @@ class PaidLeaveAdjustment(models.Model):
     new_balance = models.DecimalField(max_digits=5, decimal_places=1, default=0)
     adjusted_at = models.DateTimeField(auto_now_add=True)
     adjusted_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+
+
+# ===========================================================================
+# MOBILE ATTENDANCE APP API - SUPPORT MODELS
+# Backing models for employees/mobile_*.py, built against
+# DOVIX_AI_Attendance_Backend_API_Spec.pdf v1.0 (14 Sep 2026).
+# ===========================================================================
+
+class DeviceRegistration(models.Model):
+    """One push-notification-capable device per employee. Backs
+    POST /notifications/register-device."""
+
+    class Platform(models.TextChoices):
+        ANDROID = 'ANDROID', 'Android'
+        IOS = 'IOS', 'iOS'
+
+    employee = models.ForeignKey(
+        'Employee', on_delete=models.CASCADE, related_name='devices',
+    )
+    device_id = models.CharField(max_length=255, help_text="Stable client-generated device identifier")
+    fcm_token = models.CharField(max_length=512, blank=True)
+    platform = models.CharField(max_length=10, choices=Platform.choices, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['employee', 'device_id']
+        verbose_name = 'Device Registration'
+
+    def __str__(self):
+        return f"{self.employee} - {self.device_id}"
+
+
+class FaceEnrollmentLog(models.Model):
+    """Audit trail of every face-ID enrol/re-enrol/clear event, per spec
+    section 6 ('retain the prior version in an audit log with actor and
+    timestamp'). Employee.face_encoding/face_registered_at stay the single
+    live reference; this table is append-only history alongside it."""
+
+    class Action(models.TextChoices):
+        ENROLLED = 'enrolled', 'Enrolled'
+        RE_ENROLLED = 're_enrolled', 'Re-enrolled'
+        CLEARED = 'cleared', 'Cleared'
+
+    employee = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='face_enrollment_logs')
+    action = models.CharField(max_length=20, choices=Action.choices)
+    actor = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL,
+                               help_text="Who performed this - the employee themself, or an admin clearing it")
+    reference_image = models.ImageField(upload_to='face_enrollment_history/', blank=True, null=True)
+    quality_score = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Face Enrollment Log'
+
+
+class ShiftSwapRequest(models.Model):
+    """Phase-2 stub per spec 14.1 - no screens yet client-side."""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='shift_swap_requests', null=True, blank=True)
+    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, blank=True)
+    employee = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='shift_swap_requests')
+    swap_with_employee = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='shift_swap_requests_incoming')
+    requested_date = models.DateField()
+    reason = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class ExpenseClaim(models.Model):
+    """Phase-2 stub per spec 14.1 - no screens yet client-side."""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        PAID = 'paid', 'Paid'
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='expense_claims', null=True, blank=True)
+    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, blank=True)
+    employee = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='expense_claims')
+    category = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateField()
+    description = models.TextField(blank=True)
+    receipt = models.FileField(upload_to='expense_receipts/', blank=True, null=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class HRTicket(models.Model):
+    """Phase-2 stub per spec 14.1 - no screens yet client-side."""
+
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Open'
+        IN_PROGRESS = 'in_progress', 'In Progress'
+        RESOLVED = 'resolved', 'Resolved'
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='hr_tickets', null=True, blank=True)
+    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, blank=True)
+    employee = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='hr_tickets')
+    subject = models.CharField(max_length=200)
+    category = models.CharField(max_length=50, blank=True)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.OPEN)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class CompanyPolicy(models.Model):
+    """Phase-2 stub per spec 14.1 - no screens yet client-side. Distinct
+    from CompanyRule (structured text/points shown in the existing web
+    Rules & Regulations page) - this is an uploaded policy document."""
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='policy_documents', null=True, blank=True)
+    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, blank=True)
+    title = models.CharField(max_length=200)
+    category = models.CharField(max_length=100, blank=True)
+    file = models.FileField(upload_to='company_policies/')
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['title']
+        verbose_name_plural = 'Company Policies'

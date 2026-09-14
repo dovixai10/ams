@@ -93,6 +93,9 @@
           <h4 class="mb-1">{{ task.title }}</h4>
           <div class="d-flex flex-wrap align-items-center gap-3 text-muted small">
             <span class="badge bg-{{ task.status_badge }} text-capitalize">{{ task.get_status_display }}</span>
+            {% if task.project %}
+              <span><i class="bx bx-folder me-1"></i> <a href="{% url 'employees:admin_project_detail' task.project.pk %}">{{ task.project.name }}</a></span>
+            {% endif %}
             {% if task.due_date %}
               <span><i class="bx bx-calendar me-1"></i> Due {{ task.due_date|date:'M j, Y' }}</span>
             {% endif %}
@@ -218,6 +221,11 @@
         <div class="card-body">
           <form method="post">
           {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Project</label>
+            {{ form.project }}
+            {% if form.project.errors %}<div class="invalid-feedback d-block">{{ form.project.errors|join:', ' }}</div>{% endif %}
+          </div>
           <div class="mb-3">
             <label class="form-label">Title</label>
             {{ form.title }}

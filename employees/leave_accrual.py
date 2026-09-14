@@ -32,9 +32,8 @@ def initialize_balances_for_new_type(leave_type: LeaveType, credited_by=None):
 
         balance_obj, _ = EmployeeLeaveBalance.objects.get_or_create(
             employee=employee,
-            branch=employee.branch,
             leave_type=leave_type,
-            defaults={'balance': 0, 'credit_year': fiscal_year_for(today)},
+            defaults={'balance': 0, 'credit_year': fiscal_year_for(today), 'branch': employee.branch},
         )
 
         if leave_type.accrual_frequency == LeaveType.AccrualFrequency.NONE:
@@ -174,10 +173,15 @@ def get_employee_leave_type_balances(employee):
 
         balance_obj, _ = EmployeeLeaveBalance.objects.get_or_create(
             employee=employee,
-            branch=employee.branch,
             leave_type=lt,
-            defaults={'balance': 0, 'credit_year': fiscal_year_for(today)},
+            defaults={'balance': 0, 'credit_year': fiscal_year_for(today), 'branch': employee.branch},
         )
+        if balance_obj.branch_id != employee.branch_id:
+            # Employee was reassigned to a different branch since this balance
+            # row was created — keep it in sync (lookup above is intentionally
+            # employee+leave_type only, matching the DB's unique_together).
+            balance_obj.branch = employee.branch
+            balance_obj.save(update_fields=['branch'])
 
         apply_year_end_carry_forward_if_due(balance_obj, today)  # settle last FY first
         balance_obj.refresh_from_db()

@@ -80,6 +80,8 @@ from .models import (
     LeaveRequest,
     Task,
     TaskUpdate,
+    Project,
+    ProjectAttachment,
     EmployeeDocument,
     CompanyRule,
     LoanRequest,
@@ -104,6 +106,8 @@ from .forms import (
     AssetAssignmentForm,
     TaskForm,
     TaskUpdateForm,
+    ProjectForm,
+    ProjectAttachmentForm,
     OfficeProfileForm
 )
 try:
@@ -668,7 +672,18 @@ class LoginView(TemplateView):
 
     def get(self, request):
         if request.user.is_authenticated:
-            return self.redirect_authenticated_user(request.user)
+            # They're already logged in - the only way to land here with a
+            # session is that some page's permission check (user_passes_test)
+            # bounced them to LOGIN_URL?next=<that page>, because they're not
+            # authorized for it - not because they need to log in. Following
+            # ?next= here would send them right back to that same page,
+            # which bounces them here again: an infinite redirect loop (this
+            # is exactly what happened to a permitted employee - not a full
+            # office admin - hitting /admin-dashboard/, which stays admin-
+            # only on purpose). So ignore ?next= on GET and send them to
+            # their own real home page instead; ?next= is still honored
+            # right after a fresh POST login below, where it's safe.
+            return self.redirect_authenticated_user(request.user, honor_next=False)
         return render(request, 'employees/auth/login.html', self.get_context_data())
 
     def post(self, request):
@@ -719,8 +734,8 @@ class LoginView(TemplateView):
         })
         return context
 
-    def redirect_authenticated_user(self, user):
-        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+    def redirect_authenticated_user(self, user, honor_next=True):
+        next_url = (self.request.POST.get('next') or self.request.GET.get('next')) if honor_next else None
         if next_url:
             return redirect(next_url)
 
@@ -1311,6 +1326,13 @@ def employee_dashboard(request):
         'pending_verification_leaves': _pending_leave_verifications_for_employee(employee),
         'salary_slip_eligible': salary_slip_eligible,
         'has_id_card': has_id_card,
+        # Same reminders/tasks the mobile Home tab shows - this page is now
+        # a role-holding employee's actual "Dashboard" (they don't get the
+        # mobile bottom nav), so it needs them too instead of just the
+        # services grid.
+        'documents_submitted': hasattr(employee, 'documents_submitted') and employee.documents_submitted,
+        'rules_accepted': hasattr(employee, 'rules_accepted') and employee.rules_accepted,
+        'assigned_tasks': Task.objects.filter(assigned_to=employee).order_by('-created_at')[:5],
     })
     return render(request, 'employees/dashboard/employee_dashboard.html', context)
 
@@ -2822,16 +2844,28 @@ def employee_profile(request):
 @login_required
 @user_passes_test(is_employee)
 def employee_profile_mobile(request):
-    """Mobile profile page. Renders a shell only - all profile data (personal
-    info, employment, leave balance, salary) is loaded client-side from the
-    DRF endpoint (/api/v1/profile/), the same JSON API external platforms use."""
+    """Profile page. Renders a shell only - all profile data (personal
+    info, employment, leave balance, salary, roles) is loaded client-side
+    from the DRF endpoint (/api/v1/profile/), the same JSON API external
+    platforms use.
+
+    Layout: a plain employee gets the bare mobile shell (bottom nav bar,
+    no sidebar). An employee holding a delegated role gets the same
+    sidebar-driven shell as an office admin instead - the bottom nav bar
+    doesn't carry any of the admin sections they now have, so it stops
+    being the right navigation for them."""
     if request.user.is_superuser:
         return redirect('employees:superadmin_profile')
 
     context = TemplateLayout.init(request, context={})
-    context.update({
-        'layout_path': TemplateHelper.set_layout('layout_mobile.html', context),
-    })
+
+    from .permissions import employee_permission_keys
+    if not employee_permission_keys(request.user.employee_profile):
+        context.update({
+            'layout_path': TemplateHelper.set_layout('layout_mobile.html', context),
+        })
+    # else: leave TemplateLayout.init's default layout_vertical.html in place.
+
     return render(request, 'employees/employee_profile_mobile.html', context)
 
 
@@ -4881,6 +4915,263 @@ def check_out(request):
     
     # Redirect to modern dashboard for GET requests
 
+# Project Management Views
+
+
+@login_required
+@user_passes_test(feature_required('tasks.manage'))
+def admin_projects(request):
+    """Projects List page: table of projects + an embedded 'Create Project'
+    form, same list+create layout as the Task Board."""
+
+    projects = tenant_queryset(
+        request,
+        Project.objects.select_related('manager__user').prefetch_related('assigned_employees', 'tasks')
+    ).order_by('-created_at')
+
+    status_filter = request.GET.get('status')
+    priority_filter = request.GET.get('priority')
+    manager_filter = request.GET.get('manager')
+
+    if status_filter:
+        projects = projects.filter(status=status_filter)
+    if priority_filter:
+        projects = projects.filter(priority=priority_filter)
+    if manager_filter:
+        projects = projects.filter(manager_id=manager_filter)
+
+    form = ProjectForm(request.POST or None, request=request, created_by=request.user)
+    if request.method == 'POST':
+        if form.is_valid():
+            project = form.save()
+            messages.success(request, f'Project "{project.name}" ({project.code}) created successfully.')
+            return redirect('employees:admin_project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'Please correct the errors before creating the project.')
+
+    employees = tenant_queryset(request, Employee.objects.select_related('user')).order_by('full_name', 'email')
+    project_list = list(projects)
+
+    status_styles = {
+        Project.Status.NOT_STARTED: 'secondary',
+        Project.Status.IN_PROGRESS: 'info',
+        Project.Status.ON_HOLD: 'warning',
+        Project.Status.COMPLETED: 'success',
+        Project.Status.CANCELLED: 'danger',
+    }
+    status_summary = [
+        {
+            'value': value, 'label': label,
+            'count': sum(1 for p in project_list if p.status == value),
+            'style': status_styles.get(value, 'secondary'),
+        }
+        for value, label in Project.Status.choices
+    ]
+    overdue_count = sum(1 for p in project_list if p.is_overdue)
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'projects': project_list,
+        'project_form': form,
+        'employees': employees,
+        'selected_status': status_filter,
+        'selected_priority': priority_filter,
+        'selected_manager': manager_filter,
+        'status_choices': Project.Status.choices,
+        'priority_choices': Project.Priority.choices,
+        'status_summary': status_summary,
+        'total_projects': len(project_list),
+        'overdue_count': overdue_count,
+    })
+    return render(request, 'employees/projects/admin_projects.html', context)
+
+
+@login_required
+@user_passes_test(feature_required('tasks.manage'))
+def admin_project_detail(request, pk):
+    """Project Detail: overview stats, task board filtered to this project,
+    team tab, and attachments/notes. Editing the project itself happens here too."""
+
+    project = get_object_or_404(
+        tenant_queryset(
+            request,
+            Project.objects.select_related('manager__user').prefetch_related('assigned_employees__user', 'attachments'),
+        ),
+        pk=pk,
+    )
+
+    form = ProjectForm(request.POST or None, instance=project, request=request, created_by=project.created_by or request.user)
+    if request.method == 'POST' and request.POST.get('form') == 'project':
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Project details updated successfully.')
+            return redirect('employees:admin_project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'Please correct the errors highlighted below.')
+
+    tasks = list(
+        project.tasks.select_related('assigned_to__user', 'assigned_by').order_by('-created_at')
+    )
+
+    status_styles = {
+        Task.Status.PENDING: 'secondary',
+        Task.Status.IN_PROGRESS: 'info',
+        Task.Status.COMPLETED: 'success',
+        Task.Status.BLOCKED: 'danger',
+    }
+    priority_styles = {
+        Task.Priority.LOW: 'info',
+        Task.Priority.MEDIUM: 'primary',
+        Task.Priority.HIGH: 'warning',
+        Task.Priority.CRITICAL: 'danger',
+    }
+    status_summary = [
+        {
+            'value': value, 'label': label,
+            'count': sum(1 for t in tasks if t.status == value),
+            'style': status_styles.get(value, 'secondary'),
+        }
+        for value, label in Task.Status.choices
+    ]
+    priority_summary = [
+        {
+            'value': value, 'label': label,
+            'count': sum(1 for t in tasks if t.priority == value),
+            'style': priority_styles.get(value, 'secondary'),
+        }
+        for value, label in Task.Priority.choices
+    ]
+
+    task_form = TaskForm(assigned_by=request.user, request=request, project=project)
+    attachment_form = ProjectAttachmentForm()
+
+    # Simple timeline bar for each task relative to the project's own
+    # start/end - not a full Gantt library, just a lightweight visual.
+    timeline_start = project.start_date
+    timeline_end = project.end_date
+    timeline_tasks = []
+    if timeline_start and timeline_end and timeline_end > timeline_start:
+        span_days = (timeline_end - timeline_start).days
+        for t in tasks:
+            if not t.due_date:
+                continue
+            offset_days = (t.due_date - timeline_start).days
+            left_pct = max(0, min(100, offset_days / span_days * 100))
+            timeline_tasks.append({'task': t, 'left_pct': round(left_pct, 1)})
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'project': project,
+        'form': form,
+        'tasks': tasks,
+        'task_form': task_form,
+        'attachment_form': attachment_form,
+        'status_summary': status_summary,
+        'priority_summary': priority_summary,
+        'total_tasks': len(tasks),
+        'overdue_tasks': sum(1 for t in tasks if t.is_overdue),
+        'attachments': list(project.attachments.all()),
+        'team': list(project.assigned_employees.select_related('user').all()),
+        'timeline_tasks': timeline_tasks,
+        'status_choices': Project.Status.choices,
+    })
+    return render(request, 'employees/projects/admin_project_detail.html', context)
+
+
+@login_required
+@user_passes_test(feature_required('tasks.manage'))
+def admin_project_add_task(request, pk):
+    """POST-only: create a task from the project detail page's mini form,
+    locked to this project."""
+
+    project = get_object_or_404(tenant_queryset(request, Project.objects.all()), pk=pk)
+
+    if request.method != 'POST':
+        return redirect('employees:admin_project_detail', pk=project.pk)
+
+    form = TaskForm(request.POST, assigned_by=request.user, request=request, project=project)
+    if form.is_valid():
+        task = form.save()
+        if not task.project_id:
+            task.project = project
+            task.save(update_fields=['project'])
+        TaskUpdate.objects.create(
+            office=task.office,
+            branch=task.branch,
+            task=task,
+            updated_by=request.user,
+            previous_status=None,
+            new_status=task.status,
+            comment=form.cleaned_data.get('description', '')[:200],
+        )
+        messages.success(request, f"Task '{task.title}' assigned to {task.assigned_to.full_name}.")
+    else:
+        error_text = '; '.join([' '.join(errors) for errors in form.errors.values()])
+        messages.error(request, f'Unable to create task: {error_text}')
+
+    return redirect('employees:admin_project_detail', pk=project.pk)
+
+
+@login_required
+@user_passes_test(feature_required('tasks.manage'))
+def admin_project_upload_attachment(request, pk):
+    """POST-only: upload a file/requirement doc against a project."""
+
+    project = get_object_or_404(tenant_queryset(request, Project.objects.all()), pk=pk)
+
+    if request.method != 'POST':
+        return redirect('employees:admin_project_detail', pk=project.pk)
+
+    form = ProjectAttachmentForm(request.POST, request.FILES)
+    if form.is_valid():
+        attachment = form.save(commit=False)
+        attachment.project = project
+        attachment.office = project.office
+        attachment.branch = project.branch
+        attachment.uploaded_by = request.user
+        attachment.save()
+        messages.success(request, f'"{attachment.name}" uploaded successfully.')
+    else:
+        messages.error(request, 'Please choose a file to upload.')
+
+    return redirect('employees:admin_project_detail', pk=project.pk)
+
+
+@login_required
+@user_passes_test(feature_required('tasks.manage'))
+def admin_project_delete_attachment(request, pk, attachment_id):
+    """POST-only: remove one attachment from a project."""
+
+    project = get_object_or_404(tenant_queryset(request, Project.objects.all()), pk=pk)
+    attachment = get_object_or_404(ProjectAttachment, pk=attachment_id, project=project)
+
+    if request.method == 'POST':
+        attachment.file.delete(save=False)
+        attachment.delete()
+        messages.success(request, 'Attachment removed.')
+
+    return redirect('employees:admin_project_detail', pk=project.pk)
+
+
+@login_required
+@user_passes_test(feature_required('tasks.manage'))
+def admin_project_delete(request, pk):
+    """POST-only: delete a project. Its tasks are kept but unlinked
+    (Task.project is SET_NULL) rather than deleted."""
+
+    project = get_object_or_404(tenant_queryset(request, Project.objects.all()), pk=pk)
+
+    if request.method == 'POST':
+        name = project.name
+        project.delete()
+        messages.success(request, f'Project "{name}" deleted. Its tasks were kept and unlinked from the project.')
+        return redirect('employees:admin_projects')
+
+    return redirect('employees:admin_project_detail', pk=project.pk)
+
+
 # Task Management Views
 
 
@@ -4895,6 +5186,7 @@ def admin_tasks(request):
         Task.objects.select_related(
             "assigned_to__user",
             "assigned_by",
+            "project",
         ).prefetch_related(
             "updates__updated_by"
         )
@@ -4903,6 +5195,7 @@ def admin_tasks(request):
     status_filter = request.GET.get('status')
     priority_filter = request.GET.get('priority')
     assignee_filter = request.GET.get('assigned_to')
+    project_filter = request.GET.get('project')
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
 
@@ -4912,6 +5205,8 @@ def admin_tasks(request):
         tasks = tasks.filter(priority=priority_filter)
     if assignee_filter:
         tasks = tasks.filter(assigned_to_id=assignee_filter)
+    if project_filter:
+        tasks = tasks.filter(project_id=project_filter)
 
     if date_from:
         try:
@@ -4988,6 +5283,7 @@ def admin_tasks(request):
     ]
 
     overdue_count = sum(1 for item in task_list if item.is_overdue)
+    projects = tenant_queryset(request, Project.objects.all()).order_by('name')
 
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -4995,9 +5291,11 @@ def admin_tasks(request):
         'tasks': task_list,
         'task_form': form,
         'employees': employees,
+        'projects': projects,
         'selected_status': status_filter,
         'selected_priority': priority_filter,
         'selected_assignee': assignee_filter,
+        'selected_project': project_filter,
         'selected_date_from': date_from,
         'selected_date_to': date_to,
         'status_choices': Task.Status.choices,
@@ -7964,13 +8262,13 @@ def admin_shifts(request):
             try:
                 myshift = Shift.objects.create(
                     office=office,
+                    branch=get_request_branch(request),
                     name=name,
                     shift_type=shift_type,
                     start_time=start_time,
                     end_time=end_time,
                     is_active=True
                 )
-                print(myshift, 'myshiftBBBBBBBBBBBBBBBBBbb')
                 messages.success(request, f'Shift "{name}" created successfully.')
             except Exception as e:
                 messages.error(request, f'Error creating shift: {str(e)}')
@@ -7979,7 +8277,7 @@ def admin_shifts(request):
         
         elif action == 'update':
             shift_id = request.POST.get('shift_id')
-            name = request.POST.get('name', '').strip()
+            name = request.POST.get('shift_name', '').strip()
             shift_type = request.POST.get('shift_type', 'full_day')
             start_time = request.POST.get('start_time')
             end_time = request.POST.get('end_time')

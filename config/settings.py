@@ -84,6 +84,9 @@ INSTALLED_APPS = [
     "widget_tweaks",  # Django Widget Tweaks for form styling
     "rest_framework",
     "rest_framework.authtoken",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",  # lets /auth/logout + refresh rotation actually invalidate tokens
+    "drf_spectacular",  # OpenAPI schema + Swagger UI at /api/docs/ for the mobile API
     # "apps.dashboards",
     # "apps.layouts",
     # "apps.pages",
@@ -111,6 +114,14 @@ MIDDLEWARE = [
 
     'employees.middleware.OfficeMiddleware',
 ]
+
+# Django's default "error" tag has no matching Bootstrap alert-error class -
+# map it to alert-danger so templates/layout/partials/messages.html renders
+# error messages in red instead of an unstyled alert.
+from django.contrib.messages import constants as _messages_constants
+MESSAGE_TAGS = {
+    _messages_constants.ERROR: 'danger',
+}
 
 ROOT_URLCONF = "config.urls"
 
@@ -181,6 +192,46 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# drf-spectacular: generates the OpenAPI schema served at /api/schema/,
+# with Swagger UI at /api/docs/ and ReDoc at /api/redoc/ (see employees/urls.py).
+# Only the mobile app's JWT-authenticated views (employees/mobile_*.py) are
+# tagged into this schema - see SPECTACULAR_SETTINGS PREPROCESSING_HOOKS.
+SPECTACULAR_SETTINGS = {
+    "TITLE": "DOVIX AI Mobile Attendance API",
+    "DESCRIPTION": (
+        "Backend for the Flutter attendance app - JWT-authenticated, built against "
+        "DOVIX_AI_Attendance_Backend_API_Spec.pdf v1.0. Every response uses the "
+        "envelope {success, data, message, error}; see the description on each "
+        "endpoint for the business rules and error codes that don't fit in the schema."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SCHEMA_PATH_PREFIX": "/api/v1",
+    "PREPROCESSING_HOOKS": ["employees.openapi_hooks.mobile_api_only"],
+    "SWAGGER_UI_SETTINGS": '{"persistAuthorization": true, "docExpansion": "list"}',
+}
+
+# JWT for the mobile attendance app API only (employees/mobile_*.py). Every
+# mobile view sets authentication_classes = [JWTAuthentication] explicitly
+# rather than this being the global DEFAULT_AUTHENTICATION_CLASSES above, so
+# it can't affect /api/v1/token-auth/, /api/v1/profile/ etc. used by other
+# platforms.
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(seconds=3600),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # rememberMe=false default; login view overrides to 30 days when true
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
 }
 
 # Password validation

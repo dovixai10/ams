@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import (
@@ -11,6 +12,8 @@ from .models import (
     ReimbursementRequest,
     Task,
     TaskUpdate,
+    Project,
+    ProjectAttachment,
     AssetAssignment,
     LeaveType,
     AttendanceRule,
@@ -1266,6 +1269,7 @@ class TaskForm(forms.ModelForm):
     class Meta:
         model = Task
         fields = [
+            'project',
             'title',
             'description',
             'assigned_to',
@@ -1274,6 +1278,7 @@ class TaskForm(forms.ModelForm):
             'due_date',
         ]
         widgets = {
+            'project': forms.Select(attrs={'class': 'form-select'}),
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Task title'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Task details and acceptance criteria'}),
             'assigned_to': forms.Select(attrs={'class': 'form-select'}),
@@ -1282,12 +1287,31 @@ class TaskForm(forms.ModelForm):
             'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
 
-    def __init__(self, *args, assigned_by=None, request=None, employee=None, **kwargs):
+    def __init__(self, *args, assigned_by=None, request=None, employee=None, project=None, **kwargs):
         self.assigned_by = assigned_by
         self.request = request
         self.employee = employee
 
         super().__init__(*args, **kwargs)
+
+        self.fields['project'].required = False
+        self.fields['project'].empty_label = 'No project'
+        if employee is not None:
+            # Self-assignment: only show projects this employee is actually
+            # on the team of (or manages) - not every project in the branch.
+            projects = Project.objects.filter(
+                Q(assigned_employees=employee) | Q(manager=employee)
+            ).distinct()
+        else:
+            projects = Project.objects.all()
+            if self.request:
+                projects = tenant_queryset(self.request, projects)
+        self.fields['project'].queryset = projects.order_by('name')
+
+        if project is not None:
+            # Opened from a project's detail page: lock the field to it.
+            self.fields['project'].initial = project.pk
+            self.fields['project'].widget = forms.HiddenInput()
 
         if employee is not None:
             # Employee self-assignment: lock the field to themselves.
@@ -1361,6 +1385,101 @@ class TaskUpdateForm(forms.ModelForm):
                 self.task.status = update.new_status
                 self.task.save(update_fields=['status', 'status_updated_at', 'updated_at'])
         return update
+
+
+class ProjectForm(forms.ModelForm):
+    """Form for admins/permission-holders to create or edit a project."""
+
+    class Meta:
+        model = Project
+        fields = [
+            'name',
+            'description',
+            'client_department',
+            'start_date',
+            'end_date',
+            'status',
+            'manager',
+            'assigned_employees',
+            'priority',
+            'tags',
+            'estimated_budget',
+            'actual_spend',
+            'notes',
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Project name'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Description / objective'}),
+            'client_department': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Acme Corp or Marketing (optional)'}),
+            'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'end_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'manager': forms.Select(attrs={'class': 'form-select'}),
+            'assigned_employees': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 6}),
+            'priority': forms.Select(attrs={'class': 'form-select'}),
+            'tags': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Development, Marketing, Internal'}),
+            'estimated_budget': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
+            'actual_spend': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Any additional notes'}),
+        }
+
+    def __init__(self, *args, request=None, created_by=None, **kwargs):
+        self.request = request
+        self.created_by = created_by
+        super().__init__(*args, **kwargs)
+
+        employees = Employee.objects.select_related('user')
+        if self.request:
+            employees = tenant_queryset(self.request, employees)
+        employees = employees.order_by('full_name', 'email')
+
+        self.fields['manager'].queryset = employees
+        self.fields['manager'].required = False
+        self.fields['manager'].empty_label = 'No manager assigned'
+        self.fields['manager'].label_from_instance = (
+            lambda obj: f"{obj.full_name or obj.name} ({obj.email})"
+        )
+
+        self.fields['assigned_employees'].queryset = employees
+        self.fields['assigned_employees'].required = False
+        self.fields['assigned_employees'].label_from_instance = (
+            lambda obj: f"{obj.full_name or obj.name} ({obj.email})"
+        )
+
+        self.fields['status'].choices = Project.Status.choices
+        self.fields['priority'].choices = Project.Priority.choices
+        self.fields['start_date'].required = False
+        self.fields['end_date'].required = False
+
+    def save(self, commit=True):
+        project = super().save(commit=False)
+        if self.created_by and not project.created_by_id:
+            project.created_by = self.created_by
+        if not project.office_id and self.request:
+            from .permissions import get_request_office, get_request_branch
+            project.office = get_request_office(self.request)
+            if not project.branch_id:
+                project.branch = get_request_branch(self.request)
+        if commit:
+            project.save()
+            self.save_m2m()
+        return project
+
+
+class ProjectAttachmentForm(forms.ModelForm):
+    """Single-file upload form for a project's Attachments tab."""
+
+    class Meta:
+        model = ProjectAttachment
+        fields = ['file', 'name']
+        widgets = {
+            'file': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Display name (optional)'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['name'].required = False
 
 
 class AttendanceRuleForm(forms.ModelForm):
