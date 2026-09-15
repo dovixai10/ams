@@ -378,3 +378,41 @@
   </div>
 
 {% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+  function copyKioskUrl() {
+    const input = document.getElementById('kioskUrl');
+    if (!input || !input.value) return;
+
+    const button = document.activeElement;
+    const showCopied = () => {
+      if (!button || !button.classList || !button.classList.contains('btn')) return;
+      const original = button.innerHTML;
+      button.innerHTML = '<i class="bx bx-check me-1"></i>Copied!';
+      setTimeout(() => { button.innerHTML = original; }, 1800);
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(input.value).then(showCopied).catch(() => fallbackCopy(input, showCopied));
+    } else {
+      fallbackCopy(input, showCopied);
+    }
+  }
+
+  function fallbackCopy(input, onSuccess) {
+    input.removeAttribute('readonly');
+    input.select();
+    input.setSelectionRange(0, input.value.length);
+    try {
+      document.execCommand('copy');
+      if (onSuccess) onSuccess();
+    } catch (e) {
+      // Nothing more we can do - at least the text is now selected for a manual copy.
+    } finally {
+      input.setAttribute('readonly', 'readonly');
+    }
+  }
+</script>
+{% endblock %}

@@ -266,13 +266,44 @@ def compare_faces(known_encoding, unknown_encoding, tolerance=0.6):
 
 
 def get_match_tolerance(default=0.6):
-    """Read face match tolerance from settings if provided"""
+    """Legacy/loose tolerance - kept only for backward compatibility with
+    any external caller that explicitly wants it. Actual match decisions
+    everywhere in this app (web, mobile, and the open kiosk) now go
+    through get_strict_match_tolerance() instead, so 1:1 verification and
+    1:N identification use the same, single, tunable threshold rather than
+    three different hardcoded numbers drifting apart."""
     return getattr(settings, 'FACE_MATCH_TOLERANCE', default)
 
 
 def get_strict_match_tolerance(default=0.45):
-    """Return a stricter tolerance for one-to-one verifications."""
+    """Tolerance for 1:1 verification only - web/mobile check-in/out,
+    comparing the live photo against the logged-in employee's own single
+    encoding. Deliberately tight, since it's a one-to-one confirmation
+    and the risk of a false accept there is different from the kiosk's."""
     return getattr(settings, 'FACE_STRICT_MATCH_TOLERANCE', default)
+
+
+def get_kiosk_match_tolerance(default=0.45):
+    """Tolerance for the open, unauthenticated kiosk's 1:N search
+    (find_best_face_match, identifying who's in front of the camera out
+    of the whole office roster).
+
+    This was loosened to 0.6 at one point to fight false *rejects* (a
+    registered employee's messy-hair day not matching their one
+    enrollment photo) - and that was a mistake: it let a person who
+    isn't even registered at this office get matched to a real employee
+    ("Indrajeet"). find_best_face_match's uniqueness-margin check only
+    protects against *ambiguity between two registered candidates* - it
+    does nothing when a total stranger's face simply happens to fall
+    within a loose tolerance of one specific employee, which is exactly
+    what a 6-candidate office-wide search risks doing at 0.6. Back to the
+    same strict number as 1:1 verification: handing attendance to the
+    wrong identity (or a non-employee entirely) is a materially worse
+    failure than occasionally asking a legitimate employee to re-scan.
+    The real fix for the false-reject problem is better enrollment
+    (multiple reference photos - see the earlier discussion), not a
+    looser tolerance on the highest-stakes, unauthenticated endpoint."""
+    return getattr(settings, 'FACE_KIOSK_MATCH_TOLERANCE', default)
 
 
 def is_encoding_unique(new_encoding, exclude_employee_id=None, tolerance=None):
@@ -453,3 +484,102 @@ def process_and_store_face_encoding(employee, image_path):
             'success': False,
             'message': f'Error processing face: {str(e)}'
         }
+
+
+# ---------------------------------------------------------------------------
+# Liveness (blink) detection for the open, unauthenticated kiosk endpoint.
+#
+# The kiosk has no login to anchor identity to, so a static printed/screen
+# photo held up to the camera would otherwise match just as well as a real
+# person. Requiring a real blink across a short burst of frames is a cheap,
+# camera-only liveness signal: a photo can't blink.
+# ---------------------------------------------------------------------------
+
+def _eye_aspect_ratio(eye_points):
+    """Standard Eye Aspect Ratio from the 6 eye-contour points dlib's
+    68-point model returns, in its fixed order: p1 (outer corner), p2, p3
+    (upper lid), p4 (inner corner), p5, p6 (lower lid).
+
+        EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
+
+    This stays roughly constant for an open eye regardless of face size/
+    distance from the camera (it's a ratio, not an absolute measurement),
+    and drops sharply for the few frames an eye is closed - that dip is
+    what a blink looks like numerically.
+    """
+    import math
+
+    def dist(a, b):
+        return math.hypot(a[0] - b[0], a[1] - b[1])
+
+    if not eye_points or len(eye_points) < 6:
+        return None
+    p1, p2, p3, p4, p5, p6 = eye_points[:6]
+    horizontal = dist(p1, p4)
+    if horizontal == 0:
+        return None
+    vertical = dist(p2, p6) + dist(p3, p5)
+    return vertical / (2.0 * horizontal)
+
+
+def get_frame_ear(image_array, face_location):
+    """Average eye-aspect-ratio for one already-located face in one frame,
+    or None if landmarks couldn't be read for it."""
+    if not _face_recognition_available() or face_location is None:
+        return None
+    try:
+        landmarks_list = face_recognition.face_landmarks(image_array, face_locations=[face_location])
+    except Exception:
+        return None
+    if not landmarks_list:
+        return None
+    landmarks = landmarks_list[0]
+    ears = [
+        e for e in (
+            _eye_aspect_ratio(landmarks.get('left_eye')),
+            _eye_aspect_ratio(landmarks.get('right_eye')),
+        )
+        if e is not None
+    ]
+    if not ears:
+        return None
+    return sum(ears) / len(ears)
+
+
+def detect_blink_in_sequence(ear_sequence, dip_ratio=0.75, min_frames=4):
+    """Given the EAR values for a short burst of consecutive frames (in
+    capture order, None for any frame no face/eyes were readable in),
+    decide whether a genuine blink happened.
+
+    A blink is a dip: EAR drops well below the "eyes open" baseline for
+    one or more middle frames, then recovers. We compare the sequence's
+    minimum against the baseline (the higher of the first and last
+    frame's EAR, since a real blink is bracketed by open-eye frames on
+    both sides) using a *relative* drop (25% by default) rather than a
+    fixed absolute cutoff - eye shape and camera angle vary enough
+    between people that an absolute threshold like "EAR < 0.2" misses or
+    false-fires for a lot of real faces.
+
+    Returns (blink_detected, best_frame_index). best_frame_index points at
+    the highest-EAR frame at or after the dip (eyes freshly reopened -
+    sharper and more natural than a mid-blink frame), which is the frame
+    the caller should extract the face encoding from. Returns
+    best_frame_index=None only if no frame had a readable face at all.
+    """
+    valid = [(i, ear) for i, ear in enumerate(ear_sequence) if ear is not None]
+    if len(valid) < min_frames:
+        return False, (valid[-1][0] if valid else None)
+
+    indices = [i for i, _ in valid]
+    ears = [e for _, e in valid]
+
+    baseline = max(ears[0], ears[-1])
+    min_ear = min(ears)
+    dip_index = ears.index(min_ear)
+
+    blink_detected = baseline > 0 and min_ear <= baseline * dip_ratio
+
+    post_dip = [(idx, ear) for idx, ear in zip(indices, ears) if idx >= indices[dip_index]]
+    best_index = max(post_dip, key=lambda pair: pair[1])[0] if post_dip else indices[-1]
+
+    return blink_detected, best_index

@@ -111,3 +111,40 @@
   text-align: center;
   margin-top: 1rem;
 }
+
+/* Mobile sidebar toggle - make the sidebar's own "<" chevron double as the
+   OPEN control, not just the close control.
+   The vendor theme (see .menu .app-brand .layout-menu-toggle in the Sneat
+   source) sets `display: none` on this chevron by default on small screens
+   and only shows it once `.layout-menu-expanded` is already present on the
+   page - i.e. it's built to be the CLOSE button only, and assumes a
+   separate hamburger icon in a navbar opens the menu in the first place.
+   This app has no navbar (see web_project/__init__.py - both office admins
+   and permission-holding employees get is_navbar=False), so there was
+   never anything to open it with once collapsed.
+   Fix: keep it rendered at all times (`display: flex !important` beats the
+   theme's conditional display:none), and give it explicit size/position so
+   it straddles the sidebar's own right edge by exactly half its own width.
+   That's what makes the geometry work out on its own: the sidebar's
+   collapsed state is `transform: translate3d(-100%, 0, 0)` (shifts
+   everything inside it, this button included, left by the sidebar's own
+   260px width) - so a button centered on the edge at x=260 lands centered
+   on screen x=0 after that shift, i.e. exactly half on-screen. No JS, no
+   separate button - it's still literally the sidebar's own toggle, so it
+   slides in and out with the sidebar's own transition automatically. */
+@media (max-width: 1199.98px) {
+  .menu .app-brand .layout-menu-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 241px; /* $menu-width (260px) minus half of the 38px handle below */
+    transform: translateY(-50%);
+    inline-size: 38px;
+    block-size: 38px;
+    box-sizing: border-box;
+    margin: 0;
+    z-index: 5;
+  }
+}

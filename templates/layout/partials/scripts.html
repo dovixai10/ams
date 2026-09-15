@@ -6,5 +6,8 @@
 <script src="{% static 'vendor/js/bootstrap.js' %}"></script>
 <script src="{% static 'vendor/libs/perfect-scrollbar/perfect-scrollbar.js' %}"></script>
 <script src="{% static 'vendor/js/menu.js' %}"></script>
-<script src="{% static 'js/main.js' %}"></script>
+<!-- ?v= is bumped by hand whenever main.js changes, so phones/browsers that
+     already cached the old file under the un-versioned URL are forced to
+     fetch the new one instead of silently keeping stale JS after a reload. -->
+<script src="{% static 'js/main.js' %}?v=2"></script>
 <script async defer src="https://buttons.github.io/buttons.js"></script>

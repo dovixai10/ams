@@ -53,10 +53,14 @@ def run_accrual_for_leave_type(leave_type, run_date=None):
     if leave_type.accrual_frequency == LeaveType.AccrualFrequency.NONE:
         return 0
 
-    employees = Employee.objects.filter(user__is_active=True)
+    # Only employees in this leave type's own office - and, if the type is
+    # branch-tagged (branch is not NULL), only that branch too.
+    employees = Employee.objects.filter(user__is_active=True, office=leave_type.office)
     credited_count = 0
 
     for employee in employees:
+        if leave_type.branch_id is not None and leave_type.branch_id != employee.branch_id:
+            continue
         if not leave_type.is_applicable_for(employee):
             continue
 

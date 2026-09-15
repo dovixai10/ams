@@ -1,12 +1,11 @@
 from django.urls import path, include
-from django.views.generic import RedirectView
 from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views
 
 app_name = 'employees'
 
 urlpatterns = [
-    # Root URL - redirect to login for unauthenticated users
-    path('', RedirectView.as_view(url='login/', permanent=False), name='home'),
+    # Root URL - public marketing landing page (signed-in users are bounced to their dashboard)
+    path('', views.landing_page, name='home'),
 
     #open attendence
     path("attendance-kiosk/<uuid:token>/", views.attendance_kiosk, name="attendance_kiosk"),
@@ -179,6 +178,7 @@ urlpatterns = [
 
     path('salary-slips/', views.salary_slips, name='salary_slips'),
     path('salary-slips/manage/', views.admin_salary_slips, name='admin_salary_slips'),
+    path('api/salary-slip-preview/', views.salary_slip_preview_api, name='salary_slip_preview_api'),
     path('salary-slips/<int:pk>/download/', views.download_salary_slip, name='download_salary_slip'),
     path("shift/", views.admin_shifts, name="admin_shifts"),
     path("shift-assignment/", views.shift_assignment, name="shift_assignment"),
@@ -188,6 +188,7 @@ urlpatterns = [
     path("shift/employees-data/", views.get_employee_shifts_data, name="get_employee_shifts_data"),
     # Employee ID Card URLs
     path('id-card/', views.view_id_card, name='view_id_card'),
+    path('id-card/download-pdf/', views.download_id_card_pdf, name='download_id_card_pdf'),
     path('id-card/manage/', views.admin_id_cards, name='admin_id_cards'),
     path('id-card/<int:pk>/download/', views.download_id_card, name='download_id_card'),
     # ID Card Management (dynamic generator UI)

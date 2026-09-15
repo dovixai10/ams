@@ -17,6 +17,7 @@ from . import mobile_notifications_api as notifications
 from . import mobile_payroll_api as payroll
 from . import mobile_reports_api as reports
 from . import mobile_misc_api as misc
+from . import mobile_tasks_api as tasks
 
 app_name = 'mobile_api'
 
@@ -40,6 +41,10 @@ urlpatterns = [
 
     # 6. Face ID (3)
     path('api/v1/employees/me/face-id', face.FaceIdView.as_view(), name='me_face_id'),
+
+    # 6b. Face Update Requests (2) - beyond the original spec, mirrors the
+    # web app's admin-gated re-registration workflow on mobile too.
+    path('api/v1/face-update-requests', face.FaceUpdateRequestsView.as_view(), name='face_update_requests'),
 
     # 7. Attendance check-in/out (3)
     path('api/v1/attendance/today', attendance.TodayView.as_view(), name='attendance_today'),
@@ -88,4 +93,12 @@ urlpatterns = [
     path('api/v1/expense-claims', misc.ExpenseClaimView.as_view(), name='expense_claims'),
     path('api/v1/hr-tickets', misc.HRTicketView.as_view(), name='hr_tickets'),
     path('api/v1/company-policies', misc.CompanyPoliciesView.as_view(), name='company_policies'),
+
+    # 16. Tasks & Projects (5) - beyond the original spec, mirrors the web
+    # app's employee task board (view/self-create tasks, post status
+    # updates, browse projects you're a team member or manager of).
+    path('api/v1/tasks', tasks.TasksView.as_view(), name='tasks_list'),
+    path('api/v1/tasks/<int:id>', tasks.TaskDetailView.as_view(), name='task_detail'),
+    path('api/v1/tasks/<int:id>/updates', tasks.TaskStatusUpdateView.as_view(), name='task_status_update'),
+    path('api/v1/projects', tasks.MyProjectsView.as_view(), name='my_projects'),
 ]

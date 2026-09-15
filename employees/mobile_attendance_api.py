@@ -15,7 +15,7 @@ from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParamete
 from .mobile_response import MobileAPIView, MobileAPIException, EnvelopeResponseSerializer
 from .mobile_common import spec_day_status, duration_payload, paginate, FINAL_STATUS_TO_SPEC
 from .models import Attendance, Holiday, LeaveRequest
-from .face_utils import compare_faces, get_match_tolerance
+from .face_utils import compare_faces, get_strict_match_tolerance
 from .geolocation_utils import is_within_office_premises
 
 TAG = 'Attendance'
@@ -158,7 +158,7 @@ class CheckInView(MobileAPIView):
         if not encodings:
             raise MobileAPIException('NO_FACE_DETECTED', 'Could not extract a usable face from the photo.', 422)
 
-        tolerance = get_match_tolerance()
+        tolerance = get_strict_match_tolerance()
         result = compare_faces(employee.get_face_encoding(), encodings[0], tolerance=tolerance)
         similarity = round(result['confidence'] / 100, 4)
         threshold = round(1 - tolerance, 4)
@@ -268,7 +268,7 @@ class CheckOutView(MobileAPIView):
         if not encodings:
             raise MobileAPIException('NO_FACE_DETECTED', 'Could not extract a usable face from the photo.', 422)
 
-        tolerance = get_match_tolerance()
+        tolerance = get_strict_match_tolerance()
         result = compare_faces(employee.get_face_encoding(), encodings[0], tolerance=tolerance)
         similarity = round(result['confidence'] / 100, 4)
         threshold = round(1 - tolerance, 4)

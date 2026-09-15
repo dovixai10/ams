@@ -16,6 +16,12 @@ class Command(BaseCommand):
 
         for employee in employees:
             for lt in leave_types:
+                # A leave type only applies within its own office, and -
+                # if branch-tagged (branch is not NULL) - its own branch too.
+                if lt.office_id != employee.office_id:
+                    continue
+                if lt.branch_id is not None and lt.branch_id != employee.branch_id:
+                    continue
                 if not lt.is_applicable_for(employee):
                     continue
 
@@ -23,7 +29,10 @@ class Command(BaseCommand):
                     balance_obj, _ = EmployeeLeaveBalance.objects.get_or_create(
                         employee=employee,
                         leave_type=lt,
-                        defaults={'balance': 0, 'credit_year': date.today().year},
+                        defaults={
+                            'balance': 0, 'credit_year': date.today().year,
+                            'office': employee.office, 'branch': employee.branch,
+                        },
                     )
                     before = balance_obj.balance
                     ensure_accrual(employee, balance_obj)

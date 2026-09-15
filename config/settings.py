@@ -205,7 +205,14 @@ SPECTACULAR_SETTINGS = {
         "Backend for the Flutter attendance app - JWT-authenticated, built against "
         "DOVIX_AI_Attendance_Backend_API_Spec.pdf v1.0. Every response uses the "
         "envelope {success, data, message, error}; see the description on each "
-        "endpoint for the business rules and error codes that don't fit in the schema."
+        "endpoint for the business rules and error codes that don't fit in the schema.\n\n"
+        "**Reading the examples below**: a success example (e.g. '200 response', "
+        "'201 response') shows only the *contents of `data`* - the envelope wrapper "
+        "around it is identical on every endpoint, so it's omitted to keep examples "
+        "readable. An error example (e.g. '404 not found', '422 ...') always shows the "
+        "*full envelope* exactly as sent - `{\"success\": false, \"data\": null, "
+        "\"message\": \"...\", \"error\": {\"code\": \"...\", \"field\": ..., \"details\": ...}}` "
+        "- since that's where the error-specific structure actually lives."
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
@@ -300,11 +307,11 @@ THEME_VARIABLES = {
 CORS_ALLOWED_ORIGINS = [
     "https://zona-nonexpendable-dismally.ngrok-free.dev",
     "https://transmeridionally-monologic-wynona.ngrok-free.dev",# if React,
-    "https://*.trycloudflare.com",
+    "https://*.trycloudflare.com","https://polo-utility-portable.ngrok-free.dev"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://*.trycloudflare.com",
+    "https://*.trycloudflare.com","https://polo-utility-portable.ngrok-free.dev"
 ]
 # Face recognition settings
 # Default tolerance for face_recognition.compare_faces (lower is stricter)

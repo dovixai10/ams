@@ -28,7 +28,32 @@ document.addEventListener('DOMContentLoaded', function () {
     window.Helpers.mainMenu = menu;
   });
 
-  // Initialize menu togglers and bind click on each
+  // The theme's own markup puts "layout-menu-toggle" on TWO different
+  // elements: the real "<" chevron inside the sidebar, AND the full-screen
+  // dark overlay/backdrop that sits behind the content on mobile (see
+  // layout_vertical.html: `<div class="layout-overlay layout-menu-toggle">`).
+  // Binding the click-to-toggle listener below to every ".layout-menu-toggle"
+  // element (the theme's own intent - it's a "tap outside closes the menu"
+  // backdrop) therefore also wires up ANY tap on the content area to close
+  // the sidebar, because that's exactly what the overlay is for. That
+  // mattered here specifically because there's no navbar on this app to
+  // provide a separate, always-visible way to reopen the menu afterwards -
+  // so closing it that way left the user with no way back in until they
+  // reloaded the page.
+  //
+  // The fix is to stop the overlay/backdrop from ever being a toggle
+  // element in the first place - strip the shared class off it (and its
+  // desktop cousin, the content-backdrop) BEFORE the click-toggler below
+  // ever queries for ".layout-menu-toggle", so only the real "<" chevron is
+  // ever bound. This is deterministic (no relying on event-listener order
+  // or propagation timing versus the vendor bundle) and doesn't touch the
+  // vendor files themselves.
+  document.querySelectorAll('.layout-overlay, .content-backdrop').forEach(el => {
+    el.classList.remove('layout-menu-toggle');
+  });
+
+  // Initialize menu togglers and bind click on each - after the strip
+  // above, this only ever matches the real "<" chevron.
   let menuToggler = document.querySelectorAll('.layout-menu-toggle');
   menuToggler.forEach(item => {
     item.addEventListener('click', event => {

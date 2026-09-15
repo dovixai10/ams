@@ -93,7 +93,7 @@ class BalancesView(MobileAPIView):
         description="Newest first.",
     ),
     post=extend_schema(
-        responses=EnvelopeResponseSerializer,
+        responses={201: EnvelopeResponseSerializer, 400: EnvelopeResponseSerializer, 422: EnvelopeResponseSerializer},
         tags=[TAG], summary="Apply for leave",
         description=(
             "`days` is recomputed server-side excluding Sundays and holidays (the naive "
@@ -110,9 +110,10 @@ class BalancesView(MobileAPIView):
                 "appliedOn": "2026-09-14T14:17:36+05:30", "reviewedBy": None, "reviewedOn": None, "reviewComment": None,
             }, response_only=True),
             OpenApiExample('422 insufficient balance', value={
-                "success": False, "error": {"code": "INSUFFICIENT_LEAVE_BALANCE",
+                "success": False, "data": None,
                 "message": "You requested 2 day(s) but only have 0.0 available for Casual Leave.",
-                "details": {"requested": 2, "available": 0.0}},
+                "error": {"code": "INSUFFICIENT_LEAVE_BALANCE", "field": None,
+                          "details": {"requested": 2, "available": 0.0}},
             }, response_only=True, status_codes=['422']),
         ],
     ),

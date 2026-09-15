@@ -340,20 +340,48 @@
                 </div>
               </form>
 
-              {% if task.latest_update %}
+              {% with task_updates=task.updates.all %}
+              {% if task_updates %}
                 <div class="app-task__footer">
                   <div class="app-task__update">
                     <i class="bx bx-chat"></i>
-                    <div>
-                      <p class="mb-0"><strong>{{ task.latest_update.updated_by.get_full_name|default:task.latest_update.updated_by.username }}</strong> updated to <span class="text-capitalize">{{ task.latest_update.get_new_status_display }}</span></p>
-                      {% if task.latest_update.comment %}
-                        <span class="text-muted small">“{{ task.latest_update.comment }}”</span>
+                    <div class="flex-grow-1">
+                      <p class="mb-0"><strong>{{ task_updates.0.updated_by.get_full_name|default:task_updates.0.updated_by.username }}</strong> updated to <span class="text-capitalize">{{ task_updates.0.get_new_status_display }}</span></p>
+                      {% if task_updates.0.comment %}
+                        <span class="text-muted small">“{{ task_updates.0.comment }}”</span>
                       {% endif %}
-                      <div class="text-muted small">{{ task.latest_update.created_at|timesince }} ago</div>
+                      <div class="text-muted small">{{ task_updates.0.created_at|timesince }} ago</div>
+
+                      {% if task_updates|length > 1 %}
+                        <button type="button" class="btn btn-link btn-sm p-0 mt-1" data-bs-toggle="collapse" data-bs-target="#taskHistory{{ task.pk }}">
+                          <i class="bx bx-history me-1"></i>View full history ({{ task_updates|length }})
+                        </button>
+                        <div class="collapse mt-2" id="taskHistory{{ task.pk }}">
+                          <div class="d-flex flex-column gap-2">
+                            {% for update in task_updates %}
+                              <div class="border rounded-3 p-2">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                  <span class="fw-semibold text-capitalize small">{{ update.get_new_status_display }}</span>
+                                  {% if update.previous_status %}
+                                    <span class="badge bg-light text-muted small">from {{ update.get_previous_status_display }}</span>
+                                  {% endif %}
+                                </div>
+                                {% if update.comment %}
+                                  <div class="small mt-1">{{ update.comment }}</div>
+                                {% endif %}
+                                <div class="text-muted small mt-1">
+                                  By {{ update.updated_by.get_full_name|default:update.updated_by.username }} · {{ update.created_at|date:'M j, Y g:i A' }} · {{ update.created_at|timesince }} ago
+                                </div>
+                              </div>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      {% endif %}
                     </div>
                   </div>
                 </div>
               {% endif %}
+              {% endwith %}
             </div>
           {% endfor %}
         {% else %}

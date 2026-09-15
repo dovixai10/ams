@@ -1,403 +1,117 @@
 {% extends layout_path %}
-{% load static humanize %}
+{% load static %}
 
 {% block title %}Digital ID Card | Employee Management System{% endblock %}
 
-{% block page_css %}
-{{ block.super }}
-<style>
-  .digital-id-wrapper {
-    min-height: calc(100vh - 4rem);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5rem 0.75rem;
-  }
-
-  .id-card-scene {
-    width: min(420px, 100%);
-    height: 640px;
-    perspective: 1200px;
-  }
-
-  .id-card-3d {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    transform-style: preserve-3d;
-    transition: transform 0.7s ease;
-  }
-
-  .id-card-3d.flipped {
-    transform: rotateY(180deg);
-  }
-
-  .id-card-face {
-    position: absolute;
-    inset: 0;
-    backface-visibility: hidden;
-    border-radius: 24px;
-    overflow: hidden;
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
-    background: linear-gradient(145deg, #0f172a, #1e293b);
-    color: #f9fafb;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .id-card-face--back {
-    transform: rotateY(180deg);
-  }
-
-  .id-card-header-bar {
-    padding: 0.9rem 1.2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: linear-gradient(135deg, #2563eb, #22c55e);
-  }
-
-  .id-card-logo {
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-  }
-
-  .id-card-company-sub {
-    font-size: 0.72rem;
-    opacity: 0.9;
-  }
-
-  .id-card-body {
-    flex: 1;
-    padding: 1.4rem 1.4rem 1.6rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.1rem;
-  }
-
-  .id-card-emp-row {
-    display: flex;
-    gap: 1.1rem;
-    align-items: center;
-  }
-
-  .id-card-photo {
-    width: 104px;
-    height: 132px;
-    border-radius: 18px;
-    overflow: hidden;
-    background: #020617;
-    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.7);
-    flex-shrink: 0;
-  }
-
-  .id-card-photo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .id-card-emp-main {
-    flex: 1;
-  }
-
-  .id-card-name {
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    margin-bottom: 0.15rem;
-  }
-
-  .id-card-position {
-    font-size: 0.9rem;
-    opacity: 0.9;
-  }
-
-  .id-card-dept {
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    opacity: 0.8;
-    margin-top: 0.35rem;
-  }
-
-  .id-card-fields {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: 0.7rem 1.2rem;
-    font-size: 0.82rem;
-  }
-
-  .id-field-label {
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    font-size: 0.7rem;
-    opacity: 0.7;
-  }
-
-  .id-field-value {
-    font-weight: 600;
-    color: #e5e7eb;
-  }
-
-  .id-card-qr-wrap {
-    margin-top: auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 1rem;
-  }
-
-  .id-card-qr {
-    width: 108px;
-    height: 108px;
-    background: #020617;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.5rem;
-  }
-
-  .id-card-qr img {
-    max-width: 100%;
-    max-height: 100%;
-    display: block;
-  }
-
-  .id-card-meta {
-    font-size: 0.7rem;
-    opacity: 0.8;
-  }
-
-  .id-card-footer-bar {
-    padding: 0.65rem 1.2rem 0.85rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.75rem;
-    background: rgba(15, 23, 42, 0.96);
-  }
-
-  .id-card-actions {
-    display: flex;
-    justify-content: center;
-    gap: 0.75rem;
-    margin-top: 1.25rem;
-  }
-
-  .btn-id-action {
-    border-radius: 999px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 0.55rem 1.25rem;
-  }
-
-  .not-generated {
-    text-align: center;
-    padding: 3rem 1rem;
-  }
-
-  .not-generated i {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-  }
-
-  @media (max-width: 768px) {
-    .id-card-scene {
-      height: 580px;
-    }
-  }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="digital-id-wrapper">
-  <div class="col-xl-6 col-lg-7 col-md-10 col-12">
-    {% if has_id_card %}
-      <div class="mb-3 d-flex justify-content-between align-items-center">
-        <div>
-          <h5 class="mb-1">Digital ID Card</h5>
-          <!-- <small class="text-muted">Keep this open on your phone when entering the office.</small> -->
-        </div>
+<div class="container-fluid py-4">
+  {% if has_id_card %}
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h5 class="mb-1"><i class="bx bx-id-card me-2"></i>Digital ID Card</h5>
+        <small class="text-muted">The same card your admin can generate and download.</small>
+      </div>
+      <div class="d-flex gap-2">
         <button type="button" class="btn btn-sm btn-outline-secondary" id="flipCardBtn">
           <i class="bx bx-refresh me-1"></i>Flip Card
         </button>
+        <a href="{% url 'employees:download_id_card_pdf' %}" class="btn btn-sm btn-primary">
+          <i class="bx bx-download me-1"></i>Download PDF
+        </a>
       </div>
+    </div>
 
-      <div class="id-card-scene mx-auto">
-        <div class="id-card-3d" id="idCard3D">
-          <!-- FRONT SIDE -->
-          <div class="id-card-face id-card-face--front">
-            <div class="id-card-header-bar">
-              <div>
-                <div class="id-card-logo">{{site_name}}</div>
-                <div class="id-card-company-sub">Executing Vision Through Intelligence</div>
-              </div>
-              <span class="badge bg-success">Employee</span>
-            </div>
-            <div class="id-card-body">
-              <div class="id-card-emp-row">
-                <div class="id-card-photo">
-                  {% if id_card.employee_photo %}
-                    <img src="{{ id_card.employee_photo.url }}" alt="Employee Photo">
-                  {% elif employee.profile_picture %}
-                    <img src="{{ employee.profile_picture.url }}" alt="Employee Photo">
-                  {% else %}
-                    <img src="{% static 'default-avatar.png' %}" alt="Employee Photo">
-                  {% endif %}
-                </div>
-                <div class="id-card-emp-main">
-                  <div class="id-card-name">{{ employee.full_name }}</div>
-                  <div class="id-card-position">{{ id_card.job_position }}</div>
-                  <div class="id-card-dept">{{ employee.shift.name|default:'Employee' }}</div>
-                </div>
-              </div>
+    <div class="idc-scene mx-auto" style="max-width: 620px;">
+      <div class="idc-card" id="idcFrontCard">
+        <div class="idc-front">
+          <div class="idc-blob idc-blob--tl"></div>
+          <div class="idc-blob idc-blob--br"></div>
 
-              <div class="id-card-fields mt-2">
-                <div>
-                  <div class="id-field-label">Employee ID</div>
-                  <div class="id-field-value">{{ id_card.employee_id_number }}</div>
-                </div>
-                <div>
-                  <div class="id-field-label">Contact</div>
-                  <div class="id-field-value">{{ employee.contact }}</div>
-                </div>
-                <div>
-                  <div class="id-field-label">Date of Joining</div>
-                  <div class="id-field-value">{{ id_card.date_of_joining|date:"d M Y" }}</div>
-                </div>
-                <div>
-                  <div class="id-field-label">Email</div>
-                  <div class="id-field-value text-truncate">{{ employee.email }}</div>
-                </div>
-              </div>
+          <div class="idc-company-name">{{ card.company.name }}</div>
 
-              <div class="id-card-qr-wrap">
-                <div class="id-card-meta">
-                  <div>Show this card to security for verification.</div>
-                  <div>Valid Employee of {{site_name}}</div>
-                </div>
-                {% if id_card.qr_code %}
-                <div class="id-card-qr">
-                  <img src="data:image/png;base64,{{ id_card.qr_code }}" alt="Employee QR Code">
-                </div>
-                {% endif %}
-              </div>
-            </div>
-            <div class="id-card-footer-bar">
-              <span>{{ site_url }}</span>
-              
-              <span class="text-muted">Digital ID · Front</span>
-            </div>
+          <div class="idc-photo">
+            {% if card.employee.photo_url %}
+              <img src="{{ card.employee.photo_url }}" alt="{{ card.employee.name }}">
+            {% else %}
+              <span class="idc-initial">{{ card.employee.name|first|upper }}</span>
+            {% endif %}
+          </div>
+          <div class="idc-name">{{ card.employee.name }}</div>
+          <div class="idc-role">Employee</div>
+
+          <div class="idc-rows">
+            <div class="idc-row"><i class="bx bx-id-card"></i><span class="idc-label">Employee Code</span><span class="idc-value">{{ card.employee.code }}</span></div>
+            <div class="idc-row"><i class="bx bx-briefcase"></i><span class="idc-label">Designation</span><span class="idc-value">{{ card.employee.designation }}</span></div>
+            <div class="idc-row"><i class="bx bx-calendar"></i><span class="idc-label">D.O.J.</span><span class="idc-value">{{ card.employee.joining_date|date:"d M Y"|default:"-" }}</span></div>
+            <div class="idc-row"><i class="bx bx-phone"></i><span class="idc-label">Contact No.</span><span class="idc-value">{{ card.employee.contact|default:"-" }}</span></div>
           </div>
 
-          <!-- BACK SIDE -->
-          <div class="id-card-face id-card-face--back">
-            <div class="id-card-header-bar">
-              <div>
-                <div class="id-card-logo">{{ site_name }}</div>
-                <div class="id-card-company-sub">Emergency Details & Address</div>
-              </div>
-            </div>
-            <div class="id-card-body">
-              <div class="id-card-fields">
-                <div>
-                  <div class="id-field-label">Blood Group</div>
-                  <div class="id-field-value">{{ employee.blood_group|default:'Not provided' }}</div>
-                </div>
-                <div>
-                  <div class="id-field-label">Emergency Contact</div>
-                  <div class="id-field-value">
-                    {{ employee.relative_contact|default:'Not provided' }}
-                  </div>
-                </div>
-                <div>
-                  <div class="id-field-label">Relation</div>
-                  <div class="id-field-value">{{ employee.relation_with_employee|default:'Not provided' }}</div>
-                </div>
-                <div>
-                  <div class="id-field-label">Validity</div>
-                  <div class="id-field-value">{{ id_card.date_of_joining|date:"d M Y" }} – Till Active Employment</div>
-                </div>
-              </div>
-
-              <div class="mt-3">
-                <div class="id-field-label mb-1">Residential Address</div>
-                <div class="id-field-value small">
-                  {{ employee.current_address|default:employee.permanent_address|default:'Not provided' }}
-                </div>
-              </div>
-
-              <div class="mt-3">
-                <div class="id-field-label mb-1">Company Address</div>
-                <div class="id-field-value small">
-                  B-18, 2nd Floor, Shiv Marg, Opposite Maharishi Raman Diagnostic Center, Kanti Nagar, Bani Park, Jaipur, Rajasthan 302015, India
-                </div>
-              </div>
-
-              <div class="id-card-qr-wrap">
-                <div class="id-card-meta">
-                  <div>In case of emergency, please contact this number +91 91163 82399</div>
-                  <div>This card remains property of {{site_name}}</div>
-                </div>
-                {% if id_card.qr_code %}
-                <div class="id-card-qr">
-                  <img src="data:image/png;base64,{{ id_card.qr_code }}" alt="Employee QR Code Back">
-                </div>
-                {% endif %}
-              </div>
-            </div>
-            <div class="id-card-footer-bar">
-              <span>{{ site_url }}</span>
-              <span class="text-muted">Digital ID · Back</span>
-            </div>
+          <div class="idc-qr-block">
+            <img src="{{ card.front_qr_data_uri }}" alt="Employee details QR code">
+            <div class="idc-scan-text">Scan for Details</div>
           </div>
         </div>
       </div>
 
-      <div class="id-card-actions">
-        <!-- <a href="{% url 'employees:download_id_card' id_card.id %}" class="btn btn-sm btn-primary btn-id-action">
-          <i class="bx bx-download me-1"></i>Download Photo
-        </a> -->
-        <!-- <button type="button" class="btn btn-sm btn-outline-secondary btn-id-action" id="flipCardSecondary">
-          <i class="bx bx-refresh me-1"></i>Flip Card
-        </button> -->
-      </div>
-    {% else %}
-      <div class="card w-100">
-        <div class="card-body">
-          <div class="not-generated">
-            <i class="bx bx-id-card"></i>
-            <h5 class="mt-3">Your ID card is under verification</h5>
-            <p class="text-muted">Your digital ID card has not been approved yet.</p>
-            <p class="text-muted small mb-0">Please contact your admin if this takes longer than expected.</p>
+      <div class="idc-card d-none" id="idcBackCard">
+        <div class="idc-back">
+          <div class="idc-back-top">
+            <div class="idc-skyline">
+              <span style="height:55%"></span><span style="height:75%"></span><span style="height:60%"></span>
+              <span style="height:90%"></span><span style="height:65%"></span><span style="height:80%"></span>
+              <span style="height:50%"></span><span style="height:70%"></span>
+            </div>
+            <div class="idc-company-name">{{ card.company.name }}</div>
+          </div>
+          <div class="idc-back-bottom">
+            <div class="idc-qr-card">
+              <img src="{{ card.back_qr_data_uri }}" alt="Company website QR code">
+            </div>
+            <div class="idc-scan-text">Scan for Website</div>
+
+            <div class="idc-back-info">
+              {% if card.company.address %}
+                <div class="idc-row"><i class="bx bx-map"></i><span class="idc-value">{{ card.company.address }}</span></div>
+              {% endif %}
+              {% if card.company.phone %}
+                <div class="idc-row"><i class="bx bx-phone-call"></i><span class="idc-value">{{ card.company.phone }}</span></div>
+              {% endif %}
+              {% if card.company.website %}
+                <div class="idc-row"><i class="bx bx-globe"></i><span class="idc-value">{{ card.company.website }}</span></div>
+              {% endif %}
+            </div>
           </div>
         </div>
       </div>
-    {% endif %}
-  </div>
+    </div>
+
+  {% else %}
+    <div class="card w-100">
+      <div class="card-body">
+        <div class="text-center py-5">
+          <i class="bx bx-id-card" style="font-size: 4rem; opacity: 0.5;"></i>
+          <h5 class="mt-3">Your ID card is under verification</h5>
+          <p class="text-muted">Your digital ID card has not been generated yet.</p>
+          <p class="text-muted small mb-0">Please contact your admin if this takes longer than expected.</p>
+        </div>
+      </div>
+    </div>
+  {% endif %}
 </div>
+
+{% include "employees/id_card/_card_styles.html" %}
 
 <script>
   (function () {
-    const card = document.getElementById('idCard3D');
-    const primaryFlip = document.getElementById('flipCardBtn');
-    const secondaryFlip = document.getElementById('flipCardSecondary');
+    const front = document.getElementById('idcFrontCard');
+    const back = document.getElementById('idcBackCard');
+    const flipBtn = document.getElementById('flipCardBtn');
 
-    function toggleFlip() {
-      if (!card) return;
-      card.classList.toggle('flipped');
-    }
-
-    if (primaryFlip) {
-      primaryFlip.addEventListener('click', toggleFlip);
-    }
-    if (secondaryFlip) {
-      secondaryFlip.addEventListener('click', toggleFlip);
+    if (flipBtn) {
+      flipBtn.addEventListener('click', function () {
+        front.classList.toggle('d-none');
+        back.classList.toggle('d-none');
+      });
     }
   })();
 </script>

@@ -27,6 +27,10 @@ def initialize_balances_for_new_type(leave_type: LeaveType, credited_by=None):
     today = date.today()
 
     for employee in employees:
+        # branch=NULL means "office-wide"; a branch-tagged leave type only
+        # applies to employees in that same branch.
+        if leave_type.branch_id is not None and leave_type.branch_id != employee.branch_id:
+            continue
         if not leave_type.is_applicable_for(employee):
             continue
 
@@ -168,6 +172,10 @@ def get_employee_leave_type_balances(employee):
     today = date.today()
 
     for lt in leave_types:
+        # branch=NULL means "office-wide"; a branch-tagged leave type only
+        # applies to employees in that same branch.
+        if lt.branch_id is not None and lt.branch_id != employee.branch_id:
+            continue
         if not lt.is_applicable_for(employee):
             continue
 

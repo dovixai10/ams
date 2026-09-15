@@ -938,24 +938,14 @@ class LeaveRequestForm(forms.ModelForm):
     def __init__(self, *args, employee=None, **kwargs):
         self.employee = employee
         super().__init__(*args, **kwargs)
-        print("Employee:", employee)
-        print("Employee office:", employee.office_id)
-
-        qs = LeaveType.objects.filter(
-            office=employee.office,
-            is_active=True
-        ).order_by("display_order", "name")
-
-        print("Filtered leave types:")
-        for lt in qs:
-            print(lt.id, lt.name, lt.office_id)
-
-        self.fields["leave_type_ref"].queryset = qs
 
         if employee:
+            # branch=NULL means "office-wide"; a branch-tagged leave type
+            # only applies to employees in that same branch (same rule the
+            # mobile API and admin_leave_types use everywhere else).
             applicable = [
                 lt for lt in LeaveType.objects.filter(office=employee.office, is_active=True).order_by('display_order', 'name')
-                if lt.is_applicable_for(employee)
+                if (lt.branch_id is None or lt.branch_id == employee.branch_id) and lt.is_applicable_for(employee)
             ]
             applicable_ids = [lt.id for lt in applicable]
             self.fields['leave_type_ref'].queryset = LeaveType.objects.filter(office=employee.office, id__in=applicable_ids)

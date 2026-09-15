@@ -135,13 +135,18 @@
         <!-- Generate Salary Slip Form -->
         <div class="form-section">
           <h5>Generate New Salary Slip</h5>
-          <form method="POST" class="row g-3">
+          <p class="text-muted small mb-3" style="margin-top: -0.75rem;">
+            Salary is calculated automatically from the employee's profile under
+            <a href="{% url 'employees:employee_salary' %}">Finance &rarr; Employee Salary</a>,
+            prorated against that month's attendance. Pick an employee and month to preview it.
+          </p>
+          <form method="POST" id="generateSlipForm" class="row g-3">
             {% csrf_token %}
             <input type="hidden" name="action" value="generate">
-            
+
             <div class="col-md-6">
               <label class="form-label">Employee</label>
-              <select name="employee_id" class="form-control" required>
+              <select name="employee_id" id="slipEmployee" class="form-control" required>
                 <option value="">Select Employee</option>
                 {% for emp in employees %}
                   <option value="{{ emp.id }}">{{ emp.full_name }} ({{ emp.email }})</option>
@@ -151,26 +156,48 @@
 
             <div class="col-md-6">
               <label class="form-label">Month</label>
-              <input type="month" name="month" class="form-control" required>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Basic Salary (₹)</label>
-              <input type="number" name="basic_salary" class="form-control" step="0.01" required>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Deductions (₹)</label>
-              <input type="number" name="deductions" class="form-control" step="0.01" value="0">
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Net Salary (₹)</label>
-              <input type="number" name="net_salary" class="form-control" step="0.01" required>
+              <input type="month" name="month" id="slipMonth" class="form-control" required>
             </div>
 
             <div class="col-12">
-              <button type="submit" class="btn btn-primary">
+              <div id="slipPreviewLoading" class="d-none text-muted small">
+                <span class="spinner-border spinner-border-sm me-1"></span>Calculating...
+              </div>
+              <div id="slipPreviewError" class="alert alert-warning d-none mb-0" role="alert"></div>
+
+              <div id="slipPreview" class="d-none">
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <div class="amount-badge">
+                      <span class="amount-label">Basic</span>
+                      <span class="amount-value" id="previewBasic">-</span>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="amount-badge">
+                      <span class="amount-label">Gross</span>
+                      <span class="amount-value" id="previewGross">-</span>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="amount-badge">
+                      <span class="amount-label">Deductions</span>
+                      <span class="amount-value" id="previewDeductions">-</span>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="amount-badge">
+                      <span class="amount-label">Net Payable</span>
+                      <span class="amount-value" style="color: #10b981;" id="previewNet">-</span>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-muted small mt-3 mb-0" id="previewAttendance"></p>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary" id="generateSlipBtn" disabled>
                 <i class="bx bx-plus me-1"></i>Generate Salary Slip
               </button>
             </div>
@@ -223,4 +250,69 @@
     </div>
   </div>
 </div>
+
+<script>
+  (function () {
+    const employeeSelect = document.getElementById('slipEmployee');
+    const monthInput = document.getElementById('slipMonth');
+    const previewBox = document.getElementById('slipPreview');
+    const loadingBox = document.getElementById('slipPreviewLoading');
+    const errorBox = document.getElementById('slipPreviewError');
+    const generateBtn = document.getElementById('generateSlipBtn');
+
+    function money(value) {
+      return '₹' + Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function resetPreview() {
+      previewBox.classList.add('d-none');
+      errorBox.classList.add('d-none');
+      generateBtn.disabled = true;
+    }
+
+    function fetchPreview() {
+      const employeeId = employeeSelect.value;
+      const month = monthInput.value;
+      resetPreview();
+
+      if (!employeeId || !month) {
+        return;
+      }
+
+      loadingBox.classList.remove('d-none');
+
+      fetch(`{% url 'employees:salary_slip_preview_api' %}?employee_id=${employeeId}&month=${month}`)
+        .then(response => response.json())
+        .then(data => {
+          loadingBox.classList.add('d-none');
+
+          if (!data.success) {
+            errorBox.textContent = data.error || 'Could not calculate salary for this employee/month.';
+            errorBox.classList.remove('d-none');
+            return;
+          }
+
+          document.getElementById('previewBasic').textContent = money(data.basic_salary);
+          document.getElementById('previewGross').textContent = money(data.gross_salary);
+          document.getElementById('previewDeductions').textContent = money(data.total_deductions);
+          document.getElementById('previewNet').textContent = money(data.net_salary);
+          document.getElementById('previewAttendance').textContent =
+            `${data.present_days} present, ${data.half_days} half-day(s), ${data.lwp_days} loss-of-pay day(s) `
+            + `out of ${data.working_days} working days (${data.total_days} days, ${data.holidays} holiday(s)). `
+            + `Salary profile effective from ${data.effective_from}.`;
+
+          previewBox.classList.remove('d-none');
+          generateBtn.disabled = false;
+        })
+        .catch(() => {
+          loadingBox.classList.add('d-none');
+          errorBox.textContent = 'Error calculating salary. Please try again.';
+          errorBox.classList.remove('d-none');
+        });
+    }
+
+    employeeSelect.addEventListener('change', fetchPreview);
+    monthInput.addEventListener('change', fetchPreview);
+  })();
+</script>
 {% endblock %}

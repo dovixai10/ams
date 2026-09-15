@@ -1,0 +1,1172 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Dovix AI — One Platform to Run Attendance, Payroll & Your Team{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+
+  .lp {
+    --lp-primary: #696cff;
+    --lp-primary-dark: #5f61e6;
+    --lp-accent: #8b5cf6;
+    --lp-gradient: linear-gradient(135deg, #696cff, #8b5cf6);
+    --lp-ink: #1e1b3a;
+    --lp-muted: #64748b;
+    --lp-bg: #ffffff;
+    --lp-bg-alt: #f6f6ff;
+    --lp-border: rgba(30, 27, 58, 0.08);
+    --lp-success: #71dd37;
+    --lp-info: #03c3ec;
+    --lp-warning: #ffab00;
+    --lp-danger: #ff3e1d;
+    --lp-shadow: 0 20px 45px rgba(31, 21, 105, 0.09);
+    --lp-radius-lg: 24px;
+    --lp-radius-md: 16px;
+    color: var(--lp-ink);
+    background: var(--lp-bg);
+    overflow-x: clip;
+  }
+
+  .lp * { box-sizing: border-box; }
+
+  .lp a { text-decoration: none; }
+
+  .lp .lp-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+
+  .lp section { position: relative; padding: 5rem 0; }
+  .lp section.lp-tight { padding: 4rem 0; }
+  .lp .lp-alt { background: var(--lp-bg-alt); }
+
+  .lp .lp-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(105, 108, 255, 0.1);
+    color: var(--lp-primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .lp h1, .lp h2, .lp h3, .lp h4 { color: var(--lp-ink); font-weight: 700; letter-spacing: -0.02em; }
+  .lp .lp-section-head { max-width: 620px; margin-bottom: 2.75rem; }
+  .lp .lp-section-head.lp-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .lp .lp-section-head h2 { font-size: clamp(1.6rem, 3.2vw, 2.1rem); margin-bottom: 0.6rem; }
+  .lp .lp-section-head p { color: var(--lp-muted); font-size: 1.02rem; margin: 0; }
+
+  .lp .lp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.6rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border: 1px solid transparent;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+  }
+  .lp .lp-btn:hover { transform: translateY(-2px); }
+  .lp .lp-btn-primary {
+    background: var(--lp-gradient);
+    color: #fff;
+    box-shadow: 0 14px 28px rgba(105, 108, 255, 0.35);
+  }
+  .lp .lp-btn-primary:hover { color: #fff; box-shadow: 0 18px 34px rgba(105, 108, 255, 0.45); }
+  .lp .lp-btn-outline {
+    background: #fff;
+    color: var(--lp-ink);
+    border-color: var(--lp-border);
+  }
+  .lp .lp-btn-outline:hover { color: var(--lp-ink); border-color: var(--lp-primary); }
+  .lp .lp-btn-light {
+    background: rgba(255,255,255,0.16);
+    color: #fff;
+    border-color: rgba(255,255,255,0.4);
+    backdrop-filter: blur(6px);
+  }
+  .lp .lp-btn-light:hover { color: #fff; background: rgba(255,255,255,0.26); }
+  .lp .lp-btn-white {
+    background: #fff;
+    color: var(--lp-primary);
+  }
+  .lp .lp-btn-white:hover { color: var(--lp-primary-dark); }
+  .lp .lp-btn-sm { padding: 0.55rem 1.1rem; font-size: 0.85rem; border-radius: 10px; }
+
+  /* ============ NAVBAR ============ */
+  .lp-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--lp-border);
+  }
+  .lp-navbar .lp-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 74px;
+  }
+  .lp-brand { display: flex; align-items: center; gap: 0.55rem; font-weight: 800; font-size: 1.25rem; color: var(--lp-ink); }
+  .lp-brand-mark {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: var(--lp-gradient);
+    display: grid; place-items: center; color: #fff; font-size: 1.1rem; flex-shrink: 0;
+  }
+  .lp-nav-links { display: none; align-items: center; gap: 2rem; list-style: none; margin: 0; padding: 0; }
+  .lp-nav-links a { color: var(--lp-ink); font-weight: 500; font-size: 0.94rem; }
+  .lp-nav-links a:hover { color: var(--lp-primary); }
+  .lp-nav-actions { display: flex; align-items: center; gap: 0.75rem; }
+  .lp-nav-actions .lp-login-link { display: none; color: var(--lp-ink); font-weight: 600; font-size: 0.92rem; }
+  .lp-nav-toggle {
+    display: inline-flex; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--lp-border);
+    align-items: center; justify-content: center; background: #fff; font-size: 1.3rem; color: var(--lp-ink);
+  }
+  @media (min-width: 992px) {
+    .lp-nav-links { display: flex; }
+    .lp-nav-actions .lp-login-link { display: inline-flex; }
+    .lp-nav-toggle { display: none; }
+  }
+  .lp-mobile-menu {
+    display: none;
+    border-top: 1px solid var(--lp-border);
+    background: #fff;
+    padding: 0.75rem 1.25rem 1.25rem;
+  }
+  .lp-mobile-menu.lp-open { display: block; }
+  .lp-mobile-menu a {
+    display: block; padding: 0.65rem 0; color: var(--lp-ink); font-weight: 500; border-bottom: 1px solid var(--lp-border);
+  }
+  .lp-mobile-menu .lp-mobile-cta { display: flex; gap: 0.6rem; padding-top: 1rem; }
+
+  /* ============ HERO ============ */
+  .lp-hero {
+    padding: 4.5rem 0 5rem;
+    background:
+      radial-gradient(circle at 8% 12%, rgba(105, 108, 255, 0.16), transparent 45%),
+      radial-gradient(circle at 92% 82%, rgba(139, 92, 246, 0.14), transparent 42%),
+      #fff;
+  }
+  .lp-hero .lp-container { display: grid; gap: 3rem; align-items: center; }
+  @media (min-width: 992px) {
+    .lp-hero .lp-container { grid-template-columns: 1fr 1fr; }
+  }
+  .lp-hero h1 { font-size: clamp(2rem, 4.4vw, 3rem); line-height: 1.12; margin-bottom: 1.1rem; }
+  .lp-hero p.lp-hero-sub { color: var(--lp-muted); font-size: 1.08rem; max-width: 46ch; margin-bottom: 2rem; }
+  .lp-hero-actions { display: flex; flex-wrap: wrap; gap: 0.85rem; margin-bottom: 2.25rem; }
+  .lp-hero-tags { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+  .lp-hero-tags span { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--lp-muted); font-size: 0.86rem; font-weight: 500; }
+  .lp-hero-tags i { color: var(--lp-primary); font-size: 1.1rem; }
+
+  /* Hero mockup */
+  .lp-hero-visual { position: relative; min-height: 380px; }
+  .lp-mock-card {
+    background: #fff;
+    border-radius: var(--lp-radius-lg);
+    box-shadow: var(--lp-shadow);
+    border: 1px solid var(--lp-border);
+    overflow: hidden;
+    display: flex;
+    max-width: 480px;
+  }
+  .lp-mock-sidebar {
+    width: 56px; flex-shrink: 0;
+    background: var(--lp-ink);
+    display: flex; flex-direction: column; align-items: center; gap: 1.1rem;
+    padding: 1.1rem 0;
+  }
+  .lp-mock-sidebar .lp-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--lp-gradient); margin-bottom: 0.3rem; }
+  .lp-mock-sidebar i { color: rgba(255,255,255,0.55); font-size: 1.15rem; }
+  .lp-mock-sidebar i.lp-active { color: #fff; }
+  .lp-mock-body { padding: 1.15rem 1.25rem; flex-grow: 1; min-width: 0; }
+  .lp-mock-greet { font-size: 0.72rem; color: var(--lp-muted); margin-bottom: 0.15rem; }
+  .lp-mock-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.9rem; }
+  .lp-mock-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+  .lp-mock-stat { background: var(--lp-bg-alt); border-radius: 10px; padding: 0.55rem 0.5rem; }
+  .lp-mock-stat .lp-num { font-weight: 800; font-size: 1.05rem; }
+  .lp-mock-stat .lp-lbl { font-size: 0.62rem; color: var(--lp-muted); white-space: nowrap; }
+  .lp-mock-chart { display: flex; align-items: flex-end; gap: 5px; height: 52px; margin-bottom: 0.3rem; }
+  .lp-mock-chart span { flex: 1; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--lp-primary), var(--lp-accent)); opacity: 0.85; }
+  .lp-mock-caption { font-size: 0.65rem; color: var(--lp-muted); }
+
+  .lp-phone-mock {
+    position: absolute;
+    right: -6px;
+    bottom: -34px;
+    width: 168px;
+    background: #14122a;
+    border-radius: 26px;
+    padding: 8px;
+    box-shadow: 0 24px 50px rgba(20, 18, 42, 0.35);
+  }
+  .lp-phone-screen {
+    background: #fff;
+    border-radius: 18px;
+    padding: 1rem 0.8rem;
+    text-align: center;
+  }
+  .lp-phone-screen .lp-phone-brand { display: flex; align-items: center; justify-content: center; gap: 0.35rem; font-weight: 800; font-size: 0.72rem; margin-bottom: 0.9rem; }
+  .lp-phone-check {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(113, 221, 55, 0.14); color: var(--lp-success);
+    display: grid; place-items: center; margin: 0 auto 0.6rem; font-size: 1.6rem;
+  }
+  .lp-phone-screen strong { display: block; font-size: 0.8rem; margin-bottom: 0.2rem; }
+  .lp-phone-screen span { font-size: 0.68rem; color: var(--lp-muted); }
+
+  /* ============ TRUST / STATS ============ */
+  .lp-trust-logos { display: flex; flex-wrap: wrap; justify-content: center; gap: 2.25rem; margin: 2rem 0 2.75rem; }
+  .lp-trust-logos span { display: flex; align-items: center; gap: 0.45rem; color: var(--lp-muted); font-weight: 700; font-size: 0.95rem; opacity: 0.75; }
+  .lp-trust-logos i { font-size: 1.2rem; color: var(--lp-primary); }
+  .lp-stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; max-width: 760px; margin: 0 auto; }
+  @media (min-width: 768px) { .lp-stats-row { grid-template-columns: repeat(4, 1fr); } }
+  .lp-stat-card { text-align: center; padding: 1.25rem 0.5rem; border-radius: var(--lp-radius-md); background: #fff; box-shadow: var(--lp-shadow); }
+  .lp-stat-card .lp-stat-num { font-size: 1.7rem; font-weight: 800; color: var(--lp-primary); }
+  .lp-stat-card .lp-stat-lbl { font-size: 0.82rem; color: var(--lp-muted); }
+
+  /* ============ FEATURE / STEP GRID ============ */
+  .lp-two-col { display: grid; gap: 1.5rem; }
+  @media (min-width: 992px) { .lp-two-col { grid-template-columns: 1fr 1fr; gap: 2.5rem; } }
+
+  .lp-feature-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+  @media (min-width: 576px) { .lp-feature-grid { grid-template-columns: 1fr 1fr; } }
+  .lp-feature-card {
+    background: #fff; border: 1px solid var(--lp-border); border-radius: var(--lp-radius-md);
+    padding: 1.35rem; transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .lp-feature-card:hover { transform: translateY(-3px); box-shadow: var(--lp-shadow); }
+  .lp-feature-icon {
+    width: 46px; height: 46px; border-radius: 12px;
+    background: rgba(105, 108, 255, 0.1); color: var(--lp-primary);
+    display: grid; place-items: center; font-size: 1.3rem; margin-bottom: 0.9rem;
+  }
+  .lp-feature-card h4 { font-size: 1rem; margin-bottom: 0.35rem; }
+  .lp-feature-card p { font-size: 0.88rem; color: var(--lp-muted); margin: 0; }
+
+  .lp-steps { display: grid; grid-template-columns: 1fr; gap: 1.75rem; position: relative; }
+  @media (min-width: 768px) { .lp-steps { grid-template-columns: repeat(4, 1fr); } }
+  .lp-step { position: relative; padding-top: 0.25rem; }
+  .lp-step-num {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--lp-gradient); color: #fff; font-weight: 800;
+    display: grid; place-items: center; margin-bottom: 1rem; font-size: 1rem;
+  }
+  .lp-step h4 { font-size: 0.98rem; margin-bottom: 0.35rem; }
+  .lp-step p { font-size: 0.85rem; color: var(--lp-muted); margin: 0; }
+  @media (min-width: 768px) {
+    .lp-step:not(:last-child)::after {
+      content: '';
+      position: absolute; top: 21px; left: calc(50% + 34px); width: calc(100% - 34px);
+      border-top: 2px dashed var(--lp-border);
+    }
+  }
+
+  /* ============ TABS (solutions / product tour) ============ */
+  .lp-pill-tabs { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; background: var(--lp-bg-alt); padding: 0.35rem; border-radius: 999px; margin-bottom: 1.75rem; }
+  .lp-pill-tabs button {
+    border: none; background: transparent; padding: 0.55rem 1.1rem; border-radius: 999px;
+    font-size: 0.85rem; font-weight: 600; color: var(--lp-muted); cursor: pointer; transition: all 0.15s ease;
+  }
+  .lp-pill-tabs button.lp-active { background: var(--lp-gradient); color: #fff; box-shadow: 0 8px 18px rgba(105,108,255,0.3); }
+
+  .lp-solution-panel { display: none; }
+  .lp-solution-panel.lp-active { display: grid; gap: 1.75rem; grid-template-columns: 1fr; align-items: center; }
+  @media (min-width: 768px) { .lp-solution-panel.lp-active { grid-template-columns: 0.9fr 1.1fr; } }
+  .lp-solution-art {
+    height: 220px; border-radius: var(--lp-radius-lg);
+    background: linear-gradient(135deg, rgba(105,108,255,0.12), rgba(139,92,246,0.1));
+    display: grid; place-items: center; color: var(--lp-primary); font-size: 3rem;
+  }
+  .lp-solution-list { list-style: none; margin: 0 0 1.25rem; padding: 0; display: grid; gap: 0.8rem; }
+  .lp-solution-list li { display: flex; align-items: center; gap: 0.65rem; font-size: 0.92rem; color: var(--lp-ink); }
+  .lp-solution-list i { color: var(--lp-primary); font-size: 1.15rem; flex-shrink: 0; }
+
+  /* ============ MOBILE SPOTLIGHT ============ */
+  .lp-mobile-points { list-style: none; margin: 0 0 1.75rem; padding: 0; display: grid; gap: 1rem; }
+  .lp-mobile-points li { display: flex; align-items: flex-start; gap: 0.75rem; font-size: 0.94rem; }
+  .lp-mobile-points i { width: 34px; height: 34px; border-radius: 9px; background: rgba(105,108,255,0.1); color: var(--lp-primary); display: grid; place-items: center; flex-shrink: 0; font-size: 1.05rem; }
+  .lp-store-badges { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .lp-store-badge {
+    display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.6rem 1.1rem;
+    background: var(--lp-ink); color: #fff; border-radius: 12px; font-size: 0.82rem;
+  }
+  .lp-store-badge i { font-size: 1.3rem; }
+  .lp-store-badge span { display: block; text-align: left; line-height: 1.15; }
+  .lp-store-badge small { display: block; font-size: 0.62rem; opacity: 0.7; }
+
+  .lp-phones-duo { display: flex; justify-content: center; gap: 1.25rem; padding: 1rem 0; }
+  .lp-phone-frame {
+    width: 150px; background: #14122a; border-radius: 24px; padding: 7px;
+    box-shadow: 0 20px 40px rgba(20,18,42,0.28);
+  }
+  .lp-phone-frame:nth-child(2) { margin-top: 2.5rem; }
+  .lp-phone-frame .lp-screen { background: #fff; border-radius: 17px; padding: 0.9rem 0.7rem; min-height: 260px; }
+  .lp-phone-frame .lp-screen-head { display: flex; align-items: center; gap: 0.3rem; font-weight: 800; font-size: 0.68rem; margin-bottom: 0.75rem; }
+  .lp-phone-btn { display: block; width: 100%; text-align: center; padding: 0.5rem; border-radius: 8px; font-size: 0.68rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .lp-phone-btn.lp-filled { background: var(--lp-gradient); color: #fff; }
+  .lp-phone-btn.lp-line { border: 1px solid var(--lp-border); color: var(--lp-ink); }
+  .lp-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 0.5rem; }
+  .lp-cal-grid span { aspect-ratio: 1; border-radius: 4px; background: var(--lp-bg-alt); font-size: 0.5rem; display: grid; place-items: center; color: var(--lp-muted); }
+  .lp-cal-grid span.lp-cal-active { background: var(--lp-primary); color: #fff; }
+
+  /* ============ PRODUCT TOUR MOCK ============ */
+  .lp-tour-mock {
+    background: #fff; border: 1px solid var(--lp-border); border-radius: var(--lp-radius-lg);
+    box-shadow: var(--lp-shadow); overflow: hidden; display: flex; min-height: 320px;
+  }
+  .lp-tour-side { width: 190px; flex-shrink: 0; background: var(--lp-ink); padding: 1.5rem 1.1rem; color: #fff; display: none; }
+  @media (min-width: 576px) { .lp-tour-side { display: block; } }
+  .lp-tour-side .lp-brand-mark { margin-bottom: 1.5rem; }
+  .lp-tour-side nav a { display: flex; align-items: center; gap: 0.6rem; color: rgba(255,255,255,0.6); padding: 0.5rem 0; font-size: 0.82rem; }
+  .lp-tour-side nav a.lp-active { color: #fff; font-weight: 700; }
+  .lp-tour-main { flex-grow: 1; padding: 1.5rem 1.75rem; min-width: 0; }
+  .lp-tour-main h5 { font-size: 1rem; margin-bottom: 1rem; }
+  .lp-tour-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
+  .lp-tour-tile { background: var(--lp-bg-alt); border-radius: 12px; padding: 0.85rem; }
+  .lp-tour-tile .lp-num { font-weight: 800; font-size: 1.25rem; }
+  .lp-tour-tile .lp-lbl { font-size: 0.72rem; color: var(--lp-muted); }
+  .lp-tour-chart { display: flex; align-items: flex-end; gap: 8px; height: 90px; }
+  .lp-tour-chart span { flex: 1; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, var(--lp-primary), var(--lp-accent)); opacity: 0.85; }
+
+  /* ============ TESTIMONIALS ============ */
+  .lp-testi-track { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+  @media (min-width: 900px) { .lp-testi-track { grid-template-columns: repeat(3, 1fr); } }
+  .lp-testi-card { background: #fff; border: 1px solid var(--lp-border); border-radius: var(--lp-radius-md); padding: 1.5rem; box-shadow: var(--lp-shadow); }
+  .lp-testi-card i.lp-quote { color: rgba(105,108,255,0.35); font-size: 1.8rem; }
+  .lp-testi-card p { font-size: 0.92rem; color: var(--lp-ink); margin: 0.75rem 0 1.25rem; line-height: 1.6; }
+  .lp-testi-person { display: flex; align-items: center; gap: 0.65rem; }
+  .lp-testi-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--lp-gradient); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+  .lp-testi-person strong { display: block; font-size: 0.88rem; }
+  .lp-testi-person span { font-size: 0.76rem; color: var(--lp-muted); }
+
+  /* ============ PRICING ============ */
+  .lp-pricing-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+  @media (min-width: 900px) { .lp-pricing-grid { grid-template-columns: repeat(3, 1fr); } }
+  .lp-price-card {
+    background: #fff; border: 1px solid var(--lp-border); border-radius: var(--lp-radius-lg);
+    padding: 2rem 1.75rem; position: relative;
+  }
+  .lp-price-card.lp-featured { border: 2px solid var(--lp-primary); box-shadow: 0 24px 48px rgba(105,108,255,0.2); transform: translateY(-8px); }
+  .lp-price-badge {
+    position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+    background: var(--lp-gradient); color: #fff; font-size: 0.7rem; font-weight: 700;
+    padding: 0.3rem 0.9rem; border-radius: 999px;
+  }
+  .lp-price-card h4 { font-size: 1.05rem; margin-bottom: 0.3rem; }
+  .lp-price-card .lp-price-amt { font-size: 2.1rem; font-weight: 800; margin: 0.6rem 0 0.1rem; }
+  .lp-price-card .lp-price-amt span { font-size: 0.85rem; font-weight: 500; color: var(--lp-muted); }
+  .lp-price-card .lp-price-note { font-size: 0.8rem; color: var(--lp-muted); margin-bottom: 1.4rem; }
+  .lp-price-list { list-style: none; margin: 0 0 1.75rem; padding: 0; display: grid; gap: 0.65rem; }
+  .lp-price-list li { display: flex; align-items: center; gap: 0.55rem; font-size: 0.88rem; color: var(--lp-ink); }
+  .lp-price-list i { color: var(--lp-success); font-size: 1.05rem; flex-shrink: 0; }
+  .lp-price-card .lp-btn { width: 100%; }
+
+  /* ============ FAQ ============ */
+  .lp-faq-item { border: 1px solid var(--lp-border); border-radius: 14px; margin-bottom: 0.75rem; overflow: hidden; background: #fff; }
+  .lp-faq-q {
+    width: 100%; text-align: left; background: none; border: none; padding: 1.05rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    font-weight: 600; font-size: 0.94rem; color: var(--lp-ink); cursor: pointer;
+  }
+  .lp-faq-q i { color: var(--lp-primary); transition: transform 0.2s ease; flex-shrink: 0; }
+  .lp-faq-item.lp-open .lp-faq-q i { transform: rotate(45deg); }
+  .lp-faq-a { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+  .lp-faq-item.lp-open .lp-faq-a { max-height: 220px; }
+  .lp-faq-a p { padding: 0 1.25rem 1.1rem; margin: 0; color: var(--lp-muted); font-size: 0.88rem; line-height: 1.6; }
+
+  /* ============ ABOUT ============ */
+  .lp-about-values { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.5rem 0; }
+  .lp-about-values > div { text-align: center; }
+  .lp-about-values i { width: 44px; height: 44px; border-radius: 12px; background: rgba(105,108,255,0.1); color: var(--lp-primary); display: grid; place-items: center; margin: 0 auto 0.5rem; font-size: 1.2rem; }
+  .lp-about-values strong { display: block; font-size: 0.85rem; }
+  .lp-about-values p { font-size: 0.75rem; color: var(--lp-muted); margin: 0.15rem 0 0; }
+  .lp-about-art {
+    height: 260px; border-radius: var(--lp-radius-lg);
+    background: linear-gradient(135deg, rgba(105,108,255,0.14), rgba(139,92,246,0.12));
+    display: grid; place-items: center; color: var(--lp-primary); font-size: 3.4rem;
+  }
+
+  /* ============ FINAL CTA ============ */
+  .lp-final-cta {
+    border-radius: 28px;
+    background: var(--lp-gradient);
+    color: #fff;
+    padding: 3rem 2rem;
+    display: grid; gap: 2rem; align-items: center;
+    position: relative; overflow: hidden;
+  }
+  @media (min-width: 900px) { .lp-final-cta { grid-template-columns: 1.1fr 0.9fr; padding: 3.5rem 3.5rem; } }
+  .lp-final-cta h2 { color: #fff; font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 0.6rem; }
+  .lp-final-cta p { color: rgba(255,255,255,0.85); margin-bottom: 1.5rem; max-width: 46ch; }
+  .lp-final-cta-actions { display: flex; flex-wrap: wrap; gap: 0.85rem; }
+  .lp-final-visual { display: flex; justify-content: center; }
+  .lp-final-visual .lp-mock-card { background: rgba(255,255,255,0.97); }
+
+  /* ============ FOOTER ============ */
+  .lp-footer { background: #17162c; color: rgba(255,255,255,0.68); padding: 3.5rem 0 1.5rem; }
+  .lp-footer .lp-brand { color: #fff; margin-bottom: 0.85rem; }
+  .lp-footer p.lp-footer-tag { font-size: 0.85rem; max-width: 30ch; margin-bottom: 1.25rem; }
+  .lp-footer-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; margin-bottom: 2.5rem; }
+  @media (min-width: 768px) { .lp-footer-grid { grid-template-columns: 1.4fr repeat(3, 1fr); } }
+  .lp-footer-col h6 { color: #fff; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem; }
+  .lp-footer-col a { display: block; color: rgba(255,255,255,0.62); font-size: 0.86rem; margin-bottom: 0.65rem; }
+  .lp-footer-col a:hover { color: #fff; }
+  .lp-footer-social { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+  .lp-footer-social a { width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.08); display: grid; place-items: center; color: #fff; }
+  .lp-newsletter { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+  .lp-newsletter input {
+    flex-grow: 1; min-width: 0; padding: 0.6rem 0.85rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.06); color: #fff; font-size: 0.85rem;
+  }
+  .lp-newsletter input::placeholder { color: rgba(255,255,255,0.4); }
+  .lp-footer-bottom {
+    border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;
+    display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;
+    font-size: 0.8rem;
+  }
+  .lp-footer-bottom .lp-legal-links { display: flex; gap: 1.25rem; }
+  .lp-footer-bottom a { color: rgba(255,255,255,0.55); }
+  .lp-footer-bottom a:hover { color: #fff; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lp">
+
+  <!-- ============================================================
+        1. NAVBAR
+  ============================================================= -->
+  <header class="lp-navbar">
+    <div class="lp-container">
+      <a href="{% url 'employees:home' %}" class="lp-brand">
+        <span class="lp-brand-mark"><i class="bx bx-current-location"></i></span>
+        Dovix AI
+      </a>
+
+      <ul class="lp-nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#solutions">Solutions</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+
+      <div class="lp-nav-actions">
+        <a href="{% url 'employees:login' %}" class="lp-login-link">Log In</a>
+        <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary lp-btn-sm d-none d-lg-inline-flex">Request a Demo</a>
+        <button type="button" class="lp-nav-toggle" id="lpNavToggle" aria-label="Toggle menu">
+          <i class="bx bx-menu"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="lp-mobile-menu" id="lpMobileMenu">
+      <a href="#features">Features</a>
+      <a href="#solutions">Solutions</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+      <div class="lp-mobile-cta">
+        <a href="{% url 'employees:login' %}" class="lp-btn lp-btn-outline lp-btn-sm flex-fill">Log In</a>
+        <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary lp-btn-sm flex-fill">Request a Demo</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+        2. HERO
+  ============================================================= -->
+  <section class="lp-hero">
+    <div class="lp-container">
+      <div>
+        <span class="lp-eyebrow"><i class="bx bx-rocket"></i> All-in-One HRMS Platform</span>
+        <h1>One platform to run attendance, payroll, and your team — across every branch.</h1>
+        <p class="lp-hero-sub">Simplify HR, boost productivity, and keep your team connected with face recognition, geofencing, and powerful management tools.</p>
+        <div class="lp-hero-actions">
+          <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary">Start Free Trial</a>
+          <a href="#contact" class="lp-btn lp-btn-outline">Book a Demo</a>
+        </div>
+        <div class="lp-hero-tags">
+          <span><i class="bx bx-scan"></i> Face Recognition</span>
+          <span><i class="bx bx-current-location"></i> Geofencing</span>
+          <span><i class="bx bx-buildings"></i> Multi-Branch</span>
+          <span><i class="bx bx-mobile-alt"></i> Mobile App</span>
+        </div>
+      </div>
+
+      <div class="lp-hero-visual">
+        <div class="lp-mock-card">
+          <div class="lp-mock-sidebar">
+            <span class="lp-dot"></span>
+            <i class="bx bx-grid-alt lp-active"></i>
+            <i class="bx bx-group"></i>
+            <i class="bx bx-calendar-check"></i>
+            <i class="bx bx-wallet"></i>
+            <i class="bx bx-task"></i>
+            <i class="bx bx-cog"></i>
+          </div>
+          <div class="lp-mock-body">
+            <div class="lp-mock-greet">Good Morning,</div>
+            <div class="lp-mock-name">Alex 👋</div>
+            <div class="lp-mock-stats">
+              <div class="lp-mock-stat"><div class="lp-num">248</div><div class="lp-lbl">Employees</div></div>
+              <div class="lp-mock-stat"><div class="lp-num" style="color:var(--lp-success)">231</div><div class="lp-lbl">Present</div></div>
+              <div class="lp-mock-stat"><div class="lp-num" style="color:var(--lp-warning)">12</div><div class="lp-lbl">Late</div></div>
+            </div>
+            <div class="lp-mock-chart">
+              <span style="height:45%"></span><span style="height:70%"></span><span style="height:55%"></span>
+              <span style="height:90%"></span><span style="height:65%"></span><span style="height:80%"></span><span style="height:50%"></span>
+            </div>
+            <div class="lp-mock-caption">Attendance Overview — this week</div>
+          </div>
+        </div>
+
+        <div class="lp-phone-mock">
+          <div class="lp-phone-screen">
+            <div class="lp-phone-brand"><i class="bx bx-current-location" style="color:var(--lp-primary)"></i> Dovix AI</div>
+            <div class="lp-phone-check"><i class="bx bx-check"></i></div>
+            <strong>Check-In Successful</strong>
+            <span>09:02 AM · Head Office</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+        3. TRUST / STATS
+  ============================================================= -->
+  <section class="lp-tight lp-alt">
+    <div class="lp-container">
+      <div class="lp-section-head lp-center">
+        <h2 style="font-size:1.15rem;">Trusted by teams at growing businesses</h2>
+        <p>Join 1,000+ teams who manage their workforce with Dovix AI</p>
+      </div>
+
+      <div class="lp-trust-logos">
+        <span><i class="bx bx-cube-alt"></i> AcmeTech</span>
+        <span><i class="bx bx-bulb"></i> BrightWorks</span>
+        <span><i class="bx bx-trending-up"></i> NextGen</span>
+        <span><i class="bx bx-landscape"></i> Skyline</span>
+        <span><i class="bx bx-globe"></i> UrbanMart</span>
+      </div>
+
+      <div class="lp-stats-row">
+        <div class="lp-stat-card"><div class="lp-stat-num">1,000+</div><div class="lp-stat-lbl">Happy Teams</div></div>
+        <div class="lp-stat-card"><div class="lp-stat-num">50K+</div><div class="lp-stat-lbl">Employees Managed</div></div>
+        <div class="lp-stat-card"><div class="lp-stat-num">99.9%</div><div class="lp-stat-lbl">Uptime</div></div>
+        <div class="lp-stat-card"><div class="lp-stat-num">24/7</div><div class="lp-stat-lbl">Support</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+        4 + 5. FEATURES OVERVIEW  /  HOW IT WORKS
+  ============================================================= -->
+  <section id="features">
+    <div class="lp-container">
+      <div class="lp-two-col">
+
+        <div>
+          <div class="lp-section-head">
+            <h2>Everything you need to manage your workforce</h2>
+            <p>Powerful features designed to simplify HR, boost productivity, and help your business grow.</p>
+          </div>
+          <div class="lp-feature-grid">
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon"><i class="bx bx-scan"></i></div>
+              <h4>Face Recognition Attendance</h4>
+              <p>Secure and accurate check-ins with AI-powered facial recognition.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon"><i class="bx bx-current-location"></i></div>
+              <h4>Geofenced Check-in/Check-out</h4>
+              <p>Ensure employees are at the right location with location-based attendance.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon"><i class="bx bx-calendar-check"></i></div>
+              <h4>Leave Management</h4>
+              <p>Simple leave requests, approvals, and tracking for your entire team.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon"><i class="bx bx-wallet"></i></div>
+              <h4>Payroll &amp; Salary Slips</h4>
+              <p>Automate payroll and generate salary slips in just a few clicks.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon"><i class="bx bx-task"></i></div>
+              <h4>Task &amp; Project Management</h4>
+              <p>Plan, assign, and track tasks and projects with ease.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon"><i class="bx bx-buildings"></i></div>
+              <h4>Multi-Branch Support</h4>
+              <p>Manage multiple branches and offices from a single platform.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon"><i class="bx bx-lock-alt"></i></div>
+              <h4>Roles &amp; Permissions</h4>
+              <p>Control access and ensure data security with dynamic roles.</p>
+            </div>
+            <div class="lp-feature-card">
+              <div class="lp-feature-icon"><i class="bx bx-mobile-alt"></i></div>
+              <h4>Mobile App</h4>
+              <p>Remote access for your team, anytime, anywhere.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="lp-section-head">
+            <h2>Get started in 4 simple steps</h2>
+            <p>Set up, onboard, and start managing your team — in minutes.</p>
+          </div>
+          <div class="lp-steps">
+            <div class="lp-step">
+              <div class="lp-step-num">1</div>
+              <h4>Set up your office &amp; branches</h4>
+              <p>Add your company, branches, and office locations.</p>
+            </div>
+            <div class="lp-step">
+              <div class="lp-step-num">2</div>
+              <h4>Add employees &amp; assign roles</h4>
+              <p>Invite your team and set up permissions.</p>
+            </div>
+            <div class="lp-step">
+              <div class="lp-step-num">3</div>
+              <h4>Employees check in via face/geofence</h4>
+              <p>Secure attendance with AI + location.</p>
+            </div>
+            <div class="lp-step">
+              <div class="lp-step-num">4</div>
+              <h4>Approve leave, run payroll, track tasks</h4>
+              <p>All from one easy-to-use dashboard.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+        6 + 7. SOLUTIONS / USE CASES  /  MOBILE APP SPOTLIGHT
+  ============================================================= -->
+  <section id="solutions" class="lp-alt">
+    <div class="lp-container">
+      <div class="lp-two-col">
+
+        <div>
+          <div class="lp-section-head">
+            <h2>Built for every kind of team</h2>
+            <p>Whether you're a small business, a multi-branch enterprise, or a remote team — Dovix AI adapts to your needs.</p>
+          </div>
+
+          <div class="lp-pill-tabs" id="lpSolutionTabs">
+            <button type="button" class="lp-active" data-target="lp-sol-hr">For HR Teams</button>
+            <button type="button" data-target="lp-sol-branch">For Multi-Branch Businesses</button>
+            <button type="button" data-target="lp-sol-field">For Field/Remote Staff</button>
+          </div>
+
+          <div class="lp-solution-panel lp-active" id="lp-sol-hr">
+            <div class="lp-solution-art"><i class="bx bx-group"></i></div>
+            <div>
+              <ul class="lp-solution-list">
+                <li><i class="bx bx-check-circle"></i> Automate attendance &amp; leave tracking</li>
+                <li><i class="bx bx-check-circle"></i> Manage payroll and salary slips</li>
+                <li><i class="bx bx-check-circle"></i> Handle employee data and documents</li>
+                <li><i class="bx bx-check-circle"></i> Track performance and tasks</li>
+              </ul>
+              <a href="#contact" class="lp-btn lp-btn-primary lp-btn-sm">Learn More <i class="bx bx-right-arrow-alt"></i></a>
+            </div>
+          </div>
+
+          <div class="lp-solution-panel" id="lp-sol-branch">
+            <div class="lp-solution-art"><i class="bx bx-buildings"></i></div>
+            <div>
+              <ul class="lp-solution-list">
+                <li><i class="bx bx-check-circle"></i> Branch-wise attendance &amp; reporting</li>
+                <li><i class="bx bx-check-circle"></i> Switch and manage branches instantly</li>
+                <li><i class="bx bx-check-circle"></i> Branch-scoped roles &amp; permissions</li>
+                <li><i class="bx bx-check-circle"></i> Consolidated, office-wide oversight</li>
+              </ul>
+              <a href="#contact" class="lp-btn lp-btn-primary lp-btn-sm">Learn More <i class="bx bx-right-arrow-alt"></i></a>
+            </div>
+          </div>
+
+          <div class="lp-solution-panel" id="lp-sol-field">
+            <div class="lp-solution-art"><i class="bx bx-current-location"></i></div>
+            <div>
+              <ul class="lp-solution-list">
+                <li><i class="bx bx-check-circle"></i> Geofenced check-in from any site</li>
+                <li><i class="bx bx-check-circle"></i> Apply for leave straight from the app</li>
+                <li><i class="bx bx-check-circle"></i> Real-time task &amp; project updates</li>
+                <li><i class="bx bx-check-circle"></i> Payslips and history, always on hand</li>
+              </ul>
+              <a href="#contact" class="lp-btn lp-btn-primary lp-btn-sm">Learn More <i class="bx bx-right-arrow-alt"></i></a>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="lp-section-head">
+            <h2>Your team, on the go</h2>
+            <p>The Dovix AI mobile app gives your employees and managers the power to stay connected, wherever they are.</p>
+          </div>
+
+          <div class="lp-two-col" style="grid-template-columns: 1fr; gap:0;">
+            <div>
+              <ul class="lp-mobile-points">
+                <li><i class="bx bx-scan"></i> Check in / check out with face + location</li>
+                <li><i class="bx bx-calendar-check"></i> Apply for leave and track status</li>
+                <li><i class="bx bx-wallet"></i> View payslips &amp; attendance history</li>
+                <li><i class="bx bx-bell"></i> Get notifications &amp; updates</li>
+              </ul>
+              <div class="lp-store-badges">
+                <a href="#" class="lp-store-badge"><i class="bxl-play-store"></i><span><small>GET IT ON</small>Google Play</span></a>
+                <a href="#" class="lp-store-badge"><i class="bxl-apple"></i><span><small>Download on the</small>App Store</span></a>
+              </div>
+            </div>
+          </div>
+
+          <div class="lp-phones-duo">
+            <div class="lp-phone-frame">
+              <div class="lp-screen">
+                <div class="lp-screen-head"><i class="bx bx-current-location" style="color:var(--lp-primary)"></i> Dovix AI</div>
+                <p style="font-size:0.62rem;color:var(--lp-muted);margin-bottom:0.4rem;">Good Morning,</p>
+                <p style="font-size:0.78rem;font-weight:700;margin-bottom:0.9rem;">Alex</p>
+                <span class="lp-phone-btn lp-filled">Check In</span>
+                <span class="lp-phone-btn lp-line">Check Out</span>
+              </div>
+            </div>
+            <div class="lp-phone-frame">
+              <div class="lp-screen">
+                <div class="lp-screen-head">My Attendance</div>
+                <p style="font-size:0.6rem;color:var(--lp-muted);margin-bottom:0.4rem;">May 2026</p>
+                <div class="lp-cal-grid">
+                  <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span>
+                  <span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span>
+                  <span class="lp-cal-active">15</span>
+                </div>
+                <p style="font-size:0.6rem;color:var(--lp-muted);margin-top:0.6rem;">Today · Check In 09:02 AM</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+        8 + 9. PRODUCT SCREENSHOTS / TOUR  /  TESTIMONIALS
+  ============================================================= -->
+  <section>
+    <div class="lp-container">
+      <div class="lp-two-col">
+
+        <div>
+          <div class="lp-section-head">
+            <h2>Powerful. Simple. All in one place.</h2>
+            <p>Explore how Dovix AI makes HR management effortless.</p>
+          </div>
+
+          <div class="lp-pill-tabs" id="lpTourTabs">
+            <button type="button" class="lp-active" data-target="lp-tour-admin">Admin Dashboard</button>
+            <button type="button" data-target="lp-tour-profile">Employee Profiles</button>
+            <button type="button" data-target="lp-tour-calendar">Attendance Calendar</button>
+            <button type="button" data-target="lp-tour-payroll">Payroll</button>
+          </div>
+
+          <div class="lp-tour-mock">
+            <div class="lp-tour-side">
+              <span class="lp-brand-mark"><i class="bx bx-current-location"></i></span>
+              <nav>
+                <a class="lp-active" id="lp-tour-admin-nav"><i class="bx bx-grid-alt"></i> Dashboard</a>
+                <a id="lp-tour-profile-nav"><i class="bx bx-group"></i> Employees</a>
+                <a id="lp-tour-calendar-nav"><i class="bx bx-calendar"></i> Attendance</a>
+                <a id="lp-tour-payroll-nav"><i class="bx bx-wallet"></i> Payroll</a>
+                <a><i class="bx bx-buildings"></i> Branches</a>
+              </nav>
+            </div>
+            <div class="lp-tour-main">
+              <h5 id="lpTourHeading">Good Morning, Admin</h5>
+              <div class="lp-tour-grid" id="lpTourGrid">
+                <div class="lp-tour-tile"><div class="lp-num">248</div><div class="lp-lbl">Total Employees</div></div>
+                <div class="lp-tour-tile"><div class="lp-num" style="color:var(--lp-success)">231</div><div class="lp-lbl">Present Today</div></div>
+                <div class="lp-tour-tile"><div class="lp-num" style="color:var(--lp-warning)">12</div><div class="lp-lbl">Late</div></div>
+              </div>
+              <div class="lp-tour-chart">
+                <span style="height:40%"></span><span style="height:65%"></span><span style="height:50%"></span>
+                <span style="height:85%"></span><span style="height:60%"></span><span style="height:75%"></span>
+                <span style="height:45%"></span><span style="height:90%"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="lp-section-head">
+            <h2>What our customers say</h2>
+            <p>Don't just take our word for it. Here's what businesses have to say about Dovix AI.</p>
+          </div>
+
+          <div class="lp-testi-track">
+            <div class="lp-testi-card">
+              <i class="bxs-quote-alt-left lp-quote"></i>
+              <p>"Dovix AI has completely streamlined our HR processes. Attendance and payroll are now 100% hassle-free."</p>
+              <div class="lp-testi-person">
+                <span class="lp-testi-avatar">PS</span>
+                <div><strong>Priya Sharma</strong><span>HR Manager, AcmeTech</span></div>
+              </div>
+            </div>
+            <div class="lp-testi-card">
+              <i class="bxs-quote-alt-left lp-quote"></i>
+              <p>"The multi-branch support and face recognition feature are game changers for our business."</p>
+              <div class="lp-testi-person">
+                <span class="lp-testi-avatar">RM</span>
+                <div><strong>Rahul Mehta</strong><span>Operations Head, NextGen</span></div>
+              </div>
+            </div>
+            <div class="lp-testi-card">
+              <i class="bxs-quote-alt-left lp-quote"></i>
+              <p>"The mobile app is fantastic! Our field team can easily check in and manage their tasks."</p>
+              <div class="lp-testi-person">
+                <span class="lp-testi-avatar">SK</span>
+                <div><strong>Sneha Kapoor</strong><span>Team Lead, Skyline</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+        10. PRICING
+  ============================================================= -->
+  <section id="pricing" class="lp-alt">
+    <div class="lp-container">
+      <div class="lp-section-head lp-center">
+        <h2>Simple, transparent pricing</h2>
+        <p>Choose the plan that fits your team size and business needs.</p>
+      </div>
+
+      <div class="lp-pricing-grid">
+        <div class="lp-price-card">
+          <h4>Starter</h4>
+          <p class="lp-price-note">Perfect for small teams</p>
+          <div class="lp-price-amt">₹999<span>/month</span></div>
+          <ul class="lp-price-list">
+            <li><i class="bx bx-check"></i> Up to 25 employees</li>
+            <li><i class="bx bx-check"></i> Attendance &amp; geofencing</li>
+            <li><i class="bx bx-check"></i> Leave management</li>
+            <li><i class="bx bx-check"></i> Basic reports</li>
+          </ul>
+          <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-outline">Get Started</a>
+        </div>
+
+        <div class="lp-price-card lp-featured">
+          <span class="lp-price-badge">Most Popular</span>
+          <h4>Growth</h4>
+          <p class="lp-price-note">For growing businesses</p>
+          <div class="lp-price-amt">₹2,499<span>/month</span></div>
+          <ul class="lp-price-list">
+            <li><i class="bx bx-check"></i> Up to 100 employees</li>
+            <li><i class="bx bx-check"></i> Payroll &amp; salary slips</li>
+            <li><i class="bx bx-check"></i> Task &amp; project management</li>
+            <li><i class="bx bx-check"></i> Multi-branch support</li>
+            <li><i class="bx bx-check"></i> Advanced reports</li>
+          </ul>
+          <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary">Get Started</a>
+        </div>
+
+        <div class="lp-price-card">
+          <h4>Enterprise</h4>
+          <p class="lp-price-note">For large organizations</p>
+          <div class="lp-price-amt" style="font-size:1.5rem;">Custom Pricing</div>
+          <ul class="lp-price-list" style="margin-top:1.4rem;">
+            <li><i class="bx bx-check"></i> Unlimited employees</li>
+            <li><i class="bx bx-check"></i> Advanced security</li>
+            <li><i class="bx bx-check"></i> Custom integrations</li>
+            <li><i class="bx bx-check"></i> Dedicated support</li>
+          </ul>
+          <a href="#contact" class="lp-btn lp-btn-outline">Contact Sales</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+        11 + 12. FAQ  /  ABOUT
+  ============================================================= -->
+  <section id="about">
+    <div class="lp-container">
+      <div class="lp-two-col">
+
+        <div>
+          <div class="lp-section-head">
+            <h2>Frequently asked questions</h2>
+            <p>Find answers to the most common questions about Dovix AI.</p>
+          </div>
+
+          <div class="lp-faq" id="lpFaq">
+            <div class="lp-faq-item lp-open">
+              <button type="button" class="lp-faq-q">Is my data secure with Dovix AI? <i class="bx bx-plus"></i></button>
+              <div class="lp-faq-a"><p>Yes, we use industry-standard encryption and secure cloud infrastructure to keep your data safe and private.</p></div>
+            </div>
+            <div class="lp-faq-item">
+              <button type="button" class="lp-faq-q">Can I manage multiple branches? <i class="bx bx-plus"></i></button>
+              <div class="lp-faq-a"><p>Absolutely. Dovix AI is built for multi-branch businesses, letting you switch between branches and scope roles, attendance, and reports to each one.</p></div>
+            </div>
+            <div class="lp-faq-item">
+              <button type="button" class="lp-faq-q">Is the mobile app available for both Android and iOS? <i class="bx bx-plus"></i></button>
+              <div class="lp-faq-a"><p>Yes, the Dovix AI app is available on both Google Play and the App Store for your entire team.</p></div>
+            </div>
+            <div class="lp-faq-item">
+              <button type="button" class="lp-faq-q">What is the pricing model? <i class="bx bx-plus"></i></button>
+              <div class="lp-faq-a"><p>We offer simple monthly plans based on team size, plus a custom Enterprise plan for larger organizations.</p></div>
+            </div>
+            <div class="lp-faq-item">
+              <button type="button" class="lp-faq-q">Do you provide customer support? <i class="bx bx-plus"></i></button>
+              <div class="lp-faq-a"><p>Yes, our support team is available 24/7 to help you get the most out of Dovix AI.</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="lp-section-head">
+            <h2>About Dovix AI</h2>
+            <p>We're on a mission to make workforce management simple, smart, and accessible for every business.</p>
+          </div>
+          <p style="color:var(--lp-muted); font-size:0.94rem; line-height:1.7;">
+            Dovix AI is a modern HRMS platform built for the future of work. We combine powerful automation
+            with an intuitive experience to help businesses manage their people, processes, and performance
+            — all in one place.
+          </p>
+
+          <div class="lp-about-values">
+            <div><i class="bx bx-bulb"></i><strong>Innovation</strong><p>Built for tomorrow's workforce</p></div>
+            <div><i class="bx bx-shield"></i><strong>Reliability</strong><p>Your data, always protected</p></div>
+            <div><i class="bx bx-heart"></i><strong>Customer First</strong><p>We grow together</p></div>
+          </div>
+
+          <a href="#contact" class="lp-btn lp-btn-primary lp-btn-sm">Learn More <i class="bx bx-right-arrow-alt"></i></a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+        13. FINAL CTA BANNER
+  ============================================================= -->
+  <section id="contact">
+    <div class="lp-container">
+      <div class="lp-final-cta">
+        <div>
+          <h2>Ready to transform how you manage your team?</h2>
+          <p>Start your free trial today. Join thousands of businesses already using Dovix AI to manage their workforce more efficiently.</p>
+          <div class="lp-final-cta-actions">
+            <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-white">Get Started Free</a>
+            <a href="#contact" class="lp-btn lp-btn-light">Book a Demo</a>
+          </div>
+        </div>
+        <div class="lp-final-visual">
+          <div class="lp-mock-card" style="max-width:320px;">
+            <div class="lp-mock-sidebar">
+              <span class="lp-dot"></span>
+              <i class="bx bx-grid-alt lp-active"></i>
+              <i class="bx bx-group"></i>
+              <i class="bx bx-calendar-check"></i>
+            </div>
+            <div class="lp-mock-body">
+              <div class="lp-mock-stats" style="grid-template-columns:1fr 1fr;">
+                <div class="lp-mock-stat"><div class="lp-num">248</div><div class="lp-lbl">Employees</div></div>
+                <div class="lp-mock-stat"><div class="lp-num" style="color:var(--lp-success)">231</div><div class="lp-lbl">Present</div></div>
+              </div>
+              <div class="lp-mock-chart">
+                <span style="height:50%"></span><span style="height:75%"></span><span style="height:60%"></span><span style="height:90%"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+        14. FOOTER
+  ============================================================= -->
+  <footer class="lp-footer">
+    <div class="lp-container">
+      <div class="lp-footer-grid">
+        <div>
+          <a href="{% url 'employees:home' %}" class="lp-brand">
+            <span class="lp-brand-mark"><i class="bx bx-current-location"></i></span>
+            Dovix AI
+          </a>
+          <p class="lp-footer-tag">All-in-one HRMS platform for attendance, payroll, tasks, and more.</p>
+          <div class="lp-footer-social">
+            <a href="#"><i class="bxl-facebook"></i></a>
+            <a href="#"><i class="bxl-twitter"></i></a>
+            <a href="#"><i class="bxl-linkedin"></i></a>
+            <a href="#"><i class="bxl-instagram"></i></a>
+          </div>
+        </div>
+
+        <div class="lp-footer-col">
+          <h6>Product</h6>
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#">Integrations</a>
+          <a href="#">Changelog</a>
+        </div>
+
+        <div class="lp-footer-col">
+          <h6>Company</h6>
+          <a href="#about">About Us</a>
+          <a href="#">Careers</a>
+          <a href="#">Blog</a>
+          <a href="#contact">Contact</a>
+        </div>
+
+        <div class="lp-footer-col">
+          <h6>Support</h6>
+          <a href="#">Help Center</a>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+          <div style="margin-top:1.25rem;">
+            <h6 style="margin-bottom:0.6rem;">Stay Updated</h6>
+            <form class="lp-newsletter" onsubmit="return false;">
+              <input type="email" placeholder="Enter your email">
+              <button type="submit" class="lp-btn lp-btn-primary lp-btn-sm">Subscribe</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="lp-footer-bottom">
+        <span>© 2026 Dovix AI. All rights reserved.</span>
+        <div class="lp-legal-links">
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+          <a href="#">Cookies</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+(function () {
+  // Mobile nav toggle
+  var navToggle = document.getElementById('lpNavToggle');
+  var mobileMenu = document.getElementById('lpMobileMenu');
+  if (navToggle && mobileMenu) {
+    navToggle.addEventListener('click', function () {
+      mobileMenu.classList.toggle('lp-open');
+    });
+  }
+
+  // Generic pill-tab switcher: clicking a button with data-target shows
+  // the matching panel/element id within the same tab group and hides siblings.
+  function wireTabs(groupEl, panelSelector) {
+    if (!groupEl) return;
+    var buttons = groupEl.querySelectorAll('button[data-target]');
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        buttons.forEach(function (b) { b.classList.remove('lp-active'); });
+        btn.classList.add('lp-active');
+        document.querySelectorAll(panelSelector).forEach(function (p) {
+          p.classList.remove('lp-active');
+        });
+        var target = document.getElementById(btn.getAttribute('data-target'));
+        if (target) target.classList.add('lp-active');
+      });
+    });
+  }
+  wireTabs(document.getElementById('lpSolutionTabs'), '.lp-solution-panel');
+
+  // Product tour tabs: swap the mock dashboard's heading/stats/nav highlight.
+  var tourData = {
+    'lp-tour-admin': {
+      heading: 'Good Morning, Admin',
+      nav: 'lp-tour-admin-nav',
+      tiles: [['248', 'Total Employees', ''], ['231', 'Present Today', 'var(--lp-success)'], ['12', 'Late', 'var(--lp-warning)']],
+    },
+    'lp-tour-profile': {
+      heading: 'Employee Profiles',
+      nav: 'lp-tour-profile-nav',
+      tiles: [['186', 'Full-Time', ''], ['42', 'Part-Time/Contract', 'var(--lp-info)'], ['9', 'On Leave Today', 'var(--lp-warning)']],
+    },
+    'lp-tour-calendar': {
+      heading: 'Attendance Calendar',
+      nav: 'lp-tour-calendar-nav',
+      tiles: [['21', 'Working Days', ''], ['19', 'Present', 'var(--lp-success)'], ['2', 'Absent', 'var(--lp-danger)']],
+    },
+    'lp-tour-payroll': {
+      heading: 'Payroll — September',
+      nav: 'lp-tour-payroll-nav',
+      tiles: [['₹18.4L', 'Total Payroll', ''], ['248', 'Slips Generated', 'var(--lp-info)'], ['0', 'Pending', 'var(--lp-success)']],
+    },
+  };
+  var tourTabs = document.getElementById('lpTourTabs');
+  if (tourTabs) {
+    var tourButtons = tourTabs.querySelectorAll('button[data-target]');
+    tourButtons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        tourButtons.forEach(function (b) { b.classList.remove('lp-active'); });
+        btn.classList.add('lp-active');
+
+        var data = tourData[btn.getAttribute('data-target')];
+        if (!data) return;
+        document.getElementById('lpTourHeading').textContent = data.heading;
+
+        document.querySelectorAll('.lp-tour-side nav a').forEach(function (a) { a.classList.remove('lp-active'); });
+        var navEl = document.getElementById(data.nav);
+        if (navEl) navEl.classList.add('lp-active');
+
+        var grid = document.getElementById('lpTourGrid');
+        grid.innerHTML = data.tiles.map(function (t) {
+          var colorStyle = t[2] ? ' style="color:' + t[2] + '"' : '';
+          return '<div class="lp-tour-tile"><div class="lp-num"' + colorStyle + '>' + t[0] + '</div><div class="lp-lbl">' + t[1] + '</div></div>';
+        }).join('');
+      });
+    });
+  }
+
+  // FAQ accordion
+  var faq = document.getElementById('lpFaq');
+  if (faq) {
+    faq.querySelectorAll('.lp-faq-item').forEach(function (item) {
+      var q = item.querySelector('.lp-faq-q');
+      q.addEventListener('click', function () {
+        var wasOpen = item.classList.contains('lp-open');
+        faq.querySelectorAll('.lp-faq-item').forEach(function (i) { i.classList.remove('lp-open'); });
+        if (!wasOpen) item.classList.add('lp-open');
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -3,56 +3,180 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Attendance Kiosk</title>
 <style>
-body{
-    margin:0;
-    background:#111;
-    color:white;
-    font-family:Arial;
-    display:flex;
-    justify-content:center;
-    align-items:flex-start;
-    height:100vh;
-    padding-top:75px;
-    box-sizing:border-box;
-}
-.container{width:900px;text-align:center;}
-video{width:700px;border-radius:15px;border:5px solid white;transform: scaleX(-1);}
-canvas{display:none;}
-#status{margin-top:20px;font-size:30px;font-weight:bold;min-height:40px;}
-.success{color:#00ff88;}
-.error{color:#ff5555;}
-.scanning{color:orange;}
-.verifying{color:#4da6ff;}
-#start-overlay{
-    position:fixed;inset:0;background:#111;display:flex;
-    align-items:center;justify-content:center;z-index:10;cursor:pointer;
-}
-/* simple pulsing dot so "scanning" doesn't look frozen */
-.dot{
-    display:inline-block;width:10px;height:10px;border-radius:50%;
-    background:currentColor;margin-left:8px;
-    animation:pulse 1s infinite ease-in-out;
-}
-@keyframes pulse{
-    0%,100%{opacity:0.25;transform:scale(0.8);}
-    50%{opacity:1;transform:scale(1.15);}
-}
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #0b0f19;
+    color: #f8fafc;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 16px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+  }
+
+  h1 {
+    font-size: clamp(1.2rem, 5vw, 1.6rem);
+    margin: 0 0 16px;
+    font-weight: 700;
+  }
+
+  .video-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #000;
+    border: 3px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4);
+  }
+
+  video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+
+  canvas { display: none; }
+
+  /* Ring that changes color with state - gives a glanceable cue even
+     before reading the text below. */
+  .video-frame.state-idle { border-color: rgba(255, 255, 255, 0.15); }
+  .video-frame.state-blink { border-color: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25), 0 20px 45px rgba(0,0,0,0.4); }
+  .video-frame.state-verify { border-color: #4da6ff; box-shadow: 0 0 0 4px rgba(77, 166, 255, 0.25), 0 20px 45px rgba(0,0,0,0.4); }
+  .video-frame.state-success { border-color: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.28), 0 20px 45px rgba(0,0,0,0.4); }
+  .video-frame.state-error { border-color: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25), 0 20px 45px rgba(0,0,0,0.4); }
+
+  .blink-prompt {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 14px 12px 16px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.75) 40%);
+    font-size: clamp(1rem, 4.5vw, 1.25rem);
+    font-weight: 700;
+    display: none;
+  }
+  .video-frame.state-blink .blink-prompt { display: block; }
+
+  .eye-icon {
+    display: inline-block;
+    animation: blink-cue 1.1s infinite;
+  }
+  @keyframes blink-cue {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.15); }
+  }
+
+  #status {
+    margin-top: 20px;
+    min-height: 3.2em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .status-headline {
+    font-size: clamp(1.05rem, 4.5vw, 1.35rem);
+    font-weight: 700;
+  }
+
+  .status-sub {
+    font-size: 0.92rem;
+    opacity: 0.75;
+  }
+
+  .status-idle .status-headline { color: #cbd5e1; }
+  .status-blink .status-headline { color: #fbbf24; }
+  .status-verify .status-headline { color: #60a5fa; }
+  .status-success .status-headline { color: #4ade80; }
+  .status-error .status-headline { color: #f87171; }
+
+  .dot {
+    display: inline-block;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: currentColor;
+    margin-left: 6px;
+    animation: pulse 1s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.25; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.15); }
+  }
+
+  .steps {
+    margin-top: 22px;
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    opacity: 0.55;
+  }
+  .steps span { display: flex; align-items: center; gap: 4px; }
+
+  #start-overlay {
+    position: fixed; inset: 0;
+    background: #0b0f19;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 10;
+    cursor: pointer;
+    padding: 24px;
+    text-align: center;
+  }
+  #start-overlay .tap-icon { font-size: 3rem; }
+  #start-overlay h2 { margin: 0; font-size: clamp(1.1rem, 5vw, 1.4rem); }
+  #start-overlay p { margin: 0; opacity: 0.7; font-size: 0.9rem; max-width: 320px; }
 </style>
 </head>
 <body>
 
 <div id="start-overlay">
-  <h2 style="color:white;">Tap to Start Kiosk</h2>
+  <div class="tap-icon">📷</div>
+  <h2>Tap to Start</h2>
+  <p>We'll ask you to look at the camera and blink naturally to mark your attendance.</p>
 </div>
 
 <div class="container">
-<h1>Face Attendance System</h1>
-<video id="video" autoplay playsinline></video>
-<canvas id="canvas"></canvas>
-<canvas id="send-canvas"></canvas>
-<div id="status" class="scanning">Looking for face...<span class="dot"></span></div>
+  <h1>Face Attendance System</h1>
+
+  <div class="video-frame state-idle" id="videoFrame">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="blink-prompt"><span class="eye-icon">👁️</span> Please blink your eyes</div>
+  </div>
+  <canvas id="sendCanvas"></canvas>
+
+  <div id="status" class="status-idle">
+    <div class="status-headline" id="statusHeadline">Getting ready<span class="dot"></span></div>
+    <div class="status-sub" id="statusSub">Look directly at the camera</div>
+  </div>
+
+  <div class="steps">
+    <span>1️⃣ Look at the camera</span>
+    <span>2️⃣ Blink naturally</span>
+    <span>3️⃣ Done!</span>
+  </div>
 </div>
 
 <!-- Preloaded success sound -->
@@ -61,32 +185,45 @@ canvas{display:none;}
 <script>
 
 const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");        // full-res capture (for framing math only)
-const sendCanvas = document.getElementById("send-canvas"); // downscaled canvas actually sent to server
+const videoFrame = document.getElementById("videoFrame");
+const sendCanvas = document.getElementById("sendCanvas");
 const statusDiv = document.getElementById("status");
+const statusHeadline = document.getElementById("statusHeadline");
+const statusSub = document.getElementById("statusSub");
 const OFFICE_TOKEN = "{{ office.kiosk_token }}";
 const successSound = document.getElementById("success-sound");
 
 let audioUnlocked = false;
 let processing = false;
-let scanTimer = null;
+let cycleTimer = null;
 
-// How wide the image we send to the server should be.
-// Face recognition speed scales with pixel count, so we don't need
-// full camera resolution — this alone cuts server time from
-// several seconds down to a few hundred ms in most cases.
+// How wide the frames we send to the server should be. Face recognition
+// speed scales with pixel count, so this is the single biggest lever on
+// end-to-end latency.
 const SEND_WIDTH = 480;
 
-// How long to wait for the server before giving up on a scan and
-// trying again, so a slow/stuck request never blocks the kiosk.
-const REQUEST_TIMEOUT_MS = 6000;
+// One capture "attempt" = a short burst of frames spanning a natural
+// blink, sent together so the server can confirm liveness (a printed or
+// screen photo can't blink) and pick the sharpest post-blink frame to
+// actually identify you from. Kept short on purpose - people are reacting
+// to the on-screen "blink now" prompt, not blinking at some random point
+// in a long window, so this doesn't need to be long to catch it.
+const BURST_FRAME_COUNT = 5;
+const BURST_FRAME_GAP_MS = 140;   // ~0.6s total burst duration
 
-// Scan cadence. Kept snappy since each request is now cheap.
-const SCAN_INTERVAL_MS = 1200;
+const REQUEST_TIMEOUT_MS = 8000;
+const CYCLE_GAP_MS = 700;         // pause between attempts (idle "look at camera")
+const SUCCESS_PAUSE_MS = 2800;
+// Errors stay on screen long enough to actually read them before the
+// kiosk quietly retries - a couple of seconds was disappearing mid-read.
+const ERROR_PAUSE_MS = 5000;
 
-function setStatus(text, className, showDot){
-    statusDiv.className = className;
-    statusDiv.innerHTML = text + (showDot ? '<span class="dot"></span>' : "");
+function setState(mode, headline, sub) {
+    videoFrame.className = "video-frame state-" + mode;
+    statusDiv.className = "status-" + mode;
+    const showDot = mode === "idle" || mode === "blink" || mode === "verify";
+    statusHeadline.innerHTML = headline + (showDot ? '<span class="dot"></span>' : "");
+    statusSub.textContent = sub || "";
 }
 
 function playSuccessSound() {
@@ -94,65 +231,77 @@ function playSuccessSound() {
     try {
         successSound.pause();
         successSound.currentTime = 0;
-        successSound.play().catch(err => console.log("Audio play blocked:", err));
-    } catch (e) {
-        console.log("Audio error:", e);
-    }
+        successSound.play().catch(() => {});
+    } catch (e) {}
 }
 
-// One-time unlock on first tap — starts camera + primes audio + starts the scan loop
+// One-time unlock on first tap — starts camera + primes audio + starts the loop.
 document.getElementById("start-overlay").addEventListener("click", () => {
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
         .then(stream => {
             video.srcObject = stream;
+            video.onloadedmetadata = () => scheduleNextCycle(300);
         })
         .catch(() => {
-            setStatus("Camera Permission Denied", "error", false);
+            setState("error", "Camera access denied", "Please allow camera access and reload this page.");
         });
 
-    // Play + immediately pause to unlock audio for the rest of the session
     successSound.play().then(() => {
         successSound.pause();
         successSound.currentTime = 0;
         audioUnlocked = true;
-    }).catch(() => {
-        // Some browsers still allow later plays even if this unlock attempt errors
-        audioUnlocked = true;
-    });
+    }).catch(() => { audioUnlocked = true; });
 
     document.getElementById("start-overlay").remove();
-    scanTimer = setInterval(captureAndSend, SCAN_INTERVAL_MS);
+    setState("idle", "Getting ready", "Look directly at the camera");
 });
 
-async function captureAndSend(){
+function captureFrame() {
+    const scale = SEND_WIDTH / video.videoWidth;
+    const sendWidth = SEND_WIDTH;
+    const sendHeight = Math.round(video.videoHeight * scale);
 
-    if(processing) return;
-    if(video.readyState!==4) return;
+    sendCanvas.width = sendWidth;
+    sendCanvas.height = sendHeight;
+    const ctx = sendCanvas.getContext("2d");
+    ctx.save();
+    ctx.scale(-1, 1); // un-mirror before sending (video preview itself stays mirrored for the user)
+    ctx.drawImage(video, -sendWidth, 0, sendWidth, sendHeight);
+    ctx.restore();
 
+    return sendCanvas.toDataURL("image/jpeg", 0.7);
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function captureBurst() {
+    const frames = [];
+    for (let i = 0; i < BURST_FRAME_COUNT; i++) {
+        frames.push(captureFrame());
+        if (i < BURST_FRAME_COUNT - 1) await delay(BURST_FRAME_GAP_MS);
+    }
+    return frames;
+}
+
+function scheduleNextCycle(delayMs) {
+    if (cycleTimer) clearTimeout(cycleTimer);
+    cycleTimer = setTimeout(runCycle, delayMs);
+}
+
+async function runCycle() {
+    if (processing || video.readyState !== 4) {
+        scheduleNextCycle(CYCLE_GAP_MS);
+        return;
+    }
     processing = true;
-    setStatus("Verifying...", "verifying", true);
 
     try {
-        // Downscale to SEND_WIDTH before sending. This is the single
-        // biggest lever on end-to-end speed: smaller image -> faster
-        // upload -> faster face_recognition processing server-side.
-        const scale = SEND_WIDTH / video.videoWidth;
-        const sendWidth = SEND_WIDTH;
-        const sendHeight = Math.round(video.videoHeight * scale);
+        setState("blink", "Please blink your eyes", "Hold still and blink naturally");
+        const frames = await captureBurst();
 
-        sendCanvas.width = sendWidth;
-        sendCanvas.height = sendHeight;
-        const ctx = sendCanvas.getContext("2d");
-        ctx.save();
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, -sendWidth, 0, sendWidth, sendHeight);
-        ctx.restore();
-
-        // Moderate JPEG quality keeps payload small without hurting
-        // recognition accuracy noticeably.
-        const image = sendCanvas.toDataURL("image/jpeg", 0.7);
-        const formData = new FormData();
-        formData.append("image", image);
+        setState("verify", "Verifying", "Checking your face...");
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -161,8 +310,11 @@ async function captureAndSend(){
         try {
             response = await fetch(`/mark-attendance/${OFFICE_TOKEN}/`, {
                 method: "POST",
-                headers: { "X-CSRFToken": "{{ csrf_token }}" },
-                body: formData,
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: JSON.stringify({ images: frames }),
                 signal: controller.signal
             });
         } finally {
@@ -171,39 +323,22 @@ async function captureAndSend(){
 
         const data = await response.json();
 
-        if(data.success){
-
-            setStatus(data.message + "<br>" + data.time, "success", false);
-
-            // Only sound on genuine check-in/check-out/update — not "ignored" duplicate scans
-            if (data.action !== "ignored") {
-                playSuccessSound();
-            }
-
-            setTimeout(()=>{
-                setStatus("Looking for face...", "scanning", true);
-            },4000);
-
+        if (data.success) {
+            setState("success", "✅ " + data.message, data.time || "");
+            if (data.action !== "ignored") playSuccessSound();
+            scheduleNextCycle(SUCCESS_PAUSE_MS);
         } else {
-
-            setStatus(data.error, "error", false);
-
-            setTimeout(()=>{
-                setStatus("Looking for face...", "scanning", true);
-            },1500);
-
+            setState("error", data.message || "Something went wrong. Please try again.", "We'll try again automatically...");
+            scheduleNextCycle(ERROR_PAUSE_MS);
         }
 
-    } catch(e){
+    } catch (e) {
         if (e.name === "AbortError") {
-            setStatus("Taking longer than usual, retrying...", "error", false);
+            setState("error", "Taking longer than usual", "We'll try again automatically...");
         } else {
-            console.log(e);
-            setStatus("Connection issue, retrying...", "error", false);
+            setState("error", "Connection issue", "We'll try again automatically...");
         }
-        setTimeout(()=>{
-            setStatus("Looking for face...", "scanning", true);
-        },1500);
+        scheduleNextCycle(ERROR_PAUSE_MS);
     } finally {
         processing = false;
     }

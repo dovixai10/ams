@@ -118,8 +118,11 @@ try:
     compare_faces,
     get_match_tolerance,
     get_strict_match_tolerance,
+    get_kiosk_match_tolerance,
     find_best_face_match,
     is_encoding_unique,
+    get_frame_ear,
+    detect_blink_in_sequence,
 )
 except ImportError:
     extract_face_encoding = None
@@ -128,8 +131,11 @@ except ImportError:
     compare_faces = None
     get_match_tolerance = None
     get_strict_match_tolerance = None
+    get_kiosk_match_tolerance = None
     find_best_face_match = None
     is_encoding_unique = None
+    get_frame_ear = None
+    detect_blink_in_sequence = None
 from django.db import transaction
 from django.utils.dateparse import parse_date
 
@@ -662,6 +668,26 @@ def _pending_leave_verifications_for_employee(employee):
             continue
         pending.append(leave)
     return pending
+
+
+def landing_page(request):
+    """Public marketing homepage at '/'. Signed-in users skip straight to
+    their dashboard; everyone else sees the marketing page."""
+
+    if request.user.is_authenticated:
+        if is_platform_admin(request.user) or is_office_admin(request.user):
+            return redirect('employees:admin_dashboard')
+        elif is_employee(request.user):
+            return redirect('employees:check_in')
+        return redirect('employees:login')
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_blank.html', context),
+        'hide_mobile_nav': True,
+        'show_mobile_nav': False,
+    })
+    return render(request, 'employees/marketing/landing.html', context)
 
 
 # Authentication Views
@@ -3430,8 +3456,10 @@ def check_in(request):
 
             # SECURITY: STRICT face matching - ONLY with THIS employee's face
             # NO global search, NO placeholder encodings
-            # Use tolerance 0.55 for better matching with registered photos
-            strict_tolerance = 0.55  # More lenient tolerance for better matching
+            # Same tolerance used everywhere else in the app (web/mobile
+            # check-in/out, and the kiosk's 1:N search) - one tunable
+            # number instead of a different hardcoded value per code path.
+            strict_tolerance = get_strict_match_tolerance()
             print(f"[DEBUG] Comparing faces with tolerance: {strict_tolerance}")
             result = compare_faces(stored_encoding, checkin_encoding, tolerance=strict_tolerance)
 
@@ -3601,12 +3629,12 @@ class AttendanceListView(ListView):
         return context
 
     def get_queryset(self):
-        queryset = Attendance.objects.select_related( 'employee', 'employee__user', 'employee__office' ) # Platform admin can see all attendance. # Office admin can see attendance only for employees in their office. 
-        if not is_platform_admin(self.request.user): 
-            office = get_request_office(self.request) 
-        if office is None: 
-            return queryset.none() 
-        queryset = queryset.filter( employee__office=office )
+        # tenant_queryset already handles: platform admin sees everything;
+        # everyone else is scoped to their office AND active/own branch.
+        queryset = tenant_queryset(
+            self.request,
+            Attendance.objects.select_related('employee', 'employee__user', 'employee__office'),
+        )
         date_filter = self.request.GET.get('date')
         employee_filter = self.request.GET.get('employee')
 
@@ -3638,15 +3666,9 @@ def _get_filtered_attendance_logs(request):
 
     logs = AttendanceLog.objects.select_related('employee', 'attendance', 'employee__office').order_by('-timestamp')
 
-    # Platform admin can see logs from all companies.
-    # Office admin can see logs only from their own company/office.
-    if not is_platform_admin(request.user):
-        office = get_request_office(request)
-
-        if office is None:
-            logs = logs.none()
-        else:
-            logs = logs.filter(employee__office=office)
+    # tenant_queryset already handles: platform admin sees everything;
+    # everyone else is scoped to their office AND active/own branch.
+    logs = tenant_queryset(request, logs)
 
     if employee_id:
         logs = logs.filter(employee_id=employee_id)
@@ -4320,205 +4342,271 @@ def admin_face_update_requests(request):
 
 def mark_attendance(request, token):
     """
-    View for marking attendance using face recognition
-    """
+    Open, unauthenticated kiosk endpoint - anyone with the office's kiosk
+    link can use it, so it has to correctly identify WHICH employee is in
+    front of the camera from the whole office roster (1:N search), unlike
+    the logged-in check-in flow which only ever confirms a claimed
+    identity (1:1). Two things fixed here vs. the old version:
 
+    1. Best-match selection: uses find_best_face_match(), which compares
+       against every registered employee and picks the true closest one
+       (with a uniqueness-margin safety check), instead of the old plain
+       loop that returned whichever employee happened to come first in
+       the DB query and merely passed a "within tolerance" test - that's
+       what let a merely-close-enough employee "steal" someone else's
+       attendance.
+    2. Liveness: requires a real blink across the submitted frame burst
+       (see face_utils.detect_blink_in_sequence) before accepting
+       anything, so a printed/screen photo held up to an unattended
+       kiosk can't check someone else in.
+
+    Expects a JSON body: {"images": ["data:image/jpeg;base64,...", ...]} -
+    a short burst of frames spanning a natural blink, captured by the
+    kiosk page's own JS.
+    """
     office = get_object_or_404(
         Office,
         kiosk_token=token,
         status=Office.Status.APPROVED,
     )
-    if request.method == 'POST' and 'image' in request.POST:
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'invalid_request', 'message': 'Invalid request.'})
+
+    if find_best_face_match is None or get_frame_ear is None or detect_blink_in_sequence is None:
+        return JsonResponse({
+            'success': False, 'error': 'unavailable',
+            'message': 'Face attendance is not available on this server right now. Please contact your admin.',
+        })
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'success': False, 'error': 'bad_request', 'message': 'Could not read the captured images. Please try again.'})
+
+    raw_images = payload.get('images')
+    if not raw_images or not isinstance(raw_images, list):
+        return JsonResponse({'success': False, 'error': 'bad_request', 'message': 'No images were captured. Please try again.'})
+
+    # ---- Decode every frame in the burst up front ----
+    MAX_WIDTH = 480
+    frames = []
+    for raw in raw_images:
         try:
-            # ---- Get the base thing we always need regardless of outcome ----
-            image_data = request.POST['image'].split('base64,')[1]
-            image_data = base64.b64decode(image_data)
-
-            nparr = np.frombuffer(image_data, np.uint8)
+            if 'base64,' in raw:
+                raw = raw.split('base64,', 1)[1]
+            image_bytes = base64.b64decode(raw)
+            nparr = np.frombuffer(image_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-            # Safety-net resize: face_recognition's speed scales with pixel
-            # count. The kiosk frontend already downscales before sending,
-            # but resize again here so backend latency stays low even if a
-            # frame slips through larger than expected.
-            MAX_WIDTH = 480
+            if img is None:
+                continue
             h, w = img.shape[:2]
             if w > MAX_WIDTH:
                 scale = MAX_WIDTH / w
-                img = cv2.resize(
-                    img,
-                    (MAX_WIDTH, int(h * scale)),
-                    interpolation=cv2.INTER_AREA
-                )
+                img = cv2.resize(img, (MAX_WIDTH, int(h * scale)), interpolation=cv2.INTER_AREA)
+            frames.append(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        except Exception:
+            continue
 
-            rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    if len(frames) < 4:
+        return JsonResponse({
+            'success': False, 'error': 'no_face',
+            'message': "We couldn't capture enough clear frames. Please make sure your face is visible and try again.",
+        })
 
-            # ---- Detect a face FIRST, before touching the database at all.
-            # A kiosk sits idle with no one in frame most of the time — that
-            # needs to be the cheap path. Previously every single scan (idle
-            # or not) loaded and decoded all registered employees' encodings
-            # from the DB before ever checking whether a face was present,
-            # which is why the log showed DB work firing every ~1s with
-            # nobody standing there.
-            face_locations = face_recognition.face_locations(rgb_img, model='hog')
+    # ---- Detect the face + eye-aspect-ratio in every frame. A kiosk sits
+    # idle most of the time, so "most frames have no face" is the cheap,
+    # common path out before any DB work happens. Locations are cached
+    # per frame so the chosen best frame never needs re-detecting below -
+    # that redundant second pass was pure wasted latency on every attempt.
+    #
+    # Detection runs on a further-downscaled copy of each frame (HOG cost
+    # scales with pixel count, and this loop runs once per frame in the
+    # burst, so it's the single biggest lever on this stage's latency).
+    # EAR is a ratio, so it comes out identical whether measured on the
+    # downscaled or full-size frame - only the location needs scaling
+    # back up, and only for the one frame we go on to encode. ----
+    DETECT_WIDTH = 320
+    ear_sequence = []
+    locations_by_frame = []
+    faces_found = 0
+    multi_face_frames = 0
 
-            if not face_locations:
-                return JsonResponse({'success': False, 'error': 'No face detected'})
+    for frame in frames:
+        fh, fw = frame.shape[:2]
+        if fw > DETECT_WIDTH:
+            detect_scale = DETECT_WIDTH / fw
+            detect_frame = cv2.resize(frame, (DETECT_WIDTH, int(fh * detect_scale)), interpolation=cv2.INTER_AREA)
+        else:
+            detect_scale = 1.0
+            detect_frame = frame
 
-            if len(face_locations) > 1:
-                return JsonResponse({'success': False, 'error': 'Multiple faces detected'})
+        locations = face_recognition.face_locations(detect_frame, model='hog')
+        if len(locations) == 0:
+            ear_sequence.append(None)
+            locations_by_frame.append(None)
+            continue
+        if len(locations) > 1:
+            multi_face_frames += 1
+            ear_sequence.append(None)
+            locations_by_frame.append(None)
+            continue
+        faces_found += 1
+        ear_sequence.append(get_frame_ear(detect_frame, locations[0]))
+        top, right, bottom, left = locations[0]
+        locations_by_frame.append((
+            int(top / detect_scale), int(right / detect_scale),
+            int(bottom / detect_scale), int(left / detect_scale),
+        ))
 
-            # A face IS present — now, and only now, load employees/encodings.
-            employees = list(
-                Employee.objects.filter(
-                    office=office,
-                    face_registered=True,
-                ).exclude(face_encoding__isnull=True)
-            )
+    if multi_face_frames > len(frames) // 2:
+        return JsonResponse({
+            'success': False, 'error': 'multiple_faces',
+            'message': 'We detected more than one person. Please make sure only one person is in front of the camera.',
+        })
 
-            if not employees:
+    # Allow a frame or two of missed detection (motion blur mid-blink is
+    # normal) rather than requiring every single frame to have a face.
+    if faces_found < min(4, len(frames) - 1):
+        return JsonResponse({
+            'success': False, 'error': 'no_face',
+            'message': "We couldn't see your face clearly. Please step closer and look directly at the camera.",
+        })
+
+    blink_detected, best_index = detect_blink_in_sequence(ear_sequence)
+    if not blink_detected:
+        return JsonResponse({
+            'success': False, 'error': 'no_blink',
+            'message': 'Please blink your eyes naturally and try again.',
+        })
+
+    # ---- Encode the face from the chosen (best, post-blink) frame -
+    # reusing the location already found for it above. ----
+    best_frame = frames[best_index]
+    best_location = locations_by_frame[best_index]
+    if best_location is None:
+        return JsonResponse({
+            'success': False, 'error': 'no_face',
+            'message': "We couldn't see your face clearly. Please try again.",
+        })
+    unknown_encoding = face_recognition.face_encodings(best_frame, [best_location])[0]
+
+    employees = (
+        Employee.objects.filter(office=office, face_registered=True)
+        .exclude(face_encoding__isnull=True).exclude(face_encoding='')
+    )
+    if not employees.exists():
+        return JsonResponse({
+            'success': False, 'error': 'not_registered',
+            'message': 'No employees are registered for face attendance at this office yet.',
+        })
+
+    match = find_best_face_match(unknown_encoding, employees, tolerance=get_kiosk_match_tolerance())
+    if not match:
+        return JsonResponse({
+            'success': False, 'error': 'not_recognized',
+            'message': "We couldn't recognize your face. Please try again, or contact HR if this keeps happening.",
+        })
+
+    employee = match['employee']
+    confidence = match['confidence']
+    # save_attendance_image() expects a BGR array (it does its own
+    # BGR->RGB conversion internally) - frames here are stored as RGB.
+    img_for_save = cv2.cvtColor(best_frame, cv2.COLOR_RGB2BGR)
+
+    attendance, created = Attendance.objects.get_or_create(
+        office=office,
+        employee=employee,
+        branch=employee.branch,
+        date=timezone.now().date(),
+        defaults={
+            "office": office,
+            "branch": employee.branch,
+            'check_in_time': timezone.now(),
+            'check_in_photo': save_attendance_image(img_for_save, f"checkin_{employee.id}")
+        }
+    )
+
+    if not created:
+        now = timezone.localtime()
+
+        # Prevent duplicate scans within 30 seconds
+        if attendance.check_out_time:
+            diff = (now - attendance.check_out_time).total_seconds()
+            if diff < 30:
                 return JsonResponse({
-                    'success': False,
-                    'error': 'No employees registered for face recognition'
+                    "success": True,
+                    "message": f"Thank you, {employee.name}! Attendance already recorded.",
+                    "employee_name": employee.name,
+                    "action": "ignored",
+                    "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
                 })
 
-            known_encodings = []
-            known_employees = []
-            for employee in employees:
-                enc = employee.get_face_encoding()
-                if enc is not None:
-                    known_encodings.append(enc)
-                    known_employees.append(employee)
+        attendance.check_out_time = now
+        attendance.check_out_photo = save_attendance_image(img_for_save, f"checkout_{employee.id}")
 
-            if not known_encodings:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'No employees registered for face recognition'
-                })
+        ip_address = get_client_ip(request)
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
 
-            # Get the face encoding
-            unknown_encoding = face_recognition.face_encodings(rgb_img, face_locations)[0]
+        attendance._auto_end_context = {
+            "origin": "face recognition update",
+            "ip_address": ip_address,
+            "user_agent": user_agent,
+        }
 
-            # Compare against the encodings we just loaded — this is cheap
-            # vector math, not the bottleneck, so a plain loop is fine.
-            for employee, known_encoding in zip(known_employees, known_encodings):
-                distance = face_recognition.face_distance(
-                    [known_encoding],
-                    unknown_encoding
-                )[0]
+        from decimal import Decimal
 
-                confidence = max(0, min(100, round((1 - distance) * 100, 2)))
+        worked_seconds = (
+            attendance.check_out_time - attendance.check_in_time
+        ).total_seconds()
+        worked_seconds -= attendance.total_break_seconds
+        attendance.total_work_hours = Decimal(str(round(worked_seconds / 3600, 2)))
+        attendance.save()
 
-                result = face_recognition.compare_faces([known_encoding], unknown_encoding, tolerance=0.5)
-                if result[0]:
-                    # Face recognized, mark attendance
-                    attendance, created = Attendance.objects.get_or_create(
-                        office=office,
-                        employee=employee,
-                        branch=employee.branch,
-                        date=timezone.now().date(),
-                        defaults={
-                            "office": office,
-                            "branch": employee.branch,
-                            'check_in_time': timezone.now(),
-                            'check_in_photo': save_attendance_image(img, f"checkin_{employee.id}")
-                        }
-                    )
+        AttendanceLog.objects.create(
+            office=office,
+            branch=employee.branch,
+            employee=employee,
+            attendance=attendance,
+            action="check_out_success",
+            success=True,
+            confidence=confidence,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            notes="Kiosk blink-verified face scan updated checkout time."
+        )
 
-                    if not created:
+        return JsonResponse({
+            "success": True,
+            "message": f"Thank you, {employee.name}! Checked out at {now.strftime('%I:%M %p')}.",
+            "employee_name": employee.name,
+            "action": "updated",
+            "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
+        })
 
-                        now = timezone.localtime()
+    # ---- First capture of the day: this IS the check-in ----
+    ip_address = get_client_ip(request)
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
 
-                        # Prevent duplicate scans within 30 seconds
-                        if attendance.check_out_time:
-                            diff = (now - attendance.check_out_time).total_seconds()
-                            if diff < 30:
-                                return JsonResponse({
-                                    "success": True,
-                                    "message": f"Attendance marked for {employee.name}",
-                                    "action": "ignored",
-                                    "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
-                                })
-
-                        attendance.check_out_time = now
-                        attendance.check_out_photo = save_attendance_image(
-                            img,
-                            f"checkout_{employee.id}"
-                        )
-
-                        ip_address = get_client_ip(request)
-                        user_agent = request.META.get("HTTP_USER_AGENT", "")
-
-                        attendance._auto_end_context = {
-                            "origin": "face recognition update",
-                            "ip_address": ip_address,
-                            "user_agent": user_agent,
-                        }
-
-                        from decimal import Decimal
-
-                        worked_seconds = (
-                            attendance.check_out_time - attendance.check_in_time
-                        ).total_seconds()
-
-                        worked_seconds -= attendance.total_break_seconds
-
-                        attendance.total_work_hours = Decimal(
-                            str(round(worked_seconds / 3600, 2))
-                        )
-
-                        attendance.save()
-
-                        AttendanceLog.objects.create(
-                            office=office,
-                            branch=employee.branch,
-                            employee=employee,
-                            attendance=attendance,
-                            action="check_out_success",
-                            success=True,
-                            ip_address=ip_address,
-                            user_agent=user_agent,
-                            notes="Latest face scan updated checkout time."
-                        )
-
-                        return JsonResponse({
-                            "success": True,
-                            "message": f"Attendance updated for {employee.name}",
-                            "employee_name": employee.name,
-                            "action": "updated",
-                            "time": now.strftime("%d-%m-%Y %I:%M:%S %p")
-                        })
-
-                    # ---- First capture of the day: this IS the check-in ----
-                    ip_address = get_client_ip(request)
-                    user_agent = request.META.get('HTTP_USER_AGENT', '')
-
-                    AttendanceLog.objects.create(
-                        office=office,
-                        branch=employee.branch,
-                        employee=employee,
-                        attendance=attendance,
-                        action="check_in_success",
-                        success=True,
-                        confidence=confidence,
-                        ip_address=ip_address,
-                        user_agent=user_agent,
-                        notes="First face scan of the day recorded as check-in."
-                    )
-                    return JsonResponse({
-                        'success': True,
-                        'message': f'Check in recorded for {employee.name}',
-                        'employee_name': employee.name,
-                        'action': 'check_in',
-                        'time': timezone.localtime().strftime("%d-%m-%Y %I:%M:%S %p")
-                    })
-
-            return JsonResponse({'success': False, 'error': 'Face not recognized'})
-
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-
-    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+    AttendanceLog.objects.create(
+        office=office,
+        branch=employee.branch,
+        employee=employee,
+        attendance=attendance,
+        action="check_in_success",
+        success=True,
+        confidence=confidence,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        notes="Kiosk blink-verified first face scan of the day recorded as check-in."
+    )
+    return JsonResponse({
+        'success': True,
+        'message': f'Thank you, {employee.name}! Checked in at {timezone.localtime().strftime("%I:%M %p")}.',
+        'employee_name': employee.name,
+        'action': 'check_in',
+        'time': timezone.localtime().strftime("%d-%m-%Y %I:%M:%S %p")
+    })
 
 def save_attendance_image(image, prefix):
     """Helper function to save attendance images"""
@@ -4787,8 +4875,8 @@ def check_out(request):
                 messages.error(request, 'Your face data is missing. Please re-register your face before checking out.')
                 return redirect('employees:face_register')
 
-            # Use tolerance 0.55 for better matching with registered photos
-            strict_tol = 0.55  # More lenient tolerance for better matching
+            # Same tolerance used everywhere else in the app.
+            strict_tol = get_strict_match_tolerance()
             print(f"[DEBUG] Comparing checkout faces with tolerance: {strict_tol}")
             result = compare_faces(stored_encoding, checkout_encoding, tolerance=strict_tol)
 
@@ -4813,8 +4901,8 @@ def check_out(request):
 
             match_info = find_best_face_match(
                 checkout_encoding,
-                Employee.objects.filter(face_registered=True),
-                tolerance=get_match_tolerance(),
+                Employee.objects.filter(office=employee.office, face_registered=True),
+                tolerance=get_strict_match_tolerance(),
             )
 
             if not match_info or match_info['employee'].pk != employee.pk:
@@ -7825,24 +7913,79 @@ def salary_slips(request):
 
 @login_required
 @user_passes_test(feature_required('finance.manage'))
+def salary_slip_preview_api(request):
+    """Returns the auto-calculated salary breakdown for one employee/month -
+    the exact same figures generating the slip will use - so the admin can
+    see it before committing. Backed by calculate_salary_for_month(), which
+    reads the employee's profile from Finance -> Employee Salary and
+    prorates it against that month's actual attendance."""
+    from django.http import JsonResponse
+    from datetime import datetime
+
+    employee_id = request.GET.get('employee_id')
+    month_str = request.GET.get('month')
+    if not employee_id or not month_str:
+        return JsonResponse({'success': False, 'error': 'employee_id and month are required.'}, status=400)
+
+    employee = tenant_queryset(request, Employee.objects.all()).filter(id=employee_id).first()
+    if not employee:
+        return JsonResponse({'success': False, 'error': 'Employee not found.'}, status=404)
+
+    try:
+        month_date = datetime.strptime(month_str, '%Y-%m').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'month must be in YYYY-MM format.'}, status=400)
+
+    calc = calculate_salary_for_month(employee, month_date.year, month_date.month)
+    if not calc:
+        return JsonResponse({
+            'success': False,
+            'error': f"{employee.full_name} has no salary profile set up yet. Add one under Finance → Employee Salary first.",
+        }, status=422)
+
+    profile = calc['salary_profile']
+    fixed_deductions = float(profile.fixed_deductions)
+    total_deductions = round(fixed_deductions + float(calc['lwp_deduction']), 2)
+
+    return JsonResponse({
+        'success': True,
+        'employee_name': employee.full_name,
+        'basic_salary': float(profile.basic_salary),
+        'gross_salary': float(profile.gross_salary),
+        'fixed_deductions': round(fixed_deductions, 2),
+        'lwp_deduction': float(calc['lwp_deduction']),
+        'total_deductions': total_deductions,
+        'net_salary': float(calc['payable_salary']),
+        'total_days': calc['total_days'],
+        'working_days': calc['working_days'],
+        'holidays': calc['holidays'],
+        'present_days': calc['present_days'],
+        'half_days': calc['half_days'],
+        'lwp_days': calc['lwp_days'],
+        'effective_from': calc['effective_from'].strftime('%d %b %Y'),
+    })
+
+
+@login_required
+@user_passes_test(feature_required('finance.manage'))
 def admin_salary_slips(request):
-    """Admin dashboard for salary slip management"""
+    """Admin dashboard for salary slip management. Generation is fully
+    auto-calculated server-side via calculate_salary_for_month() (reading
+    the employee's Finance -> Employee Salary profile and that month's
+    attendance) - the client only ever picks employee + month, never
+    types an amount."""
     from employees.models import SalarySlip
-    
+
     if request.method == 'POST':
         action = request.POST.get('action')
-        
+
         if action == 'generate':
             employee_id = request.POST.get('employee_id')
             month_str = request.POST.get('month')
-            basic_salary = request.POST.get('basic_salary')
-            deductions = request.POST.get('deductions')
-            net_salary = request.POST.get('net_salary')
-            
+
             try:
                 from datetime import datetime
                 month_date = datetime.strptime(month_str, '%Y-%m').date().replace(day=1)
-                # employee = Employee.objects.get(id=employee_id)
                 employee = get_object_or_404(
                     tenant_queryset(
                         request,
@@ -7850,16 +7993,29 @@ def admin_salary_slips(request):
                     ),
                     id=employee_id
                 )
-                
+
+                calc = calculate_salary_for_month(employee, month_date.year, month_date.month)
+                if not calc:
+                    messages.error(
+                        request,
+                        f"{employee.full_name} has no salary profile set up yet. "
+                        "Add one under Finance → Employee Salary first.",
+                    )
+                    return redirect('employees:admin_salary_slips')
+
+                profile = calc['salary_profile']
+                total_deductions = profile.fixed_deductions + calc['lwp_deduction']
+
                 salary_slip, created = SalarySlip.objects.update_or_create(
                     office=employee.office,
                     branch=employee.branch,
                     employee=employee,
                     month=month_date,
                     defaults={
-                        'basic_salary': basic_salary,
-                        'deductions': deductions,
-                        'net_salary': net_salary,
+                        'basic_salary': profile.basic_salary,
+                        'deductions': total_deductions,
+                        'net_salary': calc['payable_salary'],
+                        'salary_profile': profile,
                     }
                 )
 
@@ -7870,12 +8026,12 @@ def admin_salary_slips(request):
                 salary_slip.pdf_file.save(pdf_name, ContentFile(pdf_buffer.getvalue()), save=True)
 
                 if created:
-                    messages.success(request, 'Salary slip generated successfully!')
+                    messages.success(request, f"Salary slip generated for {employee.full_name} - {month_date.strftime('%B %Y')}.")
                 else:
-                    messages.success(request, 'Salary slip updated successfully!')
+                    messages.success(request, f"Salary slip updated for {employee.full_name} - {month_date.strftime('%B %Y')}.")
             except Exception as e:
                 messages.error(request, f'Error generating salary slip: {str(e)}')
-        
+
         return redirect('employees:admin_salary_slips')
     
     # employees = Employee.objects.all().order_by('full_name')
@@ -8070,46 +8226,61 @@ def _build_salary_slip_pdf(salary_slip):
 @login_required
 @user_passes_test(is_employee)
 def view_id_card(request):
-    """Employee view of their digital ID card"""
+    """Employee view of their digital ID card - the same design as the
+    admin 'ID'S Studio' generator and its PDF download, via
+    employees.id_card_utils, so all three surfaces always match."""
     from employees.models import EmployeeIDCard
-    import qrcode
-    from io import BytesIO
-    import base64
-    
+    from .id_card_utils import build_id_card_context
+
     employee = request.user.employee_profile
     id_card = EmployeeIDCard.objects.filter(employee=employee).first()
-    
-    if not id_card:
-        context = TemplateLayout.init(request, context={})
-        context.update({
-            'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
-            'employee': employee,
-            'has_id_card': False,
-        })
-        return render(request, 'employees/id_card/view_id_card.html', context)
-    
-    # Generate QR code if not already present
-    if not id_card.qr_code:
-        qr_data = f"ID:{id_card.employee_id_number}|NAME:{id_card.employee.full_name}|DOJ:{id_card.date_of_joining}"
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(qr_data)
-        qr.make(fit=True)
-        
-        img = qr.make_image(fill_color="black", back_color="white")
-        buffer = BytesIO()
-        img.save(buffer, format='PNG')
-        img_str = base64.b64encode(buffer.getvalue()).decode()
-        id_card.qr_code = img_str
-        id_card.save(update_fields=['qr_code'])
-    
+
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'employee': employee,
-        'id_card': id_card,
-        'has_id_card': True,
+        'has_id_card': bool(id_card),
     })
+
+    if id_card:
+        card_ctx = build_id_card_context(
+            employee, employee.office, employee.branch,
+            employee_code=id_card.employee_id_number,
+            designation=id_card.job_position,
+            joining_date=id_card.date_of_joining,
+        )
+        context.update({
+            'id_card': id_card,
+            'card': card_ctx,
+        })
+
     return render(request, 'employees/id_card/view_id_card.html', context)
+
+
+@login_required
+@user_passes_test(is_employee)
+def download_id_card_pdf(request):
+    """Employee downloads their own ID card as the same PDF the admin
+    'ID'S Studio' generator produces."""
+    from employees.models import EmployeeIDCard
+    from .id_card_utils import build_id_card_pdf
+    from django.http import HttpResponse
+
+    employee = request.user.employee_profile
+    id_card = EmployeeIDCard.objects.filter(employee=employee).first()
+    if not id_card:
+        messages.error(request, 'Your ID card has not been generated yet.')
+        return redirect('employees:view_id_card')
+
+    pdf_buffer = build_id_card_pdf(
+        employee, employee.office, employee.branch,
+        employee_code=id_card.employee_id_number,
+        designation=id_card.job_position,
+        joining_date=id_card.date_of_joining,
+    )
+    response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="ID_Card_{id_card.employee_id_number}.pdf"'
+    return response
 
 
 @login_required
@@ -8208,30 +8379,42 @@ def download_id_card(request, pk):
 @login_required
 @user_passes_test(feature_required('employees.manage'))
 def get_employee_data_api(request):
-    """Returns employee details as JSON for the dynamic ID card preview."""
+    """Returns employee + dynamic company details and real front/back QR
+    codes (as data URIs) for the ID card live preview - the exact same
+    data employees.id_card_utils.build_id_card_pdf uses, so the preview
+    always matches the downloaded PDF."""
     from django.http import JsonResponse
+    from .id_card_utils import build_id_card_context
 
     employee_id = request.GET.get('employee_id')
     if not employee_id:
         return JsonResponse({'success': False, 'error': 'employee_id is required.'}, status=400)
 
     try:
-        employee = Employee.objects.get(id=employee_id)
+        employee = tenant_queryset(request, Employee.objects.all()).get(id=employee_id)
     except Employee.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Employee not found.'}, status=404)
 
-    photo_url = employee.profile_picture.url if employee.profile_picture else '/static/default-avatar.png'
-    joining_date = employee.joining_date or (employee.created_at.date() if employee.created_at else None)
+    ctx = build_id_card_context(employee, get_request_office(request), get_request_branch(request))
+    fields = ctx['employee']
+    company = ctx['company']
+    photo_url = fields['photo_url'] or '/static/default-avatar.png'
 
     return JsonResponse({
         'success': True,
-        'employee_name': employee.full_name,
-        'employee_code': f"KI{employee.id:05d}",
-        'employee_designation': getattr(employee, 'designation', '') or '',
-        'employee_joining_date': joining_date.strftime('%d %b %Y') if joining_date else '',
-        'employee_joining_date_iso': joining_date.strftime('%Y-%m-%d') if joining_date else '',
-        'employee_contact_number': employee.contact or '',
+        'employee_name': fields['name'],
+        'employee_code': fields['code'],
+        'employee_designation': fields['designation'],
+        'employee_joining_date': fields['joining_date'].strftime('%d %b %Y') if fields['joining_date'] else '',
+        'employee_joining_date_iso': fields['joining_date'].strftime('%Y-%m-%d') if fields['joining_date'] else '',
+        'employee_contact_number': fields['contact'],
         'employee_photo_url': photo_url,
+        'company_name': company['name'],
+        'company_address': company['address'],
+        'company_phone': company['phone'],
+        'company_website': company['website'],
+        'front_qr_data_uri': ctx['front_qr_data_uri'],
+        'back_qr_data_uri': ctx['back_qr_data_uri'],
     })
 
 @login_required
@@ -8350,18 +8533,21 @@ from .shift_assignment_views import (
 @login_required
 @user_passes_test(feature_required('employees.manage'))
 def admin_idcard_generator(request):
-    """Admin view for generating employee ID cards.
+    """Admin view for generating employee ID cards - the one design used
+    everywhere (this live preview, its PDF download, and the employee
+    portal's own card page), rendered from live office/branch/employee
+    data via employees.id_card_utils.
 
-    On a successful AJAX POST this now returns the PDF binary directly
-    (not JSON) — the browser starts downloading it immediately with no
+    On a successful AJAX POST this returns the PDF binary directly (not
+    JSON) — the browser starts downloading it immediately with no
     separate download step. On any failure it still returns JSON with
     an 'error' key so the frontend can show a message.
     """
     from .models import EmployeeIDCard
+    from .id_card_utils import build_id_card_pdf, get_company_details
     from django.http import JsonResponse, HttpResponse
     from django.utils.dateparse import parse_date
     import json
-    import io
 
     if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest':
         try:
@@ -8370,51 +8556,48 @@ def admin_idcard_generator(request):
             employee_code = payload.get('employee_code') or ''
             job_position = payload.get('job_position') or ''
             joining_str = payload.get('date_of_joining') or ''
-            company_name = payload.get('company_name') or 'Dovix'
-            company_address = payload.get('company_address') or 'Jaipur, Rajasthan, India'
 
             if not employee_id:
                 return JsonResponse({'success': False, 'error': 'Employee is required.'}, status=400)
 
             try:
-                employee = Employee.objects.get(id=employee_id)
+                employee = tenant_queryset(request, Employee.objects.all()).get(id=employee_id)
             except Employee.DoesNotExist:
                 return JsonResponse({'success': False, 'error': 'Employee not found.'}, status=404)
 
-            joining_date = None
-            if joining_str:
-                joining_date = parse_date(joining_str)
+            joining_date = parse_date(joining_str) if joining_str else None
             if not joining_date:
-                joining_date = employee.joining_date
-            if not joining_date:
-                joining_date = employee.created_at.date()
+                joining_date = employee.joining_date or employee.created_at.date()
 
             if not employee_code:
                 employee_code = f"KI{employee.id:05d}"
-            if not job_position and hasattr(employee, 'designation'):
-                job_position = employee.designation or ''
+            if not job_position:
+                job_position = getattr(employee, 'designation', '') or 'Employee'
 
-            employee_photo = getattr(employee, 'profile_picture', None)
+            # Only set employee_photo when the employee actually has one -
+            # the field isn't nullable, so passing None here would fail.
+            id_card_defaults = {
+                'employee_id_number': employee_code,
+                'job_position': job_position,
+                'date_of_joining': joining_date,
+            }
+            if employee.profile_picture:
+                id_card_defaults['employee_photo'] = employee.profile_picture
 
-            id_card, created = EmployeeIDCard.objects.update_or_create(
+            # Lookup is employee-only - EmployeeIDCard.employee is a
+            # OneToOneField, so including branch here (which can drift from
+            # what an older row was saved with) would break the lookup and
+            # crash trying to insert a second row for the same employee.
+            EmployeeIDCard.objects.update_or_create(
                 employee=employee,
-                branch=employee.branch,
-                defaults={
-                    'employee_id_number': employee_code,
-                    'job_position': job_position or 'Employee',
-                    'date_of_joining': joining_date,
-                    'employee_photo': employee_photo,
-                },
+                defaults={**id_card_defaults, 'office': employee.office, 'branch': employee.branch},
             )
 
-            # ---- Build the PDF (front + back, CR80 card size) ----
-            pdf_buffer = _build_id_card_pdf(
+            pdf_buffer = build_id_card_pdf(
                 employee=employee,
                 employee_code=employee_code,
-                job_position=job_position or 'Employee',
+                designation=job_position,
                 joining_date=joining_date,
-                company_name=company_name,
-                company_address=company_address,
             )
 
             filename = f"ID_Card_{employee_code}.pdf"
@@ -8428,132 +8611,22 @@ def admin_idcard_generator(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
     # GET request – render generator UI
-    # employees = Employee.objects.all().order_by('full_name')
     employees = tenant_queryset(
         request,
         Employee.objects.all()
     ).order_by('full_name')
+    company = get_company_details(get_request_office(request), get_request_branch(request))
 
     context = TemplateLayout.init(request, context={})
     context.update(
         {
             'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
             'employees': employees,
+            'company': company,
         }
     )
     return render(request, 'employees/id_card/dynamic_id_card.html', context)
 
-
-def _build_id_card_pdf(employee, employee_code, job_position, joining_date,
-                        company_name, company_address):
-    """Draws a two-page (front/back) CR80-sized (85.6mm x 54mm) ID card PDF
-    and returns an in-memory BytesIO buffer."""
-    from reportlab.lib.pagesizes import landscape
-    from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.colors import HexColor, white
-    from reportlab.lib.utils import ImageReader
-    import io
-
-    CARD_W, CARD_H = 85.6 * mm, 54 * mm
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(CARD_W, CARD_H))
-
-    purple_top = HexColor('#667eea')
-    purple_bottom = HexColor('#764ba2')
-
-    # ---------------- FRONT ----------------
-    _draw_gradient_bg(c, CARD_W, CARD_H, purple_top, purple_bottom)
-
-    c.setFillColor(white)
-    c.setFont('Helvetica-Bold', 11)
-    c.drawString(6 * mm, CARD_H - 8 * mm, 'DOVIX')
-
-    # Chip placeholder (top-right)
-    c.setFillColor(HexColor('#ffffff'))
-    c.setStrokeColor(white)
-    c.roundRect(CARD_W - 16 * mm, CARD_H - 11 * mm, 10 * mm, 6 * mm, 1.5, fill=0, stroke=1)
-
-    # Photo
-    photo_size = 18 * mm
-    photo_x = (CARD_W - photo_size) / 2
-    photo_y = CARD_H - 30 * mm
-    try:
-        if employee.profile_picture and employee.profile_picture.name:
-            img = ImageReader(employee.profile_picture.path)
-            c.drawImage(img, photo_x, photo_y, width=photo_size, height=photo_size,
-                        preserveAspectRatio=True, mask='auto')
-        else:
-            raise ValueError('no photo')
-    except Exception:
-        c.setFillColor(HexColor('#ffffff'))
-        c.roundRect(photo_x, photo_y, photo_size, photo_size, 2, fill=1, stroke=0)
-        c.setFillColor(purple_bottom)
-        c.setFont('Helvetica-Bold', 14)
-        initial = (employee.full_name or '?')[0].upper()
-        c.drawCentredString(CARD_W / 2, photo_y + photo_size / 2 - 4, initial)
-
-    # Name / designation / details
-    c.setFillColor(white)
-    c.setFont('Helvetica-Bold', 9)
-    c.drawCentredString(CARD_W / 2, photo_y - 5 * mm, employee.full_name or '')
-    c.setFont('Helvetica', 6.5)
-    c.drawCentredString(CARD_W / 2, photo_y - 9 * mm, job_position)
-    c.setFont('Helvetica', 6)
-    c.drawCentredString(CARD_W / 2, photo_y - 13 * mm, f'ID: {employee_code}')
-    c.drawCentredString(CARD_W / 2, photo_y - 16.5 * mm, f'DOJ: {joining_date.strftime("%d/%m/%Y")}')
-
-    c.setFont('Helvetica', 6)
-    c.drawCentredString(CARD_W / 2, 4 * mm, 'Valid ID Card')
-
-    c.showPage()
-
-    # ---------------- BACK ----------------
-    c.setPageSize((CARD_W, CARD_H))
-    _draw_gradient_bg(c, CARD_W, CARD_H, purple_bottom, purple_top)
-
-    # QR placeholder box
-    qr_size = 18 * mm
-    qr_x = (CARD_W - qr_size) / 2
-    qr_y = CARD_H - 24 * mm
-    c.setFillColor(white)
-    c.roundRect(qr_x, qr_y, qr_size, qr_size, 2, fill=1, stroke=0)
-    c.setFillColor(purple_top)
-    c.setFont('Helvetica', 7)
-    c.drawCentredString(CARD_W / 2, qr_y + qr_size / 2 - 3, 'QR')
-
-    c.setFillColor(white)
-    c.setFont('Helvetica-Bold', 8)
-    c.drawCentredString(CARD_W / 2, qr_y - 5 * mm, company_name)
-
-    c.setFont('Helvetica', 6)
-    text_obj = c.beginText(6 * mm, qr_y - 10 * mm)
-    text_obj.setLeading(8)
-    for line in company_address.split('\n'):
-        text_obj.textLine(line)
-    text_obj.textLine('')
-    text_obj.textLine(f'Contact: {employee.contact}')
-    c.drawText(text_obj)
-
-    c.showPage()
-    c.save()
-    buffer.seek(0)
-    return buffer
-
-
-def _draw_gradient_bg(c, width, height, color_top, color_bottom, steps=40):
-    """Simulates a vertical gradient by stacking thin colored bands,
-    since reportlab canvas has no native linear gradient fill."""
-    from reportlab.lib.colors import Color
-
-    for i in range(steps):
-        frac = i / float(steps - 1)
-        r = color_top.red + (color_bottom.red - color_top.red) * frac
-        g = color_top.green + (color_bottom.green - color_top.green) * frac
-        b = color_top.blue + (color_bottom.blue - color_top.blue) * frac
-        c.setFillColor(Color(r, g, b))
-        band_h = height / steps
-        c.rect(0, height - (i + 1) * band_h, width, band_h + 0.5, fill=1, stroke=0)
 
 @login_required
 def modern_dashboard(request):
@@ -9366,7 +9439,7 @@ def employee_salary(request):
             fields = _collect_salary_form_fields(request.POST)
 
             try:
-                employee = Employee.objects.get(id=employee_id)
+                employee = tenant_queryset(request, Employee.objects.all()).get(id=employee_id)
                 EmployeeSalary.objects.create(
                     employee=employee,
                     office=employee.office,
@@ -9384,7 +9457,7 @@ def employee_salary(request):
             fields = _collect_salary_form_fields(request.POST)
 
             try:
-                salary_profile = EmployeeSalary.objects.get(id=salary_id)
+                salary_profile = tenant_queryset(request, EmployeeSalary.objects.all()).get(id=salary_id)
                 for field_name, value in fields.items():
                     setattr(salary_profile, field_name, value)
                 salary_profile.save()
@@ -9395,7 +9468,7 @@ def employee_salary(request):
         elif action == 'delete':
             salary_id = request.POST.get('salary_id')
             try:
-                EmployeeSalary.objects.filter(id=salary_id).delete()
+                tenant_queryset(request, EmployeeSalary.objects.all()).filter(id=salary_id).delete()
                 messages.success(request, 'Salary entry deleted successfully!')
             except Exception as e:
                 messages.error(request, f'Error deleting salary entry: {str(e)}')
@@ -9422,7 +9495,7 @@ def employee_salary(request):
     selected_employee = None
     employee_filter_id = request.GET.get('employee')
     if employee_filter_id:
-        selected_employee = Employee.objects.filter(id=employee_filter_id).first()
+        selected_employee = tenant_queryset(request, Employee.objects.all()).filter(id=employee_filter_id).first()
 
     target_employees = [selected_employee] if selected_employee else list(employees)
 
@@ -9434,7 +9507,7 @@ def employee_salary(request):
         monthly_summary.append({'employee': employee, 'calc': calc})
 
     # ---- Full salary history (every row ever entered) for management ----
-    salary_history_qs = EmployeeSalary.objects.select_related('employee').all()
+    salary_history_qs = tenant_queryset(request, EmployeeSalary.objects.select_related('employee'))
     if selected_employee:
         salary_history_qs = salary_history_qs.filter(employee=selected_employee)
     salary_history_qs = salary_history_qs.order_by('employee__full_name', '-effective_from')
@@ -9442,7 +9515,7 @@ def employee_salary(request):
     edit_salary = None
     edit_id = request.GET.get('edit')
     if edit_id:
-        edit_salary = EmployeeSalary.objects.filter(id=edit_id).first()
+        edit_salary = tenant_queryset(request, EmployeeSalary.objects.all()).filter(id=edit_id).first()
 
     months_list = [
         {'number': i, 'name': cal_module.month_name[i], 'abbr': cal_module.month_abbr[i]}
@@ -9588,6 +9661,7 @@ def admin_leave_types(request):
             leave_type = form.save(commit=False)
             leave_type.created_by = request.user
             leave_type.office = office
+            leave_type.branch = get_request_branch(request)
             leave_type.save()
 
             # NEW: instantly credit every eligible employee
