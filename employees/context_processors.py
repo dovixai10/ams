@@ -60,6 +60,13 @@ def office_branding(request):
         from .permissions import employee_permission_keys
         employee_permissions = employee_permission_keys(user.employee_profile)
 
+    # Teams this employee is a member of, so the sidebar can link straight
+    # to their team board(s) even if they don't hold 'teams.manage' (which
+    # only gates the admin create/edit-teams page, not board access).
+    my_teams = None
+    if user and user.is_authenticated and hasattr(user, 'employee_profile'):
+        my_teams = user.employee_profile.teams.only('id', 'name').order_by('name')
+
     return {
         'current_office': office,
         'is_office_admin': admin_is_office_admin,
@@ -70,4 +77,5 @@ def office_branding(request):
         'available_branches': available_branches,
         'employee_permissions': employee_permissions,
         'has_any_permission': bool(employee_permissions),
+        'my_teams': my_teams,
     }

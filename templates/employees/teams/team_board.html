@@ -1,0 +1,839 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}{{ team.name }} Board | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .board-title-row { display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; color: #1f2937; }
+  .board-title-row > .bx-columns { font-size: 1.15rem; }
+  .board-title-suffix { font-weight: 700; }
+  .team-select {
+    border: none; background: transparent; font-weight: 700; font-size: 1.25rem;
+    color: #1f2937; padding: 0.1rem 0.3rem; border-radius: 6px; cursor: pointer;
+    max-width: 260px;
+  }
+  .team-select:hover, .team-select:focus { background: #f3f4f6; outline: none; }
+  .board-subtitle { font-size: 0.85rem; color: #6b7280; margin-top: 0.15rem; }
+
+  .avatar-stack { display: flex; }
+  .avatar-stack .avatar-chip {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #696cff; color: #fff; font-size: 0.72rem; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff; margin-inline-start: -9px;
+  }
+  .avatar-stack .avatar-chip:first-child { margin-inline-start: 0; }
+
+  /* Insights */
+  .insights-row {
+    display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr));
+    gap: 0.75rem; margin-bottom: 1.25rem;
+  }
+  @media (max-width: 900px) { .insights-row { grid-template-columns: repeat(2, 1fr); } }
+  .insight-tile {
+    background: #fff; border-radius: 12px; padding: 0.85rem 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.18); display: flex; align-items: center; gap: 0.7rem;
+  }
+  .insight-icon {
+    width: 38px; height: 38px; border-radius: 10px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+  }
+  .insight-tile.total .insight-icon { background: #eef2ff; color: #4f46e5; }
+  .insight-tile.pending .insight-icon { background: #e0f2fe; color: #0369a1; }
+  .insight-tile.in_progress .insight-icon { background: #fef3c7; color: #b45309; }
+  .insight-tile.blocked .insight-icon { background: #fee2e2; color: #b91c1c; }
+  .insight-tile.completed .insight-icon { background: #dcfce7; color: #15803d; }
+  .insight-label { font-size: 0.72rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
+  .insight-value { font-size: 1.15rem; font-weight: 700; color: #1f2937; }
+
+  /* Sprint / Project dropdowns */
+  .filter-row {
+    display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.1rem;
+  }
+  .filter-field { display: flex; align-items: center; gap: 0.6rem; }
+  .filter-field label {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #9ca3af; font-weight: 600; margin: 0;
+  }
+  .sprint-select, .project-select {
+    border: 1px solid #d1d5db; border-radius: 8px; padding: 0.4rem 0.7rem;
+    font-size: 0.88rem; font-weight: 600; cursor: pointer;
+  }
+  .sprint-select { color: #4f46e5; background: #eef2ff; }
+  .project-select { color: #0f766e; background: #f0fdfa; }
+
+  /* Project tag pill on a card */
+  .project-tag {
+    font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.5rem; border-radius: 999px;
+  }
+
+  /* Swimlane rows */
+  .board-rows { display: flex; flex-direction: column; gap: 0.6rem; }
+  .board-row { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+  .board-row-header {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.65rem 0.9rem; background: #f9fafb; cursor: pointer; user-select: none;
+  }
+  .row-toggle-icon { font-size: 1.1rem; color: #6b7280; transition: transform 0.15s ease; }
+  .board-row.open .row-toggle-icon { transform: rotate(90deg); }
+  .row-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #696cff; color: #fff; font-size: 0.72rem; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .row-avatar.unassigned { background: #cbd5e1; color: #475569; }
+  .row-name { font-weight: 600; font-size: 0.92rem; color: #1f2937; }
+  .row-count { margin-inline-start: auto; font-size: 0.78rem; color: #6b7280; }
+  .board-row-body { padding: 0.85rem; border-top: 1px solid #e5e7eb; }
+
+  .board-columns {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .board-column {
+    flex: 0 0 260px;
+    background: #f3f4f6;
+    border-radius: 12px;
+    padding: 0.75rem;
+    min-height: 90px;
+  }
+
+  /* Colorful per-status columns */
+  .board-column.status-pending { background: #eff6ff; }
+  .board-column.status-in_progress { background: #fffbeb; }
+  .board-column.status-blocked { background: #fef2f2; }
+  .board-column.status-completed { background: #f0fdf4; }
+
+  .board-column-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.35rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #374151;
+  }
+  .board-column-header .column-dot {
+    width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
+  }
+  .status-pending .column-dot { background: #2563eb; }
+  .status-in_progress .column-dot { background: #d97706; }
+  .status-blocked .column-dot { background: #dc2626; }
+  .status-completed .column-dot { background: #16a34a; }
+  .board-column-header .column-label { flex: 1 1 auto; }
+
+  .board-column-count {
+    background: #ffffffb3;
+    color: #4b5563;
+    border-radius: 999px;
+    padding: 0.05rem 0.55rem;
+    font-size: 0.75rem;
+  }
+
+  .board-column-body {
+    min-height: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .board-column-body.drag-over { background: rgba(105, 108, 255, 0.08); border-radius: 8px; }
+
+  .task-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 0.7rem 0.8rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    border-inline-start: 4px solid #696cff;
+    cursor: grab;
+  }
+  .task-card:active { cursor: grabbing; }
+  .task-card.priority-low { border-inline-start-color: #03c3ec; }
+  .task-card.priority-medium { border-inline-start-color: #696cff; }
+  .task-card.priority-high { border-inline-start-color: #ffab00; }
+  .task-card.priority-critical { border-inline-start-color: #ff3e1d; }
+
+  .task-card-title { display: flex; align-items: flex-start; gap: 0.4rem; font-size: 0.88rem; font-weight: 600; color: #1f2937; margin-bottom: 0.4rem; }
+  .task-type-icon { flex: 0 0 auto; margin-top: 0.12rem; font-size: 0.85rem; }
+  .task-type-icon.bx-bug { color: #ff3e1d; }
+  .task-type-icon.bx-task { color: #696cff; }
+
+  .task-card-badges { display: flex; gap: 0.35rem; margin-bottom: 0.4rem; }
+  .severity-badge {
+    font-size: 0.68rem; font-weight: 600; padding: 0.05rem 0.45rem; border-radius: 999px;
+  }
+  .severity-badge.severity-low { background: #e0f2fe; color: #0369a1; }
+  .severity-badge.severity-medium { background: #e0e7ff; color: #4338ca; }
+  .severity-badge.severity-high { background: #fef3c7; color: #b45309; }
+  .severity-badge.severity-critical { background: #fee2e2; color: #b91c1c; }
+
+  .task-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+
+  .task-card-tags { display: flex; align-items: center; gap: 0.5rem; }
+  .task-comment-count { display: flex; align-items: center; gap: 0.2rem; }
+
+  .quick-add-form {
+    margin-top: 0.6rem;
+    display: flex; flex-direction: column; gap: 0.5rem;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 0.65rem;
+  }
+  .quick-add-form input[type="text"] {
+    width: 100%; border: 1px solid #d1d5db; border-radius: 6px;
+    padding: 0.45rem 0.6rem; font-size: 0.83rem; background: #fff; color: #1f2937;
+  }
+  .quick-add-form input[type="text"]:focus {
+    outline: none; border-color: #696cff; box-shadow: 0 0 0 3px rgba(105, 108, 255, 0.12);
+  }
+  .quick-add-form select {
+    width: 100%; border: 1px solid #d1d5db; border-radius: 6px;
+    padding: 0.4rem 0.55rem; font-size: 0.8rem; background: #fff; color: #374151;
+    height: 34px;
+  }
+  .quick-add-row { display: flex; gap: 0.4rem; }
+  .quick-add-row select { flex: 1 1 0; }
+  .quick-add-btn {
+    background: #eef2ff; border: none; color: #4338ca; font-size: 0.82rem; font-weight: 600;
+    padding: 0.45rem 0.6rem; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+    cursor: pointer;
+  }
+  .quick-add-btn:hover { background: #e0e7ff; }
+
+  /* Side panel */
+  .task-panel-backdrop {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35);
+    z-index: 1200; display: none;
+  }
+  .task-panel-backdrop.show { display: block; }
+
+  .task-panel {
+    position: fixed; inset-block: 0; inset-inline-end: 0;
+    width: min(440px, 100vw);
+    background: #fff; z-index: 1201;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    transform: translateX(100%);
+    transition: transform 0.2s ease-in-out;
+    display: flex; flex-direction: column;
+  }
+  .task-panel.show { transform: translateX(0); }
+
+  .task-panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+  .panel-title-input {
+    flex: 1 1 auto; border: 1px solid transparent; border-radius: 6px;
+    font-size: 1.05rem; font-weight: 700; color: #1f2937; padding: 0.25rem 0.4rem;
+    margin-inline-start: -0.4rem; background: transparent;
+  }
+  .panel-title-input:hover { border-color: #e5e7eb; }
+  .panel-title-input:focus { outline: none; border-color: #696cff; background: #fff; box-shadow: 0 0 0 3px rgba(105, 108, 255, 0.12); }
+  .task-panel-body { padding: 1.1rem 1.25rem; overflow-y: auto; flex: 1 1 auto; }
+  .task-panel-close { background: none; border: none; font-size: 1.3rem; color: #6b7280; cursor: pointer; }
+
+  .task-panel-field { margin-bottom: 1rem; }
+  .task-panel-field label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; font-weight: 600; display: block; margin-bottom: 0.3rem; }
+  .task-panel-field textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 0.5rem 0.7rem; font-size: 0.85rem; }
+  .task-panel-row { display: flex; gap: 0.75rem; }
+  .task-panel-row .task-panel-field { flex: 1 1 0; }
+
+  .attachment-gallery { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+  .attachment-gallery img, .attachment-gallery video { max-width: 110px; max-height: 90px; border-radius: 6px; object-fit: cover; }
+
+  .comment-feed { margin-top: 0.5rem; }
+  .comment-entry { padding: 0.6rem 0; border-bottom: 1px dashed #e5e7eb; }
+  .comment-entry:last-child { border-bottom: none; }
+  .comment-author { font-weight: 600; font-size: 0.82rem; color: #1f2937; }
+  .comment-time { font-size: 0.72rem; color: #9ca3af; }
+  .comment-text { font-size: 0.85rem; color: #374151; margin-top: 0.15rem; }
+  .comment-status-line { font-size: 0.78rem; color: #6b7280; font-style: italic; margin-top: 0.15rem; }
+  .comment-attachment { margin-top: 0.4rem; }
+  .comment-attachment img { max-width: 100%; max-height: 220px; border-radius: 8px; display: block; }
+  .comment-attachment video { max-width: 100%; max-height: 220px; border-radius: 8px; display: block; }
+
+  .comment-box textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 0.5rem 0.7rem; font-size: 0.85rem; }
+  .comment-box-file { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; font-size: 0.78rem; color: #6b7280; }
+  .comment-box-file-name { font-size: 0.78rem; color: #4338ca; }
+
+  .btn-sm { padding: 0.4rem 0.85rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.82rem; }
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
+  .btn-outline-sm { background: #fff; border: 1px solid #d1d5db; color: #374151; padding: 0.4rem 0.7rem; border-radius: 6px; font-size: 0.78rem; cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="board-header">
+  <div>
+    <div class="board-title-row">
+      <i class="bx bx-columns"></i>
+      <select class="team-select" id="team-select" title="Switch team">
+        {% for t in switchable_teams %}
+          <option value="{% url 'employees:team_board' t.id %}" {% if t.id == team.id %}selected{% endif %}>{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <span class="board-title-suffix">— Task Board</span>
+    </div>
+    <div class="board-subtitle">{{ team.description|default:"" }}</div>
+  </div>
+  <div class="text-end">
+    <div class="avatar-stack mb-2">
+      {% for member in members %}
+        <span class="avatar-chip" title="{{ member.full_name|default:member.name }}">{{ member.full_name|default:member.name|slice:":1" }}</span>
+      {% endfor %}
+    </div>
+    <a href="{% url 'employees:admin_teams' %}" class="text-muted small"><i class="bx bx-arrow-back"></i> All teams</a>
+  </div>
+</div>
+
+<div class="filter-row">
+  <div class="filter-field">
+    <label for="sprint-select">Sprint</label>
+    <select class="sprint-select" id="sprint-select">
+      {% for tab in sprint_tabs %}
+        <option value="{{ tab.url }}" {% if tab.active %}selected{% endif %}>{{ tab.label }}{% if tab.range %} ({{ tab.range }}){% endif %}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="project-select">Project</label>
+    <select class="project-select" id="project-select">
+      {% for opt in project_options %}
+        <option value="{{ opt.url }}" {% if opt.active %}selected{% endif %}>{{ opt.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<div class="insights-row">
+  <div class="insight-tile total">
+    <div class="insight-icon"><i class="bx bx-list-ul"></i></div>
+    <div><div class="insight-label">Total Tasks</div><div class="insight-value">{{ insights.total }}</div></div>
+  </div>
+  <div class="insight-tile pending">
+    <div class="insight-icon"><i class="bx bx-file"></i></div>
+    <div><div class="insight-label">To Do</div><div class="insight-value">{{ insights.pending }}</div></div>
+  </div>
+  <div class="insight-tile in_progress">
+    <div class="insight-icon"><i class="bx bx-loader-circle"></i></div>
+    <div><div class="insight-label">In Progress</div><div class="insight-value">{{ insights.in_progress }}</div></div>
+  </div>
+  <div class="insight-tile blocked">
+    <div class="insight-icon"><i class="bx bx-error"></i></div>
+    <div><div class="insight-label">Blocked</div><div class="insight-value">{{ insights.blocked }}</div></div>
+  </div>
+  <div class="insight-tile completed">
+    <div class="insight-icon"><i class="bx bx-check-circle"></i></div>
+    <div><div class="insight-label">Done</div><div class="insight-value">{{ insights.completed }}</div></div>
+  </div>
+</div>
+
+<div class="board-rows">
+  {% for row in rows %}
+    <div class="board-row" data-row="{{ row.key }}">
+      <div class="board-row-header" data-row-toggle="{{ row.key }}">
+        <i class="bx bx-chevron-right row-toggle-icon"></i>
+        {% if row.member %}
+          <span class="row-avatar" title="{{ row.member.full_name|default:row.member.name }}">{{ row.member.full_name|default:row.member.name|slice:":1" }}</span>
+          <span class="row-name">{{ row.member.full_name|default:row.member.name }}</span>
+        {% else %}
+          <span class="row-avatar unassigned">?</span>
+          <span class="row-name">Unassigned</span>
+        {% endif %}
+        <span class="row-count">{{ row.total_count }} task{{ row.total_count|pluralize }}</span>
+      </div>
+      <div class="board-row-body d-none" id="row-body-{{ row.key }}">
+        <div class="board-columns">
+          {% for column in row.columns %}
+            <div class="board-column status-{{ column.key }}" data-status="{{ column.key }}">
+              <div class="board-column-header">
+                <span class="column-dot"></span>
+                <span class="column-label">{{ column.label }}</span>
+                <span class="board-column-count">{{ column.tasks|length }}</span>
+              </div>
+              <div class="board-column-body" data-status="{{ column.key }}" data-row-key="{{ row.key }}">
+                {% for task in column.tasks %}
+                  <div class="task-card priority-{{ task.priority }}" draggable="true" data-task-id="{{ task.id }}" data-row-key="{{ row.key }}">
+                    <div class="task-card-title">
+                      <i class="bx {{ task.type_icon }} task-type-icon"></i>
+                      <span>{{ task.title }}</span>
+                    </div>
+                    <div class="task-card-badges">
+                      {% if task.type == 'bug' %}<span class="severity-badge severity-{{ task.severity }}">{{ task.get_severity_display }}</span>{% endif %}
+                      {% if task.project %}<span class="project-tag" style="background: {{ task.project_color.bg }}; color: {{ task.project_color.fg }};">{{ task.project.name }}</span>{% endif %}
+                    </div>
+                    <div class="task-card-meta">
+                      <span class="task-card-tags">
+                        {% if task.due_date %}<span title="Due {{ task.due_date }}"><i class="bx bx-calendar"></i> {{ task.due_date|date:"M d" }}</span>{% endif %}
+                        {% if task.comment_count %}<span class="task-comment-count"><i class="bx bx-comment-detail"></i> {{ task.comment_count }}</span>{% endif %}
+                      </span>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+              {% if column.key == 'pending' %}
+                <form class="quick-add-form" data-quick-add data-assigned-to="{{ row.member.id|default:'' }}">
+                  <input type="text" name="title" placeholder="+ New work item" maxlength="150">
+                  <div class="quick-add-row">
+                    <select name="type">
+                      {% for key, label in type_choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                    </select>
+                    <select name="severity" class="d-none" data-severity-field>
+                      {% for key, label in severity_choices %}<option value="{{ key }}" {% if key == 'medium' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                  </div>
+                  {% if all_projects %}
+                  <select name="project">
+                    <option value="">No project</option>
+                    {% for p in all_projects %}
+                      <option value="{{ p.id }}" {% if selected_project_key == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                  </select>
+                  {% endif %}
+                  <button type="submit" class="quick-add-btn"><i class="bx bx-plus"></i>Add</button>
+                </form>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Task detail side panel -->
+<div class="task-panel-backdrop" id="task-panel-backdrop"></div>
+<div class="task-panel" id="task-panel">
+  <div class="task-panel-header">
+    <input type="text" id="panel-title" class="panel-title-input" maxlength="150" placeholder="Task title">
+    <button type="button" class="task-panel-close" id="panel-close">&times;</button>
+  </div>
+  <div class="task-panel-body">
+    <div class="task-panel-field">
+      <label>Description</label>
+      <textarea id="panel-description" rows="3" placeholder="Describe the task or bug…"></textarea>
+      <div class="attachment-gallery" id="panel-description-attachments"></div>
+      <div class="comment-box-file">
+        <button type="button" class="btn-outline-sm" id="panel-desc-attach-btn"><i class="bx bx-paperclip"></i> Attach image/video to description</button>
+        <span class="comment-box-file-name" id="panel-desc-attach-name"></span>
+        <input type="file" id="panel-desc-attach-input" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime" hidden>
+      </div>
+    </div>
+    <div class="task-panel-row">
+      <div class="task-panel-field">
+        <label>Type</label>
+        <select id="panel-type" class="form-select form-select-sm">
+          {% for key, label in type_choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="task-panel-field" id="panel-severity-wrap">
+        <label>Severity</label>
+        <select id="panel-severity" class="form-select form-select-sm">
+          {% for key, label in severity_choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="task-panel-row">
+      <div class="task-panel-field">
+        <label>Status</label>
+        <select id="panel-status" class="form-select form-select-sm">
+          {% for key, label in status_choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="task-panel-field">
+        <label>Sprint</label>
+        <select id="panel-sprint" class="form-select form-select-sm">
+          <option value="">Backlog</option>
+          {% for s in sprints %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="task-panel-row">
+      <div class="task-panel-field">
+        <label>Assigned to</label>
+        <select id="panel-assignee" class="form-select form-select-sm">
+          <option value="">Unassigned</option>
+          {% for member in members %}
+            <option value="{{ member.id }}">{{ member.full_name|default:member.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="task-panel-field">
+        <label>Project</label>
+        <select id="panel-project" class="form-select form-select-sm">
+          <option value="">No project</option>
+          {% for p in all_projects %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <button type="button" class="btn-sm btn-primary" id="panel-save">Save changes</button>
+
+    <hr>
+    <div class="task-panel-field">
+      <label>Activity</label>
+      <div class="comment-feed" id="panel-history"></div>
+    </div>
+    <div class="comment-box">
+      <textarea id="panel-comment" rows="2" placeholder="Add a comment…"></textarea>
+      <div class="comment-box-file">
+        <button type="button" class="btn-outline-sm" id="panel-attach-btn"><i class="bx bx-paperclip"></i> Attach image/video</button>
+        <span class="comment-box-file-name" id="panel-attach-name"></span>
+        <input type="file" id="panel-attach-input" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime" hidden>
+      </div>
+      <button type="button" class="btn-sm btn-primary mt-2" id="panel-comment-btn">Comment</button>
+    </div>
+  </div>
+</div>
+
+{{ tasks_by_id|json_script:"tasks-data" }}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+(function () {
+  'use strict';
+
+  var TASKS = JSON.parse(document.getElementById('tasks-data').textContent);
+  var ADD_TASK_URL = "{{ add_task_url }}";
+  var CSRF_TOKEN = '{{ csrf_token }}';
+
+  // --- Team / Sprint / Project switcher dropdowns - plain navigation, no AJAX --
+  document.getElementById('team-select').addEventListener('change', function (e) {
+    window.location.href = e.target.value;
+  });
+  document.getElementById('sprint-select').addEventListener('change', function (e) {
+    window.location.href = e.target.value;
+  });
+  document.getElementById('project-select').addEventListener('change', function (e) {
+    window.location.href = e.target.value;
+  });
+
+  function apiPost(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify(body || {}),
+    }).then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); });
+  }
+
+  function apiPostForm(url, formData) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN },
+      body: formData,
+    }).then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); });
+  }
+
+  function notify(message, type) {
+    if (typeof window.showToastMessage === 'function') {
+      window.showToastMessage(message, type);
+    } else if (window.toastr) {
+      window.toastr[type === 'error' ? 'error' : 'success'](message);
+    } else if (type === 'error') {
+      alert(message);
+    }
+  }
+
+  // --- Row collapse/expand --------------------------------------------------
+  document.querySelectorAll('[data-row-toggle]').forEach(function (header) {
+    header.addEventListener('click', function () {
+      var key = header.getAttribute('data-row-toggle');
+      var body = document.getElementById('row-body-' + key);
+      body.classList.toggle('d-none');
+      header.closest('.board-row').classList.toggle('open', !body.classList.contains('d-none'));
+    });
+  });
+
+  // --- Drag and drop between columns, within the SAME row only -------------
+  document.querySelectorAll('.task-card').forEach(function (card) {
+    card.addEventListener('dragstart', function (e) {
+      e.dataTransfer.setData('text/plain', card.dataset.taskId);
+      e.dataTransfer.setData('application/x-row-key', card.dataset.rowKey);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+  });
+
+  document.querySelectorAll('.board-column-body').forEach(function (body) {
+    body.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      body.classList.add('drag-over');
+    });
+    body.addEventListener('dragleave', function () {
+      body.classList.remove('drag-over');
+    });
+    body.addEventListener('drop', function (e) {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      var taskId = e.dataTransfer.getData('text/plain');
+      var originRowKey = e.dataTransfer.getData('application/x-row-key');
+      if (originRowKey !== body.dataset.rowKey) {
+        notify('Drag within a member\'s row to change status - use the card\'s panel to reassign.', 'error');
+        return;
+      }
+      var card = document.querySelector('.task-card[data-task-id="' + taskId + '"]');
+      var newStatus = body.dataset.status;
+      if (!card || !TASKS[taskId]) return;
+      var task = TASKS[taskId];
+      if (task.status === newStatus) { body.appendChild(card); return; }
+
+      var previousParent = card.parentElement;
+      body.appendChild(card); // optimistic move - status only
+      apiPost(task.moveUrl, { status: newStatus }).then(function (res) {
+        if (!res.ok || !res.data.success) {
+          previousParent.appendChild(card); // revert
+          notify(res.data.error || 'Could not move that card.', 'error');
+          return;
+        }
+        task.status = newStatus;
+        updateColumnCounts();
+      });
+    });
+  });
+
+  function updateColumnCounts() {
+    document.querySelectorAll('.board-column').forEach(function (col) {
+      var count = col.querySelectorAll('.task-card').length;
+      col.querySelector('.board-column-count').textContent = count;
+    });
+    document.querySelectorAll('.board-row').forEach(function (row) {
+      var count = row.querySelectorAll('.task-card').length;
+      row.querySelector('.row-count').textContent = count + (count === 1 ? ' task' : ' tasks');
+    });
+  }
+
+  // --- Quick add (per row - assignment is implicit in which row's form you use) --
+  document.querySelectorAll('[data-quick-add]').forEach(function (form) {
+    var typeSelect = form.querySelector('select[name="type"]');
+    var severitySelect = form.querySelector('[data-severity-field]');
+    if (typeSelect && severitySelect) {
+      var toggleSeverity = function () {
+        severitySelect.classList.toggle('d-none', typeSelect.value !== 'bug');
+      };
+      typeSelect.addEventListener('change', toggleSeverity);
+      toggleSeverity();
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var input = form.querySelector('input[name="title"]');
+      var title = (input.value || '').trim();
+      if (!title) return;
+      var params = {
+        title: title,
+        type: typeSelect ? typeSelect.value : 'task',
+        assigned_to: form.getAttribute('data-assigned-to') || '',
+      };
+      if (typeSelect && typeSelect.value === 'bug') {
+        params.severity = severitySelect.value;
+      }
+      apiPostForm(ADD_TASK_URL, new URLSearchParams(params)).then(function (res) {
+        if (!res.ok || !res.data.success) {
+          notify((res.data && res.data.error) || 'Could not create that task.', 'error');
+          return;
+        }
+        input.value = '';
+        window.location.reload();
+      });
+    });
+  });
+
+  // --- Side panel ------------------------------------------------------------
+  var panel = document.getElementById('task-panel');
+  var backdrop = document.getElementById('task-panel-backdrop');
+  var currentTaskId = null;
+
+  function renderAttachment(att) {
+    if (!att) return '';
+    if (att.kind === 'video') {
+      return '<video src="' + att.url + '" controls preload="metadata"></video>';
+    }
+    return '<img src="' + att.url + '" alt="Attachment">';
+  }
+
+  function toggleSeverityField() {
+    var isBug = document.getElementById('panel-type').value === 'bug';
+    document.getElementById('panel-severity-wrap').style.display = isBug ? '' : 'none';
+  }
+  document.getElementById('panel-type').addEventListener('change', toggleSeverityField);
+
+  function openPanel(taskId) {
+    var task = TASKS[taskId];
+    if (!task) return;
+    currentTaskId = taskId;
+    document.getElementById('panel-title').value = task.title;
+    document.getElementById('panel-description').value = task.description || '';
+    document.getElementById('panel-type').value = task.type || 'task';
+    document.getElementById('panel-severity').value = task.severity || 'medium';
+    toggleSeverityField();
+    document.getElementById('panel-status').value = task.status;
+    document.getElementById('panel-sprint').value = task.sprintId || '';
+    document.getElementById('panel-assignee').value = (task.assignedTo && task.assignedTo.id) || '';
+    document.getElementById('panel-project').value = task.projectId || '';
+
+    var descAttachmentsEl = document.getElementById('panel-description-attachments');
+    descAttachmentsEl.innerHTML = (task.attachments || []).map(renderAttachment).join('');
+
+    var historyEl = document.getElementById('panel-history');
+    historyEl.innerHTML = '';
+    if (!task.history.length) {
+      historyEl.innerHTML = '<div class="text-muted small">No activity yet.</div>';
+    }
+    task.history.forEach(function (entry) {
+      var div = document.createElement('div');
+      div.className = 'comment-entry';
+      var statusLine = '';
+      if (entry.previousStatus && entry.previousStatus !== entry.newStatus) {
+        statusLine = '<div class="comment-status-line">Moved ' + entry.previousStatus + ' → ' + entry.newStatus + '</div>';
+      }
+      var attachmentsHtml = (entry.attachments || []).map(function (a) {
+        return '<div class="comment-attachment">' + renderAttachment(a) + '</div>';
+      }).join('');
+      div.innerHTML =
+        '<div class="comment-author">' + entry.author + ' <span class="comment-time">' + entry.createdAt + '</span></div>' +
+        statusLine +
+        (entry.comment ? '<div class="comment-text">' + entry.comment.replace(/</g, '&lt;') + '</div>' : '') +
+        attachmentsHtml;
+      historyEl.appendChild(div);
+    });
+
+    document.getElementById('panel-comment').value = '';
+    resetAttachmentInput();
+
+    panel.classList.add('show');
+    backdrop.classList.add('show');
+  }
+
+  function closePanel() {
+    panel.classList.remove('show');
+    backdrop.classList.remove('show');
+    currentTaskId = null;
+  }
+
+  document.querySelectorAll('.task-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      openPanel(card.dataset.taskId);
+    });
+  });
+
+  document.getElementById('panel-close').addEventListener('click', closePanel);
+  backdrop.addEventListener('click', closePanel);
+
+  document.getElementById('panel-save').addEventListener('click', function () {
+    if (!currentTaskId) return;
+    var task = TASKS[currentTaskId];
+    var newTitle = document.getElementById('panel-title').value.trim();
+    if (!newTitle) {
+      notify('Title cannot be empty.', 'error');
+      return;
+    }
+    apiPost(task.moveUrl, {
+      title: newTitle,
+      status: document.getElementById('panel-status').value,
+      assignedTo: document.getElementById('panel-assignee').value,
+      type: document.getElementById('panel-type').value,
+      severity: document.getElementById('panel-severity').value,
+      description: document.getElementById('panel-description').value,
+      sprint: document.getElementById('panel-sprint').value,
+      project: document.getElementById('panel-project').value,
+    }).then(function (res) {
+      if (!res.ok || !res.data.success) {
+        notify(res.data.error || 'Could not save changes.', 'error');
+        return;
+      }
+      notify('Task updated.', 'success');
+      window.location.reload();
+    });
+  });
+
+  // --- Description attachment picker ------------------------------------------
+  var descAttachInput = document.getElementById('panel-desc-attach-input');
+  document.getElementById('panel-desc-attach-btn').addEventListener('click', function () {
+    descAttachInput.click();
+  });
+  descAttachInput.addEventListener('change', function () {
+    var file = descAttachInput.files[0];
+    if (!file || !currentTaskId) return;
+    var task = TASKS[currentTaskId];
+    var formData = new FormData();
+    formData.append('attachment', file);
+    apiPostForm(task.attachUrl, formData).then(function (res) {
+      descAttachInput.value = '';
+      if (!res.ok || !res.data.success) {
+        notify(res.data.error || 'Could not attach that file.', 'error');
+        return;
+      }
+      task.attachments = task.attachments || [];
+      task.attachments.push(res.data.attachment);
+      document.getElementById('panel-description-attachments').innerHTML =
+        task.attachments.map(renderAttachment).join('');
+      notify('Attached.', 'success');
+    });
+  });
+
+  // --- Comment attachment picker ---------------------------------------------
+  var attachInput = document.getElementById('panel-attach-input');
+  var attachNameEl = document.getElementById('panel-attach-name');
+  document.getElementById('panel-attach-btn').addEventListener('click', function () {
+    attachInput.click();
+  });
+  attachInput.addEventListener('change', function () {
+    var file = attachInput.files[0];
+    attachNameEl.textContent = file ? file.name : '';
+  });
+  function resetAttachmentInput() {
+    attachInput.value = '';
+    attachNameEl.textContent = '';
+  }
+
+  document.getElementById('panel-comment-btn').addEventListener('click', function () {
+    if (!currentTaskId) return;
+    var task = TASKS[currentTaskId];
+    var textarea = document.getElementById('panel-comment');
+    var comment = (textarea.value || '').trim();
+    var file = attachInput.files[0];
+    if (!comment && !file) return;
+
+    var formData = new FormData();
+    formData.append('comment', comment);
+    if (file) formData.append('attachment', file);
+
+    apiPostForm(task.commentUrl, formData).then(function (res) {
+      if (!res.ok || !res.data.success) {
+        notify(res.data.error || 'Could not post that comment.', 'error');
+        return;
+      }
+      textarea.value = '';
+      resetAttachmentInput();
+      task.history.push({
+        author: res.data.comment.author,
+        comment: res.data.comment.comment,
+        previousStatus: null,
+        newStatus: task.status,
+        createdAt: res.data.comment.createdAt,
+        attachments: res.data.attachment ? [res.data.attachment] : [],
+      });
+      openPanel(currentTaskId);
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1150,8 +1150,11 @@ class Attendance(models.Model):
         help_text="Employee who checked in"
     )
     check_in_time = models.DateTimeField(
-        auto_now_add=True,
-        help_text="Timestamp when employee checked in"
+        default=timezone.now,
+        help_text="Timestamp when employee checked in - defaults to now if not "
+                   "given, like auto_now_add used to, but (unlike auto_now_add) "
+                   "still honors an explicit value from a caller, which the "
+                   "manual attendance form needs to backdate a check-in.",
     )
     date = models.DateField(
         help_text="Date of the check-in"
@@ -2321,6 +2324,111 @@ class AttendanceLog(models.Model):
 # ======================
 
 
+class Team(models.Model):
+    """A reusable group of employees with an optional manager who can be
+    delegated control of just this team's task board - without handing
+    out the branch-wide 'tasks.manage' permission (see can_manage_team in
+    permissions.py). Same office/branch-scoped shape as Role."""
+
+    office = models.ForeignKey(
+        Office, on_delete=models.CASCADE, related_name='teams',
+        help_text="The office this team belongs to",
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.CASCADE, related_name='teams',
+        null=True, blank=True,
+        help_text="The branch this team applies to - leave blank for an office-wide team",
+    )
+    name = models.CharField(max_length=100, help_text="e.g. 'Backend Squad', 'Sales Team'")
+    description = models.TextField(blank=True)
+    manager = models.ForeignKey(
+        'Employee', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='managed_teams',
+        help_text="Can manage this team's board (add/move/assign tasks) without needing the branch-wide Manage Tasks permission",
+    )
+    members = models.ManyToManyField(
+        'Employee', blank=True, related_name='teams',
+        help_text="Employees on this team - see and act on each other's tasks on the team board",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_teams',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Team'
+        verbose_name_plural = 'Teams'
+        unique_together = ['office', 'branch', 'name']
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.branch.name if self.branch else self.office.name})"
+
+    @property
+    def member_count(self):
+        return self.members.count()
+
+
+class SprintConfig(models.Model):
+    """One branch's sprint cadence - how long a sprint runs, and when the
+    very first one started. Sprint rows themselves are generated from this
+    (see employees/sprint_utils.py:ensure_upcoming_sprints) rather than
+    hand-created, so changing duration_weeks only affects sprints not yet
+    generated."""
+
+    branch = models.OneToOneField(
+        'Branch', on_delete=models.CASCADE, related_name='sprint_config',
+    )
+    duration_weeks = models.PositiveSmallIntegerField(
+        default=2, help_text="How many weeks each sprint runs, e.g. 2",
+    )
+    anchor_start_date = models.DateField(
+        help_text="Start date of Sprint 1 - every later sprint's dates are computed from this",
+    )
+    is_enabled = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Sprint Configuration'
+        verbose_name_plural = 'Sprint Configurations'
+
+    def __str__(self):
+        return f"{self.branch.name} sprints - {self.duration_weeks}w from {self.anchor_start_date}"
+
+
+class Sprint(models.Model):
+    """One iteration in a branch's sprint series - see SprintConfig for how
+    these get generated. `number` is 1-based and sequential; dates are
+    derived, not independently editable, so the whole series stays
+    consistent with SprintConfig."""
+
+    branch = models.ForeignKey('Branch', on_delete=models.CASCADE, related_name='sprints')
+    number = models.PositiveIntegerField()
+    name = models.CharField(max_length=50, help_text="e.g. 'Sprint 1'")
+    start_date = models.DateField()
+    end_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['branch', 'number']
+        ordering = ['number']
+
+    def __str__(self):
+        return f"{self.name} ({self.branch.name})"
+
+    @property
+    def is_current(self):
+        today = date.today()
+        return self.start_date <= today <= self.end_date
+
+    @property
+    def date_range_display(self):
+        return f"{self.start_date.strftime('%d %b')} - {self.end_date.strftime('%d %b')}"
+
+
 class Project(models.Model):
     """A project groups related tasks under one owner/team/timeline/budget.
     Sits as the parent context for Task - a task may optionally belong to
@@ -2526,6 +2634,16 @@ class Task(models.Model):
         HIGH = ('high', 'High')
         CRITICAL = ('critical', 'Critical')
 
+    class Severity(models.TextChoices):
+        LOW = ('low', 'Low')
+        MEDIUM = ('medium', 'Medium')
+        HIGH = ('high', 'High')
+        CRITICAL = ('critical', 'Critical')
+
+    class Type(models.TextChoices):
+        TASK = ('task', 'Task')
+        BUG = ('bug', 'Bug')
+
     class Status(models.TextChoices):
         PENDING = ('pending', 'Pending')
         IN_PROGRESS = ('in_progress', 'In Progress')
@@ -2549,6 +2667,16 @@ class Task(models.Model):
         related_name='tasks',
         help_text="Project this task belongs to, if any",
     )
+    team = models.ForeignKey(
+        'Team', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='tasks',
+        help_text="Team this task is on, if any - shows up on that team's task board",
+    )
+    sprint = models.ForeignKey(
+        'Sprint', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='tasks',
+        help_text="Sprint this task is scheduled in - null means Backlog (unscheduled)",
+    )
 
     title = models.CharField(
         max_length=150,
@@ -2562,7 +2690,8 @@ class Task(models.Model):
         Employee,
         on_delete=models.CASCADE,
         related_name='tasks',
-        help_text="Employee responsible for the task",
+        null=True, blank=True,
+        help_text="Employee responsible for the task - unassigned (null) is allowed, mainly for team-board work items nobody has picked up yet",
     )
     assigned_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -2583,6 +2712,19 @@ class Task(models.Model):
         choices=Priority.choices,
         default=Priority.MEDIUM,
         help_text="Priority to help employees order work",
+    )
+    type = models.CharField(
+        max_length=10,
+        choices=Type.choices,
+        default=Type.TASK,
+        help_text="Work item type - Task or Bug",
+    )
+    severity = models.CharField(
+        max_length=20,
+        choices=Severity.choices,
+        default=Severity.MEDIUM,
+        blank=True,
+        help_text="How bad the impact is - mainly meaningful for Bug items",
     )
     due_date = models.DateField(
         blank=True,
@@ -2609,7 +2751,8 @@ class Task(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.title} → {self.assigned_to.full_name}"
+        assignee = self.assigned_to.full_name if self.assigned_to else 'Unassigned'
+        return f"{self.title} → {assignee}"
 
     def save(self, *args, **kwargs):
         status_changed = False
@@ -2640,6 +2783,20 @@ class Task(models.Model):
             self.Priority.CRITICAL: 'danger',
         }
         return mapping.get(self.priority, 'secondary')
+
+    @property
+    def severity_badge(self) -> str:
+        mapping = {
+            self.Severity.LOW: 'info',
+            self.Severity.MEDIUM: 'primary',
+            self.Severity.HIGH: 'warning',
+            self.Severity.CRITICAL: 'danger',
+        }
+        return mapping.get(self.severity, 'secondary')
+
+    @property
+    def type_icon(self) -> str:
+        return 'bx-bug' if self.type == self.Type.BUG else 'bx-task'
 
     @property
     def status_badge(self) -> str:
@@ -2718,6 +2875,42 @@ class TaskUpdate(models.Model):
 
     def __str__(self):
         return f"{self.task.title} → {self.get_new_status_display()} by {self.updated_by}"
+
+
+def task_attachment_upload_to(instance, filename):
+    return f"task_attachments/{instance.task_id}/{filename}"
+
+
+class TaskAttachment(models.Model):
+    """An image or short video someone attached to a comment on a task's
+    team board - e.g. a screen recording showing a bug happening."""
+
+    class Kind(models.TextChoices):
+        IMAGE = ('image', 'Image')
+        VIDEO = ('video', 'Video')
+
+    task = models.ForeignKey(
+        Task, on_delete=models.CASCADE, related_name='attachments',
+        help_text="Task this file is attached to",
+    )
+    update = models.ForeignKey(
+        TaskUpdate, on_delete=models.CASCADE, related_name='attachments',
+        null=True, blank=True,
+        help_text="The specific comment this was attached with, if any",
+    )
+    file = models.FileField(upload_to=task_attachment_upload_to)
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='task_attachments_uploaded',
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"{self.get_kind_display()} on {self.task.title}"
 
 
 class Ticket(models.Model):

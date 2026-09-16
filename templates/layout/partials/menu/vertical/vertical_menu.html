@@ -73,7 +73,6 @@
             <div>Leave Requests</div>
           </a>
         </li>
-        <li class="menu-item {% if 'adjust-paid-leave' in request.path %}active{% endif %}"><a href="{% url 'employees:adjust_paid_leave' %}" class="menu-link"></i><div>Adjust Paid Leave</div></a></li>
         {% endif %}
       </ul>
     </li>
@@ -90,7 +89,7 @@
 
 
 
-    {% if is_office_admin or 'tasks.manage' in employee_permissions %}
+    {% if is_office_admin or 'tasks.manage' in employee_permissions or 'teams.manage' in employee_permissions or my_teams %}
     <!-- ===============================
            TASKS & WORKFLOWS GROUP
     =================================-->
@@ -100,9 +99,18 @@
         <div>Tasks & Workflows</div>
       </a>
       <ul class="menu-sub">
+        {% if is_office_admin or 'tasks.manage' in employee_permissions %}
         <li class="menu-item"><a href="{% url 'employees:admin_projects' %}" class="menu-link"><div>Projects</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_tasks' %}" class="menu-link"><div>Task Board</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_face_update_requests' %}" class="menu-link"><div>Face Update Requests</div></a></li>
+        {% endif %}
+        {% if is_office_admin or 'teams.manage' in employee_permissions %}
+        <!-- Can create/edit/delete teams (branch-wide permission or full admin) - this page also lists every team with an "Open Board" button, so it covers both managing and jumping to a board. -->
+        <li class="menu-item"><a href="{% url 'employees:admin_teams' %}" class="menu-link"><div>Teams</div></a></li>
+        {% elif my_teams %}
+        <!-- Plain member, no manage permission - one link to "which teams am I on", not a separate line per team. -->
+        <li class="menu-item"><a href="{% url 'employees:employee_my_teams' %}" class="menu-link"><div>Teams</div></a></li>
+        {% endif %}
       </ul>
     </li>
     {% endif %}

@@ -14,7 +14,7 @@ from django.views.generic import TemplateView, ListView, CreateView, UpdateView,
 from django.urls import reverse_lazy, reverse
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_http_methods
-from django.db.models import Q, Min, Max, Count
+from django.db.models import Q, Min, Max, Count, Prefetch
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponseBadRequest, FileResponse
 from django.template.loader import render_to_string
@@ -80,8 +80,12 @@ from .models import (
     LeaveRequest,
     Task,
     TaskUpdate,
+    TaskAttachment,
     Project,
     ProjectAttachment,
+    Team,
+    SprintConfig,
+    Sprint,
     EmployeeDocument,
     CompanyRule,
     LoanRequest,
@@ -108,6 +112,7 @@ from .forms import (
     TaskUpdateForm,
     ProjectForm,
     ProjectAttachmentForm,
+    TeamForm,
     OfficeProfileForm
 )
 try:
@@ -156,7 +161,9 @@ from .permissions import (
     office_admin_required, is_platform_admin, get_request_office, is_office_admin, is_employee,
     get_request_branch, tenant_queryset, tenant_object_or_404,
     feature_required, has_permission, FEATURE_PERMISSION_KEYS,
+    can_manage_team, is_team_member,
 )
+from .sprint_utils import ensure_upcoming_sprints, current_sprint
 
 
 from django.core.exceptions import PermissionDenied
@@ -805,7 +812,7 @@ class EmployeePasswordResetView(PasswordResetView):
     def get_email_context(self):
         context = super().get_email_context()
         context.setdefault('support_email', settings.DEFAULT_FROM_EMAIL)
-        context.setdefault('company_name', 'Kwikster CRM')
+        context.setdefault('company_name', 'Dovix AI')
         return context
 
 
@@ -2546,7 +2553,7 @@ class EmployeeCreateView(CreateView):
 
 def send_employee_onboarding_email(employee: Employee, raw_password: str, login_url: str) -> None:
     """Send onboarding email with initial credentials to the employee."""
-    subject = "Welcome to Kwikster CRM"
+    subject = "Welcome to Dovix AI"
     context = {
         "employee_name": employee.full_name,
         "login_url": login_url,
@@ -5561,15 +5568,16 @@ def update_task_status(request, pk):
     task = get_object_or_404(
         tenant_queryset(
             request,
-            Task.objects.select_related("assigned_to__user"),
+            Task.objects.select_related("assigned_to__user", "team"),
         ),
         pk=pk,
     )
 
     is_admin = is_office_admin(request.user)
     is_assigned_employee = hasattr(request.user, 'employee_profile') and task.assigned_to == request.user.employee_profile
+    is_teammate = task.team_id is not None and is_team_member(request.user, task.team)
 
-    if not (is_admin or is_assigned_employee):
+    if not (is_admin or is_assigned_employee or is_teammate):
         messages.error(request, 'You do not have permission to update this task.')
         return redirect('employees:employee_tasks' if not is_admin else 'employees:admin_tasks')
 
@@ -5678,21 +5686,26 @@ def employee_tasks(request):
         else:
             messages.error(request, 'Please correct the errors before creating the task.')
 
+    # Own tasks, plus every task on any team this employee is a member of -
+    # teammates' work is visible (and commentable/actionable) here too, not
+    # just what's assigned to this employee directly.
     tasks = tenant_queryset(
         request,
         Task.objects.filter(
-            assigned_to=employee
+            Q(assigned_to=employee) | Q(team__members=employee)
         ).select_related(
-            "assigned_by"
+            "assigned_by", "assigned_to", "team"
         ).prefetch_related(
             "updates__updated_by"
-        )
+        ).distinct()
     ).order_by(
         "-status_updated_at",
         "-created_at",
     )
 
     task_forms = [(task, TaskUpdateForm(task=task)) for task in tasks]
+    for task, _ in task_forms:
+        task.is_mine = task.assigned_to_id == employee.id
 
     status_counts = {
         key: tasks.filter(status=key).count()
@@ -5725,6 +5738,32 @@ def employee_tasks(request):
         'status_summary': status_summary,
     })
     return render(request, 'employees/tasks/employee_tasks.html', context)
+
+
+@login_required
+@user_passes_test(is_employee)
+def employee_my_teams(request):
+    """Employee-facing entry point to Teams: which team(s) this employee is
+    on, and a straight link into each one's task board. This exists
+    separately from the sidebar's own team links because a plain employee
+    with no delegated role gets is_menu=False (see web_project/__init__.py)
+    and never sees that sidebar at all - this page is reachable from the
+    dashboard's services grid regardless of that."""
+    employee = request.user.employee_profile
+    teams = (
+        employee.teams.select_related('manager', 'branch')
+        .prefetch_related('members')
+        .annotate(task_count=Count('tasks', distinct=True))
+        .order_by('name')
+    )
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'teams': teams,
+    })
+    return render(request, 'employees/teams/employee_my_teams.html', context)
+
 
 # Ticket System Views
 
@@ -7515,6 +7554,600 @@ def admin_roles(request):
     return render(request, 'employees/roles/admin_roles.html', context)
 
 
+# ======================
+# TEAMS & TEAM TASK BOARD
+# ======================
+
+@login_required
+@user_passes_test(feature_required('teams.manage'))
+def admin_teams(request):
+    """Create/edit teams: name, manager, members. A team's manager can then
+    manage that team's task board (add/move/assign/comment on its tasks)
+    without needing the branch-wide 'tasks.manage' permission - see
+    can_manage_team() in permissions.py."""
+    office = get_request_office(request)
+    if office is None:
+        messages.error(request, 'Your account is not linked to an approved office.')
+        return redirect('employees:employee_dashboard')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'create':
+            branch = get_request_branch(request)
+            if branch is None:
+                messages.error(request, 'Switch to a branch before creating a team.')
+            else:
+                form = TeamForm(request.POST, request=request)
+                if form.is_valid():
+                    team = form.save(commit=False)
+                    team.office = office
+                    team.branch = branch
+                    team.created_by = request.user
+                    team.save()
+                    form.save_m2m()
+                    messages.success(request, f'Team "{team.name}" created for "{branch.name}"!')
+                else:
+                    messages.error(request, 'Please correct the errors below.')
+
+        elif action == 'update':
+            team = get_object_or_404(tenant_queryset(request, Team.objects.all()), id=request.POST.get('team_id'))
+            form = TeamForm(request.POST, instance=team, request=request)
+            if form.is_valid():
+                form.save()
+                messages.success(request, f'Team "{team.name}" updated successfully!')
+            else:
+                messages.error(request, 'Please correct the errors below.')
+
+        elif action == 'delete':
+            team = get_object_or_404(tenant_queryset(request, Team.objects.all()), id=request.POST.get('team_id'))
+            team.delete()
+            messages.success(request, 'Team deleted.')
+
+        elif action == 'save_sprint_settings':
+            branch = get_request_branch(request)
+            if branch is None:
+                messages.error(request, 'Switch to a branch before setting up sprints.')
+            else:
+                try:
+                    duration_weeks = int(request.POST.get('duration_weeks') or 2)
+                except ValueError:
+                    duration_weeks = 2
+                anchor_start_date = parse_date(request.POST.get('anchor_start_date') or '')
+                if duration_weeks < 1 or not anchor_start_date:
+                    messages.error(request, 'Enter a valid sprint length and start date.')
+                else:
+                    SprintConfig.objects.update_or_create(
+                        branch=branch,
+                        defaults={
+                            'duration_weeks': duration_weeks,
+                            'anchor_start_date': anchor_start_date,
+                            'is_enabled': True,
+                        },
+                    )
+                    ensure_upcoming_sprints(branch)
+                    messages.success(request, f'Sprint settings saved for "{branch.name}" - sprints will now show on team boards.')
+
+        return redirect('employees:admin_teams')
+
+    teams = list(
+        tenant_queryset(request, Team.objects.filter(office=office))
+        .select_related('manager', 'branch')
+        .prefetch_related('members')
+        .annotate(task_count=Count('tasks', distinct=True))
+        .order_by('name')
+    )
+
+    all_employees = tenant_queryset(
+        request, Employee.objects.select_related('user')
+    ).order_by('full_name', 'email')
+
+    active_branch = get_request_branch(request)
+    sprint_config = SprintConfig.objects.filter(branch=active_branch).first() if active_branch else None
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'teams': teams,
+        'all_employees': all_employees,
+        'sprint_config': sprint_config,
+    })
+    return render(request, 'employees/teams/admin_teams.html', context)
+
+
+# Fixed, deterministic (background, text) palette for the project tag shown
+# on each card - same project always gets the same color on every render,
+# without storing a color on the Project model itself.
+PROJECT_TAG_COLORS = [
+    ('#eef2ff', '#4338ca'), ('#ecfdf5', '#047857'), ('#fff7ed', '#c2410c'),
+    ('#fdf4ff', '#a21caf'), ('#eff6ff', '#1d4ed8'), ('#fef2f2', '#b91c1c'),
+    ('#f0fdfa', '#0f766e'), ('#fefce8', '#a16207'),
+]
+
+
+def _project_tag_colors(project_id):
+    if not project_id:
+        return None
+    bg, fg = PROJECT_TAG_COLORS[project_id % len(PROJECT_TAG_COLORS)]
+    return {'bg': bg, 'fg': fg}
+
+
+@login_required
+def team_board(request, team_id):
+    """Kanban board for one team, scoped to one sprint (or the Backlog) -
+    one collapsible row per member (+ Unassigned), each with its own To Do
+    / In Progress / Blocked / Done columns. Any team member (not just the
+    manager) can view it, drag cards between columns within a row, reassign
+    a card via the side panel's own dropdown, and comment. Drag/reassign go
+    through team_board_move_task; comments through team_board_add_comment -
+    both write a TaskUpdate, the same audit-trail model the rest of the
+    task system already uses."""
+    team = get_object_or_404(
+        tenant_queryset(request, Team.objects.select_related('manager', 'branch')),
+        id=team_id,
+    )
+    if not is_team_member(request.user, team):
+        raise PermissionDenied("You're not on this team.")
+
+    # Teams the header's switcher dropdown offers: everyone in the office
+    # for someone who can manage teams (mirrors what admin_teams already
+    # lists), otherwise just the teams this employee is actually on.
+    if can_manage_team(request.user, team) or has_permission(request.user, 'teams.manage'):
+        switchable_teams = tenant_queryset(request, Team.objects.filter(office=team.office)).order_by('name')
+    elif is_employee(request.user):
+        switchable_teams = request.user.employee_profile.teams.order_by('name')
+    else:
+        switchable_teams = [team]
+
+    if team.branch is not None:
+        ensure_upcoming_sprints(team.branch)
+        sprints = list(Sprint.objects.filter(branch=team.branch).order_by('number'))
+    else:
+        sprints = []
+
+    sprint_param = request.GET.get('sprint')
+    selected_sprint = None
+    if sprint_param and sprint_param != 'backlog':
+        selected_sprint = next((s for s in sprints if str(s.id) == sprint_param), None)
+    elif not sprint_param and team.branch is not None:
+        # No explicit choice yet - default to whichever sprint covers today.
+        selected_sprint = current_sprint(team.branch)
+    selected_sprint_key = str(selected_sprint.id) if selected_sprint else 'backlog'
+
+    # Every project any of this team's tasks reference, tenant-scoped, for
+    # the project FILTER dropdown - not just this sprint's, so switching
+    # sprints doesn't make the filter's own options flicker.
+    projects = list(
+        tenant_queryset(request, Project.objects.filter(tasks__team=team)).distinct().order_by('name')
+    )
+    # Every project in the tenant, for quick-add/the panel's own project
+    # picker - broader than `projects` above, since you should be able to
+    # put a task on a project it doesn't have any tasks on yet.
+    all_projects = list(tenant_queryset(request, Project.objects.all()).order_by('name'))
+
+    project_param = request.GET.get('project')
+    selected_project = next((p for p in projects if str(p.id) == project_param), None) if project_param else None
+    selected_project_key = str(selected_project.id) if selected_project else 'all'
+
+    task_qs = tenant_queryset(request, Task.objects.filter(team=team))
+    task_qs = task_qs.filter(sprint=selected_sprint) if selected_sprint else task_qs.filter(sprint__isnull=True)
+    if selected_project:
+        task_qs = task_qs.filter(project=selected_project)
+    description_attachments_qs = Prefetch(
+        'attachments', queryset=TaskAttachment.objects.filter(update__isnull=True), to_attr='description_attachments',
+    )
+    tasks = list(
+        task_qs
+        .select_related('assigned_to', 'assigned_by', 'project')
+        .prefetch_related('updates__updated_by', 'updates__attachments', description_attachments_qs)
+        .order_by('-priority', '-created_at')
+    )
+
+    insights = {
+        'total': len(tasks),
+        'pending': sum(1 for t in tasks if t.status == Task.Status.PENDING),
+        'in_progress': sum(1 for t in tasks if t.status == Task.Status.IN_PROGRESS),
+        'blocked': sum(1 for t in tasks if t.status == Task.Status.BLOCKED),
+        'completed': sum(1 for t in tasks if t.status == Task.Status.COMPLETED),
+    }
+
+    def _new_columns():
+        return [
+            {'key': Task.Status.PENDING, 'label': 'To Do', 'tasks': []},
+            {'key': Task.Status.IN_PROGRESS, 'label': 'In Progress', 'tasks': []},
+            {'key': Task.Status.BLOCKED, 'label': 'Blocked', 'tasks': []},
+            {'key': Task.Status.COMPLETED, 'label': 'Done', 'tasks': []},
+        ]
+
+    member_list = list(team.members.select_related('user').order_by('full_name'))
+    rows = [{'member': member, 'key': str(member.id), 'columns': _new_columns()} for member in member_list]
+    rows.append({'member': None, 'key': 'unassigned', 'columns': _new_columns()})
+    rows_by_key = {r['key']: r for r in rows}
+
+    tasks_by_id = {}
+    for task in tasks:
+        history = sorted(task.updates.all(), key=lambda u: u.created_at)
+        task.comment_count = sum(1 for u in history if u.comment)
+        task.history = history
+        task.project_color = _project_tag_colors(task.project_id)
+        row = rows_by_key.get(str(task.assigned_to_id), rows_by_key['unassigned'])
+        by_status = {c['key']: c for c in row['columns']}
+        by_status.get(task.status, row['columns'][0])['tasks'].append(task)
+        tasks_by_id[task.id] = {
+            'id': task.id,
+            'title': task.title,
+            'description': task.description,
+            'status': task.status,
+            'type': task.type,
+            'severity': task.severity,
+            'priority': task.priority,
+            'dueDate': task.due_date.isoformat() if task.due_date else None,
+            'sprintId': task.sprint_id,
+            'projectId': task.project_id,
+            'assignedTo': (
+                {'id': task.assigned_to_id, 'name': task.assigned_to.full_name or task.assigned_to.name}
+                if task.assigned_to_id else None
+            ),
+            'attachments': [
+                {'url': a.file.url, 'kind': a.kind} for a in task.description_attachments
+            ],
+            'moveUrl': reverse('employees:team_board_move_task', args=[task.id]),
+            'commentUrl': reverse('employees:team_board_add_comment', args=[task.id]),
+            'attachUrl': reverse('employees:team_board_add_task_attachment', args=[task.id]),
+            'history': [
+                {
+                    'author': u.updated_by.get_full_name() or u.updated_by.username if u.updated_by else 'Unknown',
+                    'comment': u.comment,
+                    'previousStatus': u.get_previous_status_display() if u.previous_status else None,
+                    'newStatus': u.get_new_status_display(),
+                    'createdAt': timezone.localtime(u.created_at).strftime('%b %d, %I:%M %p'),
+                    'attachments': [
+                        {'url': a.file.url, 'kind': a.kind} for a in u.attachments.all()
+                    ],
+                }
+                for u in history
+            ],
+        }
+
+    for row in rows:
+        row['total_count'] = sum(len(c['tasks']) for c in row['columns'])
+
+    # Both dropdowns preserve the OTHER filter's current value when you
+    # change one of them, so picking a project doesn't reset the sprint tab
+    # and vice versa.
+    board_url = reverse('employees:team_board', args=[team.id])
+    project_qs_part = f'&project={selected_project_key}' if selected_project_key != 'all' else ''
+    sprint_tabs = [{
+        'key': 'backlog', 'label': 'Backlog', 'range': None,
+        'url': f'{board_url}?sprint=backlog{project_qs_part}', 'active': selected_sprint_key == 'backlog',
+    }] + [{
+        'key': str(s.id), 'label': s.name, 'range': s.date_range_display,
+        'url': f'{board_url}?sprint={s.id}{project_qs_part}', 'active': selected_sprint_key == str(s.id),
+    } for s in sprints]
+
+    project_options = [{
+        'key': 'all', 'label': 'All Projects',
+        'url': f'{board_url}?sprint={selected_sprint_key}', 'active': selected_project_key == 'all',
+    }] + [{
+        'key': str(p.id), 'label': p.name,
+        'url': f'{board_url}?sprint={selected_sprint_key}&project={p.id}', 'active': selected_project_key == str(p.id),
+    } for p in projects]
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'team': team,
+        'switchable_teams': switchable_teams,
+        'rows': rows,
+        'insights': insights,
+        'sprint_tabs': sprint_tabs,
+        'sprints': sprints,
+        'selected_sprint_key': selected_sprint_key,
+        'projects': projects,
+        'all_projects': all_projects,
+        'project_options': project_options,
+        'selected_project_key': selected_project_key,
+        'members': member_list,
+        'can_manage': can_manage_team(request.user, team),
+        'status_choices': Task.Status.choices,
+        'priority_choices': Task.Priority.choices,
+        'type_choices': Task.Type.choices,
+        'severity_choices': Task.Severity.choices,
+        'tasks_by_id': tasks_by_id,
+        'add_task_url': f"{reverse('employees:team_board_add_task', args=[team.id])}?sprint={selected_sprint_key}{project_qs_part}",
+    })
+    return render(request, 'employees/teams/team_board.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def team_board_move_task(request, pk):
+    """AJAX: drag-and-drop target, and the side panel's Save button. Body
+    JSON {status, assignedTo, type, severity, description, sprint} -
+    every field besides status is only changed when its key is actually
+    present in the payload (assignedTo: "" explicitly unassigns; sprint:
+    "" explicitly moves to Backlog; omitted entirely = leave as is, which
+    is what a plain drag between columns sends). Any member of the task's
+    team may move/reassign/edit it."""
+    task = get_object_or_404(
+        tenant_queryset(request, Task.objects.select_related('team')), pk=pk,
+    )
+    if not task.team_id or not is_team_member(request.user, task.team):
+        return JsonResponse({'success': False, 'error': "You're not on this task's team."}, status=403)
+
+    try:
+        payload = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        payload = request.POST
+
+    new_status = payload.get('status')
+    if new_status not in Task.Status.values:
+        return JsonResponse({'success': False, 'error': 'Invalid status.'}, status=400)
+
+    previous_status = task.status
+    notes = []
+    update_fields = ['status', 'status_updated_at', 'updated_at']
+
+    if 'assignedTo' in payload:
+        assigned_to_id = payload.get('assignedTo')
+        if assigned_to_id:
+            new_assignee = task.team.members.filter(pk=assigned_to_id).first()
+            if not new_assignee:
+                return JsonResponse({'success': False, 'error': 'That person is not on this team.'}, status=400)
+            if new_assignee.pk != task.assigned_to_id:
+                notes.append(f'Reassigned to {new_assignee.full_name or new_assignee.name}.')
+                task.assigned_to = new_assignee
+        elif task.assigned_to_id is not None:
+            notes.append('Unassigned.')
+            task.assigned_to = None
+        update_fields.append('assigned_to')
+
+    if 'type' in payload and payload.get('type') in Task.Type.values and payload.get('type') != task.type:
+        task.type = payload.get('type')
+        update_fields.append('type')
+        notes.append(f'Type set to {task.get_type_display()}.')
+
+    if 'severity' in payload and payload.get('severity') in Task.Severity.values and payload.get('severity') != task.severity:
+        task.severity = payload.get('severity')
+        update_fields.append('severity')
+        notes.append(f'Severity set to {task.get_severity_display()}.')
+
+    if 'title' in payload:
+        new_title = (payload.get('title') or '').strip()
+        if not new_title:
+            return JsonResponse({'success': False, 'error': 'Title cannot be empty.'}, status=400)
+        if new_title != task.title:
+            task.title = new_title[:150]
+            update_fields.append('title')
+            notes.append('Title updated.')
+
+    if 'description' in payload:
+        new_description = payload.get('description') or ''
+        if new_description != task.description:
+            task.description = new_description
+            update_fields.append('description')
+            notes.append('Description updated.')
+
+    if 'sprint' in payload:
+        sprint_id = payload.get('sprint')
+        if sprint_id:
+            new_sprint = Sprint.objects.filter(pk=sprint_id, branch=task.branch).first()
+            if not new_sprint:
+                return JsonResponse({'success': False, 'error': 'Unknown sprint.'}, status=400)
+            if new_sprint.pk != task.sprint_id:
+                old_label = task.sprint.name if task.sprint_id else 'Backlog'
+                notes.append(f'Moved from {old_label} to {new_sprint.name}.')
+                task.sprint = new_sprint
+                update_fields.append('sprint')
+        elif task.sprint_id is not None:
+            notes.append(f'Moved from {task.sprint.name} to Backlog.')
+            task.sprint = None
+            update_fields.append('sprint')
+
+    if 'project' in payload:
+        project_id = payload.get('project')
+        if project_id:
+            new_project = tenant_queryset(request, Project.objects.all()).filter(pk=project_id).first()
+            if not new_project:
+                return JsonResponse({'success': False, 'error': 'Unknown project.'}, status=400)
+            if new_project.pk != task.project_id:
+                old_label = task.project.name if task.project_id else 'no project'
+                notes.append(f'Project changed from {old_label} to {new_project.name}.')
+                task.project = new_project
+                update_fields.append('project')
+        elif task.project_id is not None:
+            notes.append(f'Removed from project "{task.project.name}".')
+            task.project = None
+            update_fields.append('project')
+
+    task.status = new_status
+    task.save(update_fields=update_fields)
+
+    TaskUpdate.objects.create(
+        office=task.office, branch=task.branch, task=task, updated_by=request.user,
+        previous_status=previous_status, new_status=new_status,
+        comment=('Moved on the team board.' + (' ' + ' '.join(notes) if notes else '')),
+    )
+    return JsonResponse({
+        'success': True,
+        'status': task.status,
+        'type': task.type,
+        'severity': task.severity,
+        'title': task.title,
+        'description': task.description,
+        'sprintId': task.sprint_id,
+        'projectId': task.project_id,
+        'assignedTo': {
+            'id': task.assigned_to_id,
+            'name': task.assigned_to.full_name or task.assigned_to.name,
+        } if task.assigned_to_id else None,
+    })
+
+
+TASK_ATTACHMENT_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
+TASK_ATTACHMENT_VIDEO_TYPES = {'video/mp4', 'video/webm', 'video/quicktime'}
+TASK_ATTACHMENT_MAX_IMAGE_SIZE = 8 * 1024 * 1024   # 8MB
+TASK_ATTACHMENT_MAX_VIDEO_SIZE = 30 * 1024 * 1024  # 30MB, "a short video"
+
+
+def _validate_task_attachment_upload(upload):
+    """Shared by team_board_add_comment and team_board_add_task_attachment.
+    Returns (kind, None) on success, or (None, error_message) on failure."""
+    content_type = (upload.content_type or '').lower()
+    if content_type in TASK_ATTACHMENT_IMAGE_TYPES:
+        kind, max_size = TaskAttachment.Kind.IMAGE, TASK_ATTACHMENT_MAX_IMAGE_SIZE
+    elif content_type in TASK_ATTACHMENT_VIDEO_TYPES:
+        kind, max_size = TaskAttachment.Kind.VIDEO, TASK_ATTACHMENT_MAX_VIDEO_SIZE
+    else:
+        return None, 'Only images (JPG/PNG/GIF/WEBP) or short videos (MP4/WEBM/MOV) can be attached.'
+    if upload.size > max_size:
+        limit_mb = max_size // (1024 * 1024)
+        return None, f'File is too large - keep it under {limit_mb}MB.'
+    return kind, None
+
+
+@login_required
+@require_http_methods(["POST"])
+def team_board_add_comment(request, pk):
+    """AJAX: post a comment on a task without changing its status - a
+    TaskUpdate row with new_status == previous_status == the task's current
+    status, exactly what TaskUpdateForm already allows elsewhere. Optionally
+    carries one image or short video (e.g. a screen recording showing a bug
+    happening) as a TaskAttachment on that same update - so this is always
+    multipart/form-data, not JSON, even when there's no file."""
+    task = get_object_or_404(
+        tenant_queryset(request, Task.objects.select_related('team')), pk=pk,
+    )
+    if not task.team_id or not is_team_member(request.user, task.team):
+        return JsonResponse({'success': False, 'error': "You're not on this task's team."}, status=403)
+
+    comment = (request.POST.get('comment') or '').strip()
+    upload = request.FILES.get('attachment')
+
+    if not comment and not upload:
+        return JsonResponse({'success': False, 'error': 'Add a comment or attach a file.'}, status=400)
+
+    attachment_kind = None
+    if upload:
+        attachment_kind, error = _validate_task_attachment_upload(upload)
+        if error:
+            return JsonResponse({'success': False, 'error': error}, status=400)
+
+    update = TaskUpdate.objects.create(
+        office=task.office, branch=task.branch, task=task, updated_by=request.user,
+        previous_status=task.status, new_status=task.status, comment=comment,
+    )
+
+    attachment = None
+    if upload:
+        attachment = TaskAttachment.objects.create(
+            task=task, update=update, file=upload, kind=attachment_kind, uploaded_by=request.user,
+        )
+
+    return JsonResponse({
+        'success': True,
+        'attachment': {'url': attachment.file.url, 'kind': attachment.kind} if attachment else None,
+        'comment': {
+            'id': update.id,
+            'author': request.user.get_full_name() or request.user.username,
+            'comment': update.comment,
+            'createdAt': timezone.localtime(update.created_at).strftime('%b %d, %I:%M %p'),
+        },
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def team_board_add_task_attachment(request, pk):
+    """AJAX: attach an image/video directly to the task itself (e.g. the
+    bug's own repro evidence), separate from any one comment - same
+    TaskAttachment model, just update=None instead of tied to a TaskUpdate.
+    Also logs a plain activity note so it shows up in the history feed."""
+    task = get_object_or_404(
+        tenant_queryset(request, Task.objects.select_related('team')), pk=pk,
+    )
+    if not task.team_id or not is_team_member(request.user, task.team):
+        return JsonResponse({'success': False, 'error': "You're not on this task's team."}, status=403)
+
+    upload = request.FILES.get('attachment')
+    if not upload:
+        return JsonResponse({'success': False, 'error': 'Choose a file first.'}, status=400)
+
+    kind, error = _validate_task_attachment_upload(upload)
+    if error:
+        return JsonResponse({'success': False, 'error': error}, status=400)
+
+    attachment = TaskAttachment.objects.create(
+        task=task, update=None, file=upload, kind=kind, uploaded_by=request.user,
+    )
+    TaskUpdate.objects.create(
+        office=task.office, branch=task.branch, task=task, updated_by=request.user,
+        previous_status=task.status, new_status=task.status,
+        comment=f'Attached a{"n" if kind == TaskAttachment.Kind.IMAGE else ""} {kind} to the description.',
+    )
+    return JsonResponse({'success': True, 'attachment': {'url': attachment.file.url, 'kind': attachment.kind}})
+
+
+@login_required
+@require_http_methods(["POST"])
+def team_board_add_task(request, team_id):
+    """AJAX: the board's quick '+' add-card under To Do. Left unassigned
+    unless the creator explicitly picks someone - it's a shared team
+    backlog item, not automatically handed to whoever happens to manage
+    the team."""
+    team = get_object_or_404(tenant_queryset(request, Team.objects.all()), id=team_id)
+    if not is_team_member(request.user, team):
+        return JsonResponse({'success': False, 'error': "You're not on this team."}, status=403)
+
+    title = (request.POST.get('title') or '').strip()
+    if not title:
+        return JsonResponse({'success': False, 'error': 'Title is required.'}, status=400)
+
+    assigned_to = None
+    assigned_to_id = request.POST.get('assigned_to')
+    if assigned_to_id:
+        assigned_to = team.members.filter(pk=assigned_to_id).first()
+        if assigned_to is None:
+            return JsonResponse({'success': False, 'error': 'That person is not on this team.'}, status=400)
+
+    item_type = request.POST.get('type') or Task.Type.TASK
+    if item_type not in Task.Type.values:
+        return JsonResponse({'success': False, 'error': 'Invalid type.'}, status=400)
+
+    severity = request.POST.get('severity') or Task.Severity.MEDIUM
+    if severity not in Task.Severity.values:
+        return JsonResponse({'success': False, 'error': 'Invalid severity.'}, status=400)
+
+    # Created into whichever sprint tab the board was showing (?sprint= on
+    # the URL this was posted to) - 'backlog' or missing means unscheduled.
+    sprint = None
+    sprint_param = request.GET.get('sprint')
+    if sprint_param and sprint_param != 'backlog':
+        sprint = Sprint.objects.filter(pk=sprint_param, branch=team.branch).first()
+
+    # Project comes from the quick-add form's own select if given, else
+    # falls back to whichever project the board is currently filtered to.
+    project_id = request.POST.get('project') or request.GET.get('project')
+    project = None
+    if project_id and project_id != 'all':
+        project = tenant_queryset(request, Project.objects.all()).filter(pk=project_id).first()
+        if project is None:
+            return JsonResponse({'success': False, 'error': 'Unknown project.'}, status=400)
+
+    task = Task.objects.create(
+        office=team.office, branch=team.branch, team=team, sprint=sprint, project=project,
+        title=title, assigned_to=assigned_to, assigned_by=request.user,
+        status=Task.Status.PENDING, type=item_type, severity=severity,
+        priority=request.POST.get('priority') or Task.Priority.MEDIUM,
+    )
+    TaskUpdate.objects.create(
+        office=task.office, branch=task.branch, task=task, updated_by=request.user,
+        previous_status=None, new_status=task.status,
+        comment=f'{task.get_type_display()} added to the team board.',
+    )
+    return JsonResponse({'success': True, 'taskId': task.id})
+
+
 @login_required
 @user_passes_test(feature_required('rules.manage'))
 def admin_rules(request):
@@ -8904,77 +9537,50 @@ def manual_attendance(request):
 
         office = employee.office
 
-        # attendance, created = Attendance.objects.get_or_create(
-        #     office=office,
-        #     employee=employee,
-        #     date=date,
-        # )
         attendance = Attendance.objects.filter(
             employee=employee,
             date=date,
         ).first()
+        is_update = attendance is not None
 
-        if attendance:
-            messages.warning(
-                request,
-                f"Attendance for {employee.full_name} on {date.strftime('%d-%b-%Y')} already exists. "
-                "Please edit the existing attendance instead of creating a new one."
+        if attendance is None:
+            attendance = Attendance(
+                office=office,
+                branch=employee.branch,
+                employee=employee,
+                date=date,
             )
 
-            context = TemplateLayout.init(request, context={})
-            context.update({
-                "layout_path": TemplateHelper.set_layout("layout_vertical.html", context),
-                "employees": employees,
-            })
-
-            return render(request, "employees/manual_attendance.html", context)
-
-        attendance = Attendance(
-            office=office,
-            branch=employee.branch,
-            employee=employee,
-            date=date,
-        )
-        # -----------------------------
-        # SAFE DEFAULTS IF NO TIME GIVEN
-        # -----------------------------
-        # Many DBs do not allow NULL → set 00:00 instead of None
-        base_dt = timezone.make_aware(datetime.combine(date, time(0, 0)))
-
-        # CHECK-IN HANDLING
+        # CHECK-IN HANDLING - an empty field means "leave it as it is", not
+        # "clear it to midnight". That distinction is the whole point of
+        # this form doubling as an editor: someone marking check-in only
+        # for someone who forgot, then coming back later to add just the
+        # check-out, must not have their earlier check-in silently wiped
+        # to 00:00 just because they left that field blank the second time.
         if check_in_str:
-            check_in_time = timezone.make_aware(
+            attendance.check_in_time = timezone.make_aware(
                 datetime.combine(date, datetime.strptime(check_in_str, "%H:%M").time())
             )
-        else:
-            # Default safe value (DB will not crash)
-            check_in_time = base_dt
+        elif not is_update:
+            # Brand new row with no check-in given at all - DB needs a
+            # value, so fall back to midnight same as before.
+            attendance.check_in_time = timezone.make_aware(datetime.combine(date, time(0, 0)))
+        # else: updating an existing row and check-in wasn't resubmitted - leave it alone.
 
-        # CHECK-OUT HANDLING
+        # CHECK-OUT HANDLING - same "blank = unchanged" rule on update;
+        # blank on a brand-new row still means "no check-out yet" (None).
         if check_out_str:
-            check_out_time = timezone.make_aware(
+            attendance.check_out_time = timezone.make_aware(
                 datetime.combine(date, datetime.strptime(check_out_str, "%H:%M").time())
             )
-        else:
-            # Allow NULL if your DB allows it, otherwise use safe fallback
-            check_out_time = None  
-
-        attendance.check_in_time = check_in_time
-        attendance.check_out_time = check_out_time
+        elif not is_update:
+            attendance.check_out_time = None
 
         # -----------------------------
         # STATUS HANDLING
         # -----------------------------
         attendance.final_status = status
         attendance.half_day = (status == "half_day")
-
-        # -----------------------------
-        # WORK HOURS CALCULATION
-        # -----------------------------
-        # if check_in_time and check_out_time:
-        #     attendance.total_work_hours = (check_out_time - check_in_time).total_seconds() / 3600
-        # else:
-        #     attendance.total_work_hours = 0
 
         # -----------------------------
         # ADMIN META
@@ -8986,7 +9592,14 @@ def manual_attendance(request):
 
         attendance.save()
 
-        message = "Attendance marked successfully!"
+        if is_update:
+            messages.success(
+                request,
+                f"Attendance for {employee.full_name} on {date.strftime('%d-%b-%Y')} updated."
+            )
+            message = "Attendance updated successfully!"
+        else:
+            message = "Attendance marked successfully!"
 
     # TEMPLATE CONTEXT
     context = TemplateLayout.init(request, context={})
@@ -8997,6 +9610,47 @@ def manual_attendance(request):
     })
 
     return render(request, "employees/manual_attendance.html", context)
+
+
+@login_required
+@user_passes_test(feature_required('attendance.manage'))
+def manual_attendance_lookup(request):
+    """AJAX: does this employee already have an attendance row on this
+    date? Lets the Manual Attendance Marker show/pre-fill what's already
+    there instead of the admin guessing whether they're creating or
+    editing - and, since manual_attendance only overwrites a check-in/
+    check-out field when one is actually resubmitted, seeing the existing
+    check-in here is what makes "just add the check-out" safe to do."""
+    employee_id = request.GET.get('employee')
+    date_str = request.GET.get('date')
+    if not employee_id or not date_str:
+        return JsonResponse({'exists': False})
+
+    employee = tenant_queryset(request, Employee.objects.all()).filter(pk=employee_id).first()
+    if employee is None:
+        return JsonResponse({'exists': False})
+
+    try:
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return JsonResponse({'exists': False})
+
+    attendance = Attendance.objects.filter(employee=employee, date=date).first()
+    if attendance is None:
+        return JsonResponse({'exists': False})
+
+    return JsonResponse({
+        'exists': True,
+        'checkIn': timezone.localtime(attendance.check_in_time).strftime('%H:%M') if attendance.check_in_time else '',
+        'checkOut': timezone.localtime(attendance.check_out_time).strftime('%H:%M') if attendance.check_out_time else '',
+        'status': attendance.final_status,
+        # 'manual_comment' isn't an actual field on Attendance (never was -
+        # the admin comment textarea's value has never actually persisted,
+        # a pre-existing bug in manual_attendance() unrelated to this
+        # lookup); getattr keeps this endpoint from erroring on that.
+        'comment': getattr(attendance, 'manual_comment', '') or '',
+    })
+
 
 @login_required
 @user_passes_test(feature_required('leave.manage'))

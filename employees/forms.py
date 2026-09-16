@@ -14,6 +14,7 @@ from .models import (
     TaskUpdate,
     Project,
     ProjectAttachment,
+    Team,
     AssetAssignment,
     LeaveType,
     AttendanceRule,
@@ -1260,29 +1261,41 @@ class TaskForm(forms.ModelForm):
         model = Task
         fields = [
             'project',
+            'team',
             'title',
             'description',
             'assigned_to',
+            'type',
             'priority',
+            'severity',
             'status',
             'due_date',
         ]
         widgets = {
             'project': forms.Select(attrs={'class': 'form-select'}),
+            'team': forms.Select(attrs={'class': 'form-select'}),
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Task title'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Task details and acceptance criteria'}),
             'assigned_to': forms.Select(attrs={'class': 'form-select'}),
+            'type': forms.Select(attrs={'class': 'form-select'}),
             'priority': forms.Select(attrs={'class': 'form-select'}),
+            'severity': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
 
-    def __init__(self, *args, assigned_by=None, request=None, employee=None, project=None, **kwargs):
+    def __init__(self, *args, assigned_by=None, request=None, employee=None, project=None, team=None, **kwargs):
         self.assigned_by = assigned_by
         self.request = request
         self.employee = employee
 
         super().__init__(*args, **kwargs)
+
+        # Task.assigned_to is nullable at the model level (a team-board work
+        # item can be created unassigned) but every *other* task-creation
+        # path in the app - this form's normal admin/self-create flows -
+        # should still require picking someone, exactly like before.
+        self.fields['assigned_to'].required = True
 
         self.fields['project'].required = False
         self.fields['project'].empty_label = 'No project'
@@ -1302,6 +1315,22 @@ class TaskForm(forms.ModelForm):
             # Opened from a project's detail page: lock the field to it.
             self.fields['project'].initial = project.pk
             self.fields['project'].widget = forms.HiddenInput()
+
+        self.fields['team'].required = False
+        self.fields['team'].empty_label = 'No team'
+        if employee is not None:
+            # Self-assignment: only show teams this employee is actually on.
+            teams = Team.objects.filter(members=employee).distinct()
+        else:
+            teams = Team.objects.all()
+            if self.request:
+                teams = tenant_queryset(self.request, teams)
+        self.fields['team'].queryset = teams.order_by('name')
+
+        if team is not None:
+            # Opened from a team's board: lock the field to it.
+            self.fields['team'].initial = team.pk
+            self.fields['team'].widget = forms.HiddenInput()
 
         if employee is not None:
             # Employee self-assignment: lock the field to themselves.
@@ -1325,7 +1354,12 @@ class TaskForm(forms.ModelForm):
             self.fields['status'].choices = Task.Status.choices
         if 'priority' in self.fields:
             self.fields['priority'].choices = Task.Priority.choices
-            
+        if 'type' in self.fields:
+            self.fields['type'].choices = Task.Type.choices
+        if 'severity' in self.fields:
+            self.fields['severity'].choices = Task.Severity.choices
+            self.fields['severity'].required = False
+
     def save(self, commit=True):
         task = super().save(commit=False)
         if self.assigned_by and not task.assigned_by:
@@ -1454,6 +1488,54 @@ class ProjectForm(forms.ModelForm):
             project.save()
             self.save_m2m()
         return project
+
+
+class TeamForm(forms.ModelForm):
+    """Form for admins/permission-holders to create or edit a team."""
+
+    class Meta:
+        model = Team
+        fields = ['name', 'description', 'manager', 'members']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Backend Squad'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'What this team works on (optional)'}),
+            'manager': forms.Select(attrs={'class': 'form-select'}),
+            'members': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 6}),
+        }
+
+    def __init__(self, *args, request=None, **kwargs):
+        self.request = request
+        super().__init__(*args, **kwargs)
+
+        employees = Employee.objects.select_related('user')
+        if self.request:
+            employees = tenant_queryset(self.request, employees)
+        employees = employees.order_by('full_name', 'email')
+
+        self.fields['manager'].queryset = employees
+        self.fields['manager'].required = False
+        self.fields['manager'].empty_label = 'No manager'
+        self.fields['manager'].label_from_instance = (
+            lambda obj: f"{obj.full_name or obj.name} ({obj.email})"
+        )
+
+        self.fields['members'].queryset = employees
+        self.fields['members'].required = False
+        self.fields['members'].label_from_instance = (
+            lambda obj: f"{obj.full_name or obj.name} ({obj.email})"
+        )
+
+    def save(self, commit=True):
+        team = super().save(commit=False)
+        if self.request:
+            if not team.office_id:
+                team.office = get_request_office(self.request)
+            if not team.branch_id:
+                team.branch = getattr(self.request, 'branch', None)
+        if commit:
+            team.save()
+            self.save_m2m()
+        return team
 
 
 class ProjectAttachmentForm(forms.ModelForm):

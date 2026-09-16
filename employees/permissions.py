@@ -38,6 +38,7 @@ FEATURE_PERMISSIONS = [
     ('attendance.manage', 'Manage Attendance', 'Attendance'),
     ('leave.manage', 'Manage Leave (types & approvals)', 'Attendance'),
     ('tasks.manage', 'Manage Projects, Tasks & Face Update Requests', 'Tasks & Workflows'),
+    ('teams.manage', 'Manage Teams', 'Tasks & Workflows'),
     ('tickets.manage', 'Manage Support Tickets', 'Support'),
     ('finance.manage', 'Manage Finance (salary, loans, reimbursements, payslips)', 'Finance'),
     ('holidays.manage', 'Manage Holidays Calendar', 'Company Settings'),
@@ -88,6 +89,36 @@ def has_permission(user, perm_key):
         return True
     if is_employee(user):
         return employee_has_permission(user.employee_profile, perm_key)
+    return False
+
+
+def can_manage_team(user, team):
+    """True if user can manage this team's board (add/move/assign/comment
+    on its tasks, edit the team itself) without needing to be a member:
+    platform/office admins, branch-wide 'tasks.manage' or 'teams.manage'
+    holders always can (the admin_teams page - gated on 'teams.manage' -
+    lists every team with an "Open Board" button, so anyone who can reach
+    that page needs to be able to actually open any of those boards too),
+    and so does the team's own `manager` - that field IS the delegated
+    permission for just this one team, no separate Role needed."""
+    if team is None:
+        return False
+    if has_permission(user, 'tasks.manage') or has_permission(user, 'teams.manage'):
+        return True
+    if is_employee(user) and team.manager_id and team.manager_id == user.employee_profile.id:
+        return True
+    return False
+
+
+def is_team_member(user, team):
+    """True if user can use this team's board at all: anyone who can
+    manage it (see can_manage_team), plus every regular member."""
+    if team is None:
+        return False
+    if can_manage_team(user, team):
+        return True
+    if is_employee(user):
+        return team.members.filter(pk=user.employee_profile.pk).exists()
     return False
 
 

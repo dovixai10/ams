@@ -13,8 +13,14 @@
 
   <div class="card shadow-sm">
     <div class="card-body">
-      
-      <form method="POST">
+
+      <div id="existing-entry-note" class="alert alert-info d-none" role="alert">
+        <i class="bx bx-info-circle me-1"></i>
+        <span id="existing-entry-text"></span> Fields below are pre-filled with what's already saved -
+        change only what you need (e.g. just add a check-out time) and save; anything you leave as-is stays untouched.
+      </div>
+
+      <form method="POST" id="manual-attendance-form">
         {% csrf_token %}
 
         <div class="row g-3">
@@ -22,7 +28,7 @@
           <!-- EMPLOYEE -->
           <div class="col-md-6">
             <label class="form-label">Select Employee</label>
-            <select name="employee" class="form-select" required>
+            <select name="employee" id="id_employee" class="form-select" required>
               <option value="">Select Employee</option>
               {% for emp in employees %}
                 <option value="{{ emp.id }}">
@@ -35,25 +41,25 @@
           <!-- DATE -->
           <div class="col-md-6">
             <label class="form-label">Select Date</label>
-            <input type="date" name="date" class="form-control" required>
+            <input type="date" name="date" id="id_date" class="form-control" required>
           </div>
 
           <!-- Check In -->
           <div class="col-md-6">
             <label class="form-label">Check-in Time</label>
-            <input type="time" name="check_in_time" class="form-control">
+            <input type="time" name="check_in_time" id="id_check_in_time" class="form-control">
           </div>
 
           <!-- Check Out -->
           <div class="col-md-6">
             <label class="form-label">Check-out Time</label>
-            <input type="time" name="check_out_time" class="form-control">
+            <input type="time" name="check_out_time" id="id_check_out_time" class="form-control">
           </div>
 
           <!-- STATUS -->
           <div class="col-md-6">
             <label class="form-label">Attendance Status</label>
-            <select name="final_status" class="form-select" required>
+            <select name="final_status" id="id_final_status" class="form-select" required>
               <option value="present">Present</option>
               <option value="half_day">Half Day</option>
               <option value="absent">Absent</option>
@@ -64,12 +70,12 @@
           <!-- COMMENT -->
           <div class="col-12">
             <label class="form-label">Admin Comment</label>
-            <textarea name="comment" class="form-control" rows="2"></textarea>
+            <textarea name="comment" id="id_comment" class="form-control" rows="2"></textarea>
           </div>
 
         </div>
 
-        <button class="btn btn-primary mt-4">
+        <button type="submit" class="btn btn-primary mt-4" id="save-btn">
           <i class="bx bx-save"></i> Save Attendance
         </button>
 
@@ -80,4 +86,56 @@
 
 </div>
 
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+(function () {
+  'use strict';
+  var employeeSelect = document.getElementById('id_employee');
+  var dateInput = document.getElementById('id_date');
+  var note = document.getElementById('existing-entry-note');
+  var noteText = document.getElementById('existing-entry-text');
+  var saveBtn = document.getElementById('save-btn');
+  var checkIn = document.getElementById('id_check_in_time');
+  var checkOut = document.getElementById('id_check_out_time');
+  var status = document.getElementById('id_final_status');
+  var comment = document.getElementById('id_comment');
+
+  function checkExisting() {
+    var employeeId = employeeSelect.value;
+    var date = dateInput.value;
+    if (!employeeId || !date) {
+      note.classList.add('d-none');
+      saveBtn.innerHTML = '<i class="bx bx-save"></i> Save Attendance';
+      return;
+    }
+    fetch('{% url "employees:manual_attendance_lookup" %}?employee=' + encodeURIComponent(employeeId) + '&date=' + encodeURIComponent(date))
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.exists) {
+          checkIn.value = data.checkIn || '';
+          checkOut.value = data.checkOut || '';
+          if (data.status) status.value = data.status;
+          comment.value = data.comment || '';
+          var label = employeeSelect.options[employeeSelect.selectedIndex].text;
+          noteText.textContent = 'An attendance entry for ' + label + ' on ' + date + ' already exists.';
+          note.classList.remove('d-none');
+          saveBtn.innerHTML = '<i class="bx bx-save"></i> Update Attendance';
+        } else {
+          checkIn.value = '';
+          checkOut.value = '';
+          comment.value = '';
+          note.classList.add('d-none');
+          saveBtn.innerHTML = '<i class="bx bx-save"></i> Save Attendance';
+        }
+      })
+      .catch(function () { /* lookup is a convenience, not required - ignore failures silently */ });
+  }
+
+  employeeSelect.addEventListener('change', checkExisting);
+  dateInput.addEventListener('change', checkExisting);
+})();
+</script>
 {% endblock %}

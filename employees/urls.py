@@ -112,7 +112,16 @@ urlpatterns = [
     path('tasks/<int:pk>/update-status/', views.update_task_status, name='update_task_status'),  # Shared update
     path('tasks/', views.employee_tasks, name='employee_tasks'),  # Employee - My tasks
     path('tasks/manage/export/', views.admin_tasks_excel, name='admin_tasks_excel'),
-    
+
+    # Teams & team task board URLs
+    path('my-teams/', views.employee_my_teams, name='employee_my_teams'),  # Employee - which teams am I on
+    path('teams/', views.admin_teams, name='admin_teams'),  # Admin - create/edit teams
+    path('teams/<int:team_id>/board/', views.team_board, name='team_board'),  # Kanban board for one team
+    path('teams/<int:team_id>/board/add-task/', views.team_board_add_task, name='team_board_add_task'),
+    path('tasks/<int:pk>/board-move/', views.team_board_move_task, name='team_board_move_task'),  # AJAX drag/reassign
+    path('tasks/<int:pk>/board-comment/', views.team_board_add_comment, name='team_board_add_comment'),  # AJAX comment
+    path('tasks/<int:pk>/board-attachment/', views.team_board_add_task_attachment, name='team_board_add_task_attachment'),  # AJAX task-level attachment
+
     # Password Reset URLs
     path('password-reset/', views.EmployeePasswordResetView.as_view(), name='password_reset'),
     path('password-reset/request/', views.password_reset_request, name='password_reset_request'),
@@ -227,23 +236,25 @@ urlpatterns = [
     path('api/attendance/<int:employee_id>/holidays/', api_views.holidays_api, name='holidays_api'),
     # MANUAL ATTENDANCE MARKING
     # MANUAL ATTENDANCE MARKING
+    # Note: anything under 'admin/...' gets shadowed by Django's own admin
+    # site catch-all (path("admin/", admin.site.urls) in config/urls.py is
+    # registered first and swallows unmatched sub-paths, redirecting to
+    # Django's own /admin/login/) - so these live at the unprefixed paths
+    # below instead, which is also what {% url %} actually resolves to
+    # (Django picks the LAST-registered pattern for a given name).
     path('admin/manual-attendance/', views.manual_attendance, name='manual_attendance'),
-    path("admin/adjust-paid-leave/", views.admin_adjust_paid_leave, name="admin_adjust_paid_leave"),
 
-    # Manual Attendance & Leave Adjustment URLs
+    # Manual Attendance URLs
+    # "Adjust Paid Leave" (admin_adjust_paid_leave / adjust_paid_leave / manual_leave_adjustment)
+    # removed - salary now auto-calculates from leave/paid-leave directly, a
+    # separate manual balance-adjustment page just fights that calculation.
     path('manual-attendance/', views.manual_attendance, name='manual_attendance'),
-    path('adjust-paid-leave/', views.manual_leave_adjustment, name='adjust_paid_leave'),   # was: attendance_admin_views.adjust_paid_leave
+    path('manual-attendance/lookup/', views.manual_attendance_lookup, name='manual_attendance_lookup'),
     path('api/employee-details/', attendance_admin_views.get_employee_details, name='get_employee_details'),
     path('api/leave-balance/', attendance_admin_views.get_leave_balance, name='get_leave_balance'),
     path('api/checkin-dashboard-state/', attendance_admin_views.checkin_dashboard_state, name='checkin_dashboard_state'),
     path('api/attendance-calendar-data/', attendance_admin_views.attendance_calendar_data, name='attendance_calendar_data'),
     path('api/attendance/status/', api_views.attendance_status_api, name='attendance_status_api'),
-
-    path(
-        "manual-leave-adjustment/",
-        views.manual_leave_adjustment,
-        name="manual_leave_adjustment"
-    ),
 
     # Leave Type Management (admin)
     path('leave-types/', views.admin_leave_types, name='admin_leave_types'),

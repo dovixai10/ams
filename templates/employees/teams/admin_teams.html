@@ -1,0 +1,337 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}Teams | Admin Panel{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .form-section {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .form-section h5 {
+    margin-bottom: 1.25rem;
+    color: #1f2937;
+    font-weight: 600;
+  }
+
+  .team-item {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .team-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .team-name {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 1.05rem;
+  }
+
+  .team-desc {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.15rem;
+  }
+
+  .team-pill {
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+  }
+
+  .team-stats {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 0.6rem;
+  }
+
+  .avatar-stack {
+    display: flex;
+    margin-top: 0.6rem;
+  }
+
+  .avatar-stack .avatar-chip {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #696cff;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fff;
+    margin-inline-start: -8px;
+  }
+
+  .avatar-stack .avatar-chip:first-child { margin-inline-start: 0; }
+
+  .btn-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-sm {
+    padding: 0.45rem 0.9rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
+  .btn-outline { background: #fff; border: 1px solid #d1d5db; color: #374151; }
+  .btn-danger { background: #ef4444; color: #fff; }
+
+  /* Member picker - checkboxes instead of a native <select multiple>,
+     since Bootstrap's .form-select styling visually hides which options
+     are actually selected in a multi-select. A checked row is clearly
+     highlighted here instead. */
+  .member-picker {
+    max-height: 190px;
+    overflow-y: auto;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 0.4rem;
+    background: #fff;
+  }
+  .member-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 6px;
+  }
+  .member-check.is-checked {
+    background: #eef2ff;
+  }
+  .member-check label {
+    font-size: 0.88rem;
+    color: #1f2937;
+    margin: 0;
+    cursor: pointer;
+    flex: 1 1 auto;
+  }
+
+  .sprint-settings-row { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
+  .sprint-settings-row .form-label small { display: block; font-weight: 400; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="card-title mb-0">
+          <i class="bx bx-group me-2"></i>Teams
+        </h4>
+      </div>
+      <div class="card-body">
+
+        <!-- Create Team Form -->
+        <div class="form-section">
+          <h5>Create New Team <small class="text-muted fw-normal">for branch: {{ active_branch.name }}</small></h5>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create">
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label">Team Name</label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. Backend Squad" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Description <small class="text-muted">(optional)</small></label>
+                <input type="text" name="description" class="form-control" placeholder="What this team works on">
+              </div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label">Manager <small class="text-muted">(can manage this team's board without the branch-wide Manage Tasks permission)</small></label>
+                <select name="manager" class="form-select">
+                  <option value="">No manager</option>
+                  {% for emp in all_employees %}
+                    <option value="{{ emp.id }}">{{ emp.full_name|default:emp.name }} ({{ emp.email }})</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Members</label>
+                <div class="member-picker" data-member-picker>
+                  {% for emp in all_employees %}
+                    <div class="member-check">
+                      <input type="checkbox" name="members" value="{{ emp.id }}" id="new-member-{{ emp.id }}">
+                      <label for="new-member-{{ emp.id }}">{{ emp.full_name|default:emp.name }} ({{ emp.email }})</label>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-sm btn-primary mt-1">
+              <i class="bx bx-plus me-1"></i>Create Team
+            </button>
+          </form>
+        </div>
+
+        <!-- Sprint Settings -->
+        <div class="form-section">
+          <h5>Sprint Settings <small class="text-muted fw-normal">for branch: {{ active_branch.name }}</small></h5>
+          {% if sprint_config %}
+            <p class="text-muted small mb-3">
+              Currently {{ sprint_config.duration_weeks }}-week sprints, starting from Sprint 1 on {{ sprint_config.anchor_start_date }}.
+              The next sprint is always created one in advance automatically when anyone opens a board.
+            </p>
+          {% else %}
+            <p class="text-muted small mb-3">Not set up yet - boards will only show a Backlog until you configure this.</p>
+          {% endif %}
+          <form method="post" class="sprint-settings-row">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_sprint_settings">
+            <div>
+              <label class="form-label">Sprint length (weeks)</label>
+              <input type="number" name="duration_weeks" class="form-control" min="1" max="12" style="width: 120px;"
+                     value="{{ sprint_config.duration_weeks|default:2 }}" required>
+            </div>
+            <div>
+              <label class="form-label">Sprint 1 start date <small>(later sprints are computed from this)</small></label>
+              <input type="date" name="anchor_start_date" class="form-control"
+                     value="{{ sprint_config.anchor_start_date|date:'Y-m-d' }}" required>
+            </div>
+            <button type="submit" class="btn-sm btn-primary">
+              <i class="bx bx-save me-1"></i>{% if sprint_config %}Update{% else %}Set Up{% endif %} Sprints
+            </button>
+          </form>
+        </div>
+
+        <!-- Teams List -->
+        <h5 class="mb-3">All Teams</h5>
+        {% if teams %}
+          {% for team in teams %}
+            <div class="team-item">
+              <div class="team-header">
+                <div>
+                  <div class="team-name">
+                    {{ team.name }}
+                    <span class="team-pill"><i class="bx bx-buildings me-1"></i>{{ team.branch.name|default:"All branches" }}</span>
+                  </div>
+                  {% if team.description %}<div class="team-desc">{{ team.description }}</div>{% endif %}
+                  <div class="team-stats">
+                    <i class="bx bx-crown"></i> {{ team.manager.full_name|default:"No manager assigned" }}
+                    &nbsp;&middot;&nbsp;
+                    <i class="bx bx-task"></i> {{ team.task_count }} task{{ team.task_count|pluralize }}
+                  </div>
+                  <div class="avatar-stack">
+                    {% for member in team.members.all %}
+                      <span class="avatar-chip" title="{{ member.full_name|default:member.name }}">{{ member.full_name|default:member.name|slice:":1" }}</span>
+                    {% empty %}
+                      <span class="text-muted small">No members yet</span>
+                    {% endfor %}
+                  </div>
+                </div>
+                <div class="btn-group">
+                  <a href="{% url 'employees:team_board' team.id %}" class="btn-sm btn-primary">
+                    <i class="bx bx-columns me-1"></i>Open Board
+                  </a>
+                  <button type="button" class="btn-sm btn-outline" onclick="document.getElementById('edit-team-{{ team.id }}').classList.toggle('d-none')">
+                    <i class="bx bx-edit me-1"></i>Edit
+                  </button>
+                  <form method="post" onsubmit="return confirm('Delete team \'{{ team.name }}\'? Its tasks will stay but leave the board.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="team_id" value="{{ team.id }}">
+                    <button type="submit" class="btn-sm btn-danger"><i class="bx bx-trash me-1"></i>Delete</button>
+                  </form>
+                </div>
+              </div>
+
+              <div id="edit-team-{{ team.id }}" class="d-none form-section mt-3 mb-0">
+                <form method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="update">
+                  <input type="hidden" name="team_id" value="{{ team.id }}">
+                  <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                      <label class="form-label">Team Name</label>
+                      <input type="text" name="name" class="form-control" value="{{ team.name }}" required>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Description</label>
+                      <input type="text" name="description" class="form-control" value="{{ team.description }}">
+                    </div>
+                  </div>
+                  <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                      <label class="form-label">Manager</label>
+                      <select name="manager" class="form-select">
+                        <option value="">No manager</option>
+                        {% for emp in all_employees %}
+                          <option value="{{ emp.id }}" {% if emp.id == team.manager_id %}selected{% endif %}>{{ emp.full_name|default:emp.name }} ({{ emp.email }})</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Members</label>
+                      <div class="member-picker" data-member-picker>
+                        {% for emp in all_employees %}
+                          <div class="member-check">
+                            <input type="checkbox" name="members" value="{{ emp.id }}" id="edit-member-{{ team.id }}-{{ emp.id }}" {% if emp in team.members.all %}checked{% endif %}>
+                            <label for="edit-member-{{ team.id }}-{{ emp.id }}">{{ emp.full_name|default:emp.name }} ({{ emp.email }})</label>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn-sm btn-primary mt-1"><i class="bx bx-save me-1"></i>Save Changes</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="alert alert-info">
+            <i class="bx bx-info-circle me-2"></i>No teams created yet.
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+(function () {
+  'use strict';
+  document.querySelectorAll('[data-member-picker]').forEach(function (picker) {
+    var sync = function (checkbox) {
+      checkbox.closest('.member-check').classList.toggle('is-checked', checkbox.checked);
+    };
+    picker.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+      sync(cb);
+      cb.addEventListener('change', function () { sync(cb); });
+    });
+  });
+})();
+</script>
+{% endblock %}

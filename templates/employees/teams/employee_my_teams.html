@@ -1,0 +1,98 @@
+{% extends layout_path %}
+{% load static humanize %}
+
+{% block title %}My Teams | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .team-item {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .team-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .team-name { font-weight: 600; color: #1f2937; font-size: 1.05rem; }
+  .team-desc { font-size: 0.85rem; color: #6b7280; margin-top: 0.15rem; }
+
+  .team-pill {
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+  }
+
+  .team-stats { font-size: 0.8rem; color: #6b7280; margin-top: 0.6rem; }
+
+  .avatar-stack { display: flex; margin-top: 0.6rem; }
+  .avatar-stack .avatar-chip {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #696cff; color: #fff; font-size: 0.7rem; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff; margin-inline-start: -8px;
+  }
+  .avatar-stack .avatar-chip:first-child { margin-inline-start: 0; }
+
+  .btn-sm { padding: 0.45rem 0.9rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; text-decoration: none; display: inline-block; }
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="card-title mb-0">
+          <i class="bx bx-group me-2"></i>My Teams
+        </h4>
+      </div>
+      <div class="card-body">
+        {% if teams %}
+          {% for team in teams %}
+            <div class="team-item">
+              <div class="team-header">
+                <div>
+                  <div class="team-name">
+                    {{ team.name }}
+                    <span class="team-pill"><i class="bx bx-buildings me-1"></i>{{ team.branch.name|default:"All branches" }}</span>
+                  </div>
+                  {% if team.description %}<div class="team-desc">{{ team.description }}</div>{% endif %}
+                  <div class="team-stats">
+                    <i class="bx bx-crown"></i> {{ team.manager.full_name|default:"No manager assigned" }}
+                    &nbsp;&middot;&nbsp;
+                    <i class="bx bx-task"></i> {{ team.task_count }} task{{ team.task_count|pluralize }}
+                  </div>
+                  <div class="avatar-stack">
+                    {% for member in team.members.all %}
+                      <span class="avatar-chip" title="{{ member.full_name|default:member.name }}">{{ member.full_name|default:member.name|slice:":1" }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+                <a href="{% url 'employees:team_board' team.id %}" class="btn-sm btn-primary">
+                  <i class="bx bx-columns me-1"></i>Open Board
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="alert alert-info">
+            <i class="bx bx-info-circle me-2"></i>You're not on any team yet. Ask your admin to add you to one.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -68,6 +68,12 @@ def _serialize_task_update(u):
     }
 
 
+def _serialize_team_brief(team):
+    if team is None:
+        return None
+    return {"id": team.id, "name": team.name}
+
+
 def _serialize_task(task, include_updates=False):
     data = {
         "id": _task_id(task),
@@ -76,8 +82,17 @@ def _serialize_task(task, include_updates=False):
         "status": task.status.upper(),
         "priority": task.priority.upper(),
         "project": _serialize_project_brief(task.project),
+        "team": _serialize_team_brief(task.team),
+        "type": task.type.upper(),
+        "severity": task.severity.upper() if task.severity else None,
+        "assignedTo": (
+            {"id": task.assigned_to_id, "name": task.assigned_to.full_name or task.assigned_to.name}
+            if task.assigned_to_id else None
+        ),
         "assignedBy": (task.assigned_by.get_full_name() or task.assigned_by.username) if task.assigned_by else None,
-        "isSelfCreated": bool(task.assigned_by_id and task.assigned_by_id == task.assigned_to.user_id),
+        "isSelfCreated": bool(
+            task.assigned_by_id and task.assigned_to_id and task.assigned_by_id == task.assigned_to.user_id
+        ),
         "dueDate": task.due_date.isoformat() if task.due_date else None,
         "isOverdue": task.is_overdue,
         "createdAt": task.created_at.isoformat(),
@@ -168,7 +183,12 @@ class TasksView(MobileAPIView):
 
     def get(self, request):
         employee = request.user.employee_profile
-        qs = Task.objects.filter(assigned_to=employee).select_related('assigned_by', 'project').prefetch_related('updates__updated_by')
+        # Own tasks, plus every task on any team this employee is a member
+        # of - mirrors the web app's employee_tasks view (see permissions.py
+        # is_team_member / Team.members).
+        qs = Task.objects.filter(
+            Q(assigned_to=employee) | Q(team__members=employee)
+        ).distinct().select_related('assigned_by', 'assigned_to', 'project', 'team').prefetch_related('updates__updated_by')
 
         status_filter = (request.GET.get('status') or '').strip().lower()
         if status_filter:
@@ -263,7 +283,9 @@ class TaskDetailView(MobileAPIView):
 
     def get(self, request, id):
         employee = request.user.employee_profile
-        task = Task.objects.filter(assigned_to=employee, id=id).select_related('assigned_by', 'project').first()
+        task = Task.objects.filter(
+            Q(assigned_to=employee) | Q(team__members=employee), id=id
+        ).select_related('assigned_by', 'assigned_to', 'project', 'team').distinct().first()
         if task is None:
             raise MobileAPIException('NOT_FOUND', 'Task not found.', 404)
         return self.ok(_serialize_task(task, include_updates=True))
@@ -304,7 +326,9 @@ class TaskStatusUpdateView(MobileAPIView):
 
     def post(self, request, id):
         employee = request.user.employee_profile
-        task = Task.objects.filter(assigned_to=employee, id=id).first()
+        task = Task.objects.filter(
+            Q(assigned_to=employee) | Q(team__members=employee), id=id
+        ).distinct().first()
         if task is None:
             raise MobileAPIException('NOT_FOUND', 'Task not found.', 404)
 
