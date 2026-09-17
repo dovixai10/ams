@@ -4,16 +4,13 @@ URL patterns for document upload endpoints
 """
 
 from django.urls import path
-from . import document_views, document_upload_api
+from . import document_views
 
 app_name = 'document_api'
 
 urlpatterns = [
-    # NEW API ENDPOINTS - Document Status & Upload
-    path('api/documents/status/', document_upload_api.get_document_status, name='document_status'),
-    path('api/upload/<str:doc_type>/', document_upload_api.upload_document, name='upload_document_api'),
-    
-    # Employee document upload (legacy)
+    # Document status (dynamic, keyed by DocumentType id) & upload
+    path('api/documents/status/', document_views.get_document_status, name='document_status'),
     path('employee/upload-document/', document_views.upload_document, name='upload_document'),
     
     # Get employee documents

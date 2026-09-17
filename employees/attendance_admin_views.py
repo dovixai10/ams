@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.db import IntegrityError
 from django.db.models import Q
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -40,12 +41,17 @@ def manual_attendance(request):
             employee = Employee.objects.get(id=employee_id)
             att_date = datetime.strptime(attendance_date, '%Y-%m-%d').date()
             
-            # Get or create attendance record
-            attendance, created = Attendance.objects.get_or_create(
-                employee=employee,
-                branch=employee.branch,
-                date=att_date
-            )
+            # Get or create attendance record - keyed on (employee, date) only,
+            # matching the model's actual unique_together.
+            try:
+                attendance, created = Attendance.objects.get_or_create(
+                    employee=employee,
+                    date=att_date,
+                    defaults={'branch': employee.branch},
+                )
+            except IntegrityError:
+                attendance = Attendance.objects.get(employee=employee, date=att_date)
+                created = False
             
             old_status = attendance.final_status
             

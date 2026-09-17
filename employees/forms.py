@@ -18,6 +18,7 @@ from .models import (
     AssetAssignment,
     LeaveType,
     AttendanceRule,
+    DocumentType,
 )
 
 from django.utils import timezone
@@ -736,6 +737,24 @@ class LeaveTypeForm(forms.ModelForm):
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'display_order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
         }
+
+
+class DocumentTypeForm(forms.ModelForm):
+    class Meta:
+        model = DocumentType
+        fields = ['name', 'code', 'description', 'is_required', 'is_active', 'display_order']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 10th Marksheet, Offer Letter'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto-generated if left blank'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'is_required': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'display_order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['code'].required = False
 
 # class LeaveRequestForm(forms.ModelForm):
 #     """Form for employees to request leave with validation for date ranges."""

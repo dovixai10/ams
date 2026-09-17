@@ -9,18 +9,18 @@ from .models import EmployeeNotification, Employee
 
 def create_notification(employee, notification_type, title, message, action_url=''):
     """
-    Create a notification for an employee.
-    
+    Create a notification for an employee, and push it to their phone.
+
     Args:
         employee (Employee): Employee object or employee ID
         notification_type (str): Type from EmployeeNotification.NotificationType
         title (str): Notification title
         message (str): Notification message
         action_url (str): Optional URL to action page
-    
+
     Returns:
         EmployeeNotification: Created notification object
-    
+
     Example:
         create_notification(
             employee=employee,
@@ -29,10 +29,19 @@ def create_notification(employee, notification_type, title, message, action_url=
             message='You have been assigned: Complete Project Report',
             action_url='/tasks/123/'
         )
+
+    This is the single choke point every notification in the app already
+    goes through (task assigned, leave approved/rejected, face update
+    decided, ticket resolved, ...), so it's also the one place a push
+    notification gets sent from - every existing and future caller gets
+    push for free, no per-call-site changes needed. Push is best-effort
+    (see push_utils.send_push_to_employee): if Firebase isn't configured
+    yet, or the send fails, the in-app notification above still succeeds
+    either way - this function's return value/behavior doesn't change.
     """
     if isinstance(employee, int):
         employee = Employee.objects.get(id=employee)
-    
+
     notification = EmployeeNotification.objects.create(
         employee=employee,
         office=employee.office,
@@ -43,6 +52,20 @@ def create_notification(employee, notification_type, title, message, action_url=
         action_url=action_url,
         is_read=False,
     )
+
+    from .push_utils import send_push_to_employee
+    from .mobile_notifications_api import _spec_type
+    send_push_to_employee(
+        employee, title, message,
+        # Same field names/shape as GET /notifications so the app can reuse
+        # one notification model for both the list screen and a push tap.
+        data={
+            'notificationId': f'ntf_{notification.id}',
+            'type': _spec_type(notification_type),
+            'deepLink': action_url,
+        },
+    )
+
     return notification
 
 

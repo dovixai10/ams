@@ -87,6 +87,7 @@ from .models import (
     SprintConfig,
     Sprint,
     EmployeeDocument,
+    DocumentType,
     CompanyRule,
     LoanRequest,
     ReimbursementRequest,
@@ -102,6 +103,7 @@ from .forms import (
     EmployeeUpdateForm,
     SuperAdminProfileForm,
     EmployeeDocumentForm,
+    DocumentTypeForm,
     EmployeePasswordResetForm,
     LeaveRequestForm,
     LoanRequestForm,
@@ -141,7 +143,7 @@ except ImportError:
     is_encoding_unique = None
     get_frame_ear = None
     detect_blink_in_sequence = None
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils.dateparse import parse_date
 
 from django.contrib.auth.hashers import make_password
@@ -246,25 +248,41 @@ def office_status(request):
     return render(request, 'employees/auth/office_status.html', context)
 
 
+def _handle_office_approval_post(request):
+    """Shared by platform_office_approvals and platform_dashboard - both let
+    you approve/reject/suspend/reactivate an office via the same POST shape
+    (office_id, action). Returns True if this request was actually an
+    approval action (so the caller knows to redirect back)."""
+    if request.method != 'POST' or request.POST.get('action') not in ('approve', 'reject', 'suspend', 'reactivate'):
+        return False
+    office = get_object_or_404(Office, pk=request.POST.get('office_id'))
+    action = request.POST.get('action')
+    if action == 'approve':
+        office.approve(request.user)
+        messages.success(request, f'{office.name} approved. Their admin can now log in.')
+    elif action == 'reject':
+        office.reject(request.user, request.POST.get('reason', ''))
+        messages.info(request, f'{office.name} rejected.')
+    elif action == 'suspend':
+        office.suspend(request.user, request.POST.get('reason', ''))
+        messages.warning(request, f'{office.name} suspended.')
+    else:
+        office.reactivate(request.user)
+        messages.success(request, f'{office.name} reactivated.')
+    return True
+
+
 @login_required
 @user_passes_test(is_platform_admin)
 def platform_office_approvals(request):
     """Platform-level screen (you) to approve/reject office registrations."""
+    if _handle_office_approval_post(request):
+        return redirect('employees:platform_office_approvals')
+
     status_filter = request.GET.get('status', 'pending')
     offices = Office.objects.select_related().prefetch_related('admins__user').order_by('-created_at')
     if status_filter and status_filter in Office.Status.values:
         offices = offices.filter(status=status_filter)
-
-    if request.method == 'POST':
-        office = get_object_or_404(Office, pk=request.POST.get('office_id'))
-        action = request.POST.get('action')
-        if action == 'approve':
-            office.approve(request.user)
-            messages.success(request, f'{office.name} approved. Their admin can now log in.')
-        elif action == 'reject':
-            office.reject(request.user, request.POST.get('reason', ''))
-            messages.info(request, f'{office.name} rejected.')
-        return redirect('employees:platform_office_approvals')
 
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -274,6 +292,60 @@ def platform_office_approvals(request):
         'status_choices': Office.Status.choices,
     })
     return render(request, 'employees/platform/office_approvals.html', context)
+
+
+@login_required
+@user_passes_test(is_platform_admin)
+def platform_dashboard(request):
+    """The platform admin's (you) own dashboard - separate from
+    admin_dashboard (that one's for a specific office's HR admin, scoped to
+    their office's numbers). This is the whole-platform view: how many
+    offices are registered/pending/approved, and - the actual main job here
+    - a queue of pending office registrations to approve or reject right
+    from this page."""
+    if _handle_office_approval_post(request):
+        return redirect('employees:platform_dashboard')
+
+    office_counts = {
+        row['status']: row['count']
+        for row in Office.objects.values('status').annotate(count=Count('id'))
+    }
+    total_offices = sum(office_counts.values())
+
+    pending_offices = list(
+        Office.objects.filter(status=Office.Status.PENDING)
+        .prefetch_related('admins__user')
+        .order_by('-created_at')[:8]
+    )
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'total_offices': total_offices,
+        'pending_count': office_counts.get(Office.Status.PENDING, 0),
+        'approved_count': office_counts.get(Office.Status.APPROVED, 0),
+        'rejected_count': office_counts.get(Office.Status.REJECTED, 0),
+        'suspended_count': office_counts.get(Office.Status.SUSPENDED, 0),
+        'total_employees': Employee.objects.count(),
+        'pending_offices': pending_offices,
+    })
+    return render(request, 'employees/platform/dashboard.html', context)
+
+
+@login_required
+@user_passes_test(is_platform_admin)
+def platform_profile(request):
+    """The platform admin's own profile page - just the Django account
+    itself (username/email/login history) plus a clear way to log out.
+    There's no Office/Employee record behind this account to show a
+    business profile for - superadmin_profile.html assumes one exists, so
+    this is a separate, much simpler page rather than trying to bend that
+    template to a user who has neither."""
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+    })
+    return render(request, 'employees/platform/profile.html', context)
 
 
 def is_admin(user):
@@ -682,7 +754,9 @@ def landing_page(request):
     their dashboard; everyone else sees the marketing page."""
 
     if request.user.is_authenticated:
-        if is_platform_admin(request.user) or is_office_admin(request.user):
+        if is_platform_admin(request.user):
+            return redirect('employees:platform_dashboard')
+        elif is_office_admin(request.user):
             return redirect('employees:admin_dashboard')
         elif is_employee(request.user):
             return redirect('employees:check_in')
@@ -773,7 +847,7 @@ class LoginView(TemplateView):
             return redirect(next_url)
 
         if is_platform_admin(user):
-            return redirect('employees:admin_dashboard')
+            return redirect('employees:platform_dashboard')
         elif is_office_admin(user):
             return redirect('employees:admin_dashboard')
         elif is_employee(user):
@@ -1964,15 +2038,21 @@ def admin_leave_requests(request):
                 attendance_status = 'Leave'
 
             while current_date <= leave_request.end_date:
-                attendance, created = Attendance.objects.get_or_create(
-                    employee=leave_request.employee,
-                    branch=leave_request.employee.branch,
-                    date=current_date,
-                    defaults={
-                        'final_status': attendance_status,
-                        'check_in_time': timezone.now().replace(hour=0, minute=0, second=0),
-                    }
-                )
+                # Keyed on (employee, date) only, matching the model's actual
+                # unique_together - branch belongs in defaults, not the lookup.
+                try:
+                    attendance, created = Attendance.objects.get_or_create(
+                        employee=leave_request.employee,
+                        date=current_date,
+                        defaults={
+                            'branch': leave_request.employee.branch,
+                            'final_status': attendance_status,
+                            'check_in_time': timezone.now().replace(hour=0, minute=0, second=0),
+                        }
+                    )
+                except IntegrityError:
+                    attendance = Attendance.objects.get(employee=leave_request.employee, date=current_date)
+                    created = False
                 if not created:
                     attendance.final_status = attendance_status
                     attendance.save(update_fields=['final_status'])
@@ -2904,30 +2984,170 @@ def employee_profile_mobile(request):
 
 @login_required
 @user_passes_test(is_employee)
-@require_http_methods(["GET", "POST"])
 def employee_documents(request):
-    """Allow employees to upload and manage their key documents."""
+    """Employee's My Documents page - shows every active DocumentType HR has
+    configured for their office (either office-wide or scoped to their own
+    branch), each paired with whatever EmployeeDocument row they've already
+    submitted for it, if any. Uploading happens via AJAX against
+    document_views.upload_document."""
     if request.user.is_superuser:
         return redirect('employees:superadmin_profile')
 
     employee = request.user.employee_profile
 
+    doc_types = DocumentType.objects.filter(
+        office=employee.office, is_active=True
+    ).filter(
+        Q(branch__isnull=True) | Q(branch=employee.branch)
+    ).order_by('display_order', 'name')
+
+    existing = {
+        doc.document_type_id: doc
+        for doc in EmployeeDocument.objects.filter(employee=employee)
+    }
+
+    doc_cards = [
+        {'type': dt, 'document': existing.get(dt.id)}
+        for dt in doc_types
+    ]
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'employee': employee,
+        'doc_cards': doc_cards,
+    })
+    return render(request, 'employees/employee_documents.html', context)
+
+
+@login_required
+@user_passes_test(feature_required('employees.manage'))
+def admin_document_types(request):
+    """Admin page to create and list configurable document types - HR
+    creates these, and they then appear as upload slots on every eligible
+    employee's My Documents page. Mirrors admin_leave_types."""
+
     if request.method == 'POST':
-        form = EmployeeDocumentForm(request.POST, request.FILES, instance=employee)
+        form = DocumentTypeForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Documents updated successfully.')
-            return redirect('employees:employee_documents')
+            doc_type = form.save(commit=False)
+            doc_type.created_by = request.user
+            doc_type.office = get_request_office(request)
+            doc_type.branch = get_request_branch(request)
+            try:
+                doc_type.save()
+            except IntegrityError:
+                messages.error(request, f'A document type named "{doc_type.name}" already exists for this office.')
+            else:
+                messages.success(request, f'Document type "{doc_type.name}" created successfully.')
+            return redirect('employees:admin_document_types')
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
-        form = EmployeeDocumentForm(instance=employee)
+        form = DocumentTypeForm()
+
+    doc_types = tenant_queryset(
+        request,
+        DocumentType.objects.all()
+    ).order_by('display_order', 'name')
 
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'form': form,
-        'employee': employee,
+        'doc_types': doc_types,
     })
-    return render(request, 'employees/employee_documents.html', context)
+    return render(request, 'employees/documents/admin_document_types.html', context)
+
+
+@login_required
+@user_passes_test(feature_required('employees.manage'))
+@require_http_methods(["POST"])
+def admin_document_type_update(request, pk):
+    """Update an existing document type."""
+    doc_type = get_object_or_404(tenant_queryset(request, DocumentType.objects.all()), pk=pk)
+    form = DocumentTypeForm(request.POST, instance=doc_type)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f'Document type "{doc_type.name}" updated successfully.')
+    else:
+        messages.error(request, f'Could not update document type: {form.errors.as_text()}')
+    return redirect('employees:admin_document_types')
+
+
+@login_required
+@user_passes_test(feature_required('employees.manage'))
+@require_http_methods(["POST"])
+def admin_document_type_toggle(request, pk):
+    """Toggle active/inactive - inactive types are hidden from employees but existing uploads are kept."""
+    doc_type = get_object_or_404(tenant_queryset(request, DocumentType.objects.all()), pk=pk)
+    doc_type.is_active = not doc_type.is_active
+    doc_type.save(update_fields=['is_active', 'updated_at'])
+    state = 'activated' if doc_type.is_active else 'deactivated'
+    messages.success(request, f'Document type "{doc_type.name}" {state}.')
+    return redirect('employees:admin_document_types')
+
+
+@login_required
+@user_passes_test(feature_required('employees.manage'))
+@require_http_methods(["POST"])
+def admin_document_type_delete(request, pk):
+    """Delete a document type - blocked only if employees have already submitted against it."""
+    doc_type = get_object_or_404(tenant_queryset(request, DocumentType.objects.all()), pk=pk)
+
+    if doc_type.employee_documents.exists():
+        messages.error(
+            request,
+            f'"{doc_type.name}" already has employee submissions linked to it and cannot be deleted. '
+            'Deactivate it instead.'
+        )
+    else:
+        name = doc_type.name
+        doc_type.delete()
+        messages.success(request, f'Document type "{name}" deleted.')
+
+    return redirect('employees:admin_document_types')
+
+
+@login_required
+@user_passes_test(office_admin_required)
+def document_approvals(request):
+    """One place to review every document employees have submitted and are
+    waiting on a decision for, instead of opening each employee's profile
+    one at a time to find them. Supports filtering/searching by employee
+    once the queue gets long."""
+    pending_documents = tenant_queryset(
+        request,
+        EmployeeDocument.objects.filter(status=EmployeeDocument.VerificationStatus.SUBMITTED)
+    ).select_related('employee', 'document_type').order_by('-uploaded_at')
+
+    # Employee dropdown lists only employees who actually have something
+    # pending right now, so it stays short and useful as the queue changes.
+    employee_choices = (
+        pending_documents.values('employee_id', 'employee__name')
+        .distinct()
+        .order_by('employee__name')
+    )
+
+    employee_id = request.GET.get('employee', '').strip()
+    if employee_id:
+        pending_documents = pending_documents.filter(employee_id=employee_id)
+
+    search = request.GET.get('q', '').strip()
+    if search:
+        pending_documents = pending_documents.filter(
+            Q(employee__name__icontains=search) | Q(employee__email__icontains=search)
+        )
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'pending_documents': pending_documents,
+        'employee_choices': employee_choices,
+        'selected_employee_id': employee_id,
+        'search_query': search,
+    })
+    return render(request, 'employees/documents/document_approvals.html', context)
 
 
 @login_required
@@ -3087,6 +3307,8 @@ def verify_asset_status(request, asset_id):
             asset.return_requested = True
             asset.hr_verified = False
             message = 'Return requested. Employee can now update status.'
+            from .notification_utils import create_asset_return_requested_notification
+            create_asset_return_requested_notification(asset.employee, asset)
             
         elif action == 'verify_returned':
             # Action C: Verify Returned
@@ -3149,7 +3371,9 @@ def asset_management(request):
     if request.method == 'POST':
         form = AssetAssignmentForm(request.POST, request=request)
         if form.is_valid():
-            form.save()
+            asset = form.save()
+            from .notification_utils import create_asset_assigned_notification
+            create_asset_assigned_notification(asset.employee, asset)
             messages.success(request, 'Asset assigned successfully.')
             redirect_url = reverse('employees:asset_management')
             if employee_filter:
@@ -3328,8 +3552,10 @@ def check_in(request):
     #     request,
     #     Attendance.objects.all()
     # ).filter(employee=employee, date=today).first()
-        # Get today's attendance record if it exists
-    today_attendance = Attendance.objects.filter(office=employee.office, branch=employee.branch, employee=employee, date=today).first()
+        # Get today's attendance record if it exists - keyed on (employee, date)
+        # only, matching the model's actual unique_together, so this can't miss
+        # a row whose office/branch has since drifted from the employee's current one.
+    today_attendance = Attendance.objects.filter(employee=employee, date=today).first()
     # GUARD 1: Face must be registered
     if not employee.face_registered:
         face_register_url = f"{reverse('employees:face_register')}?next={reverse('employees:check_in')}"
@@ -3488,14 +3714,25 @@ def check_in(request):
                 messages.error(request, ' Face verification failed. Your face does not match. Please try again.')
                 return redirect('employees:check_in')
 
-            # SECURITY: All validations passed - create attendance record
-            attendance, created = Attendance.objects.get_or_create(
-                office=employee.office,
-                branch=employee.branch,
-                employee=employee,
-                date=today,
-                defaults={"office": employee.office, 'check_in_time': timezone.now()}
-            )
+            # SECURITY: All validations passed - create attendance record.
+            # Keyed on (employee, date) only, matching the model's actual
+            # unique_together - looking up by office/branch too let a drifted
+            # branch value miss an existing row and then collide on insert.
+            # The IntegrityError fallback covers the remaining race window
+            # (e.g. a double-tapped submit) between the lookup and the insert.
+            try:
+                attendance, created = Attendance.objects.get_or_create(
+                    employee=employee,
+                    date=today,
+                    defaults={
+                        'office': employee.office,
+                        'branch': employee.branch,
+                        'check_in_time': timezone.now(),
+                    }
+                )
+            except IntegrityError:
+                attendance = Attendance.objects.get(employee=employee, date=today)
+                created = False
             
             # Save photo and location
             attendance.check_in_photo.save(check_in_photo.name, check_in_photo, save=False)
@@ -4521,18 +4758,23 @@ def mark_attendance(request, token):
     # BGR->RGB conversion internally) - frames here are stored as RGB.
     img_for_save = cv2.cvtColor(best_frame, cv2.COLOR_RGB2BGR)
 
-    attendance, created = Attendance.objects.get_or_create(
-        office=office,
-        employee=employee,
-        branch=employee.branch,
-        date=timezone.now().date(),
-        defaults={
-            "office": office,
-            "branch": employee.branch,
-            'check_in_time': timezone.now(),
-            'check_in_photo': save_attendance_image(img_for_save, f"checkin_{employee.id}")
-        }
-    )
+    checkin_date = timezone.now().date()
+    # Keyed on (employee, date) only, matching the model's actual
+    # unique_together - office/branch belong in defaults, not the lookup.
+    try:
+        attendance, created = Attendance.objects.get_or_create(
+            employee=employee,
+            date=checkin_date,
+            defaults={
+                "office": office,
+                "branch": employee.branch,
+                'check_in_time': timezone.now(),
+                'check_in_photo': save_attendance_image(img_for_save, f"checkin_{employee.id}")
+            }
+        )
+    except IntegrityError:
+        attendance = Attendance.objects.get(employee=employee, date=checkin_date)
+        created = False
 
     if not created:
         now = timezone.localtime()
@@ -5201,6 +5443,8 @@ def admin_project_add_task(request, pk):
             new_status=task.status,
             comment=form.cleaned_data.get('description', '')[:200],
         )
+        from .notification_utils import create_task_notification
+        create_task_notification(task.assigned_to, task)
         messages.success(request, f"Task '{task.title}' assigned to {task.assigned_to.full_name}.")
     else:
         error_text = '; '.join([' '.join(errors) for errors in form.errors.values()])
@@ -5329,6 +5573,8 @@ def admin_tasks(request):
                 new_status=task.status,
                 comment=form.cleaned_data.get('description', '')[:200],
             )
+            from .notification_utils import create_task_notification
+            create_task_notification(task.assigned_to, task)
             messages.success(request, f"Task '{task.title}' assigned to {task.assigned_to.full_name}.")
             return redirect('employees:admin_tasks')
         else:
@@ -6046,9 +6292,13 @@ def admin_update_ticket(request, pk):
             if new_status == 'resolved':
                 ticket.resolved_by = request.user
                 ticket.resolved_at = timezone.now()
-            
+
             ticket.save()
-            
+
+            if old_status != 'resolved' and new_status == 'resolved':
+                from .notification_utils import create_ticket_resolved_notification
+                create_ticket_resolved_notification(ticket.employee, ticket)
+
             # Add automatic comment about status change (visible to employee)
             if old_status != new_status:
                 status_comment = f"Status changed from '{dict(Ticket.STATUS_CHOICES)[old_status]}' to '{dict(Ticket.STATUS_CHOICES)[new_status]}'"
@@ -7887,6 +8137,7 @@ def team_board_move_task(request, pk):
     previous_status = task.status
     notes = []
     update_fields = ['status', 'status_updated_at', 'updated_at']
+    newly_assigned = None
 
     if 'assignedTo' in payload:
         assigned_to_id = payload.get('assignedTo')
@@ -7897,6 +8148,7 @@ def team_board_move_task(request, pk):
             if new_assignee.pk != task.assigned_to_id:
                 notes.append(f'Reassigned to {new_assignee.full_name or new_assignee.name}.')
                 task.assigned_to = new_assignee
+                newly_assigned = new_assignee
         elif task.assigned_to_id is not None:
             notes.append('Unassigned.')
             task.assigned_to = None
@@ -7963,6 +8215,11 @@ def team_board_move_task(request, pk):
     task.status = new_status
     task.save(update_fields=update_fields)
 
+    # Notify the new assignee - unless they just reassigned it to themselves.
+    if newly_assigned is not None and not (is_employee(request.user) and newly_assigned.id == request.user.employee_profile.id):
+        from .notification_utils import create_task_notification
+        create_task_notification(newly_assigned, task)
+
     TaskUpdate.objects.create(
         office=task.office, branch=task.branch, task=task, updated_by=request.user,
         previous_status=previous_status, new_status=new_status,
@@ -7984,26 +8241,7 @@ def team_board_move_task(request, pk):
     })
 
 
-TASK_ATTACHMENT_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
-TASK_ATTACHMENT_VIDEO_TYPES = {'video/mp4', 'video/webm', 'video/quicktime'}
-TASK_ATTACHMENT_MAX_IMAGE_SIZE = 8 * 1024 * 1024   # 8MB
-TASK_ATTACHMENT_MAX_VIDEO_SIZE = 30 * 1024 * 1024  # 30MB, "a short video"
-
-
-def _validate_task_attachment_upload(upload):
-    """Shared by team_board_add_comment and team_board_add_task_attachment.
-    Returns (kind, None) on success, or (None, error_message) on failure."""
-    content_type = (upload.content_type or '').lower()
-    if content_type in TASK_ATTACHMENT_IMAGE_TYPES:
-        kind, max_size = TaskAttachment.Kind.IMAGE, TASK_ATTACHMENT_MAX_IMAGE_SIZE
-    elif content_type in TASK_ATTACHMENT_VIDEO_TYPES:
-        kind, max_size = TaskAttachment.Kind.VIDEO, TASK_ATTACHMENT_MAX_VIDEO_SIZE
-    else:
-        return None, 'Only images (JPG/PNG/GIF/WEBP) or short videos (MP4/WEBM/MOV) can be attached.'
-    if upload.size > max_size:
-        limit_mb = max_size // (1024 * 1024)
-        return None, f'File is too large - keep it under {limit_mb}MB.'
-    return kind, None
+from .attachment_utils import validate_task_attachment_upload as _validate_task_attachment_upload
 
 
 @login_required
@@ -8145,6 +8383,11 @@ def team_board_add_task(request, team_id):
         previous_status=None, new_status=task.status,
         comment=f'{task.get_type_display()} added to the team board.',
     )
+    # Notify the assignee - unless they just assigned it to themselves,
+    # which they obviously already know about.
+    if assigned_to is not None and not (is_employee(request.user) and assigned_to.id == request.user.employee_profile.id):
+        from .notification_utils import create_task_notification
+        create_task_notification(assigned_to, task)
     return JsonResponse({'success': True, 'taskId': task.id})
 
 
@@ -8188,6 +8431,9 @@ def admin_rules(request):
                 order=int(request.POST.get("order", 0)),
                 created_by=request.user,
             )
+            from .notification_utils import create_rule_update_notification
+            for employee in tenant_queryset(request, Employee.objects.all()):
+                create_rule_update_notification(employee, rule.title)
             messages.success(request, f'Rule created successfully for "{branch.name}"!' if branch else 'Rule created successfully!')
             return redirect('employees:admin_rules')
 

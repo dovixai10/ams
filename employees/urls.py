@@ -264,12 +264,21 @@ urlpatterns = [
 
     path('leave/balances/', views.employee_leave_balances, name='employee_leave_balances'),
 
+    # Document Type Management (admin) + approvals
+    path('document-types/', views.admin_document_types, name='admin_document_types'),
+    path('document-types/<int:pk>/update/', views.admin_document_type_update, name='admin_document_type_update'),
+    path('document-types/<int:pk>/toggle/', views.admin_document_type_toggle, name='admin_document_type_toggle'),
+    path('document-types/<int:pk>/delete/', views.admin_document_type_delete, name='admin_document_type_delete'),
+    path('document-approvals/', views.document_approvals, name='document_approvals'),
+
 
     # office registration 
     # Office registration & approval (multi-tenant)
     path('register-office/', views.office_register, name='office_register'),
     path('office-status/', views.office_status, name='office_status'),
     path('platform/office-approvals/', views.platform_office_approvals, name='platform_office_approvals'),
+    path('platform/dashboard/', views.platform_dashboard, name='platform_dashboard'),
+    path('platform/profile/', views.platform_profile, name='platform_profile'),
 
     # attendance rule 
 

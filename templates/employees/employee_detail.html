@@ -537,7 +537,7 @@
               {% for doc in employee.documents.all %}
                 <div class="document-admin-card">
                   <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="fw-semibold">{{ doc.get_document_type_display }}</span>
+                    <span class="fw-semibold">{{ doc.document_type.name }}</span>
                     <span class="badge 
                       {% if doc.status == 'verified' %}
                         bg-label-success
@@ -565,15 +565,15 @@
                               class="btn btn-sm btn-outline-primary"
                               data-view-document
                               data-doc-url="{{ doc.file.url }}"
-                              data-doc-title="{{ doc.get_document_type_display }}">
+                              data-doc-title="{{ doc.document_type.name }}">
                         <i class="bx bx-show me-1"></i>View
                       </button>
                       {% if doc.status != 'verified' %}
-                        <button class="btn btn-sm btn-outline-success verify-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.get_document_type_display }}">
+                        <button class="btn btn-sm btn-outline-success verify-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.document_type.name }}">
                           <i class="bx bx-check me-1"></i>Verify
                         </button>
                       {% endif %}
-                      <button class="btn btn-sm btn-outline-warning resubmit-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.get_document_type_display }}">
+                      <button class="btn btn-sm btn-outline-warning resubmit-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.document_type.name }}">
                         <i class="bx bx-refresh me-1"></i>Request Resubmit
                       </button>
                     </div>
@@ -878,7 +878,7 @@
                 </a>
               </div>
               <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
-                <a href="{% url 'employees:admin_dashboard' %}" class="text-decoration-none">
+                <a href="{% if request.user.is_superuser %}{% url 'employees:platform_dashboard' %}{% else %}{% url 'employees:admin_dashboard' %}{% endif %}" class="text-decoration-none">
                   <div class="action-card text-center">
                     <i class="icon-base bx bx-home icon-28px text-success mb-3"></i>
                     <h6 class="mb-1">Admin Dashboard</h6>

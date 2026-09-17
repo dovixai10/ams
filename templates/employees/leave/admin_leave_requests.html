@@ -139,7 +139,7 @@
             <p class="text-muted mb-0">Review pending requests, approve or reject, and keep employees informed.</p>
           </div>
           <div class="d-flex align-items-center gap-2">
-            <a href="{% url 'employees:admin_dashboard' %}" class="btn btn-outline-primary"><i class="bx bx-arrow-back me-1"></i>Dashboard</a>
+            <a href="{% if request.user.is_superuser %}{% url 'employees:platform_dashboard' %}{% else %}{% url 'employees:admin_dashboard' %}{% endif %}" class="btn btn-outline-primary"><i class="bx bx-arrow-back me-1"></i>Dashboard</a>
           </div>
         </div>
       </div>

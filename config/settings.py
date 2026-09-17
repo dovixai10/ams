@@ -115,6 +115,11 @@ MIDDLEWARE = [
     'employees.middleware.OfficeMiddleware',
 ]
 
+# Default is DENY, which blocks the admin document-viewer modal's own iframe
+# preview (it frames a same-origin /media/ file). SAMEORIGIN still blocks
+# framing by any other site.
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 # Django's default "error" tag has no matching Bootstrap alert-error class -
 # map it to alert-danger so templates/layout/partials/messages.html renders
 # error messages in red instead of an unstyled alert.
@@ -331,3 +336,17 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 WEATHER_API_KEY = os.environ.get("WEATHER_API_KEY", None)
 WEATHER_DEFAULT_CITY = os.environ.get("WEATHER_DEFAULT_CITY", "Bangalore")
 WEATHER_CACHE_TIMEOUT = 1800  # 30 minutes
+
+# Firebase Cloud Messaging (push notifications to the mobile app).
+# FIREBASE_CREDENTIALS_PATH points at the *service account* JSON downloaded
+# from Firebase Console -> Project Settings -> Service Accounts -> Generate
+# new private key. This is NOT the same file as google-services.json (that
+# one belongs in the Flutter project, for the app to *receive* pushes; this
+# one is what lets Django *send* them). Gitignored - never commit it.
+# employees/push_utils.py checks os.path.exists() itself and no-ops
+# cleanly if this file isn't there yet, so push notifications are simply
+# skipped (not an error) until it's configured.
+FIREBASE_CREDENTIALS_PATH = os.environ.get(
+    "FIREBASE_CREDENTIALS_PATH",
+    os.path.join(BASE_DIR, "firebase-service-account.json"),
+)

@@ -1,0 +1,67 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}My Profile | Platform Admin{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .profile-card { max-width: 480px; margin: 0 auto; }
+  .profile-avatar {
+    width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 700;
+    margin: 0 auto 1rem;
+  }
+  .profile-field { display: flex; justify-content: space-between; padding: 0.7rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
+  .profile-field:last-child { border-bottom: none; }
+  .profile-field-label { color: #6b7280; }
+  .profile-field-value { color: #1f2937; font-weight: 600; }
+  .logout-btn-large {
+    display: block; width: 100%; text-align: center; margin-top: 1.5rem;
+    background: #ef4444; color: #fff; border: none; padding: 0.75rem; border-radius: 8px;
+    font-weight: 700; font-size: 0.95rem; text-decoration: none;
+  }
+  .logout-btn-large:hover { background: #dc2626; color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card profile-card">
+      <div class="card-body text-center">
+        <div class="profile-avatar">{{ request.user.username|slice:":1"|upper }}</div>
+        <h5 class="mb-0">{{ request.user.get_full_name|default:request.user.username }}</h5>
+        <p class="text-muted small mb-4">Platform Administrator</p>
+
+        <div class="text-start">
+          <div class="profile-field">
+            <span class="profile-field-label">Username</span>
+            <span class="profile-field-value">{{ request.user.username }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field-label">Email</span>
+            <span class="profile-field-value">{{ request.user.email|default:"—" }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field-label">Account created</span>
+            <span class="profile-field-value">{{ request.user.date_joined|date:"d M Y" }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field-label">Last login</span>
+            <span class="profile-field-value">{{ request.user.last_login|date:"d M Y, g:i A"|default:"—" }}</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-field-label">Access level</span>
+            <span class="profile-field-value">Django Superuser</span>
+          </div>
+        </div>
+
+        <a href="{% url 'employees:logout' %}" class="logout-btn-large">
+          <i class="bx bx-log-out me-1"></i> Log Out
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

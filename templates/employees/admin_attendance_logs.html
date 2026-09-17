@@ -18,7 +18,7 @@
               <p class="text-muted mb-0">Monitor all check-in/check-out attempts including successful and failed activities</p>
             </div>
             <div>
-              <a href="{% url 'employees:admin_dashboard' %}" class="btn btn-outline-primary">
+              <a href="{% if request.user.is_superuser %}{% url 'employees:platform_dashboard' %}{% else %}{% url 'employees:admin_dashboard' %}{% endif %}" class="btn btn-outline-primary">
                 <i class="bx bx-arrow-back me-1"></i>Back to Dashboard
               </a>
             </div>

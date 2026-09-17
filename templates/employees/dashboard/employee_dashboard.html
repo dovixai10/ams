@@ -840,17 +840,19 @@ body {
                 </div>
               </a>
 
-              {% if my_teams %}
               <a href="{% url 'employees:employee_my_teams' %}" class="service-card">
                 <div class="service-card__icon" style="background: linear-gradient(135deg, #696cff, #8f92ff);">
                   <i class="bx bx-group"></i>
                 </div>
                 <div>
                   <p class="service-card__title">My Teams</p>
-                  <p class="service-card__caption">See your team{{ my_teams|length|pluralize }} and open their task board.</p>
+                  {% if my_teams %}
+                    <p class="service-card__caption">See your team{{ my_teams|length|pluralize }} and open their task board.</p>
+                  {% else %}
+                    <p class="service-card__caption">You're not on a team yet.</p>
+                  {% endif %}
                 </div>
               </a>
-              {% endif %}
 
               <!-- <a href="{% url 'employees:check_in' %}" class="service-card">
                 <span class="service-card__icon" style="background: linear-gradient(135deg, #6366f1, #a855f7);"><i class="bx bx-log-in"></i></span>

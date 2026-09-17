@@ -27,170 +27,60 @@
 
   <!-- Documents Grid -->
   <div class="doc-grid">
-    <!-- 10th Marksheet -->
-    <div class="doc-card">
-      <div class="doc-card__header">
-        <span class="doc-card__label">10TH MARKSHEET</span>
-        <span class="doc-card__status" id="status-10th">
-          <span class="doc-badge doc-badge--pending">Pending</span>
-        </span>
-      </div>
-      <div class="doc-card__body">
-        <label class="doc-upload" data-doc-type="10th">
-          <input type="file" class="doc-upload__input" data-doc-type="10th" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
-          <div class="doc-upload__placeholder">
-            <i class="bx bx-cloud-upload"></i>
-            <span>Upload file</span>
+    {% for card in doc_cards %}
+      {% with dt=card.type doc=card.document %}
+      <div class="doc-card">
+        <div class="doc-card__header">
+          <span class="doc-card__label">{{ dt.name|upper }}</span>
+          <span class="doc-card__status" id="status-{{ dt.id }}">
+            {% if doc and doc.status == 'verified' %}
+              <span class="doc-badge doc-badge--verified">Verified</span>
+              <div class="doc-lock-info">
+                <small class="text-muted">Verified by {{ doc.verified_by.get_full_name|default:doc.verified_by.username|default:"Admin" }}</small>
+                {% if doc.verified_at %}<small class="text-muted">on {{ doc.verified_at|date:"M d, Y" }}</small>{% endif %}
+              </div>
+            {% elif doc and doc.status == 'submitted' %}
+              <span class="doc-badge doc-badge--submitted">Submitted</span>
+            {% elif doc and doc.status == 'rejected' %}
+              <span class="doc-badge doc-badge--rejected">Rejected</span>
+              {% if doc.needs_resubmission and doc.resubmit_reason %}
+                <div class="doc-lock-info"><small class="text-muted">{{ doc.resubmit_reason }}</small></div>
+              {% endif %}
+            {% else %}
+              <span class="doc-badge doc-badge--pending">Pending</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="doc-card__body">
+          <label class="doc-upload" data-doc-type="{{ dt.id }}" {% if doc and doc.status == 'verified' %}style="opacity:0.5;pointer-events:none;"{% endif %}>
+            <input type="file" class="doc-upload__input" data-doc-type="{{ dt.id }}" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv" {% if doc and doc.status == 'verified' %}disabled{% endif %}>
+            <div class="doc-upload__placeholder">
+              {% if doc and doc.status == 'verified' %}
+                <i class="bx bx-lock-alt"></i>
+                <span>Verified &ndash; upload locked</span>
+              {% else %}
+                <i class="bx bx-cloud-upload"></i>
+                <span>Upload file</span>
+              {% endif %}
+            </div>
+          </label>
+          <p class="doc-card__filename" id="filename-{{ dt.id }}">{% if doc and doc.file %}{{ doc.file.name|cut:"employee_docs/" }}{% endif %}</p>
+          <div class="doc-card__actions" id="actions-{{ dt.id }}" {% if not doc or not doc.file %}style="display: none;"{% endif %}>
+            {% if doc %}
+              <button type="button" class="doc-btn-view" onclick="window.open('{% url 'employees:document_api:view_document' doc.id %}', '_blank')" data-doc-id="{{ doc.id }}">
+                <i class="bx bx-show"></i>View
+              </button>
+            {% endif %}
           </div>
-        </label>
-        <p class="doc-card__filename" id="filename-10th"></p>
-        <div class="doc-card__actions" id="actions-10th" style="display: none;">
-          <button type="button" class="doc-btn-view" onclick="viewDocument(this)" data-doc-id="">
-            <i class="bx bx-show"></i>View
-          </button>
         </div>
       </div>
-    </div>
-
-    <!-- 12th Marksheet -->
-    <div class="doc-card">
-      <div class="doc-card__header">
-        <span class="doc-card__label">12TH MARKSHEET</span>
-        <span class="doc-card__status" id="status-12th">
-          <span class="doc-badge doc-badge--pending">Pending</span>
-        </span>
+      {% endwith %}
+    {% empty %}
+      <div class="doc-empty">
+        <i class="bx bx-folder-open"></i>
+        <p class="mb-0">No documents have been requested for your office yet.</p>
       </div>
-      <div class="doc-card__body">
-        <label class="doc-upload" data-doc-type="12th">
-          <input type="file" class="doc-upload__input" data-doc-type="12th" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
-          <div class="doc-upload__placeholder">
-            <i class="bx bx-cloud-upload"></i>
-            <span>Upload file</span>
-          </div>
-        </label>
-        <p class="doc-card__filename" id="filename-12th"></p>
-      </div>
-    </div>
-
-    <!-- Aadhar Front -->
-    <div class="doc-card">
-      <div class="doc-card__header">
-        <span class="doc-card__label">AADHAR FRONT</span>
-        <span class="doc-card__status" id="status-aadhaar">
-          <span class="doc-badge doc-badge--pending">Pending</span>
-        </span>
-      </div>
-      <div class="doc-card__body">
-        <label class="doc-upload" data-doc-type="aadhaar">
-          <input type="file" class="doc-upload__input" data-doc-type="aadhaar" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
-          <div class="doc-upload__placeholder">
-            <i class="bx bx-cloud-upload"></i>
-            <span>Upload file</span>
-          </div>
-        </label>
-        <p class="doc-card__filename" id="filename-aadhaar"></p>
-      </div>
-    </div>
-
-    <!-- Aadhar Back -->
-    <div class="doc-card">
-      <div class="doc-card__header">
-        <span class="doc-card__label">AADHAR BACK</span>
-        <span class="doc-card__status" id="status-aadhaar-back">
-          <span class="doc-badge doc-badge--pending">Pending</span>
-        </span>
-      </div>
-      <div class="doc-card__body">
-        <label class="doc-upload" data-doc-type="aadhaar-back">
-          <input type="file" class="doc-upload__input" data-doc-type="aadhaar-back" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
-          <div class="doc-upload__placeholder">
-            <i class="bx bx-cloud-upload"></i>
-            <span>Upload file</span>
-          </div>
-        </label>
-        <p class="doc-card__filename" id="filename-aadhaar-back"></p>
-      </div>
-    </div>
-
-    <!-- PAN -->
-    <div class="doc-card">
-      <div class="doc-card__header">
-        <span class="doc-card__label">PAN CARD</span>
-        <span class="doc-card__status" id="status-pan">
-          <span class="doc-badge doc-badge--pending">Pending</span>
-        </span>
-      </div>
-      <div class="doc-card__body">
-        <label class="doc-upload" data-doc-type="pan">
-          <input type="file" class="doc-upload__input" data-doc-type="pan" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
-          <div class="doc-upload__placeholder">
-            <i class="bx bx-cloud-upload"></i>
-            <span>Upload file</span>
-          </div>
-        </label>
-        <p class="doc-card__filename" id="filename-pan"></p>
-      </div>
-    </div>
-
-    <!-- Bank Proof -->
-    <div class="doc-card">
-      <div class="doc-card__header">
-        <span class="doc-card__label">BANK PROOF</span>
-        <span class="doc-card__status" id="status-bank">
-          <span class="doc-badge doc-badge--pending">Pending</span>
-        </span>
-      </div>
-      <div class="doc-card__body">
-        <label class="doc-upload" data-doc-type="bank">
-          <input type="file" class="doc-upload__input" data-doc-type="bank" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
-          <div class="doc-upload__placeholder">
-            <i class="bx bx-cloud-upload"></i>
-            <span>Upload file</span>
-          </div>
-        </label>
-        <p class="doc-card__filename" id="filename-bank"></p>
-      </div>
-    </div>
-
-    <!-- Education Proof -->
-    <div class="doc-card">
-      <div class="doc-card__header">
-        <span class="doc-card__label">PASSPORT SIZE PHOTO</span>
-        <span class="doc-card__status" id="status-education">
-          <span class="doc-badge doc-badge--pending">Pending</span>
-        </span>
-      </div>
-      <div class="doc-card__body">
-        <label class="doc-upload" data-doc-type="education">
-          <input type="file" class="doc-upload__input" data-doc-type="education" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
-          <div class="doc-upload__placeholder">
-            <i class="bx bx-cloud-upload"></i>
-            <span>Upload file</span>
-          </div>
-        </label>
-        <p class="doc-card__filename" id="filename-education"></p>
-      </div>
-    </div>
-
-    <!-- Address Proof -->
-    <!-- <div class="doc-card"> -->
-      <!-- <div class="doc-card__header">
-        <span class="doc-card__label">ADDRESS PROOF</span>
-        <span class="doc-card__status" id="status-address_proof">
-          <span class="doc-badge doc-badge--pending">Pending</span>
-        </span>
-      </div> -->
-      <!-- <div class="doc-card__body">
-        <label class="doc-upload">
-          <input type="file" class="doc-upload__input" data-doc-type="address_proof" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv">
-          <div class="doc-upload__placeholder">
-            <i class="bx bx-cloud-upload"></i>
-            <span>Upload file</span>
-          </div>
-        </label>
-        <p class="doc-card__filename" id="filename-address_proof"></p>
-      </div> -->
-    </div>
+    {% endfor %}
   </div>
 
   <!-- Bottom Spacing for Navigation -->
@@ -329,6 +219,23 @@
       }
     }
 
+    .doc-empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 2.5rem 1rem;
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: 14px;
+      border: 1px dashed rgba(148, 163, 184, 0.4);
+      color: rgba(15, 23, 42, 0.55);
+    }
+
+    .doc-empty i {
+      font-size: 2.2rem;
+      color: rgba(99, 102, 241, 0.55);
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
     /* Card */
     .doc-card {
       background: #ffffff;
@@ -365,6 +272,7 @@
 
     .doc-card__status {
       flex-shrink: 0;
+      text-align: right;
     }
 
     .doc-card__body {
@@ -461,6 +369,11 @@
     .doc-badge--verified::before {
       content: '✓';
       font-weight: 800;
+    }
+
+    .doc-badge--rejected {
+      background: rgba(239, 68, 68, 0.15);
+      color: #b91c1c;
     }
 
     .doc-lock-info {
@@ -605,77 +518,60 @@
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const fileInputs = document.querySelectorAll('.doc-upload__input');
-      const notification = document.getElementById('uploadNotification');
+      const uploadUrl = "{% url 'employees:document_api:upload_document' %}";
+      const statusUrl = "{% url 'employees:document_api:document_status' %}";
+
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
 
       fileInputs.forEach(input => {
         input.addEventListener('change', function(e) {
           const file = this.files[0];
           if (!file) return;
 
-          const docType = this.dataset.docType; // 10th, 12th, aadhaar, aadhaar-back, pan, bank, education
-          const filenameEl = document.getElementById(`filename-${docType}`);
-          const statusEl = document.getElementById(`status-${docType}`);
+          const docTypeId = this.dataset.docType;
+          const filenameEl = document.getElementById(`filename-${docTypeId}`);
+          const statusEl = document.getElementById(`status-${docTypeId}`);
 
-          // Validate file size (5MB)
           if (file.size > 5 * 1024 * 1024) {
             showToast('File size must be less than 5MB', 'error');
             this.value = '';
             return;
           }
 
-          // Upload file via AJAX
           const formData = new FormData();
           formData.append('file', file);
-          formData.append('document_type', docType);
+          formData.append('document_type', docTypeId);
 
-          const apiDocType = docType; // already in API format
-
-          // Get CSRF token from cookie
-          function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-              const cookies = document.cookie.split(';');
-              for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                  break;
-                }
-              }
-            }
-            return cookieValue;
-          }
-
-          fetch(`/api/upload/${apiDocType}/`, {
+          fetch(uploadUrl, {
             method: 'POST',
             body: formData,
-            headers: {
-              'X-CSRFToken': getCookie('csrftoken')
-            }
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
           })
           .then(response => response.json())
           .then(data => {
-            if (data.status === 'success') {
-              // Update filename
-              filenameEl.textContent = file.name;
-
-              // Update status badge
-              statusEl.innerHTML = '<span class="doc-badge doc-badge--submitted">Submitted</span>';
-
-              // Show success notification
+            if (data.success) {
+              if (filenameEl) filenameEl.textContent = file.name;
+              if (statusEl) statusEl.innerHTML = '<span class="doc-badge doc-badge--submitted">Submitted</span>';
               showToast(data.message || 'Document uploaded successfully!', 'success');
-              
-              // Reload documents to get latest status
               loadDocuments();
-            } else if (data.status === 'locked') {
-              // Document is verified and locked
-              showToast(data.message || 'Document is verified and cannot be re-uploaded', 'error');
+            } else if (data.locked) {
+              showToast(data.error || 'Document is verified and cannot be re-uploaded', 'error');
               this.value = '';
-              
-              // Update UI to show locked status
-              updateLockedStatus(docType, data);
             } else {
-              showToast(data.message || 'Upload failed', 'error');
+              showToast(data.error || 'Upload failed', 'error');
               this.value = '';
             }
           })
@@ -687,7 +583,6 @@
         });
       });
 
-      // Toast notification function
       function showToast(message, type = 'success') {
         const toast = document.createElement('div');
         toast.className = `doc-toast doc-toast--${type}`;
@@ -698,154 +593,86 @@
           </div>
         `;
         document.body.appendChild(toast);
-
-        // Trigger animation
         setTimeout(() => toast.classList.add('show'), 10);
-
-        // Remove after 3 seconds
         setTimeout(() => {
           toast.classList.remove('show');
           setTimeout(() => toast.remove(), 300);
         }, 3000);
       }
 
-      // View document function
-      window.viewDocument = function(button) {
-        const docId = button.getAttribute('data-doc-id');
-        if (!docId) {
-          showToast('Document ID not found', 'error');
-          return;
-        }
-        
-        // Open document in new tab
-        window.open(`/employee/document/${docId}/view/`, '_blank');
-      };
-
-      // Update locked status function
-      function updateLockedStatus(docType, data) {
-        const uploadLabel = document.querySelector(`label[data-doc-type="${docType}"]`);
-        const uploadInput = document.querySelector(`input[data-doc-type="${docType}"]`);
-        const statusEl = document.getElementById(`status-${docType}`);
-        
+      function updateLockedStatus(docTypeId) {
+        const uploadLabel = document.querySelector(`label[data-doc-type="${docTypeId}"]`);
+        const uploadInput = document.querySelector(`input[data-doc-type="${docTypeId}"]`);
         if (uploadLabel && uploadInput) {
-          // Disable upload
           uploadInput.disabled = true;
           uploadLabel.style.opacity = '0.5';
           uploadLabel.style.pointerEvents = 'none';
-          uploadLabel.innerHTML = `
-            <div class="doc-upload__placeholder">
-              <i class="bx bx-lock-alt"></i>
-              <span>Verified – upload locked</span>
-            </div>
-          `;
-          
-          // Update status
-          if (statusEl) {
-            const verifiedDate = data.verified_at ? new Date(data.verified_at).toLocaleDateString() : '';
-            const verifiedBy = data.verified_by || 'Admin';
-            statusEl.innerHTML = `
-              <span class="doc-badge doc-badge--verified">Verified</span>
-              <div class="doc-lock-info">
-                <small class="text-muted">Verified by ${verifiedBy}</small>
-                ${verifiedDate ? `<small class="text-muted">on ${verifiedDate}</small>` : ''}
-              </div>
-            `;
-          }
         }
       }
 
-      // Load existing documents on page load
       loadDocuments();
-      
-      // Refresh document status every 5 seconds to check for admin verification
       setInterval(loadDocuments, 5000);
 
       function loadDocuments() {
-        fetch('/api/documents/status/', {
+        fetch(statusUrl, {
           method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
-          }
+          headers: { 'Accept': 'application/json' }
         })
         .then(response => response.json())
         .then(data => {
-          if (data.status === 'success' && data.documents) {
-            Object.keys(data.documents).forEach(docType => {
-              const doc = data.documents[docType];
-              const statusEl = document.getElementById(`status-${docType}`);
-              const filenameEl = document.getElementById(`filename-${docType}`);
-              const actionsEl = document.getElementById(`actions-${docType}`);
-              const uploadLabel = document.querySelector(`label[data-doc-type="${docType}"]`);
-              const uploadInput = document.querySelector(`input[data-doc-type="${docType}"]`);
-              
-              if (doc.uploaded && statusEl) {
-                // Show filename
-                if (filenameEl) {
-                  const url = doc.url;
-                  const fileName = url ? url.split('/').pop() : 'Document';
-                  filenameEl.textContent = fileName;
-                }
-                
-                let badgeClass = 'doc-badge--pending';
-                let badgeText = 'Pending';
-                let extraNote = '';
-                
-                if (doc.status === 'submitted') {
-                  badgeClass = 'doc-badge--submitted';
-                  badgeText = 'Submitted';
-                } else if (doc.status === 'verified') {
-                  badgeClass = 'doc-badge--verified';
-                  badgeText = 'Verified';
-                  
-                  const verifiedDate = doc.verified_at ? new Date(doc.verified_at).toLocaleDateString() : '';
-                  const verifiedBy = doc.verified_by || 'Admin';
-                  extraNote = `
-                    <div class="doc-lock-info">
-                      <small class="text-muted">Verified by ${verifiedBy}</small>
-                      ${verifiedDate ? `<small class="text-muted">on ${verifiedDate}</small>` : ''}
-                    </div>
-                  `;
-                } else if (doc.status === 'rejected') {
-                  badgeClass = 'doc-badge--rejected';
-                  badgeText = 'Rejected';
-                }
-                
-                statusEl.innerHTML = `<span class="doc-badge ${badgeClass}">${badgeText}</span>${extraNote}`;
-                
-                // Handle lock status
-                if (doc.is_locked) {
-                  // Disable upload for verified documents
-                  if (uploadLabel && uploadInput) {
-                    uploadInput.disabled = true;
-                    uploadLabel.style.opacity = '0.5';
-                    uploadLabel.style.pointerEvents = 'none';
-                    uploadLabel.innerHTML = `
-                      <div class="doc-upload__placeholder">
-                        <i class="bx bx-lock-alt"></i>
-                        <span>Verified – upload locked</span>
-                      </div>
-                    `;
-                  }
-                } else if (uploadLabel && uploadInput) {
-                  // Enable upload for non-verified documents
-                  uploadInput.disabled = false;
-                  uploadLabel.style.opacity = '1';
-                  uploadLabel.style.pointerEvents = 'auto';
-                }
-                
-                // Show view button if document has been uploaded
-                if (actionsEl && doc.url) {
-                  const viewBtn = actionsEl.querySelector('.doc-btn-view');
-                  if (viewBtn) {
-                    viewBtn.setAttribute('data-doc-id', docType);
-                    viewBtn.onclick = () => window.open(doc.url, '_blank');
-                  }
-                  actionsEl.style.display = 'flex';
-                }
+          if (data.status !== 'success' || !data.documents) return;
+          Object.keys(data.documents).forEach(docTypeId => {
+            const doc = data.documents[docTypeId];
+            const statusEl = document.getElementById(`status-${docTypeId}`);
+            const filenameEl = document.getElementById(`filename-${docTypeId}`);
+            const actionsEl = document.getElementById(`actions-${docTypeId}`);
+
+            if (!doc.uploaded || !statusEl) return;
+
+            if (filenameEl && doc.url) {
+              filenameEl.textContent = doc.url.split('/').pop();
+            }
+
+            let badgeClass = 'doc-badge--pending';
+            let badgeText = 'Pending';
+            let extraNote = '';
+
+            if (doc.status === 'submitted') {
+              badgeClass = 'doc-badge--submitted';
+              badgeText = 'Submitted';
+            } else if (doc.status === 'verified') {
+              badgeClass = 'doc-badge--verified';
+              badgeText = 'Verified';
+              const verifiedDate = doc.verified_at ? new Date(doc.verified_at).toLocaleDateString() : '';
+              const verifiedBy = doc.verified_by || 'Admin';
+              extraNote = `
+                <div class="doc-lock-info">
+                  <small class="text-muted">Verified by ${verifiedBy}</small>
+                  ${verifiedDate ? `<small class="text-muted">on ${verifiedDate}</small>` : ''}
+                </div>
+              `;
+            } else if (doc.status === 'rejected') {
+              badgeClass = 'doc-badge--rejected';
+              badgeText = 'Rejected';
+              if (doc.resubmit_reason) {
+                extraNote = `<div class="doc-lock-info"><small class="text-muted">${doc.resubmit_reason}</small></div>`;
               }
-            });
-          }
+            }
+
+            statusEl.innerHTML = `<span class="doc-badge ${badgeClass}">${badgeText}</span>${extraNote}`;
+
+            if (doc.is_locked) {
+              updateLockedStatus(docTypeId);
+            }
+
+            if (actionsEl && doc.url) {
+              const viewBtn = actionsEl.querySelector('.doc-btn-view');
+              if (viewBtn && doc.document_id) {
+                viewBtn.onclick = () => window.open(`/employee/document/${doc.document_id}/view/`, '_blank');
+              }
+              actionsEl.style.display = 'flex';
+            }
+          });
         })
         .catch(error => console.error('Error loading documents:', error));
       }

@@ -248,6 +248,10 @@ secret_key.txt
 credentials.json
 db.json
 
+# Firebase service account key (push notifications) - never commit this
+firebase-service-account.json
+firebase-service-account*.json
+
 Django migrations (only if your team does NOT track migrations)
 */migrations/
 !*/migrations/__init__.py

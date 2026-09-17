@@ -1,0 +1,145 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Office Approvals | Platform Admin{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .filter-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .filter-tab {
+    padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+    color: #6b7280; background: #f3f4f6; text-decoration: none;
+  }
+  .filter-tab.active { color: #fff; background: #4f46e5; }
+
+  .office-card {
+    background: #fff; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px;
+    padding: 1.1rem 1.25rem; margin-bottom: 1rem;
+  }
+  .office-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; flex-wrap: wrap; }
+  .office-name { font-weight: 700; font-size: 1.05rem; color: #1f2937; }
+  .office-meta { font-size: 0.82rem; color: #6b7280; margin-top: 0.2rem; }
+  .office-meta div { margin-bottom: 0.15rem; }
+  .status-badge { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.65rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .status-pending { background: #fef3c7; color: #b45309; }
+  .status-approved { background: #dcfce7; color: #15803d; }
+  .status-rejected { background: #fee2e2; color: #b91c1c; }
+  .status-suspended { background: #e5e7eb; color: #4b5563; }
+
+  .office-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.85rem; }
+  .btn-sm { padding: 0.4rem 0.85rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600; }
+  .btn-approve { background: #16a34a; color: #fff; }
+  .btn-reject { background: #ef4444; color: #fff; }
+  .btn-suspend { background: #6b7280; color: #fff; }
+  .btn-outline { background: #fff; border: 1px solid #d1d5db; color: #374151; text-decoration: none; }
+
+  .reject-form { display: none; margin-top: 0.75rem; gap: 0.5rem; }
+  .reject-form.show { display: flex; flex-wrap: wrap; }
+  .reject-form input[type="text"] { flex: 1 1 220px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
+
+  .rejection-note { font-size: 0.8rem; color: #b91c1c; margin-top: 0.5rem; background: #fef2f2; padding: 0.5rem 0.7rem; border-radius: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="card-title mb-0"><i class="bx bx-buildings me-2"></i>Office Approvals</h4>
+      </div>
+      <div class="card-body">
+
+        <div class="filter-tabs">
+          <a href="?status=pending" class="filter-tab {% if status_filter == 'pending' %}active{% endif %}">Pending</a>
+          <a href="?status=approved" class="filter-tab {% if status_filter == 'approved' %}active{% endif %}">Approved</a>
+          <a href="?status=rejected" class="filter-tab {% if status_filter == 'rejected' %}active{% endif %}">Rejected</a>
+          <a href="?status=suspended" class="filter-tab {% if status_filter == 'suspended' %}active{% endif %}">Suspended</a>
+          <a href="?status=all" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">All</a>
+        </div>
+
+        {% if offices %}
+          {% for office in offices %}
+            <div class="office-card">
+              <div class="office-card-header">
+                <div>
+                  <div class="office-name">
+                    {{ office.name }}
+                    <span class="status-badge status-{{ office.status }}">{{ office.get_status_display }}</span>
+                  </div>
+                  <div class="office-meta">
+                    <div><i class="bx bx-map"></i> {{ office.address }}</div>
+                    <div><i class="bx bx-phone"></i> {{ office.contact_number }}
+                      {% if office.industry %} &middot; {{ office.industry }}{% endif %}
+                      {% if office.employee_strength %} &middot; ~{{ office.employee_strength }} employees{% endif %}
+                    </div>
+                    {% for admin in office.admins.all %}
+                      <div><i class="bx bx-user"></i> {{ admin.full_name|default:admin.user.get_full_name }} ({{ admin.user.email }}){% if admin.contact_number %} &middot; {{ admin.contact_number }}{% endif %}</div>
+                    {% endfor %}
+                    {% if office.registration_number %}<div><i class="bx bx-id-card"></i> Reg #{{ office.registration_number }}{% if office.gst_number %} &middot; GST {{ office.gst_number }}{% endif %}</div>{% endif %}
+                    {% if office.registration_document %}<div><i class="bx bx-file"></i> <a href="{{ office.registration_document.url }}" target="_blank" rel="noopener">View registration document</a></div>{% endif %}
+                    <div><i class="bx bx-calendar"></i> Registered {{ office.created_at|date:"d M Y" }}</div>
+                  </div>
+                </div>
+              </div>
+
+              {% if office.status == 'rejected' and office.rejection_reason %}
+                <div class="rejection-note"><i class="bx bx-info-circle"></i> Rejected: {{ office.rejection_reason }}</div>
+              {% elif office.status == 'suspended' and office.rejection_reason %}
+                <div class="rejection-note"><i class="bx bx-info-circle"></i> Suspended: {{ office.rejection_reason }}</div>
+              {% endif %}
+
+              {% if office.status == 'pending' %}
+                <div class="office-actions">
+                  <form method="post" style="display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="office_id" value="{{ office.id }}">
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit" class="btn-sm btn-approve"><i class="bx bx-check"></i> Approve</button>
+                  </form>
+                  <button type="button" class="btn-sm btn-reject" onclick="document.getElementById('reject-form-{{ office.id }}').classList.toggle('show')">
+                    <i class="bx bx-x"></i> Reject
+                  </button>
+                </div>
+                <form method="post" class="reject-form" id="reject-form-{{ office.id }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="office_id" value="{{ office.id }}">
+                  <input type="hidden" name="action" value="reject">
+                  <input type="text" name="reason" placeholder="Reason for rejection (optional)">
+                  <button type="submit" class="btn-sm btn-reject">Confirm Reject</button>
+                </form>
+              {% elif office.status == 'approved' %}
+                <div class="office-actions">
+                  <button type="button" class="btn-sm btn-suspend" onclick="document.getElementById('suspend-form-{{ office.id }}').classList.toggle('show')">
+                    <i class="bx bx-block"></i> Suspend
+                  </button>
+                </div>
+                <form method="post" class="reject-form" id="suspend-form-{{ office.id }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="office_id" value="{{ office.id }}">
+                  <input type="hidden" name="action" value="suspend">
+                  <input type="text" name="reason" placeholder="Reason for suspension (optional)">
+                  <button type="submit" class="btn-sm btn-suspend">Confirm Suspend</button>
+                </form>
+              {% elif office.status == 'suspended' %}
+                <div class="office-actions">
+                  <form method="post" style="display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="office_id" value="{{ office.id }}">
+                    <input type="hidden" name="action" value="reactivate">
+                    <button type="submit" class="btn-sm btn-approve"><i class="bx bx-refresh"></i> Reactivate</button>
+                  </form>
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="alert alert-info"><i class="bx bx-info-circle me-2"></i>No offices in this status.</div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -18,6 +18,7 @@ from . import mobile_payroll_api as payroll
 from . import mobile_reports_api as reports
 from . import mobile_misc_api as misc
 from . import mobile_tasks_api as tasks
+from . import mobile_teams_api as teams
 
 app_name = 'mobile_api'
 
@@ -101,4 +102,13 @@ urlpatterns = [
     path('api/v1/tasks/<int:id>', tasks.TaskDetailView.as_view(), name='task_detail'),
     path('api/v1/tasks/<int:id>/updates', tasks.TaskStatusUpdateView.as_view(), name='task_status_update'),
     path('api/v1/projects', tasks.MyProjectsView.as_view(), name='my_projects'),
+
+    # 17. Teams & Team Task Board (6 routes) - beyond the original spec, mirrors
+    # the web app's Team Task Board (swimlanes/sprints/comments+attachments).
+    path('api/v1/teams', teams.MyTeamsView.as_view(), name='my_teams'),
+    path('api/v1/teams/<int:id>/board', teams.TeamBoardView.as_view(), name='team_board'),
+    path('api/v1/teams/<int:id>/board/tasks', teams.TeamBoardAddTaskView.as_view(), name='team_board_add_task'),
+    path('api/v1/teams/tasks/<int:id>', teams.TeamTaskDetailView.as_view(), name='team_task_detail'),
+    path('api/v1/teams/tasks/<int:id>/comments', teams.TeamTaskCommentView.as_view(), name='team_task_comment'),
+    path('api/v1/teams/tasks/<int:id>/attachments', teams.TeamTaskAttachmentView.as_view(), name='team_task_attachment'),
 ]

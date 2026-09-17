@@ -9,6 +9,7 @@ from decimal import Decimal
 import uuid
 from decimal import Decimal
 from django.core.exceptions import ValidationError
+from django.utils.text import slugify
 
 class Office(models.Model):
     """A tenant / company using this HRMS. Every Employee, Attendance,
@@ -95,6 +96,24 @@ class Office(models.Model):
         self.approved_by = admin_user
         self.approved_at = timezone.now()
         self.rejection_reason = reason
+        self.save(update_fields=['status', 'approved_by', 'approved_at', 'rejection_reason', 'updated_at'])
+
+    def suspend(self, admin_user, reason=''):
+        """Temporarily disable an already-approved office - blocks it without
+        touching its data, unlike reject() which is for a registration that
+        never went live."""
+        self.status = self.Status.SUSPENDED
+        self.approved_by = admin_user
+        self.approved_at = timezone.now()
+        self.rejection_reason = reason
+        self.save(update_fields=['status', 'approved_by', 'approved_at', 'rejection_reason', 'updated_at'])
+
+    def reactivate(self, admin_user):
+        """Lift a suspension and restore the office to approved."""
+        self.status = self.Status.APPROVED
+        self.approved_by = admin_user
+        self.approved_at = timezone.now()
+        self.rejection_reason = ''
         self.save(update_fields=['status', 'approved_by', 'approved_at', 'rejection_reason', 'updated_at'])
 
     @property
@@ -3252,20 +3271,63 @@ class PasswordResetRequest(models.Model):
 # DOCUMENT UPLOAD SYSTEM
 # ===========================
 
+class DocumentType(models.Model):
+    """A document employees at an office must submit (10th Marksheet, Offer
+    Letter, ...) - office/branch-configurable by whoever holds
+    'employees.manage', the same way LeaveType is. Creating one is what makes
+    a new upload slot appear on every eligible employee's My Documents page."""
+
+    office = models.ForeignKey(
+        Office,
+        on_delete=models.CASCADE,
+        related_name='document_types',
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Leave blank to require this document office-wide, across every branch.",
+    )
+    name = models.CharField(max_length=100, help_text="e.g. 10th Marksheet, Offer Letter")
+    code = models.SlugField(max_length=60, blank=True, help_text="Auto-generated from the name if left blank.")
+    description = models.TextField(blank=True)
+    is_required = models.BooleanField(
+        default=True,
+        help_text="Required documents are flagged as outstanding until the employee submits one.",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Inactive types are hidden from employees but existing uploads are kept.",
+    )
+    display_order = models.IntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_document_types',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['display_order', 'name']
+        verbose_name = 'Document Type'
+        verbose_name_plural = 'Document Types'
+        constraints = [
+            models.UniqueConstraint(fields=['office', 'code'], name='unique_document_type_code_per_office'),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.office.name if self.office else 'Global'})"
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = slugify(self.name)[:60]
+        super().save(*args, **kwargs)
+
+
 class EmployeeDocument(models.Model):
     """Track employee document uploads and verification status."""
-    
-    class DocumentType(models.TextChoices):
-        MARKSHEET_10TH = ('marksheet_10th', '10th Marksheet')
-        MARKSHEET_12TH = ('marksheet_12th', '12th Marksheet')
-        AADHAR_FRONT = ('aadhar_front', 'Aadhar Front')
-        AADHAR_BACK = ('aadhar_back', 'Aadhar Back')
-        PAN = ('pan', 'PAN Card')
-        BANK_PROOF = ('bank_proof', 'Bank Proof')
-        EDUCATION_PROOF = ('education_proof', 'Education Proof')
-        ADDRESS_PROOF = ('address_proof', 'Address Proof')
-        OTHER = ('other', 'Other Document')
-    
+
     class VerificationStatus(models.TextChoices):
         PENDING = ('pending', 'Pending')
         SUBMITTED = ('submitted', 'Submitted')
@@ -3284,17 +3346,18 @@ class EmployeeDocument(models.Model):
         'Branch', on_delete=models.SET_NULL, null=True, blank=True,
         help_text="The branch this record belongs to",
     )
-    
+
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
         related_name='documents',
         help_text="Employee who uploaded the document"
     )
-    document_type = models.CharField(
-        max_length=50,
-        choices=DocumentType.choices,
-        help_text="Type of document"
+    document_type = models.ForeignKey(
+        DocumentType,
+        on_delete=models.PROTECT,
+        related_name='employee_documents',
+        help_text="Type of document",
     )
     file = models.FileField(
         upload_to='employee_docs/%Y/%m/%d/',
@@ -3350,9 +3413,12 @@ class EmployeeDocument(models.Model):
             models.Index(fields=['employee', '-uploaded_at']),
             models.Index(fields=['status', '-uploaded_at']),
         ]
-    
+        constraints = [
+            models.UniqueConstraint(fields=['employee', 'document_type'], name='unique_document_per_employee_type'),
+        ]
+
     def __str__(self):
-        return f"{self.employee.name} - {self.get_document_type_display()}"
+        return f"{self.employee.name} - {self.document_type.name}"
     
     @property
     def file_extension(self):

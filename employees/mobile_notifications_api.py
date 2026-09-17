@@ -112,7 +112,17 @@ class UnreadCountView(MobileAPIView):
 @extend_schema(
     responses=EnvelopeResponseSerializer,
     tags=[TAG], summary="Register a device for push",
-    description="Stores the FCM token so nothing needs to change client-side once push delivery is actually wired up - no message is sent through Firebase yet.",
+    description=(
+        "Call this once after login (and again whenever the FCM token refreshes - "
+        "Firebase can rotate it at any time) so the backend knows where to push "
+        "notifications for this device. `deviceId` should be a stable, "
+        "client-generated identifier (persisted locally, not regenerated per "
+        "launch) so re-registering the same device updates its token instead of "
+        "creating a duplicate - a device with no `fcmToken` yet (e.g. permission "
+        "not granted) is still fine to register, it just won't receive pushes "
+        "until a token is added. An employee can have several registered devices "
+        "at once (phone + tablet, etc.) - every one of them gets pushed to."
+    ),
     request=RegisterDeviceRequestSerializer,
 )
 class RegisterDeviceView(MobileAPIView):

@@ -7,7 +7,7 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter, OpenApiTypes
 
 from .mobile_response import MobileAPIView, MobileAPIException, EnvelopeResponseSerializer
-from .models import EmployeeDocument
+from .models import EmployeeDocument, DocumentType
 
 TAG = 'Documents (KYC)'
 DOCUMENT_ID_PARAM = OpenApiParameter(
@@ -29,6 +29,18 @@ SLOTS = [
     ('pan_card', 'pan', 'PAN Card', 'Financial & Tax KYC', ('application/pdf', 'image/jpeg')),
 ]
 SLOT_BY_SPEC_ID = {row[0]: row for row in SLOTS}
+
+
+def _doc_types_by_code(employee):
+    """document_type is now an office-configurable FK, not a fixed string -
+    resolve this employee's office's DocumentType rows for the five fixed
+    KYC slot codes this spec contract promises. A slot an office hasn't
+    been seeded with (e.g. a brand new office) just serves as NOT_UPLOADED."""
+    codes = [s[1] for s in SLOTS]
+    return {
+        dt.code: dt
+        for dt in DocumentType.objects.filter(office=employee.office, code__in=codes)
+    }
 
 _STATUS_MAP = {
     EmployeeDocument.VerificationStatus.PENDING: 'PENDING',
@@ -68,9 +80,10 @@ class DocumentsView(MobileAPIView):
 
     def get(self, request):
         employee = request.user.employee_profile
+        doc_types = _doc_types_by_code(employee)
         existing = {
-            d.document_type: d
-            for d in EmployeeDocument.objects.filter(employee=employee, document_type__in=[s[1] for s in SLOTS])
+            d.document_type.code: d
+            for d in EmployeeDocument.objects.filter(employee=employee, document_type__in=doc_types.values()).select_related('document_type')
         }
         documents = [
             _serialize(spec_id, model_type, name, category, accepted, existing.get(model_type))
@@ -112,8 +125,12 @@ class DocumentUploadView(MobileAPIView):
             raise MobileAPIException('FILE_TOO_LARGE', f'{name} must be 10 MB or smaller.', 413)
 
         employee = request.user.employee_profile
+        doc_type, _dt_created = DocumentType.objects.get_or_create(
+            office=employee.office, code=model_type,
+            defaults={'name': name, 'is_required': True, 'is_active': True},
+        )
         doc, _created = EmployeeDocument.objects.update_or_create(
-            employee=employee, document_type=model_type,
+            employee=employee, document_type=doc_type,
             defaults={
                 'office': employee.office, 'branch': employee.branch,
                 'file': file_obj, 'status': EmployeeDocument.VerificationStatus.SUBMITTED,
@@ -141,7 +158,8 @@ class DocumentPreviewView(MobileAPIView):
         _spec_id, model_type, name, _category, _accepted = row
 
         employee = request.user.employee_profile
-        doc = EmployeeDocument.objects.filter(employee=employee, document_type=model_type).first()
+        doc_type = DocumentType.objects.filter(office=employee.office, code=model_type).first()
+        doc = EmployeeDocument.objects.filter(employee=employee, document_type=doc_type).first() if doc_type else None
         if doc is None or not doc.file:
             raise MobileAPIException('NOT_FOUND', f'{name} has not been uploaded yet.', 404)
 
@@ -157,7 +175,8 @@ class DocumentsSummaryView(MobileAPIView):
 
     def get(self, request):
         employee = request.user.employee_profile
-        docs = list(EmployeeDocument.objects.filter(employee=employee, document_type__in=[s[1] for s in SLOTS]))
+        doc_types = _doc_types_by_code(employee)
+        docs = list(EmployeeDocument.objects.filter(employee=employee, document_type__in=doc_types.values()))
         verified = sum(1 for d in docs if d.status == EmployeeDocument.VerificationStatus.VERIFIED)
         pending = sum(1 for d in docs if d.status in (EmployeeDocument.VerificationStatus.PENDING, EmployeeDocument.VerificationStatus.SUBMITTED))
         rejected = sum(1 for d in docs if d.status == EmployeeDocument.VerificationStatus.REJECTED)

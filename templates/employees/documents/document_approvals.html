@@ -1,0 +1,400 @@
+{% extends layout_path %}
+
+{% block title %}Document Approvals | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .docapproval-shell {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0.75rem 0 2rem;
+  }
+
+  .docapproval-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .docapproval-header h1 i { color: #2563eb; }
+
+  .docapproval-header p {
+    font-size: 0.9rem;
+    color: rgba(15, 23, 42, 0.65);
+    margin: 0.2rem 0 1.4rem;
+  }
+
+  .document-admin-card {
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .docapproval-employee {
+    font-size: 0.78rem;
+    color: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .history-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    background: rgba(248, 250, 252, 0.75);
+    border-radius: 18px;
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    color: rgba(15, 23, 42, 0.55);
+  }
+
+  .history-empty i { font-size: 2.3rem; color: rgba(37, 99, 235, 0.55); margin-bottom: 0.5rem; }
+
+  .docapproval-filters {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 1.2rem;
+  }
+
+  .docapproval-filters .form-control,
+  .docapproval-filters .form-select {
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.55rem 0.9rem;
+    font-size: 0.88rem;
+  }
+
+  .docapproval-search {
+    flex: 1 1 240px;
+    min-width: 200px;
+  }
+
+  .docapproval-employee-select {
+    flex: 0 1 220px;
+  }
+
+  .docapproval-filters .btn-clear {
+    border-radius: 12px;
+    padding: 0.55rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.6);
+    background: rgba(148, 163, 184, 0.16);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docapproval-shell">
+  <div class="docapproval-header">
+    <h1><i class="bx bx-check-shield"></i> Document Approvals</h1>
+    <p>Every document employees have submitted and are waiting on a decision for.</p>
+  </div>
+
+  <form method="get" class="docapproval-filters">
+    <input type="text" name="q" class="form-control docapproval-search" placeholder="Search employee by name..." value="{{ search_query }}">
+    <select name="employee" class="form-select docapproval-employee-select" onchange="this.form.submit()">
+      <option value="">All employees</option>
+      {% for choice in employee_choices %}
+        <option value="{{ choice.employee_id }}" {% if selected_employee_id == choice.employee_id|stringformat:"s" %}selected{% endif %}>
+          {{ choice.employee__name }}
+        </option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm"><i class="bx bx-search me-1"></i>Search</button>
+    {% if search_query or selected_employee_id %}
+      <a href="{% url 'employees:document_approvals' %}" class="btn-clear"><i class="bx bx-x me-1"></i>Clear filters</a>
+    {% endif %}
+  </form>
+
+  {% if pending_documents %}
+    {% for doc in pending_documents %}
+      <div class="document-admin-card">
+        <div class="docapproval-employee">
+          <i class="bx bx-user"></i> {{ doc.employee.name|default:doc.employee.user.get_full_name }}
+          {% if doc.employee.employee_id %}&middot; {{ doc.employee.employee_id }}{% endif %}
+        </div>
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="fw-semibold">{{ doc.document_type.name }}</span>
+          <span class="badge bg-label-info">{{ doc.get_status_display }}</span>
+        </div>
+        <div class="mb-2 d-flex flex-wrap gap-2">
+          <button type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  data-view-document
+                  data-doc-url="{{ doc.file.url }}"
+                  data-doc-title="{{ doc.document_type.name }}">
+            <i class="bx bx-show me-1"></i>View
+          </button>
+          <button class="btn btn-sm btn-outline-success verify-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.document_type.name }}">
+            <i class="bx bx-check me-1"></i>Verify
+          </button>
+          <button class="btn btn-sm btn-outline-warning resubmit-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.document_type.name }}">
+            <i class="bx bx-refresh me-1"></i>Request Resubmit
+          </button>
+        </div>
+        <small class="text-muted d-block">Uploaded: {{ doc.uploaded_at|date:"M d, Y H:i" }}</small>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="history-empty">
+      <i class="bx bx-check-circle"></i>
+      {% if search_query or selected_employee_id %}
+        <p class="mb-0">No pending documents match this filter.</p>
+      {% else %}
+        <p class="mb-0">Nothing waiting on review right now.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-view-document]').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const docUrl = this.dataset.docUrl;
+        const docTitle = this.dataset.docTitle;
+
+        if (!docUrl) {
+          alert('Document URL not found');
+          return;
+        }
+
+        const modalId = 'viewDocModal_' + Math.random().toString(36).substr(2, 9);
+        const modalHtml = `
+          <div class="modal fade" id="${modalId}" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+              <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-gradient border-0 py-3">
+                  <h5 class="modal-title fw-bold text-white">
+                    <i class="bx bx-file me-2"></i>${docTitle}
+                  </h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0" style="max-height: 70vh; overflow-y: auto;">
+                  <iframe src="${docUrl}" style="width: 100%; height: 100%; border: none; min-height: 500px;"></iframe>
+                </div>
+                <div class="modal-footer border-0 py-3">
+                  <a href="${docUrl}" class="btn btn-primary" download>
+                    <i class="bx bx-download me-1"></i>Download
+                  </a>
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bx bx-x me-1"></i>Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const modalContainer = document.createElement('div');
+        modalContainer.innerHTML = modalHtml;
+        document.body.appendChild(modalContainer);
+
+        const modal = new bootstrap.Modal(document.getElementById(modalId));
+        modal.show();
+
+        document.getElementById(modalId).addEventListener('hidden.bs.modal', () => {
+          document.getElementById(modalId).parentElement.remove();
+        });
+      });
+    });
+
+    document.querySelectorAll('.verify-doc-btn').forEach(btn => {
+      btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+
+        const docId = this.dataset.docId;
+        const docType = this.dataset.docType;
+        const card = this.closest('.document-admin-card');
+        const btnElement = this;
+
+        showConfirmationModal(docType, async () => {
+          const originalText = btnElement.innerHTML;
+          btnElement.disabled = true;
+          btnElement.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Verifying...';
+
+          try {
+            const response = await fetch(`/api/documents/${docId}/verify/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+              }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+              const badge = card.querySelector('.badge');
+              badge.textContent = 'Verified';
+              badge.className = 'badge bg-label-success';
+              btnElement.remove();
+              showNotification('Document verified successfully!', 'success');
+              setTimeout(() => card.remove(), 800);
+            } else {
+              showNotification(data.error || 'Failed to verify document', 'error');
+              btnElement.disabled = false;
+              btnElement.innerHTML = originalText;
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            showNotification('Error verifying document', 'error');
+            btnElement.disabled = false;
+            btnElement.innerHTML = originalText;
+          }
+        });
+      });
+    });
+
+    document.querySelectorAll('.resubmit-doc-btn').forEach(btn => {
+      btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        const docId = this.dataset.docId;
+        const note = prompt('Add an optional note for the employee (leave blank to skip):') || '';
+        const btnElement = this;
+        const card = this.closest('.document-admin-card');
+        const originalText = btnElement.innerHTML;
+        btnElement.disabled = true;
+        btnElement.innerHTML = '<i class="bx bx-loader-alt bx-spin me-1"></i>Requesting...';
+
+        try {
+          const response = await fetch(`/api/documents/${docId}/request-resubmit/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: new URLSearchParams({ reason: note })
+          });
+          const data = await response.json();
+          if (data.success) {
+            showNotification('Resubmission requested from employee.', 'success');
+            setTimeout(() => card.remove(), 800);
+          } else {
+            showNotification(data.error || 'Unable to request resubmission', 'error');
+            btnElement.disabled = false;
+            btnElement.innerHTML = originalText;
+          }
+        } catch (error) {
+          console.error(error);
+          showNotification('Error requesting resubmission', 'error');
+          btnElement.disabled = false;
+          btnElement.innerHTML = originalText;
+        }
+      });
+    });
+
+    function showConfirmationModal(docType, onConfirm) {
+      const modalId = 'confirmVerifyModal_' + Math.random().toString(36).substr(2, 9);
+      const modalHtml = `
+        <div class="modal fade" id="${modalId}" tabindex="-1" role="dialog" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content border-0 shadow-lg">
+              <div class="modal-header bg-gradient border-0 py-4">
+                <h5 class="modal-title fw-bold text-white">
+                  <i class="bx bx-check-circle me-2"></i>Verify Document
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body py-4">
+                <div class="text-center mb-3">
+                  <i class="bx bx-question-mark" style="font-size: 3rem; color: #6370ff;"></i>
+                </div>
+                <p class="text-center mb-0">
+                  <strong>Are you sure you want to verify this document?</strong><br>
+                  <span class="text-muted small">This action is irreversible.</span>
+                </p>
+              </div>
+              <div class="modal-footer border-0 pt-0 pb-4 px-4">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                  <i class="bx bx-x me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-success" id="confirmVerifyBtn">
+                  <i class="bx bx-check me-1"></i>Yes, Verify
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const modalContainer = document.createElement('div');
+      modalContainer.innerHTML = modalHtml;
+      document.body.appendChild(modalContainer);
+
+      const modal = new bootstrap.Modal(document.getElementById(modalId));
+      modal.show();
+
+      document.getElementById('confirmVerifyBtn').addEventListener('click', async () => {
+        modal.hide();
+        await onConfirm();
+        setTimeout(() => {
+          document.getElementById(modalId).parentElement.remove();
+        }, 300);
+      });
+
+      document.getElementById(modalId).addEventListener('hidden.bs.modal', () => {
+        document.getElementById(modalId).parentElement.remove();
+      });
+    }
+
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+
+    function showNotification(message, type = 'info') {
+      const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+      const icon = type === 'success' ? 'bx-check-circle' : 'bx-exclamation-circle';
+
+      const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+          <i class="bx ${icon} me-2"></i>
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      `;
+
+      const container = document.querySelector('.docapproval-shell') || document.body;
+      const alertEl = document.createElement('div');
+      alertEl.innerHTML = alertHtml;
+      container.insertBefore(alertEl.firstElementChild, container.firstChild);
+
+      setTimeout(() => {
+        const alert = container.querySelector('.alert');
+        if (alert) {
+          const bsAlert = new bootstrap.Alert(alert);
+          bsAlert.close();
+        }
+      }, 5000);
+    }
+  });
+</script>
+{% endblock %}

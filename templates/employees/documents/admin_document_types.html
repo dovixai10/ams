@@ -1,0 +1,519 @@
+{% extends layout_path %}
+
+{% block title %}Document Types | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .doctype-shell {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    padding: 0.75rem 0 2rem;
+  }
+
+  .doctype-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .doctype-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .doctype-header h1 i { color: #2563eb; }
+
+  .doctype-header p {
+    font-size: 0.9rem;
+    color: rgba(15, 23, 42, 0.65);
+    margin: 0.2rem 0 0;
+  }
+
+  .doctype-new-btn {
+    border-radius: 14px;
+    padding: 0.65rem 1.2rem;
+    font-weight: 600;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+  }
+
+  .doctype-card {
+    background: linear-gradient(160deg, rgba(59, 130, 246, 0.09), rgba(37, 99, 235, 0.02));
+    border-radius: 22px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    box-shadow: 0 24px 48px rgba(37, 99, 235, 0.12);
+    padding: 1.4rem 1.4rem 1.6rem;
+    display: none;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  .doctype-card.is-open {
+    display: flex;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .doctype-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .doctype-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  .doctype-card__title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0.25rem 0 0;
+    color: #0f172a;
+  }
+
+  .doctype-close-btn {
+    border: none;
+    background: rgba(148, 163, 184, 0.18);
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(15, 23, 42, 0.6);
+    flex-shrink: 0;
+  }
+
+  .doctype-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .doctype-form .doctype-field.full-width { grid-column: 1 / -1; }
+
+  .doctype-field { display: flex; flex-direction: column; gap: 0.4rem; }
+
+  .doctype-field label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.75);
+  }
+
+  .doctype-field .form-control,
+  .doctype-field textarea {
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.65rem 0.9rem;
+    font-size: 0.92rem;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.12);
+  }
+
+  .doctype-field textarea { min-height: 80px; resize: vertical; }
+
+  .doctype-switch {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(255, 255, 255, 0.75);
+  }
+
+  .doctype-switch input { width: 1.05rem; height: 1.05rem; }
+
+  .doctype-switch label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.75);
+    margin: 0;
+  }
+
+  .doctype-submit-row {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  .doctype-submit { border-radius: 14px; padding: 0.7rem 1.4rem; font-weight: 600; box-shadow: 0 18px 36px rgba(37, 99, 235, 0.18); }
+  .doctype-cancel { border-radius: 14px; padding: 0.7rem 1.2rem; font-weight: 600; }
+
+  .history-list { display: flex; flex-direction: column; gap: 0.9rem; }
+
+  .history-entry {
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    padding: 20px;
+    transition: all 0.2s ease;
+  }
+
+  .history-entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .dt-name-block { display: flex; flex-direction: column; gap: 0.2rem; flex: 1; min-width: 200px; }
+
+  .dt-name { font-size: 1.05rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+  .dt-code-badge {
+    padding: 0.15rem 0.55rem;
+    border-radius: 8px;
+    background: rgba(148, 163, 184, 0.18);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: rgba(15, 23, 42, 0.65);
+    letter-spacing: 0.04em;
+  }
+
+  .dt-required-badge {
+    padding: 0.15rem 0.55rem;
+    border-radius: 8px;
+    background: rgba(37, 99, 235, 0.12);
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #1d4ed8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .dt-desc { font-size: 0.82rem; color: rgba(15, 23, 42, 0.55); }
+
+  .history-meta-right { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; flex-shrink: 0; }
+
+  .status-toggle-form { display: inline-flex; }
+
+  .status-toggle-btn {
+    border: none;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .status-dot-approved { background: #10b981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
+  .status-dot-pending { background: #94a3b8; box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.25); }
+  .status-toggle-btn.is-active { background: rgba(16, 185, 129, 0.12); color: #047857; }
+  .status-toggle-btn.is-inactive { background: rgba(148, 163, 184, 0.16); color: rgba(15, 23, 42, 0.55); }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+  }
+
+  .icon-btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+  .history-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    background: rgba(248, 250, 252, 0.75);
+    border-radius: 18px;
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    color: rgba(15, 23, 42, 0.55);
+  }
+
+  .history-empty i { font-size: 2.3rem; color: rgba(37, 99, 235, 0.55); margin-bottom: 0.5rem; }
+
+  .toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 400px;
+  }
+
+  .toast {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    border-left: 4px solid #2563eb;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    animation: toastSlideIn 0.3s ease;
+    min-width: 280px;
+  }
+
+  .toast.toast-success { border-left-color: #10b981; }
+  .toast.toast-error { border-left-color: #ef4444; }
+  .toast-icon { font-size: 1.25rem; flex-shrink: 0; }
+  .toast.toast-success .toast-icon { color: #10b981; }
+  .toast.toast-error .toast-icon { color: #ef4444; }
+  .toast-message { flex: 1; font-size: 0.9rem; color: #0f172a; }
+
+  @keyframes toastSlideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes toastSlideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+  .toast.fade-out { animation: toastSlideOut 0.3s ease forwards; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="doctype-shell">
+
+  <div class="doctype-header">
+    <div>
+      <h1><i class="bx bx-file"></i> Document Types</h1>
+      <p>Create the documents employees must submit - each one appears as an upload slot on their My Documents page.</p>
+    </div>
+    <button type="button" class="btn btn-primary doctype-new-btn" id="openCreatePanelBtn">
+      <i class="bx bx-plus me-1"></i>New Document Type
+    </button>
+  </div>
+
+  <!-- Create / Edit Panel -->
+  <div class="doctype-card" id="docTypeCard">
+    <div class="doctype-card__header">
+      <div>
+        <span class="doctype-chip"><i class="bx bx-edit"></i> <span id="panelModeLabel">New document type</span></span>
+        <h2 class="doctype-card__title" id="panelTitle">Create a document type</h2>
+      </div>
+      <button type="button" class="doctype-close-btn" id="closeCreatePanelBtn" aria-label="Close">
+        <i class="bx bx-x"></i>
+      </button>
+    </div>
+
+    <form method="post" id="docTypeForm" action="{% url 'employees:admin_document_types' %}">
+      {% csrf_token %}
+      <div class="doctype-form">
+        <div class="doctype-field">
+          <label for="id_name">Name <span class="text-danger">*</span></label>
+          {{ form.name }}
+        </div>
+        <div class="doctype-field">
+          <label for="id_code">Code</label>
+          {{ form.code }}
+        </div>
+        <div class="doctype-field full-width">
+          <label for="id_description">Description</label>
+          {{ form.description }}
+        </div>
+        <div class="doctype-field">
+          <label for="id_display_order">Display Order</label>
+          {{ form.display_order }}
+        </div>
+
+        <div class="doctype-switch">
+          {{ form.is_required }}
+          <label for="id_is_required">Required</label>
+        </div>
+        <div class="doctype-switch">
+          {{ form.is_active }}
+          <label for="id_is_active">Active</label>
+        </div>
+
+        <div class="doctype-submit-row">
+          <button type="button" class="btn btn-label-secondary doctype-cancel" id="cancelFormBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary doctype-submit" id="docTypeSubmitBtn">
+            <i class="bx bx-check me-1"></i>Save Document Type
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- List -->
+  <div>
+    {% if doc_types %}
+      <div class="history-list">
+        {% for dt in doc_types %}
+          <div class="history-entry">
+            <div class="history-entry-header">
+              <div class="dt-name-block">
+                <div class="dt-name">
+                  {{ dt.name }}
+                  <span class="dt-code-badge">{{ dt.code }}</span>
+                  {% if dt.is_required %}<span class="dt-required-badge">Required</span>{% endif %}
+                  {% if dt.branch %}<span class="dt-code-badge">{{ dt.branch.name }} only</span>{% endif %}
+                </div>
+                {% if dt.description %}
+                  <div class="dt-desc">{{ dt.description|truncatechars:120 }}</div>
+                {% endif %}
+              </div>
+
+              <div class="history-meta-right">
+                <form method="post" action="{% url 'employees:admin_document_type_toggle' dt.pk %}" class="status-toggle-form">
+                  {% csrf_token %}
+                  <button type="submit" class="status-toggle-btn {% if dt.is_active %}is-active{% else %}is-inactive{% endif %}">
+                    <span class="status-dot {% if dt.is_active %}status-dot-approved{% else %}status-dot-pending{% endif %}"></span>
+                    {% if dt.is_active %}Active{% else %}Inactive{% endif %}
+                  </button>
+                </form>
+
+                <button type="button" class="icon-btn js-edit-doctype"
+                  data-id="{{ dt.pk }}"
+                  data-url="{% url 'employees:admin_document_type_update' dt.pk %}"
+                  data-name="{{ dt.name }}"
+                  data-code="{{ dt.code }}"
+                  data-description="{{ dt.description }}"
+                  data-display_order="{{ dt.display_order }}"
+                  data-is_required="{{ dt.is_required|yesno:'true,false' }}"
+                  data-is_active="{{ dt.is_active|yesno:'true,false' }}"
+                  aria-label="Edit {{ dt.name }}">
+                  <i class="bx bx-edit"></i>
+                </button>
+
+                <form method="post" action="{% url 'employees:admin_document_type_delete' dt.pk %}" class="d-inline"
+                  onsubmit="return confirm('Delete {{ dt.name }}? This cannot be undone.');">
+                  {% csrf_token %}
+                  <button type="submit" class="icon-btn danger" aria-label="Delete {{ dt.name }}">
+                    <i class="bx bx-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="history-empty">
+        <i class="bx bx-file-blank"></i>
+        <p class="mb-1">No document types created yet</p>
+        <p class="mb-0 small">Click "New Document Type" above to create your first one - e.g. 10th Marksheet, Offer Letter.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+  function showToast(message, type = 'success') {
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'toast-container';
+      container.id = 'toastContainer';
+      container.setAttribute('role', 'region');
+      container.setAttribute('aria-live', 'polite');
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', 'alert');
+    const icon = type === 'success' ? 'bx-check-circle' : 'bx-error-circle';
+    toast.innerHTML = `<i class="bx ${icon} toast-icon"></i><span class="toast-message">${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const card = document.getElementById('docTypeCard');
+    const form = document.getElementById('docTypeForm');
+    const panelTitle = document.getElementById('panelTitle');
+    const panelModeLabel = document.getElementById('panelModeLabel');
+    const submitBtn = document.getElementById('docTypeSubmitBtn');
+    const createUrl = "{% url 'employees:admin_document_types' %}";
+
+    function openPanel() {
+      card.classList.add('is-open');
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function closePanel() {
+      card.classList.remove('is-open');
+    }
+
+    function resetToCreateMode() {
+      form.reset();
+      form.action = createUrl;
+      panelTitle.innerText = 'Create a document type';
+      panelModeLabel.innerText = 'New document type';
+      submitBtn.innerHTML = '<i class="bx bx-check me-1"></i>Save Document Type';
+    }
+
+    document.getElementById('openCreatePanelBtn').addEventListener('click', function () {
+      resetToCreateMode();
+      openPanel();
+    });
+
+    document.getElementById('closeCreatePanelBtn').addEventListener('click', closePanel);
+    document.getElementById('cancelFormBtn').addEventListener('click', closePanel);
+
+    document.querySelectorAll('.js-edit-doctype').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const d = btn.dataset;
+        form.action = d.url;
+        panelTitle.innerText = `Edit "${d.name}"`;
+        panelModeLabel.innerText = 'Edit document type';
+        submitBtn.innerHTML = '<i class="bx bx-check me-1"></i>Update Document Type';
+
+        form.querySelector('[name="name"]').value = d.name || '';
+        form.querySelector('[name="code"]').value = d.code || '';
+        form.querySelector('[name="description"]').value = d.description || '';
+        form.querySelector('[name="display_order"]').value = d.display_order || 0;
+        form.querySelector('[name="is_required"]').checked = (d.is_required === 'true');
+        form.querySelector('[name="is_active"]').checked = (d.is_active === 'true');
+
+        openPanel();
+      });
+    });
+
+    {% if form.errors %}
+      openPanel();
+    {% endif %}
+
+    {% if messages %}
+      {% for message in messages %}
+        {% if message.tags == 'success' %}
+          showToast('{{ message|escapejs }}', 'success');
+        {% elif message.tags == 'error' %}
+          showToast('{{ message|escapejs }}', 'error');
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  });
+</script>
+{% endblock %}
