@@ -67,6 +67,11 @@ urlpatterns = [
     path('leave/requests/', views.employee_leave_requests, name='employee_leave_requests'),
     path('leave/manage/', views.admin_leave_requests, name='admin_leave_requests'),
 
+    # Attendance Regularization URLs
+    path('attendance/regularization/', views.employee_attendance_regularization_requests, name='employee_attendance_regularization_requests'),
+    path('attendance/regularization/<int:pk>/cancel/', views.cancel_attendance_regularization_request, name='cancel_attendance_regularization_request'),
+    path('attendance/regularization/manage/', views.admin_attendance_regularization_requests, name='admin_attendance_regularization_requests'),
+
     # Attendance URLs
     path('attendance/', views.AttendanceListView.as_view(), name='attendance_list'),  # Admin only
     path('my-attendance/', views.my_attendance_logs, name='my_attendance_logs'),  # Employee only

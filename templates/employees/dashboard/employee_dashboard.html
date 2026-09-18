@@ -933,6 +933,16 @@ body {
                 <span class="service-card__title">Leave requests</span>
               </a>
 
+              <a href="{% url 'employees:employee_attendance_regularization_requests' %}" class="service-card">
+                <span class="service-card__icon" style="background: linear-gradient(135deg, #38bdf8, #0ea5e9);"><i class="bx bx-time-five"></i></span>
+                <span class="service-card__title">Attendance regularization</span>
+              </a>
+
+              <a href="{% url 'employees:attendance_calendar' %}" class="service-card">
+                <span class="service-card__icon" style="background: linear-gradient(135deg, #34d399, #059669);"><i class="bx bx-calendar-check"></i></span>
+                <span class="service-card__title">Attendance Calendar</span>
+              </a>
+
               <a href="{% url 'employees:holidays_calendar' %}" class="service-card">
                 <span class="service-card__icon" style="background: linear-gradient(135deg, #ec4899, #f43f5e);"><i class="bx bx-calendar-event"></i></span>
                 <span class="service-card__title">Holiday Calendar</span>

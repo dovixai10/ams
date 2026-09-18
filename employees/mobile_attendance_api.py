@@ -138,7 +138,15 @@ class CheckInView(MobileAPIView):
         if not employee.has_registered_face:
             raise MobileAPIException('FACE_NOT_REGISTERED', 'Please enrol Face ID before checking in.', 409)
 
-        if Attendance.objects.filter(employee=employee, date=today, check_out_time__isnull=True).exists():
+        # Only a GENUINE open check-in (one with a real check-in photo) should
+        # block a fresh check-in - a placeholder row for today with no
+        # check_in_photo (e.g. auto-created when a leave request covering
+        # today was approved) isn't a real in-progress session, and treating
+        # it as one previously blocked check-in entirely, leaving check-out
+        # as the only reachable action against a day nobody actually checked
+        # into - producing an impossible multi-day worked duration.
+        existing_open = Attendance.objects.filter(employee=employee, date=today, check_out_time__isnull=True).first()
+        if existing_open and existing_open.check_in_photo:
             raise MobileAPIException('ALREADY_CHECKED_IN', 'An open check-in already exists for today.', 409)
 
         photo = request.FILES.get('photo')
@@ -187,9 +195,24 @@ class CheckInView(MobileAPIView):
                 "distanceMeters": round(distance, 1) if distance is not None else None,
             }
 
-        attendance = Attendance.objects.create(
-            office=employee.office, branch=employee.branch, employee=employee, date=today,
+        # get_or_create rather than a plain create() - a placeholder row for
+        # today may already exist (e.g. from an approved leave), and this is
+        # a real check-in happening right now, so it always claims that row
+        # fresh rather than colliding with the (employee, date) unique
+        # constraint or leaving stale check-in/checkout data behind.
+        attendance, _created = Attendance.objects.get_or_create(
+            employee=employee, date=today,
+            defaults={'office': employee.office, 'branch': employee.branch},
         )
+        attendance.office = employee.office
+        attendance.branch = employee.branch
+        attendance.check_in_time = timezone.now()
+        attendance.check_out_time = None
+        attendance.check_out_photo = None
+        attendance.check_out_latitude = None
+        attendance.check_out_longitude = None
+        attendance.total_work_hours = 0
+        attendance.final_status = 'present'
         file_name = f'checkin_{employee.id}_{timezone.now().strftime("%Y%m%d_%H%M%S")}.jpg'
         attendance.check_in_photo.save(file_name, ContentFile(image_bytes), save=False)
         if latitude is not None and longitude is not None:
@@ -244,7 +267,15 @@ class CheckOutView(MobileAPIView):
         employee = request.user.employee_profile
         today = timezone.localdate()
 
-        attendance = Attendance.objects.filter(employee=employee, date=today, check_out_time__isnull=True).first()
+        # check_in_photo is required: it's the signature of a genuine
+        # self-service check-in, as opposed to a placeholder Attendance row
+        # (e.g. auto-created for an approved leave day) that happens to also
+        # have check_out_time still null. Checking out against one of those
+        # would compute a duration from whatever stale check_in_time it was
+        # given rather than a real check-in that happened today.
+        attendance = Attendance.objects.filter(
+            employee=employee, date=today, check_out_time__isnull=True, check_in_photo__isnull=False,
+        ).exclude(check_in_photo='').first()
         if attendance is None:
             raise MobileAPIException('NOT_CHECKED_IN', 'No open check-in exists for today.', 409)
 

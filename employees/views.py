@@ -78,6 +78,7 @@ from .models import (
     PasswordResetRequest,
     FaceUpdateRequest,
     LeaveRequest,
+    AttendanceRegularizationRequest,
     Task,
     TaskUpdate,
     TaskAttachment,
@@ -106,6 +107,7 @@ from .forms import (
     DocumentTypeForm,
     EmployeePasswordResetForm,
     LeaveRequestForm,
+    AttendanceRegularizationRequestForm,
     LoanRequestForm,
     ReimbursementRequestForm,
     LeaveVerificationUploadForm,
@@ -2040,14 +2042,23 @@ def admin_leave_requests(request):
             while current_date <= leave_request.end_date:
                 # Keyed on (employee, date) only, matching the model's actual
                 # unique_together - branch belongs in defaults, not the lookup.
+                # check_in_time must be pinned to current_date (the leave day
+                # itself), not timezone.now() (the moment of approval) - using
+                # "now" left a placeholder row dated e.g. the 17th carrying a
+                # check_in_time from the 16th (whenever the admin happened to
+                # click approve), which produced an impossible multi-day
+                # duration the moment anything later closed it out.
+                from datetime import time as dt_time
+                placeholder_check_in = timezone.make_aware(datetime.combine(current_date, dt_time.min))
                 try:
                     attendance, created = Attendance.objects.get_or_create(
                         employee=leave_request.employee,
                         date=current_date,
                         defaults={
+                            'office': leave_request.employee.office,
                             'branch': leave_request.employee.branch,
                             'final_status': attendance_status,
-                            'check_in_time': timezone.now().replace(hour=0, minute=0, second=0),
+                            'check_in_time': placeholder_check_in,
                         }
                     )
                 except IntegrityError:
@@ -2165,6 +2176,115 @@ def admin_leave_requests(request):
     })
 
     return render(request, 'employees/leave/admin_leave_requests.html', context)
+
+
+@login_required
+@user_passes_test(is_employee)
+def employee_attendance_regularization_requests(request):
+    """Let an employee ask for a missed check-in/check-out to be marked -
+    the attendance equivalent of applying for leave."""
+    employee = request.user.employee_profile
+    requests_qs = AttendanceRegularizationRequest.objects.filter(employee=employee).select_related('attendance').order_by('-created_at')
+
+    if request.method == 'POST':
+        form = AttendanceRegularizationRequestForm(request.POST)
+        if form.is_valid():
+            reg_request = form.save(commit=False)
+            reg_request.employee = employee
+            reg_request.office = employee.office
+            reg_request.branch = employee.branch
+            reg_request.status = AttendanceRegularizationRequest.Status.PENDING
+            reg_request.save()
+
+            messages.success(request, 'Attendance regularization request submitted. We will notify you once it is reviewed.')
+            return redirect('employees:employee_attendance_regularization_requests')
+        else:
+            messages.error(request, 'Please correct the issues below and try again.')
+    else:
+        form = AttendanceRegularizationRequestForm(initial={'date': timezone.localdate()})
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'form': form,
+        'regularization_requests': requests_qs,
+    })
+    return render(request, 'employees/attendance/regularization_requests.html', context)
+
+
+@login_required
+@user_passes_test(is_employee)
+@require_http_methods(["POST"])
+def cancel_attendance_regularization_request(request, pk):
+    """Employee cancels their own still-pending regularization request."""
+    reg_request = get_object_or_404(AttendanceRegularizationRequest, pk=pk, employee=request.user.employee_profile)
+    if reg_request.status != AttendanceRegularizationRequest.Status.PENDING:
+        messages.error(request, 'Only a pending request can be cancelled.')
+    else:
+        reg_request.status = AttendanceRegularizationRequest.Status.CANCELLED
+        reg_request.save(update_fields=['status', 'updated_at'])
+        messages.success(request, 'Request cancelled.')
+    return redirect('employees:employee_attendance_regularization_requests')
+
+
+@login_required
+@user_passes_test(feature_required('attendance.manage'))
+def admin_attendance_regularization_requests(request):
+    """Admin screen to approve/reject employee attendance-regularization
+    requests. Approving one writes the real Attendance record through
+    AttendanceRegularizationRequest.approve() - same status-derivation path
+    a live check-out uses - so it's a genuine attendance mark, not a
+    CRUD-only shortcut that salary/reporting would miss."""
+
+    if request.method == 'POST':
+        request_id = request.POST.get('request_id')
+        action = request.POST.get('action')
+        admin_comment = request.POST.get('admin_comment', '')
+
+        reg_request = get_object_or_404(
+            tenant_queryset(request, AttendanceRegularizationRequest.objects.all()),
+            pk=request_id,
+        )
+        if reg_request.status != AttendanceRegularizationRequest.Status.PENDING:
+            messages.error(request, 'This request has already been reviewed.')
+        elif action == 'approve':
+            try:
+                reg_request.approve(request.user, comment=admin_comment)
+            except ValueError as e:
+                messages.error(request, f'Could not mark attendance: {e}')
+            else:
+                messages.success(
+                    request,
+                    f'Attendance for {reg_request.employee.name} on {reg_request.date} has been marked.',
+                )
+        elif action == 'reject':
+            reg_request.mark_rejected(request.user, comment=admin_comment)
+            messages.info(request, f'Request from {reg_request.employee.name} rejected.')
+        return redirect('employees:admin_attendance_regularization_requests')
+
+    status_filter = request.GET.get('status', 'pending').strip()
+    search = request.GET.get('q', '').strip()
+
+    requests_qs = tenant_queryset(
+        request, AttendanceRegularizationRequest.objects.all()
+    ).select_related('employee', 'reviewed_by').order_by('-created_at')
+
+    if status_filter and status_filter != 'all':
+        requests_qs = requests_qs.filter(status=status_filter)
+    if search:
+        requests_qs = requests_qs.filter(
+            Q(employee__name__icontains=search) | Q(employee__email__icontains=search)
+        )
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'regularization_requests': requests_qs,
+        'status_filter': status_filter,
+        'search_query': search,
+        'status_choices': AttendanceRegularizationRequest.Status.choices,
+    })
+    return render(request, 'employees/attendance/admin_regularization_requests.html', context)
 
 
 @login_required
@@ -3733,7 +3853,24 @@ def check_in(request):
             except IntegrityError:
                 attendance = Attendance.objects.get(employee=employee, date=today)
                 created = False
-            
+
+            # This is a real check-in happening right now, so check_in_time
+            # must always be "now" - not left over from get_or_create's
+            # defaults (only applied when a row is freshly created) which
+            # otherwise leaves a pre-existing placeholder row's check_in_time
+            # untouched (e.g. one auto-created for an approved leave day at
+            # a stale midnight timestamp), producing an impossible multi-day
+            # duration once check-out runs against it.
+            attendance.office = employee.office
+            attendance.branch = employee.branch
+            attendance.check_in_time = timezone.now()
+            attendance.check_out_time = None
+            attendance.check_out_photo = None
+            attendance.check_out_latitude = None
+            attendance.check_out_longitude = None
+            attendance.total_work_hours = 0
+            attendance.final_status = 'present'
+
             # Save photo and location
             attendance.check_in_photo.save(check_in_photo.name, check_in_photo, save=False)
             attendance.check_in_latitude = user_latitude
@@ -4896,8 +5033,15 @@ def check_out(request):
     today = timezone.now().date()
     ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
-    # Get today's attendance record
-    attendance = Attendance.objects.filter(office=employee.office, branch=employee.branch, employee=employee, date=today).first()
+    # Get today's attendance record - keyed on (employee, date) only, matching
+    # the model's actual unique_together, and requiring a real check_in_photo
+    # so a placeholder row (e.g. auto-created when an approved leave covers
+    # today, which never had a genuine check-in) can't be "checked out"
+    # against - that would compute a duration from whatever stale
+    # check_in_time it happened to be given rather than today's real check-in.
+    attendance = Attendance.objects.filter(
+        employee=employee, date=today,
+    ).exclude(check_in_photo='').exclude(check_in_photo__isnull=True).first()
 
     # Validation 1: Must be checked in first
     if not attendance:

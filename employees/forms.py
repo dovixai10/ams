@@ -19,6 +19,7 @@ from .models import (
     LeaveType,
     AttendanceRule,
     DocumentType,
+    AttendanceRegularizationRequest,
 )
 
 from django.utils import timezone
@@ -1074,7 +1075,38 @@ class LeaveRequestForm(forms.ModelForm):
 
         return cleaned_data
 
-    
+
+class AttendanceRegularizationRequestForm(forms.ModelForm):
+    """Form for employees to ask that a missed check-in/check-out be marked
+    for them - the reason is optional, matching how the feature was asked
+    for, but at least one of the two times is required (enforced in clean())."""
+
+    class Meta:
+        model = AttendanceRegularizationRequest
+        fields = ['date', 'requested_check_in', 'requested_check_out', 'reason']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control', 'required': True}),
+            'requested_check_in': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
+            'requested_check_out': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
+            'reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Optional - why you missed marking attendance'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        date = cleaned_data.get('date')
+        check_in = cleaned_data.get('requested_check_in')
+        check_out = cleaned_data.get('requested_check_out')
+
+        if not check_in and not check_out:
+            raise ValidationError('Provide at least a check-in or check-out time.')
+        if date and date > timezone.now().date():
+            raise ValidationError('You cannot request attendance for a future date.')
+        if check_in and check_out and check_out <= check_in:
+            raise ValidationError('Check-out time must be after check-in time.')
+
+        return cleaned_data
+
+
 class LoanRequestForm(forms.ModelForm):
     """Form for employee loan/advance submissions."""
 

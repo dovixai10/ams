@@ -11,6 +11,7 @@ from . import mobile_auth_api as auth
 from . import mobile_profile_api as profile
 from . import mobile_face_api as face
 from . import mobile_attendance_api as attendance
+from . import mobile_attendance_regularization_api as regularization
 from . import mobile_leave_api as leave
 from . import mobile_documents_api as documents
 from . import mobile_notifications_api as notifications
@@ -62,6 +63,11 @@ urlpatterns = [
     path('api/v1/leave/balances', leave.BalancesView.as_view(), name='leave_balances'),
     path('api/v1/leave/requests', leave.LeaveRequestsView.as_view(), name='leave_requests'),
     path('api/v1/leave/requests/<int:id>', leave.CancelLeaveRequestView.as_view(), name='leave_request_cancel'),
+
+    # 8b. Attendance regularization (2) - beyond the original spec, mirrors
+    # the web app's "forgot to check in/out" request-and-approve workflow.
+    path('api/v1/attendance/regularization-requests', regularization.RegularizationRequestsView.as_view(), name='attendance_regularization_requests'),
+    path('api/v1/attendance/regularization-requests/<int:id>', regularization.CancelRegularizationRequestView.as_view(), name='attendance_regularization_request_cancel'),
 
     # 10. Document verification / KYC (4)
     path('api/v1/employees/me/documents', documents.DocumentsView.as_view(), name='me_documents'),

@@ -1,0 +1,187 @@
+{% extends layout_path %}
+
+{% block title %}Attendance Regularization Requests | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .regapproval-shell {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0.75rem 0 2rem;
+  }
+
+  .regapproval-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .regapproval-header h1 i { color: #2563eb; }
+
+  .regapproval-header p {
+    font-size: 0.9rem;
+    color: rgba(15, 23, 42, 0.65);
+    margin: 0.2rem 0 1.2rem;
+  }
+
+  .regapproval-filters {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 1.2rem;
+  }
+
+  .regapproval-filters .form-control,
+  .regapproval-filters .form-select {
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.55rem 0.9rem;
+    font-size: 0.88rem;
+  }
+
+  .regapproval-search { flex: 1 1 220px; min-width: 180px; }
+  .regapproval-status-select { flex: 0 1 180px; }
+
+  .regapproval-filters .btn-clear {
+    border-radius: 12px;
+    padding: 0.55rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.6);
+    background: rgba(148, 163, 184, 0.16);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .reg-entry {
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .reg-entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .reg-employee { font-size: 0.78rem; color: rgba(15, 23, 42, 0.55); display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.3rem; }
+  .reg-date { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+  .reg-times { font-size: 0.82rem; color: rgba(15, 23, 42, 0.6); margin-top: 0.25rem; }
+  .reg-times span { margin-right: 1rem; }
+  .reg-reason { font-size: 0.82rem; color: rgba(15, 23, 42, 0.55); margin-top: 0.4rem; }
+
+  .status-badge { font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.7rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+  .status-pending { background: #fef3c7; color: #b45309; }
+  .status-approved { background: #dcfce7; color: #15803d; }
+  .status-rejected { background: #fee2e2; color: #b91c1c; }
+  .status-cancelled { background: #e5e7eb; color: #4b5563; }
+
+  .reg-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+  .btn-sm { padding: 0.4rem 0.85rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600; }
+  .btn-approve { background: #16a34a; color: #fff; }
+  .btn-reject { background: #ef4444; color: #fff; }
+
+  .reject-form { display: none; margin-top: 0.6rem; gap: 0.5rem; }
+  .reject-form.show { display: flex; flex-wrap: wrap; }
+  .reject-form input[type="text"] { flex: 1 1 220px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
+
+  .reg-reviewed { font-size: 0.78rem; color: rgba(15, 23, 42, 0.5); margin-top: 0.4rem; }
+
+  .history-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    background: rgba(248, 250, 252, 0.75);
+    border-radius: 18px;
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    color: rgba(15, 23, 42, 0.55);
+  }
+  .history-empty i { font-size: 2.3rem; color: rgba(37, 99, 235, 0.55); margin-bottom: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="regapproval-shell">
+  <div class="regapproval-header">
+    <h1><i class="bx bx-calendar-check"></i> Attendance Regularization Requests</h1>
+    <p>Approving marks real attendance for that date - the same way an actual check-in/check-out would, so salary and reports pick it up correctly.</p>
+  </div>
+
+  <form method="get" class="regapproval-filters">
+    <input type="text" name="q" class="form-control regapproval-search" placeholder="Search employee by name..." value="{{ search_query }}">
+    <select name="status" class="form-select regapproval-status-select" onchange="this.form.submit()">
+      <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+      {% for value, label in status_choices %}
+        {% if value != 'pending' %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endif %}
+      {% endfor %}
+      <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm"><i class="bx bx-search me-1"></i>Search</button>
+    {% if search_query or status_filter != 'pending' %}
+      <a href="{% url 'employees:admin_attendance_regularization_requests' %}" class="btn-clear"><i class="bx bx-x me-1"></i>Clear filters</a>
+    {% endif %}
+  </form>
+
+  {% if regularization_requests %}
+    {% for r in regularization_requests %}
+      <div class="reg-entry">
+        <div class="reg-entry-header">
+          <div>
+            <div class="reg-employee"><i class="bx bx-user"></i> {{ r.employee.name }}</div>
+            <div class="reg-date">{{ r.date|date:"d M Y" }}</div>
+            <div class="reg-times">
+              {% if r.requested_check_in %}<span><i class="bx bx-log-in-circle"></i> In: {{ r.requested_check_in|date:"H:i" }}</span>{% endif %}
+              {% if r.requested_check_out %}<span><i class="bx bx-log-out-circle"></i> Out: {{ r.requested_check_out|date:"H:i" }}</span>{% endif %}
+            </div>
+            {% if r.reason %}<div class="reg-reason"><i class="bx bx-message-detail"></i> {{ r.reason }}</div>{% endif %}
+            {% if r.status != 'pending' and r.reviewed_by %}
+              <div class="reg-reviewed">
+                {{ r.get_status_display }} by {{ r.reviewed_by.get_full_name|default:r.reviewed_by.username }} on {{ r.reviewed_at|date:"d M Y" }}
+                {% if r.admin_comment %} &middot; {{ r.admin_comment }}{% endif %}
+              </div>
+            {% endif %}
+          </div>
+          <span class="status-badge status-{{ r.status }}">{{ r.get_status_display }}</span>
+        </div>
+
+        {% if r.status == 'pending' %}
+          <div class="reg-actions">
+            <form method="post" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="request_id" value="{{ r.id }}">
+              <input type="hidden" name="action" value="approve">
+              <button type="submit" class="btn-sm btn-approve"><i class="bx bx-check"></i> Approve &amp; Mark Attendance</button>
+            </form>
+            <button type="button" class="btn-sm btn-reject" onclick="document.getElementById('reject-form-{{ r.id }}').classList.toggle('show')">
+              <i class="bx bx-x"></i> Reject
+            </button>
+          </div>
+          <form method="post" class="reject-form" id="reject-form-{{ r.id }}">
+            {% csrf_token %}
+            <input type="hidden" name="request_id" value="{{ r.id }}">
+            <input type="hidden" name="action" value="reject">
+            <input type="text" name="admin_comment" placeholder="Reason for rejection (optional)">
+            <button type="submit" class="btn-sm btn-reject">Confirm Reject</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="history-empty">
+      <i class="bx bx-check-circle"></i>
+      <p class="mb-0">Nothing to review here.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

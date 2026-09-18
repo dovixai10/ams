@@ -63,6 +63,11 @@
         <li class="menu-item"><a href="{% url 'employees:attendance_list' %}" class="menu-link"><div>Attendance List</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_attendance_calendar' %}" class="menu-link"><div>Attendance Calendar</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_attendance_logs' %}" class="menu-link"><div>Activity Logs</div></a></li>
+        <li class="menu-item {% if 'attendance/regularization/manage' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:admin_attendance_regularization_requests' %}" class="menu-link">
+            <div>Regularization Requests</div>
+          </a>
+        </li>
         {% endif %}
         {% if is_office_admin or 'leave.manage' in employee_permissions %}
         <li class="menu-item {% if 'leave-types' in request.path %}active{% endif %}">

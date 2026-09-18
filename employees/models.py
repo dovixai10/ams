@@ -2099,6 +2099,147 @@ class LeaveRequest(models.Model):
         self.save(update_fields=['status', 'reviewed_at', 'reviewed_by', 'admin_comment', 'updated_at'])
 
 
+class AttendanceRegularizationRequest(models.Model):
+    """An employee's request to have a missed check-in/check-out recorded
+    after the fact - same idea as LeaveRequest, but for attendance. Approving
+    one writes the real Attendance record through the same status-derivation
+    path a live check-out uses (see approve() below), so salary, attendance
+    percentage and every other downstream report treat it exactly like a
+    genuine attendance mark - not a separate approval-only shortcut."""
+
+    class Status(models.TextChoices):
+        PENDING = ('pending', 'Pending')
+        APPROVED = ('approved', 'Approved')
+        REJECTED = ('rejected', 'Rejected')
+        CANCELLED = ('cancelled', 'Cancelled')
+
+    office = models.ForeignKey(
+        Office, on_delete=models.CASCADE, related_name='attendance_regularization_requests',
+        null=True, blank=True, db_index=True,
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name='attendance_regularization_requests',
+        help_text="Employee requesting the correction",
+    )
+    date = models.DateField(help_text="The date attendance should be corrected for")
+    requested_check_in = models.DateTimeField(
+        null=True, blank=True, help_text="Check-in time the employee is asking to be recorded",
+    )
+    requested_check_out = models.DateTimeField(
+        null=True, blank=True, help_text="Check-out time the employee is asking to be recorded",
+    )
+    reason = models.TextField(blank=True, help_text="Optional explanation for the missed attendance mark")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    admin_comment = models.TextField(blank=True, help_text="Optional comment provided by the admin while approving/rejecting")
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='attendance_regularization_reviews',
+    )
+    attendance = models.ForeignKey(
+        'Attendance', on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='regularization_requests',
+        help_text="The Attendance record this request created/updated once approved",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Attendance Regularization Request'
+        verbose_name_plural = 'Attendance Regularization Requests'
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['employee', '-created_at']),
+            models.Index(fields=['status', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.employee.name} · {self.date} ({self.get_status_display()})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.requested_check_in and not self.requested_check_out:
+            raise ValidationError('Provide at least a check-in or check-out time.')
+
+    def mark_rejected(self, admin_user, comment: str = ''):
+        self.status = self.Status.REJECTED
+        self.reviewed_at = timezone.now()
+        self.reviewed_by = admin_user
+        if comment is not None:
+            self.admin_comment = comment
+        self.save(update_fields=['status', 'reviewed_at', 'reviewed_by', 'admin_comment', 'updated_at'])
+
+    def approve(self, admin_user, comment: str = ''):
+        """Write the real Attendance record through the exact function a
+        live check-out calls to derive final_status/half_day/total_work_hours
+        (shift_attendance_logic.update_attendance_on_checkout) - the point
+        being that an approved regularization is indistinguishable, to every
+        salary/attendance-percentage reader, from an attendance mark the
+        employee made themselves in real time."""
+        from django.db import IntegrityError, transaction
+        from .shift_attendance_logic import update_attendance_on_checkout
+
+        with transaction.atomic():
+            try:
+                attendance, created = Attendance.objects.get_or_create(
+                    employee=self.employee, date=self.date,
+                    defaults={
+                        'office': self.employee.office,
+                        'branch': self.employee.branch,
+                        'check_in_time': self.requested_check_in or timezone.now(),
+                    },
+                )
+            except IntegrityError:
+                attendance = Attendance.objects.get(employee=self.employee, date=self.date)
+                created = False
+
+            if self.requested_check_in:
+                attendance.check_in_time = self.requested_check_in
+            if self.requested_check_out:
+                attendance.check_out_time = self.requested_check_out
+            attendance.save()
+
+            if attendance.check_out_time:
+                result = update_attendance_on_checkout(attendance)
+                if not result.get('updated'):
+                    # Same failure a live check-out would silently hit (e.g.
+                    # no shift assigned to this employee) - roll back the
+                    # whole approval rather than leave a half-written
+                    # Attendance row with final_status at whatever it
+                    # happened to default to, quietly wrong in salary calcs.
+                    raise ValueError(
+                        result.get('error')
+                        or 'Could not determine attendance status for this employee (check their shift assignment).'
+                    )
+            else:
+                attendance.final_status = 'checked_in'
+                attendance.save(update_fields=['final_status'])
+
+            AttendanceLog.objects.create(
+                employee=self.employee, office=self.employee.office, branch=self.employee.branch,
+                action='check_out_success' if attendance.check_out_time else 'check_in_success',
+                success=True, attendance=attendance,
+                notes=(
+                    f"Attendance regularized for {self.date} by "
+                    f"{admin_user.get_full_name() or admin_user.username} via regularization request #{self.pk}."
+                ),
+            )
+
+            self.status = self.Status.APPROVED
+            self.reviewed_at = timezone.now()
+            self.reviewed_by = admin_user
+            if comment is not None:
+                self.admin_comment = comment
+            self.attendance = attendance
+            self.save(update_fields=['status', 'reviewed_at', 'reviewed_by', 'admin_comment', 'attendance', 'updated_at'])
+            return attendance
+
+
 class FaceUpdateRequest(models.Model):
     """Track employee requests to refresh their face recognition data."""
 
