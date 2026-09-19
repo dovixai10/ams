@@ -1292,36 +1292,50 @@ class Attendance(models.Model):
         return cls.objects.filter(employee=employee, date=today).exists()
 
     @property
+    def open_session(self):
+        """The check-in that hasn't been checked out yet, if any."""
+        sessions = list(self.sessions.all())
+        open_ones = [s for s in sessions if s.check_out_time is None]
+        return max(open_ones, key=lambda s: s.check_in_time) if open_ones else None
+
+    @property
+    def worked_seconds(self):
+        """Seconds actually worked today: the sum of every completed
+        check-in/check-out session (so a lunch gap between two sessions isn't
+        counted). Rows that predate sessions fall back to check-out minus
+        check-in."""
+        sessions = list(self.sessions.all())
+        if sessions:
+            return int(sum(
+                (s.check_out_time - s.check_in_time).total_seconds()
+                for s in sessions if s.check_out_time
+            ))
+        if self.check_in_time and self.check_out_time:
+            return max(int((self.check_out_time - self.check_in_time).total_seconds()), 0)
+        return 0
+
+    @property
     def duration(self):
-        """Calculate duration between check-in and check-out in HH:MM:SS format"""
-        if not self.check_out_time or not self.check_in_time:
+        """Time worked in HH:MM:SS format (sum of all completed sessions)"""
+        total_seconds = self.worked_seconds
+        if total_seconds == 0 and not self.check_out_time:
             return None
-        
-        delta = self.check_out_time - self.check_in_time
-        total_seconds = int(delta.total_seconds())
-        
+
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
         seconds = total_seconds % 60
-        
+
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-    
+
     @property
     def duration_display(self):
         """Human-readable duration display"""
-        if not self.check_out_time:
-            return "-"
         return self.duration or "-"
-    
+
     @property
     def duration_hours(self):
-        """Calculate duration in decimal hours"""
-        if not self.check_out_time:
-            return 0
-        
-        delta = self.check_out_time - self.check_in_time
-        hours = delta.total_seconds() / 3600
-        return round(hours, 2)
+        """Time worked in decimal hours (sum of all completed sessions)"""
+        return round(self.worked_seconds / 3600, 2)
 
     @property
     def active_break(self):
@@ -1517,6 +1531,46 @@ class Attendance(models.Model):
             delattr(self, '_skip_auto_end_breaks')
 
         return result
+
+
+class AttendanceSession(models.Model):
+    """One check-in → check-out pair within a day. An employee can go through
+    several of these per day (check in, check out for lunch, check in again...);
+    the parent Attendance row keeps the day's first check-in / last check-out,
+    and its total_work_hours is the sum of the closed sessions - never
+    last-out minus first-in, which would count the gaps between sessions."""
+
+    attendance = models.ForeignKey(Attendance, on_delete=models.CASCADE, related_name='sessions')
+    check_in_time = models.DateTimeField()
+    check_out_time = models.DateTimeField(null=True, blank=True)
+    check_in_photo = models.ImageField(upload_to='checkin_photos/', blank=True, null=True)
+    check_out_photo = models.ImageField(upload_to='checkout_photos/', blank=True, null=True)
+    check_in_latitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    check_in_longitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    check_out_latitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    check_out_longitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['check_in_time']
+        verbose_name = 'Attendance Session'
+        verbose_name_plural = 'Attendance Sessions'
+
+    def __str__(self):
+        return f"{self.attendance.employee.name} {self.check_in_time:%Y-%m-%d %H:%M} → {self.check_out_time:%H:%M}" if self.check_out_time else f"{self.attendance.employee.name} {self.check_in_time:%Y-%m-%d %H:%M} (open)"
+
+    @property
+    def duration_seconds(self):
+        if not self.check_out_time:
+            return None
+        return max(int((self.check_out_time - self.check_in_time).total_seconds()), 0)
+
+    @property
+    def duration_display(self):
+        seconds = self.duration_seconds
+        if seconds is None:
+            return None
+        return f"{seconds // 3600}h {(seconds % 3600) // 60}m"
 
 
 class AttendanceDayComment(models.Model):
@@ -1985,6 +2039,16 @@ class LeaveRequest(models.Model):
         if not self.start_date or not self.end_date:
             return 0
         return (self.end_date - self.start_date).days + 1
+
+    @property
+    def is_half_day(self) -> bool:
+        return self.leave_type in (self.LeaveType.FIRST_HALF, self.LeaveType.SECOND_HALF)
+
+    @property
+    def day_count(self):
+        """Days of leave this request counts for: 0.5 per day for a half-day
+        (first/second half) request, otherwise the calendar days."""
+        return Decimal(self.total_days) * (Decimal('0.5') if self.is_half_day else Decimal('1'))
     
     def is_paid_leave(self) -> bool:
         """Check if this leave type deducts from paid leave balance"""
@@ -2198,10 +2262,36 @@ class AttendanceRegularizationRequest(models.Model):
                 attendance = Attendance.objects.get(employee=self.employee, date=self.date)
                 created = False
 
-            if self.requested_check_in:
-                attendance.check_in_time = self.requested_check_in
-            if self.requested_check_out:
-                attendance.check_out_time = self.requested_check_out
+            # Keep the day's sessions in step with the requested times - the
+            # worked total is the sum of sessions, so leaving stale ones
+            # behind would make the approval compute from the old data.
+            req_in, req_out = self.requested_check_in, self.requested_check_out
+            sessions = attendance.sessions
+            if req_in and req_out:
+                sessions.all().delete()
+                AttendanceSession.objects.create(attendance=attendance, check_in_time=req_in, check_out_time=req_out)
+            elif req_in:
+                first = sessions.order_by('check_in_time').first()
+                if first:
+                    first.check_in_time = req_in
+                    first.save(update_fields=['check_in_time'])
+                else:
+                    AttendanceSession.objects.create(attendance=attendance, check_in_time=req_in)
+            elif req_out:
+                target = attendance.open_session or sessions.order_by('-check_in_time').first()
+                if target and req_out > target.check_in_time:
+                    target.check_out_time = req_out
+                    target.save(update_fields=['check_out_time'])
+                else:
+                    AttendanceSession.objects.create(
+                        attendance=attendance, check_in_time=attendance.check_in_time, check_out_time=req_out,
+                    )
+
+            first_session = sessions.order_by('check_in_time').first()
+            attendance.check_in_time = first_session.check_in_time if first_session else (req_in or attendance.check_in_time)
+            still_open = sessions.filter(check_out_time__isnull=True).exists()
+            last_closed = sessions.filter(check_out_time__isnull=False).order_by('-check_out_time').first()
+            attendance.check_out_time = None if still_open or not last_closed else last_closed.check_out_time
             attendance.save()
 
             if attendance.check_out_time:

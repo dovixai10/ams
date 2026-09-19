@@ -741,8 +741,13 @@
     <label class="mb-2">Duration <span class="text-danger">*</span></label>
     <div class="leave-type-options" role="radiogroup" aria-label="Select leave type">
       <label class="leave-type-option">
+        <input type="radio" name="leave_type" value="full_day" id="id_leave_type_2"
+               {% if form.leave_type.value == 'full_day' or not form.leave_type.value %}checked{% endif %} required>
+        <span>Full Day</span>
+      </label>
+      <label class="leave-type-option">
         <input type="radio" name="leave_type" value="first_half" id="id_leave_type_0"
-               {% if form.leave_type.value == 'first_half' or not form.leave_type.value %}checked{% endif %} required>
+               {% if form.leave_type.value == 'first_half' %}checked{% endif %}>
         <span>First Half</span>
       </label>
       <label class="leave-type-option">
@@ -750,12 +755,8 @@
                {% if form.leave_type.value == 'second_half' %}checked{% endif %}>
         <span>Second Half</span>
       </label>
-      <label class="leave-type-option">
-        <input type="radio" name="leave_type" value="full_day" id="id_leave_type_2"
-               {% if form.leave_type.value == 'full_day' %}checked{% endif %}>
-        <span>Full Day</span>
-      </label>
     </div>
+    <small class="text-muted d-block mt-1">Half-day leave counts as 0.5 day and is available for a single date only.</small>
     {% if form.leave_type.errors %}
       <div class="text-danger small mt-1" role="alert">{{ form.leave_type.errors|striptags }}</div>
     {% endif %}

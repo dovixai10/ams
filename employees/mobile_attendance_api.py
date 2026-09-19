@@ -13,7 +13,10 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter, OpenApiTypes
 
 from .mobile_response import MobileAPIView, MobileAPIException, EnvelopeResponseSerializer
-from .mobile_common import spec_day_status, duration_payload, paginate, FINAL_STATUS_TO_SPEC
+from .mobile_common import (
+    spec_day_status, duration_payload, paginate, FINAL_STATUS_TO_SPEC,
+    approved_leave_weights, count_absent_days,
+)
 from .models import Attendance, Holiday, LeaveRequest
 from .face_utils import compare_faces, get_strict_match_tolerance
 from .geolocation_utils import is_within_office_premises
@@ -54,27 +57,31 @@ def _month_bounds(year, month):
 
 
 def _holiday_and_leave_dates(employee, first, last):
+    """(holiday_dates, full_leave_dates, half_leave_dates). Only a full day of
+    approved leave makes the whole day PAID_LEAVE; a first/second-half leave
+    covers half a day, so that day still shows the employee's real attendance
+    (HALF_DAY if they never punched in - the leave covers the other half)."""
     holiday_dates = set(
         Holiday.objects.filter(office=employee.office, branch=employee.branch, date__gte=first, date__lte=last)
         .values_list('date', flat=True)
     )
-    leave_dates = set()
-    for start, end in LeaveRequest.objects.filter(
-        employee=employee, status=LeaveRequest.Status.APPROVED,
-        start_date__lte=last, end_date__gte=first,
-    ).values_list('start_date', 'end_date'):
-        d = max(start, first)
-        end = min(end, last)
-        while d <= end:
-            leave_dates.add(d)
-            d += timezone.timedelta(days=1)
-    return holiday_dates, leave_dates
+    weights = approved_leave_weights(employee, first, last)
+    full = {d for d, w in weights.items() if w >= 1}
+    half = {d for d, w in weights.items() if w < 1}
+    return holiday_dates, full, half
 
 
 @extend_schema(
     responses=EnvelopeResponseSerializer,
     tags=[TAG], summary="Today's check-in state",
-    description="Polled when the dashboard opens and after each check-in/out. Client computes the live ticking duration itself from `checkInTime`.",
+    description=(
+        "Polled when the dashboard opens and after each check-in/out. An employee can check in and out "
+        "several times a day: `sessions` lists every check-in/check-out pair, `workingDurationSeconds` is the "
+        "sum of the COMPLETED sessions (gaps between them aren't counted), `checkInTime` is the day's first "
+        "check-in and `checkOutTime` the last check-out. While `isCheckedIn` is true, the client's live "
+        "ticking duration = `workingDurationSeconds` + (now - `currentSessionStart`). Each calendar day "
+        "starts empty - nothing carries over from a previous day."
+    ),
 )
 class TodayView(MobileAPIView):
     """GET /attendance/today"""
@@ -85,18 +92,36 @@ class TodayView(MobileAPIView):
         attendance = Attendance.objects.filter(employee=employee, date=today).first()
         shift = employee.shift
 
+        sessions = list(attendance.sessions.all()) if attendance else []
+        open_session = next((x for x in reversed(sessions) if x.check_out_time is None), None)
+        closed_sessions = [x for x in sessions if x.check_out_time]
+        # Worked time so far = every completed session; a client showing a live
+        # ticking duration adds (now - currentSessionStart) while checked in.
+        worked_seconds = attendance.worked_seconds if attendance else 0
+        first_in = sessions[0].check_in_time if sessions else (attendance.check_in_time if attendance and not sessions and attendance.check_out_time else None)
+        last_out = closed_sessions[-1].check_out_time if closed_sessions else None
+
         data = {
             "date": today.isoformat(),
-            "isCheckedIn": bool(attendance and attendance.check_in_time and not attendance.check_out_time),
-            "checkInTime": attendance.check_in_time.isoformat() if attendance and attendance.check_in_time else None,
-            "checkOutTime": attendance.check_out_time.isoformat() if attendance and attendance.check_out_time else None,
+            "isCheckedIn": open_session is not None,
+            # checkInTime = the day's first check-in; currentSessionStart = the
+            # check-in the employee is in right now (null when checked out).
+            "checkInTime": first_in.isoformat() if first_in else None,
+            "checkOutTime": last_out.isoformat() if last_out else None,
+            "currentSessionStart": open_session.check_in_time.isoformat() if open_session else None,
+            "sessions": [
+                {
+                    "checkInTime": x.check_in_time.isoformat(),
+                    "checkOutTime": x.check_out_time.isoformat() if x.check_out_time else None,
+                    "durationSeconds": x.duration_seconds,
+                }
+                for x in sessions
+            ],
             "checkInPhotoUrl": attendance.check_in_photo.url if attendance and attendance.check_in_photo else None,
             "checkOutPhotoUrl": attendance.check_out_photo.url if attendance and attendance.check_out_photo else None,
             "status": spec_day_status(employee, today, attendance=attendance) if attendance else None,
-            "workingDurationSeconds": int(float(attendance.total_work_hours) * 3600) if attendance and attendance.total_work_hours else 0,
-            "workingDurationDisplay": duration_payload(
-                int(float(attendance.total_work_hours) * 3600) if attendance and attendance.total_work_hours else 0
-            )["display"],
+            "workingDurationSeconds": worked_seconds,
+            "workingDurationDisplay": duration_payload(worked_seconds)["display"],
             "shift": (
                 {"start": shift.start_time.strftime('%H:%M'), "end": shift.end_time.strftime('%H:%M'), "graceMinutes": shift.grace_minutes}
                 if shift else None
@@ -117,7 +142,9 @@ class TodayView(MobileAPIView):
         "Face match against the enrolled reference is mandatory and happens before the record "
         "is written - a failed match never creates a record. Late classification uses the "
         "employee's shift start + grace period, computed server-side. Sending latitude/longitude "
-        "enforces the branch geofence (OUTSIDE_GEOFENCE on a miss); omitting them skips the check."
+        "enforces the branch geofence (OUTSIDE_GEOFENCE on a miss); omitting them skips the check. "
+        "Allowed again after a check-out (several check-in/check-out sessions per day); returns "
+        "ALREADY_CHECKED_IN (409) only while a check-in is still open. Lateness applies to the day's first check-in only."
     ),
     request=CheckInOutRequestSerializer,
     examples=[OpenApiExample('201 response', value={
@@ -138,16 +165,11 @@ class CheckInView(MobileAPIView):
         if not employee.has_registered_face:
             raise MobileAPIException('FACE_NOT_REGISTERED', 'Please enrol Face ID before checking in.', 409)
 
-        # Only a GENUINE open check-in (one with a real check-in photo) should
-        # block a fresh check-in - a placeholder row for today with no
-        # check_in_photo (e.g. auto-created when a leave request covering
-        # today was approved) isn't a real in-progress session, and treating
-        # it as one previously blocked check-in entirely, leaving check-out
-        # as the only reachable action against a day nobody actually checked
-        # into - producing an impossible multi-day worked duration.
-        existing_open = Attendance.objects.filter(employee=employee, date=today, check_out_time__isnull=True).first()
-        if existing_open and existing_open.check_in_photo:
-            raise MobileAPIException('ALREADY_CHECKED_IN', 'An open check-in already exists for today.', 409)
+        # An employee can check in and out several times a day. Only an OPEN
+        # session (checked in, not yet checked out) blocks a new check-in.
+        existing_today = Attendance.objects.filter(employee=employee, date=today).first()
+        if existing_today and existing_today.open_session:
+            raise MobileAPIException('ALREADY_CHECKED_IN', 'You are already checked in. Please check out first.', 409)
 
         photo = request.FILES.get('photo')
         if not photo:
@@ -195,39 +217,28 @@ class CheckInView(MobileAPIView):
                 "distanceMeters": round(distance, 1) if distance is not None else None,
             }
 
-        # get_or_create rather than a plain create() - a placeholder row for
-        # today may already exist (e.g. from an approved leave), and this is
-        # a real check-in happening right now, so it always claims that row
-        # fresh rather than colliding with the (employee, date) unique
-        # constraint or leaving stale check-in/checkout data behind.
-        attendance, _created = Attendance.objects.get_or_create(
-            employee=employee, date=today,
-            defaults={'office': employee.office, 'branch': employee.branch},
-        )
-        attendance.office = employee.office
-        attendance.branch = employee.branch
-        attendance.check_in_time = timezone.now()
-        attendance.check_out_time = None
-        attendance.check_out_photo = None
-        attendance.check_out_latitude = None
-        attendance.check_out_longitude = None
-        attendance.total_work_hours = 0
-        attendance.final_status = 'present'
+        # Record this check-in as a new session on today's row (shared with
+        # the web portal - see attendance_sessions.py).
+        from .attendance_sessions import get_or_create_today, start_session
+        attendance = get_or_create_today(employee, today)
+        first_of_day = not attendance.sessions.exists()
         file_name = f'checkin_{employee.id}_{timezone.now().strftime("%Y%m%d_%H%M%S")}.jpg'
-        attendance.check_in_photo.save(file_name, ContentFile(image_bytes), save=False)
-        if latitude is not None and longitude is not None:
-            attendance.check_in_latitude = lat_f
-            attendance.check_in_longitude = lon_f
-        attendance.save()
+        session = start_session(
+            attendance, employee,
+            photo=ContentFile(image_bytes), photo_name=file_name,
+            latitude=lat_f if latitude is not None and longitude is not None else None,
+            longitude=lon_f if latitude is not None and longitude is not None else None,
+        )
+        attendance.refresh_from_db()
 
         shift = employee.shift
         is_late = False
         late_by_minutes = 0
-        if shift:
+        if shift and first_of_day:
             grace_cutoff = (
                 datetime.combine(today, shift.start_time) + timezone.timedelta(minutes=shift.grace_minutes)
             ).time()
-            check_in_local = timezone.localtime(attendance.check_in_time).time()
+            check_in_local = timezone.localtime(session.check_in_time).time()
             if check_in_local > grace_cutoff:
                 is_late = True
                 shift_start_dt = datetime.combine(today, shift.start_time)
@@ -244,20 +255,25 @@ class CheckInView(MobileAPIView):
 
         return self.ok({
             "attendanceId": f"att_{today.strftime('%Y%m%d')}_{employee.id}",
-            "checkInTime": attendance.check_in_time.isoformat(),
+            "checkInTime": session.check_in_time.isoformat(),
             "status": "LATE" if is_late else "PRESENT",
             "isLate": is_late,
             "lateByMinutes": late_by_minutes,
             "faceMatch": {"similarity": similarity, "threshold": threshold, "passed": True},
             "location": location_info,
-            "checkInPhotoUrl": attendance.check_in_photo.url,
+            "checkInPhotoUrl": session.check_in_photo.url,
         }, message="Checked in successfully", status_code=201)
 
 
 @extend_schema(
     responses=EnvelopeResponseSerializer,
     tags=[TAG], summary="Check out",
-    description="Same face-match requirement as check-in. Final day status (PRESENT/HALF_DAY) is computed server-side from hours worked, reusing the same shift-threshold logic the web app's attendance calculations already use.",
+    description=(
+        "Same face-match requirement as check-in. Closes the open check-in (NOT_CHECKED_IN 409 if none is open, "
+        "including right after a check-out - check in again first). The day's total (`workingDurationSeconds`) is the "
+        "sum of all completed check-in/check-out sessions today, and the final day status (PRESENT/HALF_DAY) is computed "
+        "server-side from that total, reusing the same shift-threshold logic the web app's attendance calculations use."
+    ),
     request=CheckInOutRequestSerializer,
 )
 class CheckOutView(MobileAPIView):
@@ -267,16 +283,12 @@ class CheckOutView(MobileAPIView):
         employee = request.user.employee_profile
         today = timezone.localdate()
 
-        # check_in_photo is required: it's the signature of a genuine
-        # self-service check-in, as opposed to a placeholder Attendance row
-        # (e.g. auto-created for an approved leave day) that happens to also
-        # have check_out_time still null. Checking out against one of those
-        # would compute a duration from whatever stale check_in_time it was
-        # given rather than a real check-in that happened today.
-        attendance = Attendance.objects.filter(
-            employee=employee, date=today, check_out_time__isnull=True, check_in_photo__isnull=False,
-        ).exclude(check_in_photo='').first()
-        if attendance is None:
+        # Check-out closes today's OPEN session. Nothing open (never checked
+        # in today, a leave placeholder, or already checked out) -> nothing to
+        # check out of; after a check-out the next action is a new check-in.
+        attendance = Attendance.objects.filter(employee=employee, date=today).first()
+        open_session = attendance.open_session if attendance else None
+        if open_session is None:
             raise MobileAPIException('NOT_CHECKED_IN', 'No open check-in exists for today.', 409)
 
         if not employee.has_registered_face:
@@ -309,13 +321,21 @@ class CheckOutView(MobileAPIView):
                 details={"similarity": similarity, "threshold": threshold},
             )
 
-        file_name = f'checkout_{employee.id}_{timezone.now().strftime("%Y%m%d_%H%M%S")}.jpg'
-        attendance.check_out_photo.save(file_name, ContentFile(image_bytes), save=False)
-        attendance.check_out_time = timezone.now()
-        attendance.save(update_fields=['check_out_photo', 'check_out_time'])
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        try:
+            lat_f = float(latitude) if latitude not in (None, '') else None
+            lon_f = float(longitude) if longitude not in (None, '') else None
+        except (TypeError, ValueError):
+            raise MobileAPIException('VALIDATION_ERROR', 'latitude/longitude must be numeric.', 400, field='latitude')
 
-        from .shift_attendance_logic import update_attendance_on_checkout
-        result_calc = update_attendance_on_checkout(attendance)
+        from .attendance_sessions import end_session
+        file_name = f'checkout_{employee.id}_{timezone.now().strftime("%Y%m%d_%H%M%S")}.jpg'
+        end_session(
+            attendance, open_session,
+            photo=ContentFile(image_bytes), photo_name=file_name,
+            latitude=lat_f, longitude=lon_f,
+        )
         attendance.refresh_from_db()
 
         from .models import AttendanceLog
@@ -326,7 +346,7 @@ class CheckOutView(MobileAPIView):
             notes='Mobile app check-out',
         )
 
-        working_seconds = int(float(attendance.total_work_hours or 0) * 3600)
+        working_seconds = attendance.worked_seconds
         return self.ok({
             "attendanceId": f"att_{today.strftime('%Y%m%d')}_{employee.id}",
             "checkOutTime": attendance.check_out_time.isoformat(),
@@ -341,7 +361,7 @@ class CheckOutView(MobileAPIView):
 @extend_schema(
     responses=EnvelopeResponseSerializer,
     tags=[TAG], summary="Monthly statistic cards", parameters=[MONTH_PARAM],
-    description="The six cards above the calendar. Note: `lateArrivals` currently always reports 0 - this app doesn't persist arrival-time lateness per past day, only at the moment of check-in (see `isLate` on POST /attendance/check-in).",
+    description="The six cards above the calendar. `absentDays` counts working days elapsed with no punch (same rule as /reports/monthly-summary). Note: `lateArrivals` currently always reports 0 - this app doesn't persist arrival-time lateness per past day, only at the moment of check-in (see `isLate` on POST /attendance/check-in).",
 )
 class SummaryView(MobileAPIView):
     """GET /attendance/summary?month=YYYY-MM"""
@@ -358,16 +378,13 @@ class SummaryView(MobileAPIView):
         half_days = sum(1 for r in records if r.final_status in ('half_day', 'late_penalty'))
         working_seconds = sum(int(float(r.total_work_hours or 0) * 3600) for r in records)
 
-        holiday_dates, leave_dates = _holiday_and_leave_dates(employee, first, first.replace(day=calendar.monthrange(year, month)[1]))
-        recorded_dates = {r.date for r in records}
-        working_days_elapsed = [
-            first + timezone.timedelta(days=i)
-            for i in range((end - first).days + 1)
-            if (first + timezone.timedelta(days=i)).weekday() != 6
-            and (first + timezone.timedelta(days=i)) not in holiday_dates
-            and (first + timezone.timedelta(days=i)) not in leave_dates
-        ]
-        absent_days = len([d for d in working_days_elapsed if d not in recorded_dates])
+        holiday_dates = set(
+            Holiday.objects.filter(office=employee.office, branch=employee.branch, date__gte=first, date__lte=last)
+            .values_list('date', flat=True)
+        )
+        leave_weights = approved_leave_weights(employee, first, last)
+        # Same shared counting the reports screen uses, so the two can't disagree.
+        absent_days = count_absent_days(employee, records, first, end, holiday_dates, leave_weights)
         total_calendar_days = (last - first).days + 1
         attendance_percent = round((present_days + half_days * 0.5) / total_calendar_days * 100) if total_calendar_days else 0
 
@@ -385,7 +402,7 @@ class SummaryView(MobileAPIView):
 @extend_schema(
     responses=EnvelopeResponseSerializer,
     tags=[TAG], summary="Per-day status grid", parameters=[MONTH_PARAM],
-    description="One entry per calendar day, drives the colour-coded grid. Every AttendanceStatus value can appear here.",
+    description="One entry per calendar day, drives the colour-coded grid. Every AttendanceStatus value can appear here. A day with a first/second-half approved leave and no punch shows HALF_DAY (the leave covers the other half).",
 )
 class CalendarView(MobileAPIView):
     """GET /attendance/calendar?month=YYYY-MM"""
@@ -396,13 +413,14 @@ class CalendarView(MobileAPIView):
         first, last = _month_bounds(year, month)
 
         records = {r.date: r for r in Attendance.objects.filter(employee=employee, date__gte=first, date__lte=last)}
-        holiday_dates, leave_dates = _holiday_and_leave_dates(employee, first, last)
+        holiday_dates, leave_dates, half_leave_dates = _holiday_and_leave_dates(employee, first, last)
 
         days = []
         for i in range((last - first).days + 1):
             d = first + timezone.timedelta(days=i)
             status = spec_day_status(
-                employee, d, attendance=records.get(d), holiday_dates=holiday_dates, leave_dates=leave_dates,
+                employee, d, attendance=records.get(d), holiday_dates=holiday_dates,
+                leave_dates=leave_dates, half_leave_dates=half_leave_dates,
             )
             days.append({"date": d.isoformat(), "status": status})
 
@@ -425,16 +443,18 @@ class DayDetailView(MobileAPIView):
             raise MobileAPIException('VALIDATION_ERROR', 'date must be YYYY-MM-DD.', 400, field='date')
 
         attendance = Attendance.objects.filter(employee=employee, date=day).first()
-        holiday_dates, leave_dates = _holiday_and_leave_dates(employee, day, day)
-        status = spec_day_status(employee, day, attendance=attendance, holiday_dates=holiday_dates, leave_dates=leave_dates)
+        holiday_dates, leave_dates, half_leave_dates = _holiday_and_leave_dates(employee, day, day)
+        status = spec_day_status(
+            employee, day, attendance=attendance, holiday_dates=holiday_dates,
+            leave_dates=leave_dates, half_leave_dates=half_leave_dates,
+        )
 
         if status == 'PAID_LEAVE':
             total_hours = {"seconds": 0, "display": "On Leave"}
         elif status == 'HOLIDAY':
             total_hours = {"seconds": 0, "display": "Holiday"}
         elif attendance:
-            seconds = int(float(attendance.total_work_hours or 0) * 3600)
-            total_hours = duration_payload(seconds)
+            total_hours = duration_payload(attendance.worked_seconds)
         else:
             total_hours = {"seconds": 0, "display": "-"}
 
@@ -452,6 +472,14 @@ class DayDetailView(MobileAPIView):
                 if attendance and attendance.check_out_time else {"time": None, "photoUrl": None}
             ),
             "totalHours": total_hours,
+            "sessions": [
+                {
+                    "checkIn": timezone.localtime(x.check_in_time).strftime('%H:%M'),
+                    "checkOut": timezone.localtime(x.check_out_time).strftime('%H:%M') if x.check_out_time else None,
+                    "durationSeconds": x.duration_seconds,
+                }
+                for x in (attendance.sessions.all() if attendance else [])
+            ],
             "note": None,
         })
 

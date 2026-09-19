@@ -263,7 +263,7 @@
                       <div class="fw-semibold">{{ leave.start_date|date:"d M Y" }} – {{ leave.end_date|date:"d M Y" }}</div>
                       <small class="text-muted">Submitted {{ leave.created_at|naturaltime }}</small>
                     </td>
-                    <td>{{ leave.total_days }}</td>
+                    <td>{{ leave.day_count|floatformat:"-1" }}{% if leave.is_half_day %} <small class="text-muted">({{ leave.get_leave_type_display }})</small>{% endif %}</td>
                     <td>
                       <span class="status-chip {{ leave.status }}">{{ leave.get_status_display }}</span>
                     </td>

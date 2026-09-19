@@ -772,7 +772,7 @@
   <div>
     <p class="fw-semibold mb-1">You have successfully checked in!</p>
     <p class="mb-1">Checkout will be available in <span id="checkout-timer">5:00</span> minutes.</p>
-    <small class="d-block">Check-in Time: <span id="checkin-time-display">{{ today_attendance.check_in_time|date:"h:i A" }}</span></small>
+    <small class="d-block">Check-in Time: <span id="checkin-time-display">{{ check_in_success_time|date:"h:i A" }}</span></small>
   </div>
 </div>
 
@@ -785,14 +785,8 @@
   <div class="summary-items">
     <div class="summary-item">
       <span>Last Check-in</span>
-      <span>{{ today_attendance.check_in_time|date:"h:i A" }}</span>
+      <span>{{ check_in_success_time|date:"h:i A" }}</span>
     </div>
-    {% if today_attendance.check_out_time %}
-    <div class="summary-item">
-      <span>Last Check-out</span>
-      <span>{{ today_attendance.check_out_time|date:"h:i A" }}</span>
-    </div>
-    {% endif %}
   </div>
 </div>
 <!-- UI AFTER CHECKOUT COMPLETED -->
@@ -906,8 +900,8 @@
          data-redirect-target="{{ check_in_redirect_target }}"
          data-attendance-state="{{ attendance_state }}"
          data-services-url="{{ all_services_url }}"
-         {% if today_attendance and today_attendance.check_in_time and not today_attendance.check_out_time %}
-         data-today-checkin-iso="{{ today_attendance.check_in_time|date:'c' }}"
+         {% if open_session %}
+         data-today-checkin-iso="{{ open_session.check_in_time|date:'c' }}"
          {% endif %}>
     </div>
 
@@ -943,10 +937,10 @@
           <div>
             {% if attendance_state == 'checked_in_pending_checkout' %}
               <span class="attendance-status__title">Checked in</span>
-              <span class="attendance-status__subtitle">Checked in at {{ today_attendance.check_in_time|date:"H:i" }} · Don't forget to check out.</span>
-            {% elif attendance_state == 'complete' %}
-              <span class="attendance-status__title">Today</span>
-              <span class="attendance-status__subtitle">Check-in {{ today_attendance.check_in_time|date:"H:i" }} · Last Check {{ today_attendance.check_out_time|date:"H:i" }}</span>
+              <span class="attendance-status__subtitle">Checked in at {{ open_session.check_in_time|date:"H:i" }} · Don't forget to check out.</span>
+            {% elif today_sessions %}
+              <span class="attendance-status__title">Checked out</span>
+              <span class="attendance-status__subtitle">Worked {{ today_worked_display|default:"0m" }} so far today · Tap below to check in again.</span>
             {% else %}
               <span class="attendance-status__title">Not checked in yet</span>
               <span class="attendance-status__subtitle">Tap below to start your day. We'll launch the camera for you.</span>
@@ -954,34 +948,26 @@
           </div>
         </div>
 
-        {% if today_attendance %}
+        {% if today_attendance and today_sessions %}
           <div class="mobile-card__summary">
             <div class="summary-heading">
               <span>Today's attendance</span>
               <span>{{ today_attendance.date|date:"d M, l" }}</span>
             </div>
             <div class="summary-items">
-              <div class="summary-item">
-                <span>Date</span>
-                <span>{{ today_attendance.date|date:"d M" }}</span>
-              </div>
-              <div class="summary-item">
-                <span>Check-in</span>
-                <span>{{ today_attendance.check_in_time|date:"H:i" }}</span>
-              </div>
-              {% if today_attendance.check_out_time %}
+              {% for sess in today_sessions %}
                 <div class="summary-item">
-                  <span>Last-Check</span>
-                  <span>{{ today_attendance.check_out_time|date:"H:i" }}</span>
+                  <span>{{ sess.check_in_time|date:"H:i" }} &rarr; {% if sess.check_out_time %}{{ sess.check_out_time|date:"H:i" }}{% else %}now{% endif %}</span>
+                  <span>{{ sess.duration_display|default:"in progress" }}</span>
+                </div>
+              {% endfor %}
+              {% if today_worked_display %}
+                <div class="summary-item">
+                  <span><strong>Total worked</strong></span>
+                  <span><strong>{{ today_worked_display }}</strong></span>
                 </div>
               {% endif %}
             </div>
-            {% comment %} {% if attendance_state == 'complete' %}
-              <div class="summary-complete">
-                <span class="summary-complete__badge"><i class="bx bx-check-double"></i>Complete</span>
-                <span class="summary-complete__text">Great job today! Your attendance is recorded.</span>
-              </div>
-            {% endif %} {% endcomment %}
           </div>
         {% endif %}
 
@@ -1127,8 +1113,8 @@
               </span>
               ·
               <span id="checkout-modal-checkin-time-text">
-                {% if today_attendance and today_attendance.check_in_time %}
-                  Checked in at {{ today_attendance.check_in_time|date:"h:i A" }}
+                {% if open_session %}
+                  Checked in at {{ open_session.check_in_time|date:"h:i A" }}
                 {% else %}
                   Not checked in yet
                 {% endif %}
@@ -1296,6 +1282,11 @@ document.addEventListener("DOMContentLoaded", function () {
         checkoutBtn.disabled = true;
 
         let remaining = 300; // 5 minutes
+        const ctxEl = document.getElementById("checkin-context");
+        if (ctxEl && ctxEl.dataset.todayCheckinIso) {
+            const elapsed = Math.floor((Date.now() - new Date(ctxEl.dataset.todayCheckinIso).getTime()) / 1000);
+            remaining = Math.max(0, 300 - elapsed);
+        }
         const timerEl = document.getElementById("checkout-timer");
 
         const interval = setInterval(() => {

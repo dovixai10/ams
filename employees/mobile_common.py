@@ -56,7 +56,7 @@ FINAL_STATUS_TO_SPEC = {
 }
 
 
-def spec_day_status(employee, day, *, attendance=None, holiday_dates=None, leave_dates=None):
+def spec_day_status(employee, day, *, attendance=None, holiday_dates=None, leave_dates=None, half_leave_dates=None):
     """Returns one AttendanceStatus value (section 3.1) for a single
     calendar day for this employee. Callers doing a whole month should
     precompute holiday_dates/leave_dates (sets of date) once and pass them
@@ -75,6 +75,10 @@ def spec_day_status(employee, day, *, attendance=None, holiday_dates=None, leave
             return 'PENDING'
         return FINAL_STATUS_TO_SPEC.get(attendance.final_status, 'PRESENT')
 
+    # Half a day of approved leave and no punch: the leave covers one half.
+    if half_leave_dates is not None and day in half_leave_dates and day.weekday() != 6:
+        return 'HALF_DAY'
+
     # No record and not a holiday/leave day - was it actually a working day?
     # There's no per-shift working-days field in this codebase yet (see
     # GET /employees/me/shift's own note on this); Sunday-off is the
@@ -82,6 +86,61 @@ def spec_day_status(employee, day, *, attendance=None, holiday_dates=None, leave
     if day.weekday() == 6:  # Sunday
         return 'HOLIDAY'
     return 'ABSENT'
+
+
+def approved_leave_weights(employee, first, last):
+    """{date: weight} for every day in [first, last] covered by an approved
+    leave: 1 for a full day, 0.5 for a first/second-half leave (both halves
+    of one date add up to a full day)."""
+    from datetime import timedelta
+    from .models import LeaveRequest
+
+    weights = {}
+    for leave in LeaveRequest.objects.filter(
+        employee=employee, status=LeaveRequest.Status.APPROVED,
+        start_date__lte=last, end_date__gte=first,
+    ):
+        per_day = 0.5 if leave.is_half_day else 1.0
+        day = max(leave.start_date, first)
+        stop = min(leave.end_date, last)
+        while day <= stop:
+            weights[day] = min(weights.get(day, 0.0) + per_day, 1.0)
+            day += timedelta(days=1)
+    return weights
+
+
+def count_absent_days(employee, records, first, last, holiday_dates, leave_weights):
+    """Absent days in [first, last], counting a working day the employee never
+    punched in on (no Attendance row at all) as well as rows marked
+    absent/sandwich_leave - a day with no row is the common case, and
+    counting only existing rows silently reported 0.
+
+    Working day = not a Sunday, not a holiday, on/after the joining date, not
+    a full day of approved leave. A half-day leave covers half of that day, so
+    only the other half can count as absent. Future days are never counted."""
+    from datetime import timedelta
+
+    end = min(last, timezone.localdate())
+    start = max(first, employee.joining_date) if getattr(employee, 'joining_date', None) else first
+    by_date = {r.date: r for r in records}
+
+    absent = 0.0
+    day = start
+    while day <= end:
+        weight = leave_weights.get(day, 0.0)
+        if day.weekday() != 6 and day not in holiday_dates and weight < 1.0:
+            record = by_date.get(day)
+            if record is None or record.final_status in ('absent', 'sandwich_leave'):
+                absent += 1.0 - weight
+        day += timedelta(days=1)
+    return int(absent) if absent == int(absent) else absent
+
+
+def count_leave_days(leave_weights, holiday_dates):
+    """Leave days taken, in days (a half-day leave is 0.5) - Sundays and
+    holidays inside a leave range aren't leave days."""
+    total = sum(w for d, w in leave_weights.items() if d.weekday() != 6 and d not in holiday_dates)
+    return int(total) if total == int(total) else total
 
 
 def duration_payload(total_seconds):

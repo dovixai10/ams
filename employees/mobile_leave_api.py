@@ -18,12 +18,23 @@ from .mobile_common import paginate
 
 TAG = 'Leave'
 
+DURATION_TO_MODEL = {
+    'FULL_DAY': 'full_day',
+    'FIRST_HALF': 'first_half',
+    'SECOND_HALF': 'second_half',
+}
+MODEL_TO_DURATION = {v: k for k, v in DURATION_TO_MODEL.items()}
+
 
 class LeaveRequestCreateSerializer(serializers.Serializer):
     type = serializers.CharField(help_text="A LeaveType `code` from GET /leave/balances, e.g. \"CL\" - not a fixed enum, see module docstring")
     startDate = serializers.DateField()
     endDate = serializers.DateField()
     reason = serializers.CharField()
+    duration = serializers.ChoiceField(
+        choices=['FULL_DAY', 'FIRST_HALF', 'SECOND_HALF'], required=False, default='FULL_DAY',
+        help_text="FULL_DAY (default), FIRST_HALF or SECOND_HALF. A half day counts as 0.5 and needs startDate == endDate.",
+    )
 from .models import LeaveType, EmployeeLeaveBalance, LeaveRequest, Holiday
 
 
@@ -96,16 +107,20 @@ class BalancesView(MobileAPIView):
         responses={201: EnvelopeResponseSerializer, 400: EnvelopeResponseSerializer, 422: EnvelopeResponseSerializer},
         tags=[TAG], summary="Apply for leave",
         description=(
-            "`days` is recomputed server-side excluding Sundays and holidays (the naive "
-            "client-side count including weekends is never trusted). Always created PENDING - "
-            "approval happens in the web admin/HR tool, not this app."
+            "`duration` is FULL_DAY (default), FIRST_HALF or SECOND_HALF. A half day needs "
+            "startDate == endDate and counts as 0.5 day; a FIRST_HALF and a SECOND_HALF request "
+            "for the same date don't overlap each other. For a full day, `days` is recomputed "
+            "server-side excluding Sundays and holidays (the naive client-side count including "
+            "weekends is never trusted). Always created PENDING - approval happens in the web "
+            "admin/HR tool, not this app."
         ),
         request=LeaveRequestCreateSerializer,
         examples=[
             OpenApiExample('Request', value={"type": "CL", "startDate": "2026-12-21", "endDate": "2026-12-22", "reason": "Family function at home town"}, request_only=True),
+            OpenApiExample('Request - half day', value={"type": "CL", "startDate": "2026-12-21", "endDate": "2026-12-21", "duration": "FIRST_HALF", "reason": "Doctor appointment"}, request_only=True),
             OpenApiExample('201 response', value={
                 "id": "lv_00007", "type": "CL", "label": "Casual Leave",
-                "startDate": "2026-12-21", "endDate": "2026-12-22", "days": 2,
+                "startDate": "2026-12-21", "endDate": "2026-12-22", "duration": "FULL_DAY", "days": 2,
                 "reason": "Family function at home town", "status": "PENDING",
                 "appliedOn": "2026-09-14T14:17:36+05:30", "reviewedBy": None, "reviewedOn": None, "reviewComment": None,
             }, response_only=True),
@@ -133,6 +148,13 @@ class LeaveRequestsView(MobileAPIView):
         start_str = request.data.get('startDate')
         end_str = request.data.get('endDate')
         reason = (request.data.get('reason') or '').strip()
+        duration = (request.data.get('duration') or 'FULL_DAY').strip().upper()
+        if duration not in DURATION_TO_MODEL:
+            raise MobileAPIException(
+                'VALIDATION_ERROR', 'duration must be one of FULL_DAY, FIRST_HALF, SECOND_HALF.', 400, field='duration',
+            )
+        leave_duration = DURATION_TO_MODEL[duration]
+        is_half = leave_duration != LeaveRequest.LeaveType.FULL_DAY
 
         missing = [f for f, v in [('type', type_code), ('startDate', start_str), ('endDate', end_str), ('reason', reason)] if not v]
         if missing:
@@ -151,14 +173,31 @@ class LeaveRequestsView(MobileAPIView):
         if leave_type is None or (leave_type.branch_id is not None and leave_type.branch_id != employee.branch_id):
             raise MobileAPIException('VALIDATION_ERROR', f'Unknown leave type "{type_code}".', 400, field='type')
 
+        if is_half and start_date != end_date:
+            raise MobileAPIException(
+                'INVALID_DATE_RANGE', 'A half-day leave must be for a single date (startDate and endDate the same).',
+                422, field='endDate',
+            )
+
         days = _working_days_between(employee.office, employee.branch, start_date, end_date)
         if days <= 0:
             raise MobileAPIException('INVALID_DATE_RANGE', 'Selected range has no working days.', 422, field='endDate')
+        if is_half:
+            days = 0.5  # a half day is 0.5 of the (single) working day it falls on
 
-        overlap = LeaveRequest.objects.filter(
+        overlapping = LeaveRequest.objects.filter(
             employee=employee, status__in=[LeaveRequest.Status.PENDING, LeaveRequest.Status.APPROVED],
             start_date__lte=end_date, end_date__gte=start_date,
-        ).exists()
+        )
+        if is_half:
+            # The two halves of one day don't collide with each other.
+            other_half = (
+                LeaveRequest.LeaveType.SECOND_HALF
+                if leave_duration == LeaveRequest.LeaveType.FIRST_HALF
+                else LeaveRequest.LeaveType.FIRST_HALF
+            )
+            overlapping = overlapping.exclude(leave_type=other_half, start_date=start_date, end_date=start_date)
+        overlap = overlapping.exists()
         if overlap:
             raise MobileAPIException('OVERLAPPING_LEAVE', 'This range overlaps an existing pending or approved request.', 422)
 
@@ -177,7 +216,7 @@ class LeaveRequestsView(MobileAPIView):
             leave_type_ref=leave_type,
             leave_category=(LeaveRequest.LeaveCategory.PAID if leave_type.category == LeaveType.Category.PAID
                              else LeaveRequest.LeaveCategory.LWP),
-            leave_type=LeaveRequest.LeaveType.FULL_DAY,
+            leave_type=leave_duration,
             start_date=start_date, end_date=end_date, reason=reason,
             status=LeaveRequest.Status.PENDING,
         )
@@ -202,7 +241,8 @@ class LeaveRequestsView(MobileAPIView):
             "label": r.leave_type_ref.name if r.leave_type_ref else r.get_leave_category_display(),
             "startDate": r.start_date.isoformat(),
             "endDate": r.end_date.isoformat(),
-            "days": r.total_days,
+            "duration": MODEL_TO_DURATION.get(r.leave_type, 'FULL_DAY'),
+            "days": float(r.day_count) if r.is_half_day else r.total_days,
             "reason": r.reason,
             "status": r.status.upper(),
             "appliedOn": r.created_at.isoformat(),

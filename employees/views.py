@@ -2039,6 +2039,15 @@ def admin_leave_requests(request):
             else:
                 attendance_status = 'Leave'
 
+            # A half-day leave (first/second half) is NOT a whole day off: the
+            # employee still works the other half, so no full-day 'Leave'
+            # placeholder is written - the day's attendance comes from their
+            # real check-in/out, and the leave itself is the 0.5 day counted
+            # off the request (LeaveRequest.day_count). No attendance record
+            # at all for that day means the missing half counts as absent.
+            if leave_request.is_half_day:
+                current_date = leave_request.end_date + timedelta(days=1)
+
             while current_date <= leave_request.end_date:
                 # Keyed on (employee, date) only, matching the model's actual
                 # unique_together - branch belongs in defaults, not the lookup.
@@ -3664,7 +3673,7 @@ def check_in(request):
     from employees.models import AttendanceLog
     employee = request.user.employee_profile
     employee.refresh_from_db()
-    today = timezone.now().date()
+    today = timezone.localdate()
     ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
 #     # Get today's attendance record if it exists
@@ -3684,6 +3693,14 @@ def check_in(request):
 
     # ===== POST REQUEST: Process check-in submission =====
     if request.method == 'POST':
+        # VALIDATION 0: Already checked in and not checked out yet - the only
+        # valid next action is a check-out.
+        if today_attendance and today_attendance.open_session:
+            if ajax:
+                return JsonResponse({'success': False, 'message': 'You are already checked in. Please check out first.', 'type': 'already_checked_in'}, status=400)
+            messages.error(request, 'You are already checked in. Please check out first.')
+            return redirect('employees:check_in')
+
         # VALIDATION 1: Photo is required
         check_in_photo = request.FILES.get('check_in_photo')
         if not check_in_photo:
@@ -3834,48 +3851,18 @@ def check_in(request):
                 messages.error(request, ' Face verification failed. Your face does not match. Please try again.')
                 return redirect('employees:check_in')
 
-            # SECURITY: All validations passed - create attendance record.
-            # Keyed on (employee, date) only, matching the model's actual
-            # unique_together - looking up by office/branch too let a drifted
-            # branch value miss an existing row and then collide on insert.
-            # The IntegrityError fallback covers the remaining race window
-            # (e.g. a double-tapped submit) between the lookup and the insert.
+            # SECURITY: All validations passed - record this check-in as a new
+            # session on today's attendance row (see attendance_sessions.py).
+            from employees.attendance_sessions import get_or_create_today, start_session
             try:
-                attendance, created = Attendance.objects.get_or_create(
-                    employee=employee,
-                    date=today,
-                    defaults={
-                        'office': employee.office,
-                        'branch': employee.branch,
-                        'check_in_time': timezone.now(),
-                    }
-                )
+                attendance = get_or_create_today(employee, today)
             except IntegrityError:
                 attendance = Attendance.objects.get(employee=employee, date=today)
-                created = False
-
-            # This is a real check-in happening right now, so check_in_time
-            # must always be "now" - not left over from get_or_create's
-            # defaults (only applied when a row is freshly created) which
-            # otherwise leaves a pre-existing placeholder row's check_in_time
-            # untouched (e.g. one auto-created for an approved leave day at
-            # a stale midnight timestamp), producing an impossible multi-day
-            # duration once check-out runs against it.
-            attendance.office = employee.office
-            attendance.branch = employee.branch
-            attendance.check_in_time = timezone.now()
-            attendance.check_out_time = None
-            attendance.check_out_photo = None
-            attendance.check_out_latitude = None
-            attendance.check_out_longitude = None
-            attendance.total_work_hours = 0
-            attendance.final_status = 'present'
-
-            # Save photo and location
-            attendance.check_in_photo.save(check_in_photo.name, check_in_photo, save=False)
-            attendance.check_in_latitude = user_latitude
-            attendance.check_in_longitude = user_longitude
-            attendance.save()
+            start_session(
+                attendance, employee,
+                photo=check_in_photo, photo_name=check_in_photo.name,
+                latitude=user_latitude, longitude=user_longitude,
+            )
 
             # LOG: Successful check-in
             AttendanceLog.objects.create(
@@ -3920,17 +3907,25 @@ def check_in(request):
             return redirect('employees:check_in')
 
     # ===== GET REQUEST: Render check-in page =====
-    if today_attendance and today_attendance.check_in_time and today_attendance.check_out_time:
-        attendance_state = 'complete'
-    elif today_attendance and today_attendance.check_in_time and not today_attendance.check_out_time:
-        attendance_state = 'checked_in_pending_checkout'
-    else:
-        attendance_state = 'not_checked_in'
+    # Checked in (open session) -> the next action is check-out; otherwise
+    # it's check-in - including after a completed check-out, since an employee
+    # can go in and out several times a day.
+    from employees.attendance_sessions import today_sessions_summary
+    sessions_summary = today_sessions_summary(today_attendance)
+    open_session = sessions_summary['open_session']
+    attendance_state = 'checked_in_pending_checkout' if open_session else 'not_checked_in'
 
-    check_in_success_time = today_attendance.check_in_time if (today_attendance and today_attendance.check_in_time) else None
+    worked_seconds = sessions_summary['worked_seconds']
+    today_worked_display = f"{worked_seconds // 3600}h {(worked_seconds % 3600) // 60}m" if worked_seconds else ''
+
+    check_in_success_time = open_session.check_in_time if open_session else (
+        today_attendance.check_in_time if (today_attendance and today_attendance.check_in_time) else None
+    )
     checkout_success = request.session.pop('check_out_success', False)
     checkout_success_time = request.session.pop('check_out_success_time', None)
-    should_auto_start_camera = attendance_state == 'not_checked_in'
+    # Only auto-open the camera for the day's first check-in - right after a
+    # check-out the employee shouldn't be pushed straight into another one.
+    should_auto_start_camera = attendance_state == 'not_checked_in' and not sessions_summary['sessions']
 
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -3938,6 +3933,9 @@ def check_in(request):
         'employee': employee,
         'today_attendance': today_attendance,
         'attendance_state': attendance_state,
+        'open_session': open_session,
+        'today_sessions': sessions_summary['sessions'],
+        'today_worked_display': today_worked_display,
         'check_in_success_time': check_in_success_time,
         'checkout_success': checkout_success,
         'checkout_success_time': checkout_success_time,
@@ -5030,21 +5028,17 @@ def check_out(request):
     """Employee check-out view with face verification - handles POST requests only"""
     from employees.models import AttendanceLog
     employee = request.user.employee_profile
-    today = timezone.now().date()
+    today = timezone.localdate()
     ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
-    # Get today's attendance record - keyed on (employee, date) only, matching
-    # the model's actual unique_together, and requiring a real check_in_photo
-    # so a placeholder row (e.g. auto-created when an approved leave covers
-    # today, which never had a genuine check-in) can't be "checked out"
-    # against - that would compute a duration from whatever stale
-    # check_in_time it happened to be given rather than today's real check-in.
-    attendance = Attendance.objects.filter(
-        employee=employee, date=today,
-    ).exclude(check_in_photo='').exclude(check_in_photo__isnull=True).first()
+    # Check-out closes today's OPEN session (a check-in with no check-out yet).
+    # No open session means there's nothing to check out of - e.g. a leave
+    # placeholder, or already checked out (the next action is a new check-in).
+    attendance = Attendance.objects.filter(employee=employee, date=today).first()
+    open_session = attendance.open_session if attendance else None
 
     # Validation 1: Must be checked in first
-    if not attendance:
+    if not attendance or not open_session:
         # Log failed attempt
         AttendanceLog.objects.create(
             office=employee.office,
@@ -5084,8 +5078,8 @@ def check_out(request):
 
     # Validation 3: Enforce minimum working duration before checkout (5 minute cooldown)
     MIN_CHECKOUT_DELAY_SECONDS = 5 * 60
-    if attendance.check_in_time:
-        seconds_since_check_in = (timezone.now() - attendance.check_in_time).total_seconds()
+    if open_session.check_in_time:
+        seconds_since_check_in = (timezone.now() - open_session.check_in_time).total_seconds()
         if seconds_since_check_in < MIN_CHECKOUT_DELAY_SECONDS:
             remaining_seconds = int(MIN_CHECKOUT_DELAY_SECONDS - seconds_since_check_in)
             remaining_minutes = max(1, remaining_seconds // 60)
@@ -5323,27 +5317,21 @@ def check_out(request):
                     messages.error(request, 'Face verification failed. We could not uniquely match your face to your profile. Check-out denied.')
                 return redirect('employees:check_in')
 
-            # All validations passed - save check-out
-            is_first_checkout = attendance.check_out_time is None
-            check_out_time = timezone.now()
-            
-            attendance.check_out_photo.save(check_out_photo.name, check_out_photo, save=False)
-            attendance.check_out_time = check_out_time
-            attendance.check_out_latitude = user_latitude
-            attendance.check_out_longitude = user_longitude
-            
-            # Use SHIFT-BASED attendance calculation
-            from employees.shift_attendance_logic import update_attendance_on_checkout
-            update_attendance_on_checkout(attendance)
+            # All validations passed - close the open session and recompute the
+            # day's total from all of its sessions (attendance_sessions.py).
+            from employees.attendance_sessions import end_session
+            end_session(
+                attendance, open_session,
+                photo=check_out_photo, photo_name=check_out_photo.name,
+                latitude=user_latitude, longitude=user_longitude,
+                auto_end_context={
+                    'origin': 'check-out',
+                    'ip_address': get_client_ip(request),
+                    'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                },
+            )
+            check_out_time = attendance.check_out_time
 
-            ip_address = get_client_ip(request)
-            user_agent = request.META.get('HTTP_USER_AGENT', '')
-            attendance._auto_end_context = {
-                'origin': 'check-out',
-                'ip_address': ip_address,
-                'user_agent': user_agent,
-            }
-            attendance.save()
             ended_breaks = getattr(attendance, '_auto_end_results', [])
             
             # Log successful check-out
@@ -5361,11 +5349,8 @@ def check_out(request):
             )
             
             if ajax:
-                message = (
-    f"Check-out successful!"
-    if is_first_checkout
-    else f"Attendance updated successfully!"
-)
+                worked = attendance.worked_seconds
+                message = f"Check-out successful! Worked today: {worked // 3600}h {(worked % 3600) // 60}m."
                 return JsonResponse({'success': True, 
                                      'message': message, 
                                      'check_out_time': timezone.localtime(check_out_time).strftime('%d %b %Y, %I:%M %p'), 'half_day': attendance.half_day}
@@ -6605,11 +6590,14 @@ def employee_attendance_calendar(request):
                         days_since_joining = (date_obj - employee.joining_date).days
                         if days_since_joining >= 91:
                             # Check if there's an approved leave request for this date
+                            # A half-day leave doesn't make the whole day a paid
+                            # leave - the day keeps its real attendance status.
                             approved_leave = LeaveRequest.objects.filter(
                                 employee=employee,
                                 start_date__lte=date_obj,
                                 end_date__gte=date_obj,
-                                status=LeaveRequest.Status.APPROVED
+                                status=LeaveRequest.Status.APPROVED,
+                                leave_type=LeaveRequest.LeaveType.FULL_DAY,
                             ).exists()
                             if approved_leave:
                                 is_paid_leave = True
@@ -7583,8 +7571,7 @@ def attendance_details_api(request, date):
         # Calculate duration
         duration = None
         if attendance.check_in_time and attendance.check_out_time:
-            delta = attendance.check_out_time - attendance.check_in_time
-            total_seconds = int(delta.total_seconds())
+            total_seconds = attendance.worked_seconds
             hours = total_seconds // 3600
             minutes = (total_seconds % 3600) // 60
             duration = f"{hours}h {minutes}m"

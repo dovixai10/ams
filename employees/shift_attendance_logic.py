@@ -259,6 +259,21 @@ def calculate_duration_hours(check_in_time: datetime, check_out_time: Optional[d
     return hours.quantize(Decimal('0.01'))
 
 
+def attendance_worked_hours(attendance) -> Decimal:
+    """Hours actually worked on this Attendance day: the sum of its completed
+    check-in/check-out sessions, so a gap between two sessions (e.g. lunch)
+    isn't counted. A row with no sessions (older or manually-entered) falls
+    back to plain check-out minus check-in."""
+    sessions = list(attendance.sessions.all())
+    if sessions:
+        total_seconds = sum(
+            (s.check_out_time - s.check_in_time).total_seconds()
+            for s in sessions if s.check_out_time and s.check_out_time > s.check_in_time
+        )
+        return Decimal(str(total_seconds / 3600)).quantize(Decimal('0.01'))
+    return calculate_duration_hours(attendance.check_in_time, attendance.check_out_time)
+
+
 def calculate_duration_display(check_in_time: datetime, check_out_time: Optional[datetime]) -> str:
     """
     Get human-readable duration display (HH:MM:SS format).
@@ -364,10 +379,7 @@ def calculate_attendance_status_for_record(attendance) -> Tuple[str, str]:
         half_day_threshold = shift_info['half_day_threshold']
 
         # Calculate duration
-        duration_hours = calculate_duration_hours(
-            attendance.check_in_time,
-            attendance.check_out_time
-        )
+        duration_hours = attendance_worked_hours(attendance)
 
         # Determine status
         has_checkout = attendance.check_out_time is not None
@@ -433,10 +445,7 @@ def update_attendance_on_checkout(attendance) -> Dict[str, Any]:
         half_day_threshold = shift_info['half_day_threshold']
 
         # Calculate duration
-        duration_hours = calculate_duration_hours(
-            attendance.check_in_time,
-            attendance.check_out_time
-        )
+        duration_hours = attendance_worked_hours(attendance)
 
         # Determine status
         status, color = determine_attendance_status(

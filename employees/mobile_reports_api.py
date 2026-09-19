@@ -9,8 +9,8 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 from .mobile_response import MobileAPIView, MobileAPIException, EnvelopeResponseSerializer
-from .mobile_common import duration_payload
-from .models import Attendance, Holiday, LeaveRequest
+from .mobile_common import duration_payload, approved_leave_weights, count_absent_days, count_leave_days
+from .models import Attendance, Holiday
 
 DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 TAG = 'Reports'
@@ -26,13 +26,20 @@ def _metrics_for_range(employee, first, last):
     records = list(Attendance.objects.filter(employee=employee, date__gte=first, date__lte=last))
     present = sum(1 for r in records if r.final_status == 'present')
     half = sum(1 for r in records if r.final_status in ('half_day', 'late_penalty'))
-    absent = sum(1 for r in records if r.final_status in ('absent', 'sandwich_leave'))
-    leave_days = LeaveRequest.objects.filter(
-        employee=employee, status=LeaveRequest.Status.APPROVED,
-        start_date__lte=last, end_date__gte=first,
-    ).count()
+
+    holiday_dates = set(
+        Holiday.objects.filter(office=employee.office, branch=employee.branch, date__gte=first, date__lte=last)
+        .values_list('date', flat=True)
+    )
+    leave_weights = approved_leave_weights(employee, first, last)
+    # Absences come from working days elapsed with no punch (or one marked
+    # absent) - NOT just existing rows: a day the employee never checked in
+    # on has no row at all, and counting only rows reported 0 absences.
+    absent = count_absent_days(employee, records, first, last, holiday_dates, leave_weights)
+    leave_days = count_leave_days(leave_weights, holiday_dates)
+
     working_seconds = sum(int(float(r.total_work_hours or 0) * 3600) for r in records)
-    holiday_count = Holiday.objects.filter(office=employee.office, branch=employee.branch, date__gte=first, date__lte=last).count()
+    holiday_count = len(holiday_dates)
     total_days = (last - first).days + 1
 
     return {
@@ -46,7 +53,14 @@ def _metrics_for_range(employee, first, last):
     responses=EnvelopeResponseSerializer,
     tags=[TAG], summary="Everything the reports screen needs, in one call",
     parameters=[OpenApiParameter('month', OpenApiTypes.STR, required=True, description='YYYY-MM')],
-    description="All aggregates computed server-side from the canonical attendance records - a single source of truth, so this never disagrees with /attendance/summary or /attendance/calendar. `metrics.lateMarks` currently always reports 0 (see the docs' Decisions section on arrival-time lateness).",
+    description=(
+        "All aggregates computed server-side from the canonical attendance records - a single source of truth, so this never "
+        "disagrees with /attendance/summary or /attendance/calendar. `metrics.totalAbsentDays` counts every working day elapsed "
+        "(not a Sunday, not a holiday, on/after the joining date, not a full day of approved leave) on which the employee never "
+        "punched in - a day with no attendance row at all counts - plus any day recorded absent; a half-day leave covers half of "
+        "its day, so such a day contributes 0.5. `metrics.leaveDays` is in days (a half-day leave is 0.5). Both can be fractional. "
+        "`metrics.lateMarks` currently always reports 0 (see the docs' Decisions section on arrival-time lateness)."
+    ),
 )
 class MonthlySummaryView(MobileAPIView):
     """GET /reports/monthly-summary?month=YYYY-MM"""

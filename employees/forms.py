@@ -1070,6 +1070,18 @@ class LeaveRequestForm(forms.ModelForm):
         if self.instance.pk:
             overlapping = overlapping.exclude(pk=self.instance.pk)
 
+        # The two halves of one day don't collide: a First Half request and a
+        # Second Half request for the same single date can both exist.
+        if leave_type in (LeaveRequest.LeaveType.FIRST_HALF, LeaveRequest.LeaveType.SECOND_HALF) and start_date == end_date:
+            other_half = (
+                LeaveRequest.LeaveType.SECOND_HALF
+                if leave_type == LeaveRequest.LeaveType.FIRST_HALF
+                else LeaveRequest.LeaveType.FIRST_HALF
+            )
+            overlapping = overlapping.exclude(
+                leave_type=other_half, start_date=start_date, end_date=start_date,
+            )
+
         if overlapping.exists():
             raise ValidationError('You already have a pending or approved leave request that overlaps with these dates.')
 

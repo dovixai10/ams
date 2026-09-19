@@ -1202,7 +1202,7 @@
                       </td>
                       <td>
                         <div class="fw-semibold">{{ leave.start_date|date:"d M" }} – {{ leave.end_date|date:"d M" }}</div>
-                        <small class="text-muted">{{ leave.total_days }} days</small>
+                        <small class="text-muted">{{ leave.day_count|floatformat:"-1" }} day{{ leave.day_count|pluralize }}{% if leave.is_half_day %} ({{ leave.get_leave_type_display }}){% endif %}</small>
                       </td>
                       <td>
                         <span class="badge bg-label-{% if leave.status == 'approved' %}success{% elif leave.status == 'rejected' %}danger{% else %}warning{% endif %}">

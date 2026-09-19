@@ -93,8 +93,7 @@ def _format_attendance_detail(attendance, employee, attendance_date, request=Non
     total_duration_seconds = None
     total_duration_display = '—'
     if attendance.check_in_time and attendance.check_out_time:
-        delta = attendance.check_out_time - attendance.check_in_time
-        total_duration_seconds = int(delta.total_seconds())
+        total_duration_seconds = attendance.worked_seconds
         hours = total_duration_seconds // 3600
         minutes = (total_duration_seconds % 3600) // 60
         total_duration_display = f"{hours}h {minutes}m"
@@ -641,8 +640,8 @@ def dashboard_api(request):
             'time_period': time_period,
             'shift_window': shift_window,
             'attendance': {
-                'checked_in': today_attendance and today_attendance.check_in_time is not None,
-                'checked_out': today_attendance and today_attendance.check_out_time is not None,
+                'checked_in': bool(today_attendance and today_attendance.open_session),
+                'checked_out': bool(today_attendance and not today_attendance.open_session and today_attendance.check_out_time is not None),
                 'check_in_time': today_attendance.check_in_time.strftime('%I:%M %p') if today_attendance and today_attendance.check_in_time else None,
                 'check_out_time': today_attendance.check_out_time.strftime('%I:%M %p') if today_attendance and today_attendance.check_out_time else None,
                 'status': today_attendance.final_status if today_attendance else None,
@@ -1147,15 +1146,15 @@ def dashboard_ui_state_api(request):
         attendance_status = None
         
         if today_attendance:
-            if today_attendance.check_in_time and today_attendance.check_out_time:
-                state = 'post_checkout'
+            if today_attendance.open_session:
+                state = 'waiting_checkout'
+                check_in_time = timezone.localtime(today_attendance.open_session.check_in_time).strftime('%I:%M %p')
+                attendance_status = 'checked_in'
+            elif today_attendance.check_in_time and today_attendance.check_out_time:
+                # Checked out - the next action is a new check-in (several per day are allowed).
                 check_in_time = timezone.localtime(today_attendance.check_in_time).strftime('%I:%M %p')
                 check_out_time = timezone.localtime(today_attendance.check_out_time).strftime('%I:%M %p')
                 attendance_status = today_attendance.final_status or 'present'
-            elif today_attendance.check_in_time:
-                state = 'waiting_checkout'
-                check_in_time = timezone.localtime(today_attendance.check_in_time).strftime('%I:%M %p')
-                attendance_status = 'checked_in'
         
         # Get last 7 days attendance data
         last_7_days = []

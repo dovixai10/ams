@@ -156,8 +156,8 @@ def get_employee_details(request):
         today_status = today_attendance.final_status if today_attendance else 'Not marked'
         worked_hours = '--'
         if today_attendance and today_attendance.check_in_time and today_attendance.check_out_time:
-            delta = today_attendance.check_out_time - today_attendance.check_in_time
-            worked_hours = f"{delta.seconds // 3600}h {(delta.seconds % 3600) // 60}m"
+            worked = today_attendance.worked_seconds
+            worked_hours = f"{worked // 3600}h {(worked % 3600) // 60}m"
         
         last_attendance_list = [
             {
@@ -335,12 +335,12 @@ def checkin_dashboard_state(request):
         # Determine state
         if not today_attendance:
             state = "pre_checkin"
-        elif today_attendance.check_in_time and not today_attendance.check_out_time:
+        elif today_attendance.open_session:
             state = "waiting_checkout"
-        elif today_attendance.check_in_time and today_attendance.check_out_time:
-            state = "post_checkout"
         else:
-            state = "idle"
+            # Checked out - but an employee can check in again the same day,
+            # so the next action is a check-in, not "done for the day".
+            state = "pre_checkin"
         
         # Format times
         check_in_time = today_attendance.check_in_time.strftime('%I:%M %p') if today_attendance and today_attendance.check_in_time else None
