@@ -80,8 +80,8 @@ def _user_payload(employee):
         "employeeId": employee_code(employee),
         "name": employee.full_name or employee.name,
         "workEmail": employee.email,
-        "department": employee.department or None,
-        "designation": employee.designation or None,
+        "department": employee.department.name if employee.department else None,
+        "designation": employee.designation.name if employee.designation else None,
         "avatarUrl": (employee.profile_picture.url if employee.profile_picture else None),
         "faceIdRegistered": bool(employee.has_registered_face),
     }

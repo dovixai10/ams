@@ -16,7 +16,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q, Min, Max, Count, Prefetch
 from django.utils import timezone
-from django.http import JsonResponse, HttpResponseBadRequest, FileResponse
+from django.http import JsonResponse, HttpResponseBadRequest, FileResponse, Http404
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.core.mail import send_mail
@@ -89,6 +89,9 @@ from .models import (
     Sprint,
     EmployeeDocument,
     DocumentType,
+    Designation,
+    Department,
+    EmploymentType,
     CompanyRule,
     LoanRequest,
     ReimbursementRequest,
@@ -105,6 +108,9 @@ from .forms import (
     SuperAdminProfileForm,
     EmployeeDocumentForm,
     DocumentTypeForm,
+    DesignationForm,
+    DepartmentForm,
+    EmploymentTypeForm,
     EmployeePasswordResetForm,
     LeaveRequestForm,
     AttendanceRegularizationRequestForm,
@@ -3236,6 +3242,131 @@ def admin_document_type_delete(request, pk):
         messages.success(request, f'Document type "{name}" deleted.')
 
     return redirect('employees:admin_document_types')
+
+
+# Employee attribute types (Designation / Department / Employment Type) -
+# three small office-configurable lists shown as dropdowns on the employee
+# form and (for Designation) printed on the ID card. HR creates these
+# themselves under Company Settings, same pattern as Document Types/Leave
+# Types above; one generic set of views serves all three via `kind`.
+EMPLOYEE_ATTRIBUTE_TYPE_REGISTRY = {
+    'designations': {
+        'model': Designation, 'form': DesignationForm,
+        'label': 'Designation', 'label_plural': 'Designations',
+        'icon': 'bx-id-card',
+        'blurb': 'Job titles employees can be assigned - e.g. Software Engineer, HR Manager.',
+    },
+    'departments': {
+        'model': Department, 'form': DepartmentForm,
+        'label': 'Department', 'label_plural': 'Departments',
+        'icon': 'bx-sitemap',
+        'blurb': 'Departments/teams employees can belong to - e.g. Engineering, Sales, HR, Finance.',
+    },
+    'employment-types': {
+        'model': EmploymentType, 'form': EmploymentTypeForm,
+        'label': 'Employment Type', 'label_plural': 'Employment Types',
+        'icon': 'bx-briefcase',
+        'blurb': 'Employment arrangements employees can be assigned - e.g. Full-time, Part-time, Intern, Contract.',
+    },
+}
+
+
+def _employee_attribute_type_config(kind):
+    config = EMPLOYEE_ATTRIBUTE_TYPE_REGISTRY.get(kind)
+    if config is None:
+        raise Http404(f'Unknown employee attribute type "{kind}".')
+    return config
+
+
+@login_required
+@user_passes_test(feature_required('employees.manage'))
+def admin_employee_attribute_types(request, kind):
+    """List + create page for one of Designation/Department/Employment Type,
+    selected via `kind` in the URL. Mirrors admin_document_types."""
+    config = _employee_attribute_type_config(kind)
+    model, form_cls = config['model'], config['form']
+
+    if request.method == 'POST':
+        form = form_cls(request.POST)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.created_by = request.user
+            obj.office = get_request_office(request)
+            obj.branch = get_request_branch(request)
+            try:
+                obj.save()
+            except IntegrityError:
+                messages.error(request, f'A {config["label"].lower()} named "{obj.name}" already exists for this office.')
+            else:
+                messages.success(request, f'{config["label"]} "{obj.name}" created successfully.')
+            return redirect('employees:admin_employee_attribute_types', kind=kind)
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = form_cls()
+
+    items = tenant_queryset(request, model.objects.all()).order_by('display_order', 'name')
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'form': form,
+        'items': items,
+        'kind': kind,
+        'config': config,
+    })
+    return render(request, 'employees/settings/admin_employee_attribute_types.html', context)
+
+
+@login_required
+@user_passes_test(feature_required('employees.manage'))
+@require_http_methods(["POST"])
+def admin_employee_attribute_type_update(request, kind, pk):
+    """Update an existing Designation/Department/Employment Type entry."""
+    config = _employee_attribute_type_config(kind)
+    obj = get_object_or_404(tenant_queryset(request, config['model'].objects.all()), pk=pk)
+    form = config['form'](request.POST, instance=obj)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f'{config["label"]} "{obj.name}" updated successfully.')
+    else:
+        messages.error(request, f'Could not update: {form.errors.as_text()}')
+    return redirect('employees:admin_employee_attribute_types', kind=kind)
+
+
+@login_required
+@user_passes_test(feature_required('employees.manage'))
+@require_http_methods(["POST"])
+def admin_employee_attribute_type_toggle(request, kind, pk):
+    """Toggle active/inactive - inactive entries are hidden from new selections but existing assignments are kept."""
+    config = _employee_attribute_type_config(kind)
+    obj = get_object_or_404(tenant_queryset(request, config['model'].objects.all()), pk=pk)
+    obj.is_active = not obj.is_active
+    obj.save(update_fields=['is_active', 'updated_at'])
+    state = 'activated' if obj.is_active else 'deactivated'
+    messages.success(request, f'{config["label"]} "{obj.name}" {state}.')
+    return redirect('employees:admin_employee_attribute_types', kind=kind)
+
+
+@login_required
+@user_passes_test(feature_required('employees.manage'))
+@require_http_methods(["POST"])
+def admin_employee_attribute_type_delete(request, kind, pk):
+    """Delete an entry - blocked only if an employee is already assigned to it."""
+    config = _employee_attribute_type_config(kind)
+    obj = get_object_or_404(tenant_queryset(request, config['model'].objects.all()), pk=pk)
+
+    if obj.employees.exists():
+        messages.error(
+            request,
+            f'"{obj.name}" is already assigned to employees and cannot be deleted. Deactivate it instead.'
+        )
+    else:
+        name = obj.name
+        obj.delete()
+        messages.success(request, f'{config["label"]} "{name}" deleted.')
+
+    return redirect('employees:admin_employee_attribute_types', kind=kind)
 
 
 @login_required
@@ -9158,7 +9289,7 @@ def _build_salary_slip_pdf(salary_slip):
     ))
 
     employee_code = f"KI{employee.id:05d}"
-    designation = getattr(employee, 'designation', '') or '-'
+    designation = employee.designation.name if employee.designation else '-'
     info_table = Table(
         [
             ['Employee Name', employee.full_name, 'Employee Code', employee_code],
@@ -9582,7 +9713,7 @@ def admin_idcard_generator(request):
             if not employee_code:
                 employee_code = f"KI{employee.id:05d}"
             if not job_position:
-                job_position = getattr(employee, 'designation', '') or 'Employee'
+                job_position = employee.designation.name if employee.designation else 'Employee'
 
             # Only set employee_photo when the employee actually has one -
             # the field isn't nullable, so passing None here would fail.
@@ -9785,7 +9916,7 @@ def get_employee_data(request):
             employee_code = f'KI{employee.id:05d}'
 
             # Get designation (placeholder if not available)
-            designation = getattr(employee, 'designation', None) or 'Employee'
+            designation = employee.designation.name if employee.designation else 'Employee'
             
             # Use employee joining date
             joining_date_obj = employee.joining_date

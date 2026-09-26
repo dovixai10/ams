@@ -417,7 +417,7 @@
           <select id="employeeSelect" name="employee" required onchange="loadEmployeeData()">
             <option value="">-- Choose an employee --</option>
             {% for employee in employees %}
-              <option value="{{ employee.id }}" data-name="{{ employee.full_name }}" data-code="KI{{ employee.id|stringformat:'05d' }}" data-designation="{{ employee.designation }}" data-joining="{{ employee.joining_date }}" data-contact="{{ employee.contact }}" data-photo="{{ employee.profile_picture.url }}">
+              <option value="{{ employee.id }}" data-name="{{ employee.full_name }}" data-code="KI{{ employee.id|stringformat:'05d' }}" data-designation="{{ employee.designation.name|default:'' }}" data-joining="{{ employee.joining_date }}" data-contact="{{ employee.contact }}" data-photo="{{ employee.profile_picture.url }}">
                 {{ employee.full_name }} ({{ employee.id }})
               </option>
             {% endfor %}

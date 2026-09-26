@@ -53,15 +53,15 @@ def _profile_payload(employee):
         "employeeId": employee_code(employee),
         "name": employee.full_name or employee.name,
         "avatarUrl": employee.profile_picture.url if employee.profile_picture else None,
-        "department": employee.department or None,
-        "designation": employee.designation or None,
+        "department": employee.department.name if employee.department else None,
+        "designation": employee.designation.name if employee.designation else None,
         "workEmail": employee.email,
         "personalEmail": employee.personal_email or None,
         "phoneNumber": employee.contact or None,
         "officeLocation": _office_location(employee),
         "workLocation": _work_location(employee),
         "joiningDate": employee.joining_date.isoformat() if employee.joining_date else None,
-        "employeeType": employee.employee_type,
+        "employeeType": employee.employee_type.name if employee.employee_type else None,
         "reportingManager": (
             {"employeeId": employee_code(manager), "name": manager.full_name or manager.name}
             if manager else None
@@ -85,7 +85,7 @@ class MeSummaryView(MobileAPIView):
             "employeeId": employee_code(employee),
             "name": employee.full_name or employee.name,
             "avatarUrl": employee.profile_picture.url if employee.profile_picture else None,
-            "designation": employee.designation or None,
+            "designation": employee.designation.name if employee.designation else None,
             "officeLocation": _office_location(employee),
         })
 

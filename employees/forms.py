@@ -20,6 +20,9 @@ from .models import (
     AttendanceRule,
     DocumentType,
     AttendanceRegularizationRequest,
+    Designation,
+    Department,
+    EmploymentType,
 )
 
 from django.utils import timezone
@@ -324,6 +327,17 @@ class EmployeeForm(forms.ModelForm):
                     office=office, branch=branch, is_active=True
                 ).order_by('name')
 
+        # Department/Designation/Employment Type: office-configurable lists
+        # (HR creates these themselves under Company Settings), same
+        # tenant-scoping as Shift above - never show another office's list.
+        for field_name, model in (('department', Department), ('designation', Designation), ('employee_type', EmploymentType)):
+            self.fields[field_name].queryset = model.objects.none()
+            self.fields[field_name].required = False
+            if self.request:
+                self.fields[field_name].queryset = tenant_queryset(
+                    self.request, model.objects.filter(is_active=True)
+                ).order_by('display_order', 'name')
+
     class Meta:
         model = Employee
         fields = [
@@ -333,11 +347,15 @@ class EmployeeForm(forms.ModelForm):
             'relative_name', 'relative_contact', 'relation_with_employee',
             'educational_qualifications',
             'aadhar_document', 'pan_document', 'bank_passbook_document',
-            'joining_date', 'shift', 'branch', 'roles',
+            'joining_date', 'department', 'designation', 'employee_type',
+            'shift', 'branch', 'roles',
         ]
         widgets = {
             'roles': forms.CheckboxSelectMultiple(),
             'branch': forms.Select(attrs={'class': 'form-select'}),
+            'department': forms.Select(attrs={'class': 'form-control'}),
+            'designation': forms.Select(attrs={'class': 'form-control'}),
+            'employee_type': forms.Select(attrs={'class': 'form-control'}),
             'full_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter full name'
@@ -381,6 +399,7 @@ class EmployeeForm(forms.ModelForm):
         }
         labels = {
             'joining_date': 'Date of Joining',
+            'employee_type': 'Employment Type',
         }
         help_texts = {
             'full_name': 'Employee\'s complete name',
@@ -400,6 +419,9 @@ class EmployeeForm(forms.ModelForm):
             'pan_document': 'Upload PAN (PDF or image)',
             'bank_passbook_document': 'Upload bank passbook or cancelled cheque (PDF or image)',
             'joining_date': 'Employee\'s joining date (used for paid leave calculation)',
+            'department': 'Which department this employee belongs to',
+            'designation': 'Job title, printed on the ID card',
+            'employee_type': 'Full-time, part-time, intern, contract, etc.',
             'shift': 'Select the shift allocated to this employee',
         }
 
@@ -532,6 +554,16 @@ class EmployeeUpdateForm(forms.ModelForm):
                 office=self.instance.office_id, branch=self.instance.branch_id
             ).order_by('name')
 
+        # Department/Designation/Employment Type: office-configurable lists,
+        # same tenant-scoping as Shift above.
+        for field_name, model in (('department', Department), ('designation', Designation), ('employee_type', EmploymentType)):
+            self.fields[field_name].queryset = model.objects.none()
+            self.fields[field_name].required = False
+            if self.request:
+                self.fields[field_name].queryset = tenant_queryset(
+                    self.request, model.objects.filter(is_active=True)
+                ).order_by('display_order', 'name')
+
     class Meta:
         model = Employee
         fields = [
@@ -541,11 +573,15 @@ class EmployeeUpdateForm(forms.ModelForm):
             'relative_name', 'relative_contact', 'relation_with_employee',
             'educational_qualifications',
             'aadhar_document', 'pan_document', 'bank_passbook_document',
-            'joining_date', 'shift', 'branch', 'roles',
+            'joining_date', 'department', 'designation', 'employee_type',
+            'shift', 'branch', 'roles',
         ]
         widgets = {
             'branch': forms.Select(attrs={'class': 'form-select'}),
             'roles': forms.CheckboxSelectMultiple(),
+            'department': forms.Select(attrs={'class': 'form-control'}),
+            'designation': forms.Select(attrs={'class': 'form-control'}),
+            'employee_type': forms.Select(attrs={'class': 'form-control'}),
             'full_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter full name'
@@ -589,6 +625,7 @@ class EmployeeUpdateForm(forms.ModelForm):
         }
         labels = {
             'joining_date': 'Date of Joining',
+            'employee_type': 'Employment Type',
         }
         help_texts = {
             'full_name': 'Employee\'s complete name',
@@ -608,6 +645,9 @@ class EmployeeUpdateForm(forms.ModelForm):
             'pan_document': 'Upload PAN (PDF or image)',
             'bank_passbook_document': 'Upload bank passbook or cancelled cheque (PDF or image)',
             'joining_date': 'Employee\'s joining date (used for paid leave calculation)',
+            'department': 'Which department this employee belongs to',
+            'designation': 'Job title, printed on the ID card',
+            'employee_type': 'Full-time, part-time, intern, contract, etc.',
             'shift': 'Select the shift allocated to this employee',
         }
 
@@ -756,6 +796,55 @@ class DocumentTypeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['code'].required = False
+
+
+class DesignationForm(forms.ModelForm):
+    class Meta:
+        model = Designation
+        fields = ['name', 'code', 'is_active', 'display_order']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Software Engineer, HR Manager'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto-generated if left blank'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'display_order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['code'].required = False
+
+
+class DepartmentForm(forms.ModelForm):
+    class Meta:
+        model = Department
+        fields = ['name', 'code', 'is_active', 'display_order']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Engineering, Sales, HR, Finance'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto-generated if left blank'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'display_order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['code'].required = False
+
+
+class EmploymentTypeForm(forms.ModelForm):
+    class Meta:
+        model = EmploymentType
+        fields = ['name', 'code', 'is_active', 'display_order']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Full-time, Part-time, Intern, Contract'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto-generated if left blank'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'display_order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['code'].required = False
+
 
 # class LeaveRequestForm(forms.ModelForm):
 #     """Form for employees to request leave with validation for date ranges."""

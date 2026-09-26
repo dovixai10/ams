@@ -68,6 +68,11 @@
             <div>Regularization Requests</div>
           </a>
         </li>
+        <li class="menu-item {% if 'manual-attendance' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:manual_attendance' %}" class="menu-link">
+            <div>Manual Attendance</div>
+          </a>
+        </li>
         {% endif %}
         {% if is_office_admin or 'leave.manage' in employee_permissions %}
         <li class="menu-item {% if 'leave-types' in request.path %}active{% endif %}">
@@ -82,14 +87,6 @@
         </li>
         {% endif %}
       </ul>
-    </li>
-    {% endif %}
-    {% if is_office_admin or 'attendance.manage' in employee_permissions %}
-    <li class="menu-item {% if 'manual-attendance' in request.path %}active{% endif %}">
-      <a href="{% url 'employees:manual_attendance' %}" class="menu-link">
-          <i class="menu-icon bx bx-calendar-check"></i>
-          <div>Manual Attendance</div>
-      </a>
     </li>
     {% endif %}
 
@@ -158,7 +155,7 @@
     {% endif %}
 
 
-    {% if is_office_admin or 'branches.manage' in employee_permissions or 'roles.manage' in employee_permissions or 'holidays.manage' in employee_permissions or 'rules.manage' in employee_permissions or 'attendance.manage' in employee_permissions %}
+    {% if is_office_admin or 'branches.manage' in employee_permissions or 'roles.manage' in employee_permissions or 'holidays.manage' in employee_permissions or 'rules.manage' in employee_permissions or 'attendance.manage' in employee_permissions or 'employees.manage' in employee_permissions %}
     <!-- ===============================
            COMPANY MANAGEMENT GROUP
     =================================-->
@@ -184,6 +181,23 @@
         <li class="menu-item {% if 'attendance/rule-settings' in request.path %}active{% endif %}">
           <a href="{% url 'employees:attendance_rule_settings' %}" class="menu-link">
             <div>Attendance Rule</div>
+          </a>
+        </li>
+        {% endif %}
+        {% if is_office_admin or 'employees.manage' in employee_permissions %}
+        <li class="menu-item {% if 'employee-settings/designations' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:admin_employee_attribute_types' kind='designations' %}" class="menu-link">
+            <div>Designations</div>
+          </a>
+        </li>
+        <li class="menu-item {% if 'employee-settings/departments' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:admin_employee_attribute_types' kind='departments' %}" class="menu-link">
+            <div>Departments</div>
+          </a>
+        </li>
+        <li class="menu-item {% if 'employee-settings/employment-types' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:admin_employee_attribute_types' kind='employment-types' %}" class="menu-link">
+            <div>Employment Types</div>
           </a>
         </li>
         {% endif %}

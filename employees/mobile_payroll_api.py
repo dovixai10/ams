@@ -95,8 +95,8 @@ def _slip_detail(slip):
         "payrollDetails": {
             "employeeName": employee.full_name or employee.name,
             "employeeId": f"KI{employee.id:05d}",
-            "department": employee.department or None,
-            "designation": employee.designation or None,
+            "department": employee.department.name if employee.department else None,
+            "designation": employee.designation.name if employee.designation else None,
             "bankName": None,  # not captured in this app's Employee model yet
             "accountNumberMasked": _mask(employee.account_number),
             "panNumberMasked": _mask(employee.pan_card, keep=1) if employee.pan_card else None,

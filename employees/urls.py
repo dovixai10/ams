@@ -274,6 +274,12 @@ urlpatterns = [
     path('document-types/<int:pk>/update/', views.admin_document_type_update, name='admin_document_type_update'),
     path('document-types/<int:pk>/toggle/', views.admin_document_type_toggle, name='admin_document_type_toggle'),
     path('document-types/<int:pk>/delete/', views.admin_document_type_delete, name='admin_document_type_delete'),
+
+    # Employee attribute types (Designation / Department / Employment Type)
+    path('employee-settings/<str:kind>/', views.admin_employee_attribute_types, name='admin_employee_attribute_types'),
+    path('employee-settings/<str:kind>/<int:pk>/update/', views.admin_employee_attribute_type_update, name='admin_employee_attribute_type_update'),
+    path('employee-settings/<str:kind>/<int:pk>/toggle/', views.admin_employee_attribute_type_toggle, name='admin_employee_attribute_type_toggle'),
+    path('employee-settings/<str:kind>/<int:pk>/delete/', views.admin_employee_attribute_type_delete, name='admin_employee_attribute_type_delete'),
     path('document-approvals/', views.document_approvals, name='document_approvals'),
 
 

@@ -61,7 +61,7 @@ def get_employee_card_fields(employee, employee_code=None, designation=None, joi
     return {
         'name': employee.full_name or employee.name,
         'code': employee_code or f"KI{employee.id:05d}",
-        'designation': designation or getattr(employee, 'designation', '') or 'Employee',
+        'designation': designation or (employee.designation.name if employee.designation else None) or 'Employee',
         'joining_date': resolved_joining,
         'contact': employee.contact or '',
         'photo_path': employee.profile_picture.path if employee.profile_picture else None,

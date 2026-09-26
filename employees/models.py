@@ -334,6 +334,72 @@ class Shift(models.Model):
         return self.total_hours * Decimal('0.5')
 
 
+class EmployeeAttributeType(models.Model):
+    """Abstract base for the small office/branch-configurable lists shown as
+    dropdowns on the employee record - Designation, Department, Employment
+    Type. HR creates these themselves (not a fixed list); each then appears
+    as a selectable option when adding/editing an employee. Mirrors the same
+    office-configurable pattern already used by LeaveType/DocumentType."""
+
+    office = models.ForeignKey(
+        Office, on_delete=models.CASCADE, related_name='%(class)ss',
+        null=True, blank=True, db_index=True,
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Leave blank to make this available office-wide, across every branch.",
+    )
+    name = models.CharField(max_length=100)
+    code = models.SlugField(max_length=60, blank=True, help_text="Auto-generated from the name if left blank.")
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Inactive entries are hidden from new selections but keep working for employees already assigned to them.",
+    )
+    display_order = models.IntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+        ordering = ['display_order', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.office.name if self.office else 'Global'})"
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = slugify(self.name)[:60]
+        super().save(*args, **kwargs)
+
+
+class Designation(EmployeeAttributeType):
+    """Job title an employee holds - e.g. Software Engineer, HR Manager."""
+    class Meta(EmployeeAttributeType.Meta):
+        verbose_name = 'Designation'
+        verbose_name_plural = 'Designations'
+        constraints = [models.UniqueConstraint(fields=['office', 'code'], name='unique_designation_code_per_office')]
+
+
+class Department(EmployeeAttributeType):
+    """Department/team an employee belongs to - e.g. Engineering, Sales, HR, Finance."""
+    class Meta(EmployeeAttributeType.Meta):
+        verbose_name = 'Department'
+        verbose_name_plural = 'Departments'
+        constraints = [models.UniqueConstraint(fields=['office', 'code'], name='unique_department_code_per_office')]
+
+
+class EmploymentType(EmployeeAttributeType):
+    """Employment arrangement - e.g. Full-time, Part-time, Intern, Contract.
+    Replaces the old fixed Employee.EmployeeType enum."""
+    class Meta(EmployeeAttributeType.Meta):
+        verbose_name = 'Employment Type'
+        verbose_name_plural = 'Employment Types'
+        constraints = [models.UniqueConstraint(fields=['office', 'code'], name='unique_employment_type_code_per_office')]
+
+
 class Employee(models.Model):
     """Employee model representing an employee in the system"""
 
@@ -350,21 +416,19 @@ class Employee(models.Model):
     name = models.CharField(max_length=100, help_text="Employee's first name")
     full_name = models.CharField(max_length=200, help_text="Employee's full name")
 
-    # HR-managed employment details - added for the mobile attendance app
-    # profile screen (see employees/mobile_profile_api.py). All blank/null
-    # so nothing breaks for existing employees; there's no admin UI to set
-    # these yet beyond Django admin/shell.
-    class EmployeeType(models.TextChoices):
-        FULL_TIME = 'FULL_TIME', 'Full Time'
-        PART_TIME = 'PART_TIME', 'Part Time'
-        CONTRACT = 'CONTRACT', 'Contract'
-        INTERN = 'INTERN', 'Intern'
-
-    department = models.CharField(max_length=100, blank=True)
-    designation = models.CharField(max_length=100, blank=True)
+    # HR-managed employment details - office/branch-configurable via the
+    # Designation/Department/EmploymentType models above (HR creates these
+    # themselves, not a fixed list) - see employees/mobile_profile_api.py
+    # for how they surface on the mobile profile screen.
+    department = models.ForeignKey(
+        Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='employees',
+    )
+    designation = models.ForeignKey(
+        Designation, on_delete=models.SET_NULL, null=True, blank=True, related_name='employees',
+    )
     personal_email = models.EmailField(blank=True, help_text="Self-editable, unlike the work email")
-    employee_type = models.CharField(
-        max_length=20, choices=EmployeeType.choices, default=EmployeeType.FULL_TIME,
+    employee_type = models.ForeignKey(
+        EmploymentType, on_delete=models.SET_NULL, null=True, blank=True, related_name='employees',
     )
     reporting_manager = models.ForeignKey(
         'self', on_delete=models.SET_NULL, null=True, blank=True,
