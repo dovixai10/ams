@@ -4951,3 +4951,277 @@ class CompanyPolicy(models.Model):
     class Meta:
         ordering = ['title']
         verbose_name_plural = 'Company Policies'
+
+
+# ===========================
+# INTEGRATIONS - WHATSAPP
+# ===========================
+# Credentials, recipients and scheduled reports for sending messages through
+# the Meta WhatsApp Cloud API. Everything is office-wide (branch NULL) or
+# branch-specific, resolved the same way as the rest of the app: a branch's own
+# WhatsApp account/recipients/schedules apply to that branch, office-wide ones
+# to everyone else.
+
+class WhatsAppAccount(models.Model):
+    """The WhatsApp Business phone number messages are sent FROM. A branch can
+    have its own; a branch without one falls back to the office-wide account."""
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='whatsapp_accounts', null=True, blank=True, db_index=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Leave blank for an office-wide account used by every branch without its own.",
+    )
+    label = models.CharField(max_length=100, help_text="A name for you, e.g. 'HR alerts number'")
+    phone_number_id = models.CharField(max_length=50, help_text="The Phone number ID from Meta's WhatsApp Manager (not the phone number itself)")
+    display_phone_number = models.CharField(max_length=30, blank=True, help_text="Optional - the number as people see it, for reference only")
+    api_version = models.CharField(max_length=10, default='v21.0', help_text="Graph API version, e.g. v21.0")
+    access_token_encrypted = models.TextField(blank=True, help_text="Encrypted at rest - never shown back in the UI")
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['label']
+        verbose_name = 'WhatsApp Account'
+        verbose_name_plural = 'WhatsApp Accounts'
+
+    def __str__(self):
+        return f"{self.label} ({self.display_phone_number or self.phone_number_id})"
+
+    def set_access_token(self, raw_token):
+        from .integrations.crypto import encrypt
+        self.access_token_encrypted = encrypt((raw_token or '').strip())
+
+    def get_access_token(self):
+        from .integrations.crypto import decrypt
+        return decrypt(self.access_token_encrypted)
+
+    @property
+    def has_token(self):
+        return bool(self.access_token_encrypted)
+
+    @classmethod
+    def resolve(cls, office, branch=None):
+        """The account to send from for this office/branch: the branch's own
+        active account if it has one, otherwise the office-wide active one."""
+        qs = cls.objects.filter(office=office, is_active=True)
+        if branch is not None:
+            own = qs.filter(branch=branch).first()
+            if own:
+                return own
+        return qs.filter(branch__isnull=True).first()
+
+
+class WhatsAppWebSession(models.Model):
+    """A phone linked by scanning a QR code (like WhatsApp Web). Messages sent
+    through it come from that phone's own number and can go to any of its
+    contacts or to its groups by name. The login itself is held by the small
+    helper service in `whatsapp_web/`, not in this database."""
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='whatsapp_web_sessions', null=True, blank=True, db_index=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Leave blank for an office-wide phone used by every branch without its own.",
+    )
+    label = models.CharField(max_length=100, help_text="A name for you, e.g. 'HR manager phone'")
+    phone_number = models.CharField(max_length=30, blank=True, help_text="Filled in automatically once the phone is linked")
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['label']
+        verbose_name = 'WhatsApp Linked Phone'
+        verbose_name_plural = 'WhatsApp Linked Phones'
+
+    def __str__(self):
+        return f"{self.label} ({self.phone_number or 'not linked'})"
+
+    @classmethod
+    def resolve(cls, office, branch=None):
+        """The linked phone to send from: the branch's own active one, else the office-wide one."""
+        qs = cls.objects.filter(office=office, is_active=True)
+        if branch is not None:
+            own = qs.filter(branch=branch).first()
+            if own:
+                return own
+        return qs.filter(branch__isnull=True).first()
+
+
+class WhatsAppRecipient(models.Model):
+    """A named list of places a message goes: any number of personal numbers
+    and/or WhatsApp groups in one entry (e.g. "HR team" = two managers + the HR
+    group). A schedule sends to every place in every list it selects."""
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='whatsapp_recipients', null=True, blank=True, db_index=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Leave blank to make this recipient available office-wide.",
+    )
+    label = models.CharField(max_length=100, help_text="e.g. 'HR team', 'Ops managers'")
+    phone_numbers = models.TextField(
+        blank=True, help_text="Personal numbers with country code, separated by commas - e.g. 919876543210, 919812345678",
+    )
+    group_names = models.TextField(
+        blank=True, help_text="Linked phone (QR): group names exactly as on that phone, separated by commas",
+    )
+    group_ids = models.TextField(
+        blank=True, help_text="Business API: group IDs from Meta, separated by commas",
+    )
+    invite_link = models.URLField(max_length=300, blank=True, help_text="Join link of a group created through the Business API")
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['label']
+        verbose_name = 'WhatsApp Recipient'
+        verbose_name_plural = 'WhatsApp Recipients'
+
+    def __str__(self):
+        return f"{self.label} ({self.summary})"
+
+    @property
+    def numbers(self):
+        from .integrations.targets import split_list
+        return split_list(self.phone_numbers)
+
+    @property
+    def group_name_list(self):
+        from .integrations.targets import split_list
+        return split_list(self.group_names)
+
+    @property
+    def group_id_list(self):
+        from .integrations.targets import split_list
+        return split_list(self.group_ids)
+
+    @property
+    def summary(self):
+        parts = []
+        if self.numbers:
+            parts.append(f"{len(self.numbers)} number{'s' if len(self.numbers) != 1 else ''}")
+        groups = max(len(self.group_name_list), len(self.group_id_list))
+        if groups:
+            parts.append(f"{groups} group{'s' if groups != 1 else ''}")
+        return ', '.join(parts) or 'empty'
+
+    def targets_for(self, channel):
+        """Everything this entry can reach on the given channel ('api' = Business
+        API, 'web' = linked phone) as [(recipient_type, address)]. Numbers work on
+        both; groups go by name on a linked phone and by ID on the Business API."""
+        targets = [('person', number) for number in self.numbers]
+        if channel == 'web':
+            groups = self.group_name_list + [g for g in self.group_id_list if g.endswith('@g.us')]
+        else:
+            groups = [g for g in self.group_id_list if not g.endswith('@g.us')]
+        targets += [('group', g) for g in dict.fromkeys(groups)]
+        return targets
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not (self.numbers or self.group_name_list or self.group_id_list):
+            raise ValidationError('Add at least one phone number or group.')
+
+
+class WhatsAppReportSchedule(models.Model):
+    """A report sent to chosen recipients at a set time on chosen days. A
+    background job checks these every minute, so edits here take effect
+    immediately - nothing needs restarting."""
+
+    class ReportType(models.TextChoices):
+        ATTENDANCE_SUMMARY = ('attendance_summary', 'Attendance - who is present / absent')
+
+    class MessageMode(models.TextChoices):
+        TEMPLATE = ('template', 'Approved template (works for anyone, any time)')
+        TEXT = ('text', 'Plain text (only reaches people who messaged you in the last 24 hours)')
+
+    class Channel(models.TextChoices):
+        API = ('api', 'WhatsApp Business API (official)')
+        WEB = ('web', 'Linked phone (QR scan)')
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='whatsapp_report_schedules', null=True, blank=True, db_index=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Leave blank to report on the whole office; pick a branch to report on just that branch.",
+    )
+    channel = models.CharField(max_length=5, choices=Channel.choices, default=Channel.API, help_text="How this report is delivered")
+    name = models.CharField(max_length=100)
+    report_type = models.CharField(max_length=30, choices=ReportType.choices, default=ReportType.ATTENDANCE_SUMMARY)
+    recipients = models.ManyToManyField(WhatsAppRecipient, related_name='report_schedules', blank=True)
+    send_time = models.TimeField(help_text="Local time the report goes out")
+    days_of_week = models.CharField(
+        max_length=20, default='0,1,2,3,4,5',
+        help_text="Comma-separated weekday numbers, Monday=0 ... Sunday=6",
+    )
+    skip_holidays = models.BooleanField(default=True, help_text="Don't send on a day marked as a holiday")
+    message_mode = models.CharField(max_length=10, choices=MessageMode.choices, default=MessageMode.TEMPLATE)
+    template_name = models.CharField(max_length=100, blank=True, default='attendance_report')
+    template_language = models.CharField(max_length=10, blank=True, default='en')
+    is_active = models.BooleanField(default=True)
+    last_run_date = models.DateField(null=True, blank=True, help_text="Date this last ran on schedule - stops it sending twice in a day")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['send_time', 'name']
+        verbose_name = 'WhatsApp Report Schedule'
+        verbose_name_plural = 'WhatsApp Report Schedules'
+
+    def __str__(self):
+        return f"{self.name} @ {self.send_time:%H:%M}"
+
+    @property
+    def weekdays(self):
+        return sorted({int(d) for d in self.days_of_week.split(',') if d.strip().isdigit() and 0 <= int(d) <= 6})
+
+    @property
+    def days_display(self):
+        names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        days = self.weekdays
+        return 'Every day' if len(days) == 7 else ', '.join(names[d] for d in days) or 'No days'
+
+
+class WhatsAppMessageLog(models.Model):
+    """One row per message attempt - what was sent, to whom, and what happened.
+    The row also carries everything needed to (re)send it, so a retry after a
+    temporary failure sends exactly the same message."""
+
+    class Status(models.TextChoices):
+        QUEUED = ('queued', 'Queued')
+        SENT = ('sent', 'Sent')
+        FAILED = ('failed', 'Failed')
+        SKIPPED = ('skipped', 'Skipped')
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='whatsapp_message_logs', null=True, blank=True, db_index=True)
+    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, blank=True)
+    schedule = models.ForeignKey(WhatsAppReportSchedule, on_delete=models.SET_NULL, null=True, blank=True, related_name='logs')
+    recipient = models.ForeignKey(WhatsAppRecipient, on_delete=models.SET_NULL, null=True, blank=True, related_name='logs')
+    recipient_label = models.CharField(max_length=100, blank=True)
+    to_address = models.CharField(max_length=100, blank=True)
+    recipient_type = models.CharField(max_length=10, default='person')
+    kind = models.CharField(max_length=20, default='report', help_text="report / test")
+    channel = models.CharField(max_length=5, default='api', help_text="api = Business API, web = linked phone")
+    mode = models.CharField(max_length=10, default='text')
+    payload = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.QUEUED)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    wa_message_id = models.CharField(max_length=200, blank=True)
+    error = models.TextField(blank=True)
+    triggered_by = models.CharField(max_length=20, default='schedule', help_text="schedule / manual")
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'WhatsApp Message Log'
+        verbose_name_plural = 'WhatsApp Message Logs'
+        indexes = [models.Index(fields=['office', '-created_at']), models.Index(fields=['status', '-created_at'])]
+
+    def __str__(self):
+        return f"{self.recipient_label or self.to_address} - {self.get_status_display()}"

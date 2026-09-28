@@ -255,3 +255,6 @@ firebase-service-account*.json
 Django migrations (only if your team does NOT track migrations)
 */migrations/
 !*/migrations/__init__.py
+whatsapp_web/node_modules/
+whatsapp_web/data/
+celerybeat-schedule*

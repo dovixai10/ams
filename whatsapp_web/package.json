@@ -1,0 +1,17 @@
+{
+  "name": "ams-whatsapp-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local helper that keeps linked WhatsApp (QR-scanned) sessions alive and sends messages for the AMS Django app.",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "pino": "10.3.1"
+  }
+}

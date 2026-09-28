@@ -1,0 +1,130 @@
+{% extends layout_path %}
+
+{% block title %}WhatsApp Setup | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .ov-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.4rem; padding: 0.75rem 0 2rem; }
+  .ov-header h1 { font-size: 1.7rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.7rem; }
+  .ov-header h1 i { color: #16a34a; }
+  .ov-header p { font-size: 0.95rem; color: rgba(15, 23, 42, 0.68); margin: 0.35rem 0 0; max-width: 62ch; }
+
+  .ov-choose { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: rgba(15, 23, 42, 0.5); margin: 0; }
+  .ov-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.1rem; position: relative; }
+  .ov-card {
+    background: #fff; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 20px; padding: 1.4rem;
+    display: flex; flex-direction: column; gap: 0.9rem; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+  }
+  .ov-card.is-ready { border-color: rgba(16, 185, 129, 0.55); box-shadow: 0 12px 30px rgba(16, 185, 129, 0.12); }
+  .ov-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; flex-wrap: wrap; }
+  .ov-tag { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: #15803d; }
+  .ov-card h2 { font-size: 1.25rem; font-weight: 700; margin: 0.15rem 0 0; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }
+  .ov-card h2 i { color: #16a34a; font-size: 1.5rem; }
+  .ov-badge { padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.74rem; font-weight: 700; white-space: nowrap; }
+  .ov-badge.ready { background: #dcfce7; color: #15803d; }
+  .ov-badge.todo { background: #f1f5f9; color: #64748b; }
+  .ov-badge.warn { background: #fef3c7; color: #b45309; }
+  .ov-desc { font-size: 0.9rem; color: rgba(15, 23, 42, 0.75); margin: 0; }
+  .ov-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.86rem; color: rgba(15, 23, 42, 0.75); }
+  .ov-list li { display: flex; gap: 0.5rem; }
+  .ov-list .yes { color: #16a34a; }
+  .ov-list .no { color: #d97706; }
+  .ov-actions { margin-top: auto; display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .ov-btn { border-radius: 12px; padding: 0.55rem 1.1rem; font-weight: 600; font-size: 0.88rem; }
+
+  .ov-either {
+    text-align: center; font-size: 0.92rem; color: rgba(15, 23, 42, 0.75); background: rgba(22, 163, 74, 0.07);
+    border: 1px solid rgba(22, 163, 74, 0.2); border-radius: 14px; padding: 0.8rem 1rem;
+  }
+  .ov-either strong { color: #166534; }
+
+  .ov-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.9rem; }
+  .ov-step { border: 1px solid rgba(148, 163, 184, 0.25); background: #fff; border-radius: 16px; padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; text-decoration: none; color: inherit; }
+  .ov-step:hover { border-color: rgba(22, 163, 74, 0.5); }
+  .ov-step b { font-size: 0.95rem; color: #0f172a; }
+  .ov-step span { font-size: 0.82rem; color: rgba(15, 23, 42, 0.6); }
+  .ov-step em { font-style: normal; font-size: 0.75rem; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 0.05em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ov-shell">
+
+  {% include 'employees/integrations/_wa_tabs.html' with active='home' %}
+
+  <div class="ov-header">
+    <h1><i class="bx bxl-whatsapp"></i> WhatsApp reports</h1>
+    <p>Send the attendance report to people and groups on WhatsApp. First choose <strong>how</strong> messages are sent &mdash; then say <strong>who</strong> gets them and <strong>when</strong>.</p>
+  </div>
+
+  <p class="ov-choose">Step 1 &middot; Pick a sending method</p>
+  <div class="ov-options">
+
+    <div class="ov-card {% if api_status == 'ready' %}is-ready{% endif %}">
+      <div class="ov-card-top">
+        <div>
+          <span class="ov-tag">Method A</span>
+          <h2><i class="bx bx-badge-check"></i> Business API</h2>
+        </div>
+        {% if api_status == 'ready' %}<span class="ov-badge ready">Ready &middot; {{ api_active }} account{{ api_active|pluralize }}</span>
+        {% else %}<span class="ov-badge todo">Not set up</span>{% endif %}
+      </div>
+      <p class="ov-desc">The official way: a WhatsApp Business number from Meta sends the messages.</p>
+      <ul class="ov-list">
+        <li><i class="bx bx-check yes"></i> Officially supported &mdash; no risk to the number</li>
+        <li><i class="bx bx-check yes"></i> Built for automated, scheduled messages</li>
+        <li><i class="bx bx-error-circle no"></i> Needs a Meta Business account, a phone number ID and token</li>
+        <li><i class="bx bx-error-circle no"></i> Messages use a Meta-approved template; groups need an eligible account</li>
+      </ul>
+      <div class="ov-actions">
+        <a href="{% url 'employees:whatsapp_manage' kind='accounts' %}" class="btn btn-success ov-btn">{% if api_status == 'ready' %}Manage{% else %}Set up{% endif %}</a>
+      </div>
+    </div>
+
+    <div class="ov-card {% if qr_status == 'ready' %}is-ready{% endif %}">
+      <div class="ov-card-top">
+        <div>
+          <span class="ov-tag">Method B</span>
+          <h2><i class="bx bx-qr-scan"></i> Linked phone (QR)</h2>
+        </div>
+        {% if qr_status == 'ready' %}<span class="ov-badge ready">Connected &middot; {{ qr_connected }} phone{{ qr_connected|pluralize }}</span>
+        {% elif qr_status == 'offline' %}<span class="ov-badge warn">Helper not running</span>
+        {% elif qr_status == 'needs_scan' %}<span class="ov-badge warn">Scan the QR code</span>
+        {% else %}<span class="ov-badge todo">Not set up</span>{% endif %}
+      </div>
+      <p class="ov-desc">Use a phone you already have: scan a QR code once, like WhatsApp Web, and messages go from that number.</p>
+      <ul class="ov-list">
+        <li><i class="bx bx-check yes"></i> No Meta account, no templates &mdash; plain messages</li>
+        <li><i class="bx bx-check yes"></i> Reaches any group that phone is in, just by its name</li>
+        <li><i class="bx bx-error-circle no"></i> Unofficial &mdash; WhatsApp may restrict the number; keep to a few internal recipients</li>
+        <li><i class="bx bx-error-circle no"></i> The small helper (<code>node server.mjs</code>) must be running</li>
+      </ul>
+      <div class="ov-actions">
+        <a href="{% url 'employees:whatsapp_manage' kind='sessions' %}" class="btn btn-success ov-btn">{% if qr_status == 'not_set_up' %}Set up{% else %}Manage{% endif %}</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="ov-either">
+    <strong>You need only one.</strong> Set up either method, or both &mdash; each Report Schedule picks which one it sends through,
+    so you can send one report by Business API and another through the linked phone.
+  </div>
+
+  <p class="ov-choose">Then</p>
+  <div class="ov-steps">
+    <a class="ov-step" href="{% url 'employees:whatsapp_manage' kind='recipients' %}">
+      <em>Step 2 &middot; Who</em><b>Recipients</b>
+      <span>Make lists like "HR team": several numbers and several groups in one entry. {{ recipient_count }} so far.</span>
+    </a>
+    <a class="ov-step" href="{% url 'employees:whatsapp_manage' kind='schedules' %}">
+      <em>Step 3 &middot; When</em><b>Report Schedules</b>
+      <span>Pick the time, days, the method, and which recipient lists get it &mdash; or send right now. {{ schedule_count }} so far.</span>
+    </a>
+    <a class="ov-step" href="{% url 'employees:whatsapp_logs' %}">
+      <em>Anytime</em><b>Message Log</b>
+      <span>See what was sent, to whom, and why anything failed.</span>
+    </a>
+  </div>
+</div>
+{% endblock %}

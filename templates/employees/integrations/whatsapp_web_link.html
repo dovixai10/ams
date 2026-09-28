@@ -1,0 +1,247 @@
+{% extends layout_path %}
+
+{% block title %}Link Phone | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .wl-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.3rem; padding: 0.75rem 0 2rem; }
+  .wl-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .wl-tab {
+    padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+    color: rgba(15, 23, 42, 0.6); background: rgba(148, 163, 184, 0.14); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .wl-tab.is-active { background: rgba(22, 163, 74, 0.14); color: #15803d; }
+  .wl-header h1 { font-size: 1.7rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.7rem; }
+  .wl-header h1 i { color: #16a34a; }
+  .wl-header p { font-size: 0.9rem; color: rgba(15, 23, 42, 0.65); margin: 0.2rem 0 0; }
+
+  .wl-grid { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 1.3rem; align-items: start; }
+  @media (max-width: 820px) { .wl-grid { grid-template-columns: 1fr; } }
+
+  .wl-panel { background: #fff; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 20px; padding: 1.3rem; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05); }
+  .wl-qr-box {
+    aspect-ratio: 1 / 1; width: 100%; max-width: 340px; margin: 0 auto; border-radius: 16px; background: #fff;
+    border: 1px dashed rgba(148, 163, 184, 0.5); display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .wl-qr-box svg { width: 100%; height: 100%; display: block; }
+  .wl-qr-placeholder { text-align: center; color: rgba(15, 23, 42, 0.5); padding: 1rem; font-size: 0.9rem; }
+  .wl-qr-placeholder i { font-size: 2.6rem; display: block; color: rgba(22, 163, 74, 0.55); margin-bottom: 0.4rem; }
+
+  .wl-status { margin-top: 1rem; display: flex; align-items: center; gap: 0.6rem; justify-content: center; font-weight: 700; font-size: 0.95rem; }
+  .wl-dot { width: 11px; height: 11px; border-radius: 50%; background: #94a3b8; }
+  .wl-status.is-connected .wl-dot { background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); }
+  .wl-status.is-qr .wl-dot, .wl-status.is-connecting .wl-dot { background: #f59e0b; }
+  .wl-status.is-error .wl-dot, .wl-status.is-helper_offline .wl-dot { background: #ef4444; }
+  .wl-error { margin-top: 0.7rem; color: #b91c1c; font-size: 0.84rem; text-align: center; }
+
+  .wl-steps { margin: 0 0 1rem; padding-left: 1.2rem; font-size: 0.92rem; color: rgba(15, 23, 42, 0.8); display: flex; flex-direction: column; gap: 0.35rem; }
+  .wl-btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .wl-btn { border-radius: 12px; padding: 0.55rem 1.1rem; font-weight: 600; font-size: 0.88rem; }
+
+  .wl-connected-card {
+    display: none; align-items: center; gap: 0.8rem; padding: 0.9rem 1rem; border-radius: 14px; margin-bottom: 1rem;
+    background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #047857; font-weight: 600;
+  }
+  .wl-connected-card i { font-size: 1.6rem; }
+  .wl-connected-card small { display: block; font-weight: 500; color: rgba(4, 120, 87, 0.8); }
+
+  .wl-groups { display: none; margin-top: 1.2rem; }
+  .wl-groups h3 { font-size: 1rem; font-weight: 700; margin: 0 0 0.3rem; color: #0f172a; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .wl-groups p { font-size: 0.82rem; color: rgba(15, 23, 42, 0.55); margin: 0 0 0.6rem; }
+  .wl-group-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; }
+  .wl-group-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.5rem 0.8rem; border-radius: 10px;
+    background: rgba(148, 163, 184, 0.12); font-size: 0.88rem;
+  }
+  .wl-search { position: relative; margin-bottom: 0.7rem; }
+  .wl-search > i { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: rgba(15, 23, 42, 0.45); pointer-events: none; }
+  .wl-search .form-control { border-radius: 12px; padding: 0.55rem 5.2rem 0.55rem 2.4rem; font-size: 0.9rem; }
+  .wl-search-count { position: absolute; right: 0.9rem; top: 50%; transform: translateY(-50%); font-size: 0.74rem; font-weight: 600; color: rgba(15, 23, 42, 0.5); pointer-events: none; }
+  .wl-group-item span { min-width: 0; overflow-wrap: anywhere; }
+  .wl-group-item small { color: rgba(15, 23, 42, 0.5); white-space: nowrap; }
+  .wl-copy { border: none; background: rgba(22, 163, 74, 0.13); color: #15803d; border-radius: 8px; padding: 0.2rem 0.55rem; font-size: 0.75rem; font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wl-shell">
+
+  {% include 'employees/integrations/_wa_tabs.html' with active='sessions' %}
+
+  <div class="wl-header">
+    <h1><i class="bx bx-qr-scan"></i> Link phone &mdash; {{ session.label }}</h1>
+    <p>{% if session.branch %}Used by {{ session.branch.name }} only.{% else %}Used by the whole office.{% endif %}
+       Scan once; the login is kept so scheduled reports keep sending in the background.</p>
+  </div>
+
+  <div class="wl-grid">
+    <div class="wl-panel">
+      <div class="wl-qr-box" id="qrBox">
+        <div class="wl-qr-placeholder"><i class="bx bx-loader-alt bx-spin"></i>Checking status&hellip;</div>
+      </div>
+      <div class="wl-status" id="statusLine"><span class="wl-dot"></span><span id="statusText">Checking&hellip;</span></div>
+      <div class="wl-error" id="errorLine"></div>
+    </div>
+
+    <div class="wl-panel">
+      <div class="wl-connected-card" id="connectedCard">
+        <i class="bx bx-check-circle"></i>
+        <div><span id="connectedPhone">Connected</span><small>Reports can now be sent from this phone. Choose "Via linked phone (QR)" on a Report Schedule.</small></div>
+      </div>
+
+      <ol class="wl-steps" id="stepsList">
+        <li>Open <strong>WhatsApp</strong> on the phone you want to send from.</li>
+        <li>Tap <strong>Settings &rarr; Linked devices &rarr; Link a device</strong> (on iPhone: Settings &rarr; Linked devices).</li>
+        <li>Point the camera at the QR code. It refreshes by itself every few seconds.</li>
+      </ol>
+
+      <div class="wl-btn-row">
+        <button type="button" class="btn btn-success wl-btn" id="startBtn"><i class="bx bx-refresh me-1"></i>Show new QR code</button>
+        <button type="button" class="btn btn-outline-danger wl-btn" id="logoutBtn"><i class="bx bx-log-out me-1"></i>Disconnect phone</button>
+        <a href="{% url 'employees:whatsapp_manage' kind='sessions' %}" class="btn btn-outline-secondary wl-btn">Back to list</a>
+      </div>
+
+      <div class="wl-groups" id="groupsBox">
+        <h3>Groups on this phone <button type="button" class="wl-copy" id="refreshGroupsBtn"><i class="bx bx-refresh"></i> Refresh</button></h3>
+        <p>Use a name exactly as shown here in a Recipient's <em>Group name</em>.</p>
+        <div class="wl-search">
+          <i class="bx bx-search"></i>
+          <input type="search" id="groupSearch" class="form-control" placeholder="Search groups by name&hellip;" autocomplete="off" aria-label="Search groups by name">
+          <span class="wl-search-count" id="groupCount"></span>
+        </div>
+        <ul class="wl-group-list" id="groupList"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const base = "{% url 'employees:whatsapp_web_api' pk=session.pk action='status' %}".replace(/status\/$/, '');
+    const csrf = "{{ csrf_token }}";
+    const qrBox = document.getElementById('qrBox');
+    const statusLine = document.getElementById('statusLine');
+    const statusText = document.getElementById('statusText');
+    const errorLine = document.getElementById('errorLine');
+    const connectedCard = document.getElementById('connectedCard');
+    const stepsList = document.getElementById('stepsList');
+    const groupsBox = document.getElementById('groupsBox');
+    const groupList = document.getElementById('groupList');
+    const startBtn = document.getElementById('startBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    const LABELS = {
+      connected: 'Connected', qr: 'Waiting for you to scan the QR code', connecting: 'Connecting…',
+      closed: 'QR code expired', not_started: 'Not linked yet', logged_out: 'Disconnected',
+      helper_offline: 'Helper service offline', error: 'Something went wrong',
+    };
+    let lastState = null, groupsLoaded = false, startedOnce = false, timer = null;
+
+    function placeholder(icon, text) {
+      qrBox.innerHTML = '<div class="wl-qr-placeholder"><i class="bx ' + icon + '"></i>' + text + '</div>';
+    }
+
+    function call(action, method, query) {
+      return fetch(base + action + '/' + (query || ''), {
+        method: method || 'GET', credentials: 'same-origin',
+        headers: method === 'POST' ? { 'X-CSRFToken': csrf } : {},
+      }).then(function (r) { return r.json(); });
+    }
+
+    function render(info) {
+      const state = info.status || 'error';
+      statusLine.className = 'wl-status is-' + state;
+      statusText.textContent = LABELS[state] || state;
+      errorLine.textContent = info.error || '';
+      connectedCard.style.display = state === 'connected' ? 'flex' : 'none';
+      stepsList.style.display = state === 'connected' ? 'none' : '';
+      startBtn.style.display = state === 'connected' ? 'none' : '';
+      logoutBtn.style.display = state === 'connected' || state === 'qr' || state === 'connecting' ? '' : 'none';
+
+      if (state === 'connected') {
+        document.getElementById('connectedPhone').textContent = 'Connected' + (info.phone ? ' as +' + info.phone : '') + (info.name ? ' (' + info.name + ')' : '');
+        placeholder('bx-check-circle', 'This phone is linked.');
+        groupsBox.style.display = 'block';
+        if (!groupsLoaded) loadGroups(false);
+      } else {
+        groupsBox.style.display = 'none'; groupsLoaded = false;
+        if (state === 'qr' && info.qr_svg) qrBox.innerHTML = info.qr_svg;
+        else if (state === 'connecting' || state === 'not_started') placeholder('bx-loader-alt bx-spin', 'Getting a QR code…');
+        else if (state === 'helper_offline') placeholder('bx-error-circle', 'Start the helper: <code>node server.mjs</code> in the whatsapp_web folder.');
+        else placeholder('bx-qr-scan', 'Press "Show new QR code".');
+      }
+
+      // Begin linking automatically the first time this page finds nothing running.
+      if (!startedOnce && (state === 'not_started' || state === 'closed' || state === 'logged_out')) {
+        startedOnce = true; call('start', 'POST').then(poll);
+      }
+      lastState = state;
+    }
+
+    function poll() {
+      clearTimeout(timer);
+      call('status').then(render).catch(function () {
+        render({ status: 'error', error: 'Could not reach the server.' });
+      }).finally(function () { timer = setTimeout(poll, lastState === 'connected' ? 8000 : 2500); });
+    }
+
+    const groupSearch = document.getElementById('groupSearch');
+    const groupCount = document.getElementById('groupCount');
+    let allGroups = [];
+
+    function message(text) {
+      groupList.innerHTML = '';
+      const li = document.createElement('li'); li.className = 'wl-group-item';
+      const span = document.createElement('span'); span.textContent = text;
+      li.appendChild(span); groupList.appendChild(li);
+    }
+
+    function normal(text) { return (text || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+    // Draw the list, keeping only groups whose name contains what was typed.
+    function renderGroups() {
+      const query = normal(groupSearch.value);
+      const shown = allGroups.filter(function (g) { return !query || normal(g.subject).includes(query); });
+      groupCount.textContent = allGroups.length ? (query ? shown.length + ' of ' + allGroups.length : allGroups.length + ' groups') : '';
+      if (!allGroups.length) return message('This phone is not in any groups.');
+      if (!shown.length) return message('No group matches "' + groupSearch.value.trim() + '".');
+
+      groupList.innerHTML = '';
+      shown.forEach(function (g) {
+        const li = document.createElement('li'); li.className = 'wl-group-item';
+        const name = document.createElement('span'); name.textContent = g.subject || '(no name)';
+        const meta = document.createElement('small'); meta.textContent = g.size + ' members';
+        const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'wl-copy'; copy.textContent = 'Copy name';
+        copy.addEventListener('click', function () { navigator.clipboard.writeText(g.subject).then(function () { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy name'; }, 1500); }); });
+        li.append(name, meta, copy); groupList.appendChild(li);
+      });
+    }
+
+    function loadGroups(refresh) {
+      groupsLoaded = true;
+      message('Loading…');
+      call('groups', 'GET', refresh ? '?refresh=1' : '').then(function (data) {
+        if (data.error) { allGroups = []; groupCount.textContent = ''; return message(data.error); }
+        allGroups = data.groups || [];
+        renderGroups(); // the search text is kept across a refresh
+      }).catch(function () { allGroups = []; groupCount.textContent = ''; message('Could not load groups.'); });
+    }
+
+    groupSearch.addEventListener('input', renderGroups);
+    groupSearch.addEventListener('keydown', function (e) { if (e.key === 'Escape') { groupSearch.value = ''; renderGroups(); } });
+    startBtn.addEventListener('click', function () { startedOnce = true; placeholder('bx-loader-alt bx-spin', 'Getting a QR code…'); call('start', 'POST').then(poll); });
+    logoutBtn.addEventListener('click', function () {
+      if (!confirm('Disconnect this phone? Scheduled reports through it will stop until it is linked again.')) return;
+      call('logout', 'POST').then(function () { startedOnce = true; poll(); });
+    });
+    document.getElementById('refreshGroupsBtn').addEventListener('click', function () { loadGroups(true); });
+
+    poll();
+  });
+</script>
+{% endblock %}

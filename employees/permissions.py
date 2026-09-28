@@ -46,6 +46,7 @@ FEATURE_PERMISSIONS = [
     ('branches.manage', 'Manage Branches', 'Company Settings'),
     ('shifts.manage', 'Manage Shifts & Shift Assignment', 'Shift Management'),
     ('roles.manage', 'Manage Roles & Permissions', 'Company Settings'),
+    ('integrations.manage', 'Manage Integrations (WhatsApp accounts, recipients & report schedules)', 'Integrations'),
 ]
 
 FEATURE_PERMISSION_KEYS = {key for key, _, _ in FEATURE_PERMISSIONS}

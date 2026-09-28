@@ -350,3 +350,46 @@ FIREBASE_CREDENTIALS_PATH = os.environ.get(
     "FIREBASE_CREDENTIALS_PATH",
     os.path.join(BASE_DIR, "firebase-service-account.json"),
 )
+
+
+# Background jobs (Celery + Redis) - scheduled WhatsApp reports and retries.
+# Uses its own Redis database and queue name so it can share a Redis server with
+# other apps without ever consuming their tasks. Start with:
+#   celery -A config worker -l info --pool=solo -Q ams
+#   celery -A config beat -l info
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/5")
+CELERY_TASK_DEFAULT_QUEUE = "ams"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "False").lower() in ("true", "1", "yes")
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "global_keyprefix": "ams:",
+    "socket_connect_timeout": 3,
+}
+# Fail fast when Redis is down instead of hanging the web request that tried to
+# queue a message (it then falls back to sending inline).
+CELERY_TASK_PUBLISH_RETRY_POLICY = {
+    "max_retries": 1, "interval_start": 0, "interval_step": 0.2, "interval_max": 0.5,
+}
+CELERY_BEAT_SCHEDULE = {
+    "dispatch-due-whatsapp-reports": {
+        "task": "employees.tasks.dispatch_due_whatsapp_reports",
+        "schedule": 60.0,
+    },
+}
+
+# Key used to encrypt stored integration credentials (WhatsApp access tokens).
+# Falls back to a key derived from SECRET_KEY if unset; set it explicitly in
+# production so rotating SECRET_KEY doesn't make saved tokens unreadable.
+INTEGRATION_ENCRYPTION_KEY = os.environ.get("INTEGRATION_ENCRYPTION_KEY")
+
+# Where WhatsApp Cloud API calls go. Only override to point at a local fake
+# server when testing - never in production.
+WHATSAPP_GRAPH_BASE = os.environ.get("WHATSAPP_GRAPH_BASE", "https://graph.facebook.com")
+
+
+# Linked-phone (QR) WhatsApp channel: the small Node helper in whatsapp_web/.
+# Token: leave unset to use whatsapp_web/data/token (created by the helper).
+WHATSAPP_WEB_URL = os.environ.get('WHATSAPP_WEB_URL', 'http://127.0.0.1:3100')
+WHATSAPP_WEB_TOKEN = os.environ.get('WHATSAPP_WEB_TOKEN', '')

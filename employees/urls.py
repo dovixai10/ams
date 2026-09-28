@@ -1,5 +1,5 @@
 from django.urls import path, include
-from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views
+from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views, integration_views
 
 app_name = 'employees'
 
@@ -274,6 +274,21 @@ urlpatterns = [
     path('document-types/<int:pk>/update/', views.admin_document_type_update, name='admin_document_type_update'),
     path('document-types/<int:pk>/toggle/', views.admin_document_type_toggle, name='admin_document_type_toggle'),
     path('document-types/<int:pk>/delete/', views.admin_document_type_delete, name='admin_document_type_delete'),
+
+    # Integrations - WhatsApp (accounts / recipients / report schedules / message log)
+    path('integrations/whatsapp/', integration_views.whatsapp_home, name='whatsapp_home'),
+    path('integrations/whatsapp/groups/create/', integration_views.whatsapp_group_create, name='whatsapp_group_create'),
+    path('integrations/whatsapp/groups/sync/', integration_views.whatsapp_group_sync, name='whatsapp_group_sync'),
+    path('integrations/whatsapp/recipients/<int:pk>/invite-link/', integration_views.whatsapp_group_invite_link, name='whatsapp_group_invite_link'),
+    path('integrations/whatsapp/phones/<int:pk>/link/', integration_views.whatsapp_web_link, name='whatsapp_web_link'),
+    path('integrations/whatsapp/phones/<int:pk>/api/<str:action>/', integration_views.whatsapp_web_api, name='whatsapp_web_api'),
+    path('integrations/whatsapp/logs/', integration_views.whatsapp_logs, name='whatsapp_logs'),
+    path('integrations/whatsapp/schedules/<int:pk>/send-now/', integration_views.whatsapp_schedule_send_now, name='whatsapp_schedule_send_now'),
+    path('integrations/whatsapp/recipients/<int:pk>/test/', integration_views.whatsapp_recipient_test, name='whatsapp_recipient_test'),
+    path('integrations/whatsapp/<str:kind>/', integration_views.whatsapp_manage, name='whatsapp_manage'),
+    path('integrations/whatsapp/<str:kind>/<int:pk>/update/', integration_views.whatsapp_update, name='whatsapp_update'),
+    path('integrations/whatsapp/<str:kind>/<int:pk>/toggle/', integration_views.whatsapp_toggle, name='whatsapp_toggle'),
+    path('integrations/whatsapp/<str:kind>/<int:pk>/delete/', integration_views.whatsapp_delete, name='whatsapp_delete'),
 
     # Employee attribute types (Designation / Department / Employment Type)
     path('employee-settings/<str:kind>/', views.admin_employee_attribute_types, name='admin_employee_attribute_types'),

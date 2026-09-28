@@ -1,0 +1,99 @@
+{% extends layout_path %}
+
+{% block title %}WhatsApp Message Log | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .wl-shell { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.2rem; padding: 0.75rem 0 2rem; }
+  .wl-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .wl-tab {
+    padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+    color: rgba(15, 23, 42, 0.6); background: rgba(148, 163, 184, 0.14); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .wl-tab.is-active { background: rgba(22, 163, 74, 0.14); color: #15803d; }
+  .wl-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .wl-header h1 { font-size: 1.7rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.7rem; }
+  .wl-header h1 i { color: #16a34a; }
+  .wl-header p { font-size: 0.9rem; color: rgba(15, 23, 42, 0.65); margin: 0.2rem 0 0; }
+  .wl-filter { display: flex; gap: 0.5rem; align-items: center; }
+  .wl-filter .form-select { border-radius: 12px; min-width: 150px; }
+
+  .wl-table-wrap { background: #fff; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 16px; overflow-x: auto; }
+  .wl-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .wl-table th {
+    text-align: left; padding: 0.8rem 1rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgba(15, 23, 42, 0.55); background: rgba(248, 250, 252, 0.9); white-space: nowrap;
+  }
+  .wl-table td { padding: 0.75rem 1rem; border-top: 1px solid rgba(148, 163, 184, 0.14); vertical-align: top; }
+  .wl-badge { padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+  .wl-sent { background: #dcfce7; color: #15803d; }
+  .wl-queued { background: #dbeafe; color: #1d4ed8; }
+  .wl-failed { background: #fee2e2; color: #b91c1c; }
+  .wl-skipped { background: #fef3c7; color: #b45309; }
+  .wl-error { color: #b91c1c; font-size: 0.8rem; max-width: 420px; word-break: break-word; }
+  .wl-muted { color: rgba(15, 23, 42, 0.5); font-size: 0.78rem; }
+  .wl-empty { text-align: center; padding: 2.5rem 1rem; color: rgba(15, 23, 42, 0.55); }
+  .wl-empty i { font-size: 2.3rem; color: rgba(22, 163, 74, 0.55); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wl-shell">
+
+  {% include 'employees/integrations/_wa_tabs.html' with active='logs' %}
+
+  <div class="wl-header">
+    <div>
+      <h1><i class="bx bx-list-ul"></i> WhatsApp Message Log</h1>
+      <p>Every message the system tried to send - to whom, and what happened. Latest 200.</p>
+    </div>
+    <form method="get" class="wl-filter">
+      <select name="status" class="form-select" onchange="this.form.submit()">
+        <option value="">All statuses</option>
+        {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <a href="{% url 'employees:whatsapp_logs' %}{% if status_filter %}?status={{ status_filter }}{% endif %}" class="btn btn-outline-secondary btn-sm"><i class="bx bx-refresh"></i></a>
+    </form>
+  </div>
+
+  <div class="wl-table-wrap">
+    {% if logs %}
+      <table class="wl-table">
+        <thead>
+          <tr><th>When</th><th>Report / type</th><th>To</th><th>Sent via</th><th>Status</th><th>Details</th></tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+            <tr>
+              <td>{{ log.created_at|date:"d M, h:i A" }}
+                {% if log.sent_at %}<div class="wl-muted">sent {{ log.sent_at|date:"h:i A" }}</div>{% endif %}
+              </td>
+              <td>
+                {% if log.schedule %}{{ log.schedule.name }}{% elif log.kind == 'test' %}Test message{% else %}-{% endif %}
+                <div class="wl-muted">{{ log.triggered_by|title }}</div>
+              </td>
+              <td>{{ log.recipient_label|default:"-" }}
+                {% if log.to_address %}<div class="wl-muted">{{ log.recipient_type|title }} &middot; {{ log.to_address }}</div>{% endif %}
+              </td>
+              <td>{% if log.channel == 'web' %}Linked phone{% else %}Business API &middot; {{ log.mode|title }}{% endif %}</td>
+              <td><span class="wl-badge wl-{{ log.status }}">{{ log.get_status_display }}</span>
+                {% if log.attempts > 1 %}<div class="wl-muted">{{ log.attempts }} attempts</div>{% endif %}
+              </td>
+              <td>
+                {% if log.error %}<div class="wl-error">{{ log.error }}</div>{% endif %}
+                {% if log.wa_message_id %}<div class="wl-muted" title="{{ log.wa_message_id }}">ID {{ log.wa_message_id|truncatechars:24 }}</div>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="wl-empty"><i class="bx bx-message-square-dots"></i><p class="mb-0">No messages yet.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

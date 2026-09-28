@@ -1,0 +1,466 @@
+{% extends layout_path %}
+
+{% block title %}WhatsApp {{ config.label_plural }} | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .wa-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.3rem; padding: 0.75rem 0 2rem; }
+
+  .wa-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .wa-tab {
+    padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+    color: rgba(15, 23, 42, 0.6); background: rgba(148, 163, 184, 0.14); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .wa-tab.is-active { background: rgba(22, 163, 74, 0.14); color: #15803d; }
+
+  .wa-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .wa-header h1 { font-size: 1.7rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.7rem; }
+  .wa-header h1 i { color: #16a34a; }
+  .wa-header p { font-size: 0.9rem; color: rgba(15, 23, 42, 0.65); margin: 0.2rem 0 0; }
+  .wa-new-btn { border-radius: 14px; padding: 0.65rem 1.2rem; font-weight: 600; box-shadow: 0 12px 24px rgba(22, 163, 74, 0.22); }
+
+  .wa-help {
+    background: rgba(22, 163, 74, 0.07); border: 1px solid rgba(22, 163, 74, 0.2);
+    border-radius: 16px; padding: 1rem 1.2rem; font-size: 0.86rem; color: rgba(15, 23, 42, 0.78);
+  }
+  .wa-help strong { color: #166534; }
+  .wa-either { background: rgba(59, 130, 246, 0.07); border-color: rgba(59, 130, 246, 0.25); }
+  .wa-either strong { color: #1d4ed8; }
+  .wa-help ol { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+  .wa-help code { background: rgba(15, 23, 42, 0.07); padding: 0.15rem 0.4rem; border-radius: 6px; font-size: 0.82rem; word-break: break-word; }
+
+  .wa-card {
+    background: linear-gradient(160deg, rgba(34, 197, 94, 0.09), rgba(22, 163, 74, 0.02));
+    border-radius: 22px; border: 1px solid rgba(148, 163, 184, 0.18);
+    box-shadow: 0 24px 48px rgba(22, 163, 74, 0.1); padding: 1.4rem 1.4rem 1.6rem;
+    display: none; flex-direction: column; gap: 1.1rem;
+  }
+  .wa-card.is-open { display: flex; animation: waFade 0.2s ease; }
+  @keyframes waFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .wa-card__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+  .wa-chip {
+    display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; border-radius: 999px;
+    background: rgba(22, 163, 74, 0.13); color: #15803d; font-size: 0.76rem; text-transform: uppercase;
+    letter-spacing: 0.08em; font-weight: 600;
+  }
+  .wa-card__title { font-size: 1.3rem; font-weight: 700; margin: 0.25rem 0 0; color: #0f172a; }
+  .wa-close-btn {
+    border: none; background: rgba(148, 163, 184, 0.18); width: 32px; height: 32px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center; color: rgba(15, 23, 42, 0.6); flex-shrink: 0;
+  }
+
+  .wa-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+  .wa-field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .wa-field.full { grid-column: 1 / -1; }
+  .wa-field > label { font-size: 0.85rem; font-weight: 600; color: rgba(15, 23, 42, 0.75); margin: 0; }
+  .wa-field .form-control {
+    border-radius: 14px; border: 1px solid rgba(148, 163, 184, 0.35); padding: 0.65rem 0.9rem;
+    font-size: 0.92rem; background: rgba(255, 255, 255, 0.92);
+  }
+  .wa-hint { font-size: 0.78rem; color: rgba(15, 23, 42, 0.5); }
+  .wa-error { font-size: 0.8rem; color: #b91c1c; }
+
+  .wa-switch {
+    flex-direction: row; align-items: center; gap: 0.6rem; padding: 0.65rem 0.9rem; border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.28); background: rgba(255, 255, 255, 0.75);
+  }
+  .wa-switch input { width: 1.05rem; height: 1.05rem; margin: 0; }
+  .wa-switch label { margin: 0; font-size: 0.85rem; font-weight: 600; color: rgba(15, 23, 42, 0.75); }
+
+  .wa-checks ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .wa-checks li label {
+    display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(148, 163, 184, 0.3);
+    font-size: 0.84rem; font-weight: 600; color: rgba(15, 23, 42, 0.75); cursor: pointer; margin: 0;
+  }
+
+  .wa-submit-row { grid-column: 1 / -1; display: flex; gap: 0.75rem; justify-content: flex-end; }
+  .wa-submit { border-radius: 14px; padding: 0.7rem 1.4rem; font-weight: 600; }
+  .wa-cancel { border-radius: 14px; padding: 0.7rem 1.2rem; font-weight: 600; }
+
+  .wa-list { display: flex; flex-direction: column; gap: 0.9rem; }
+  .wa-entry {
+    border-radius: 16px; border: 1px solid rgba(148, 163, 184, 0.2); background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); padding: 1.1rem 1.25rem;
+  }
+  .wa-entry-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .wa-name { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+  .wa-sub { font-size: 0.82rem; color: rgba(15, 23, 42, 0.55); margin-top: 0.1rem; }
+  .wa-cells { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.6rem; }
+  .wa-cell {
+    padding: 0.2rem 0.65rem; border-radius: 8px; background: rgba(148, 163, 184, 0.16);
+    font-size: 0.75rem; font-weight: 600; color: rgba(15, 23, 42, 0.7);
+  }
+  .wa-actions { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; flex-shrink: 0; }
+  .wa-toggle-form { display: inline-flex; }
+  .wa-toggle {
+    border: none; background: transparent; display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem 0.6rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+  }
+  .wa-toggle.is-active { background: rgba(16, 185, 129, 0.12); color: #047857; }
+  .wa-toggle.is-inactive { background: rgba(148, 163, 184, 0.16); color: rgba(15, 23, 42, 0.55); }
+  .wa-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .wa-toggle.is-active .wa-dot { background: #10b981; }
+  .wa-toggle.is-inactive .wa-dot { background: #94a3b8; }
+  .wa-action-btn {
+    border: none; border-radius: 8px; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 600;
+    background: rgba(22, 163, 74, 0.13); color: #15803d;
+  }
+  .wa-icon-btn {
+    width: 32px; height: 32px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+    border: none; background: rgba(37, 99, 235, 0.1); color: #2563eb;
+  }
+  .wa-icon-btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+  .wa-header-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+  .wa-alt-btn { box-shadow: none; }
+  .wa-link-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.6rem; font-size: 0.82rem; }
+  .wa-link-label { font-weight: 700; color: rgba(15, 23, 42, 0.6); }
+  .wa-link-row a { color: #15803d; word-break: break-all; }
+  .wa-copy-btn { border: none; background: rgba(22, 163, 74, 0.13); color: #15803d; border-radius: 8px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; }
+
+  .wa-empty {
+    text-align: center; padding: 2.5rem 1rem; background: rgba(248, 250, 252, 0.75); border-radius: 18px;
+    border: 1px dashed rgba(148, 163, 184, 0.4); color: rgba(15, 23, 42, 0.55);
+  }
+  .wa-empty i { font-size: 2.3rem; color: rgba(22, 163, 74, 0.55); margin-bottom: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wa-shell">
+
+  {% include 'employees/integrations/_wa_tabs.html' with active=kind %}
+
+  <div class="wa-header">
+    <div>
+      <h1><i class="bx {{ config.icon }}"></i> WhatsApp {{ config.label_plural }}</h1>
+      <p>{{ config.blurb }}</p>
+    </div>
+    <div class="wa-header-actions">
+      {% if kind == 'recipients' %}
+        <button type="button" class="btn btn-outline-success wa-new-btn wa-alt-btn" id="openGroupBtn">
+          <i class="bx bx-group me-1"></i>Create WhatsApp group
+        </button>
+        <form method="post" action="{% url 'employees:whatsapp_group_sync' %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-secondary wa-new-btn wa-alt-btn" title="Import the groups your Business API number already has">
+            <i class="bx bx-sync me-1"></i>Sync groups from Meta
+          </button>
+        </form>
+      {% endif %}
+      <button type="button" class="btn btn-success wa-new-btn" id="openPanelBtn">
+        <i class="bx bx-plus me-1"></i>New {{ config.label }}
+      </button>
+    </div>
+  </div>
+
+  {% if kind == 'accounts' %}
+    <div class="wa-help wa-either">
+      <strong>Sending method A of 2.</strong> This is the official Business API. It works on its own &mdash; you do <em>not</em> need a
+      <a href="{% url 'employees:whatsapp_manage' kind='sessions' %}">Linked Phone (QR)</a>. Use either one, or both.
+    </div>
+    <div class="wa-help">
+      <strong>How to connect a number (Meta WhatsApp Cloud API)</strong>
+      <ol>
+        <li>In Meta Business Suite / developers.facebook.com, open your app &rarr; <em>WhatsApp &rarr; API Setup</em> and copy the <strong>Phone number ID</strong>.</li>
+        <li>Create a <strong>System User</strong> with the <code>whatsapp_business_messaging</code> permission and generate a permanent access token.</li>
+        <li>Save both here, then use <em>Send test</em> on a recipient to confirm it works.</li>
+      </ol>
+      A branch uses its own account if it has one, otherwise the whole-office account.
+    </div>
+  {% elif kind == 'sessions' %}
+    <div class="wa-help wa-either">
+      <strong>Sending method B of 2.</strong> A linked phone works on its own &mdash; you do <em>not</em> need a
+      <a href="{% url 'employees:whatsapp_manage' kind='accounts' %}">Business API account</a>. Use either one, or both.
+    </div>
+    <div class="wa-help">
+      <strong>Send from a phone you already use &mdash; no Meta account needed.</strong>
+      <ol>
+        <li>Add the phone here, then press <em>Link phone</em> on its row.</li>
+        <li>On that phone open WhatsApp &rarr; <em>Linked devices</em> &rarr; <em>Link a device</em> and scan the QR code.</li>
+        <li>Once it says <em>Connected</em>, choose <em>Via linked phone (QR)</em> on a Report Schedule. Reports can go to any number, or to any group that phone is in, by the group's name.</li>
+      </ol>
+      This uses WhatsApp's linked-device feature the way WhatsApp Web does, but it is <strong>not an official WhatsApp API</strong>:
+      WhatsApp can restrict a number that sends automated messages, so use it for a few internal recipients, not bulk messaging.
+      The <code>whatsapp_web</code> helper (<code>node server.mjs</code>) must be running.
+    </div>
+  {% elif kind == 'recipients' %}
+    <div class="wa-help">
+      <strong>One entry can hold many numbers and many groups</strong> &mdash; e.g. an "HR team" entry with two managers' numbers and the HR group.
+      Separate several items with commas, and pick that one entry on a Report Schedule to reach all of them.
+      <ul class="mb-0 mt-1">
+        <li><strong>Phone numbers</strong> &mdash; country code, digits only (e.g. <code>919876543210</code>). Works with both sending methods.</li>
+        <li><strong>Group names</strong> &mdash; for the <em>linked phone (QR)</em> method: names exactly as on that phone (the Linked Phone page lists them for copying).</li>
+        <li><strong>Group IDs</strong> &mdash; for the <em>Business API</em> method. Press <em>Create WhatsApp group</em> to make one and get its ID and invite link, or <em>Sync groups from Meta</em> to import existing ones.
+          Meta only enables the Groups API for eligible (Official Business Account) numbers.</li>
+      </ul>
+      Fill in whichever fit the method(s) you use; a schedule only uses the ones for its own method.
+    </div>
+  {% elif kind == 'schedules' %}
+    <div class="wa-help">
+      <strong>Checked every minute</strong> &mdash; change a time or recipient and it applies straight away, no restart needed.
+      <strong>Send through</strong> picks the method for this report: <em>Linked phone (QR)</em> sends normal chat text &mdash; no template or approval needed.
+      <em>Business API</em> uses template mode, which is required to reach people who haven't messaged you in the last 24 hours (anyone, in practice).
+      Create this template in Meta WhatsApp Manager (category <em>Utility</em>, language <code>en</code>) with this exact text and wait for approval:
+      <div class="mt-2"><code>{{ suggested_template_text }}</code></div>
+    </div>
+  {% endif %}
+
+  <!-- Create / Edit panel -->
+  <div class="wa-card" id="waCard">
+    <div class="wa-card__header">
+      <div>
+        <span class="wa-chip"><i class="bx bx-edit"></i> <span id="panelMode">New {{ config.label|lower }}</span></span>
+        <h2 class="wa-card__title" id="panelTitle">Add a {{ config.label|lower }}</h2>
+      </div>
+      <button type="button" class="wa-close-btn" id="closePanelBtn" aria-label="Close"><i class="bx bx-x"></i></button>
+    </div>
+
+    <form method="post" id="waForm" action="{% url 'employees:whatsapp_manage' kind=kind %}" autocomplete="off">
+      {% csrf_token %}
+      <div class="wa-form">
+        {% for field in form %}
+          {% if field.widget_type == 'checkbox' %}
+            <div class="wa-field wa-switch">
+              {{ field }}
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            </div>
+          {% elif field.widget_type == 'checkboxselectmultiple' %}
+            <div class="wa-field wa-checks full">
+              <label>{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<span class="wa-hint">{{ field.help_text }}</span>{% endif %}
+              {% for error in field.errors %}<span class="wa-error">{{ error }}</span>{% endfor %}
+            </div>
+          {% else %}
+            <div class="wa-field" data-field="{{ field.name }}">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<span class="wa-hint">{{ field.help_text }}</span>{% endif %}
+              {% for error in field.errors %}<span class="wa-error">{{ error }}</span>{% endfor %}
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}<div class="wa-field full"><span class="wa-error">{{ error }}</span></div>{% endfor %}
+
+        <div class="wa-submit-row">
+          <button type="button" class="btn btn-label-secondary wa-cancel" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-success wa-submit" id="submitBtn"><i class="bx bx-check me-1"></i>Save {{ config.label }}</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  {% if group_form %}
+  <!-- Create a WhatsApp group through the Business API -->
+  <div class="wa-card" id="waGroupCard">
+    <div class="wa-card__header">
+      <div>
+        <span class="wa-chip"><i class="bx bx-group"></i> Business API</span>
+        <h2 class="wa-card__title">Create a WhatsApp group</h2>
+      </div>
+      <button type="button" class="wa-close-btn" id="closeGroupBtn" aria-label="Close"><i class="bx bx-x"></i></button>
+    </div>
+    <form method="post" action="{% url 'employees:whatsapp_group_create' %}" autocomplete="off">
+      {% csrf_token %}
+      <div class="wa-form">
+        {% for field in group_form %}
+          <div class="wa-field {% if field.name == 'description' %}full{% endif %}">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<span class="wa-hint">{{ field.help_text }}</span>{% endif %}
+          </div>
+        {% endfor %}
+        <div class="wa-field full">
+          <span class="wa-hint">The group is created from your Business API number. Its ID and invite link appear on the new recipient &mdash; share the link so people can join (Meta doesn't let a business add people directly).</span>
+        </div>
+        <div class="wa-submit-row">
+          <button type="button" class="btn btn-label-secondary wa-cancel" id="cancelGroupBtn">Cancel</button>
+          <button type="submit" class="btn btn-success wa-submit"><i class="bx bx-group me-1"></i>Create group</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- List -->
+  <div>
+    {% if rows %}
+      <div class="wa-list">
+        {% for row in rows %}
+          <div class="wa-entry">
+            <div class="wa-entry-header">
+              <div>
+                <div class="wa-name">{{ row.title }}</div>
+                <div class="wa-sub">{{ row.subtitle }}</div>
+                <div class="wa-cells">
+                  {% for cell in row.cells %}<span class="wa-cell">{{ cell }}</span>{% endfor %}                </div>
+                {% for label, url in row.links %}
+                  <div class="wa-link-row">
+                    <span class="wa-link-label">{{ label }}</span>
+                    <a href="{{ url }}" target="_blank" rel="noopener">{{ url }}</a>
+                    <button type="button" class="wa-copy-btn js-copy" data-copy="{{ url }}" title="Copy link"><i class="bx bx-copy"></i></button>
+                  </div>
+                {% endfor %}
+              </div>
+
+              <div class="wa-actions">
+                {% if kind == 'sessions' %}
+                  <a href="{% url 'employees:whatsapp_web_link' row.obj.pk %}" class="wa-action-btn text-decoration-none"><i class="bx bx-qr-scan me-1"></i>{% if row.state == 'connected' %}Manage{% else %}Link phone{% endif %}</a>
+                {% endif %}
+                {% if kind == 'schedules' %}
+                  <form method="post" action="{% url 'employees:whatsapp_schedule_send_now' row.obj.pk %}" class="d-inline"
+                        onsubmit="return confirm('Send this report to its recipients right now?');">
+                    {% csrf_token %}
+                    <button type="submit" class="wa-action-btn"><i class="bx bx-send me-1"></i>Send now</button>
+                  </form>
+                {% elif kind == 'recipients' %}
+                  {% if row.can_fetch_link %}
+                    <form method="post" action="{% url 'employees:whatsapp_group_invite_link' row.obj.pk %}" class="d-inline">
+                      {% csrf_token %}
+                      <button type="submit" class="wa-action-btn"><i class="bx bx-link me-1"></i>Get invite link</button>
+                    </form>
+                  {% endif %}
+                  <form method="post" action="{% url 'employees:whatsapp_recipient_test' row.obj.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="channel" value="api">
+                    <button type="submit" class="wa-action-btn" title="Send a test through the Business API"><i class="bx bx-test-tube me-1"></i>Test (API)</button>
+                  </form>
+                  <form method="post" action="{% url 'employees:whatsapp_recipient_test' row.obj.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="channel" value="web">
+                    <button type="submit" class="wa-action-btn" title="Send a test through the linked phone"><i class="bx bx-qr-scan me-1"></i>Test (QR)</button>
+                  </form>
+                {% endif %}
+
+                <form method="post" action="{% url 'employees:whatsapp_toggle' kind=kind pk=row.obj.pk %}" class="wa-toggle-form">
+                  {% csrf_token %}
+                  <button type="submit" class="wa-toggle {% if row.obj.is_active %}is-active{% else %}is-inactive{% endif %}">
+                    <span class="wa-dot"></span>{% if row.obj.is_active %}Active{% else %}Inactive{% endif %}
+                  </button>
+                </form>
+
+                <button type="button" class="wa-icon-btn js-edit" data-key="{{ row.obj.pk }}" aria-label="Edit {{ row.title }}">
+                  <i class="bx bx-edit"></i>
+                </button>
+
+                <form method="post" action="{% url 'employees:whatsapp_delete' kind=kind pk=row.obj.pk %}" class="d-inline"
+                      onsubmit="return confirm('Delete {{ row.title|escapejs }}? This cannot be undone.');">
+                  {% csrf_token %}
+                  <button type="submit" class="wa-icon-btn danger" aria-label="Delete {{ row.title }}"><i class="bx bx-trash"></i></button>
+                </form>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="wa-empty">
+        <i class="bx {{ config.icon }}"></i>
+        <p class="mb-1">No {{ config.label_plural|lower }} yet</p>
+        <p class="mb-0 small">Click "New {{ config.label }}" above to add your first one.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{{ edit_data|json_script:"editData" }}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const card = document.getElementById('waCard');
+    const form = document.getElementById('waForm');
+    const panelTitle = document.getElementById('panelTitle');
+    const panelMode = document.getElementById('panelMode');
+    const submitBtn = document.getElementById('submitBtn');
+    const label = "{{ config.label|escapejs }}";
+    const createUrl = "{% url 'employees:whatsapp_manage' kind=kind %}";
+    const editData = JSON.parse(document.getElementById('editData').textContent);
+
+    function openPanel() { card.classList.add('is-open'); card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    function closePanel() { card.classList.remove('is-open'); }
+
+    function setMode(mode, title) {
+      const isEdit = mode === 'edit';
+      panelMode.innerText = (isEdit ? 'Edit ' : 'New ') + label.toLowerCase();
+      panelTitle.innerText = isEdit ? `Edit "${title}"` : `Add a ${label.toLowerCase()}`;
+      submitBtn.innerHTML = '<i class="bx bx-check me-1"></i>' + (isEdit ? 'Update ' : 'Save ') + label;
+    }
+
+    function fill(values) {
+      Object.entries(values).forEach(function ([name, val]) {
+        form.querySelectorAll('[name="' + name + '"]').forEach(function (el) {
+          if (el.type === 'checkbox' || el.type === 'radio') {
+            el.checked = Array.isArray(val) ? val.includes(el.value) : !!val;
+          } else {
+            el.value = val === null || val === undefined ? '' : val;
+          }
+        });
+      });
+    }
+
+    document.getElementById('openPanelBtn').addEventListener('click', function () {
+      form.reset();
+      form.action = createUrl;
+      setMode('new');
+      openPanel();
+    });
+    document.getElementById('closePanelBtn').addEventListener('click', closePanel);
+    document.getElementById('cancelBtn').addEventListener('click', closePanel);
+
+    document.querySelectorAll('.js-edit').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const item = editData[btn.dataset.key];
+        form.reset();
+        form.action = item.url;
+        fill(item.values);
+        setMode('edit', item.title);
+        openPanel();
+      });
+    });
+
+    // Group-creation panel (recipients page)
+    const groupCard = document.getElementById('waGroupCard');
+    if (groupCard) {
+      document.getElementById('openGroupBtn').addEventListener('click', function () {
+        closePanel(); groupCard.classList.add('is-open'); groupCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      ['closeGroupBtn', 'cancelGroupBtn'].forEach(function (id) {
+        document.getElementById(id).addEventListener('click', function () { groupCard.classList.remove('is-open'); });
+      });
+    }
+
+    // Copy invite links
+    document.querySelectorAll('.js-copy').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        navigator.clipboard.writeText(btn.dataset.copy).then(function () {
+          btn.innerHTML = '<i class="bx bx-check"></i>';
+          setTimeout(function () { btn.innerHTML = '<i class="bx bx-copy"></i>'; }, 1500);
+        });
+      });
+    });
+
+    // Schedule form: template fields only matter for the Business API channel
+    const channelSelect = form.querySelector('[name="channel"]');
+    if (channelSelect) {
+      const apiOnly = ['message_mode', 'template_name', 'template_language'];
+      const syncChannel = function () {
+        apiOnly.forEach(function (n) { const el = form.querySelector('[data-field="' + n + '"]'); if (el) el.style.display = channelSelect.value === 'web' ? 'none' : ''; });
+      };
+      channelSelect.addEventListener('change', syncChannel);
+      form.addEventListener('reset', function () { setTimeout(syncChannel, 0); });
+      document.querySelectorAll('.js-edit, #openPanelBtn').forEach(function (b) { b.addEventListener('click', function () { setTimeout(syncChannel, 0); }); });
+      syncChannel();
+    }
+
+    {% if form_has_errors %}openPanel();{% endif %}
+  });
+</script>
+{% endblock %}

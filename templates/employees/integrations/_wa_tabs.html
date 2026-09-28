@@ -1,0 +1,20 @@
+<style>
+  .wat { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .wat a {
+    padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+    color: rgba(15, 23, 42, 0.6); background: rgba(148, 163, 184, 0.14); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .wat a.is-active { background: rgba(22, 163, 74, 0.14); color: #15803d; }
+  .wat .wat-sep { width: 1px; background: rgba(148, 163, 184, 0.45); margin: 0.25rem 0.1rem; }
+</style>
+<div class="wat">
+  <a href="{% url 'employees:whatsapp_home' %}" class="{% if active == 'home' %}is-active{% endif %}"><i class="bx bx-home-heart"></i> Setup</a>
+  <span class="wat-sep"></span>
+  <a href="{% url 'employees:whatsapp_manage' kind='accounts' %}" class="{% if active == 'accounts' %}is-active{% endif %}" title="Option A - official WhatsApp Business API"><i class="bx bx-phone-call"></i> Business API</a>
+  <a href="{% url 'employees:whatsapp_manage' kind='sessions' %}" class="{% if active == 'sessions' %}is-active{% endif %}" title="Option B - link a phone by scanning a QR code"><i class="bx bx-qr-scan"></i> Linked Phone (QR)</a>
+  <span class="wat-sep"></span>
+  <a href="{% url 'employees:whatsapp_manage' kind='recipients' %}" class="{% if active == 'recipients' %}is-active{% endif %}"><i class="bx bx-user-voice"></i> Recipients</a>
+  <a href="{% url 'employees:whatsapp_manage' kind='schedules' %}" class="{% if active == 'schedules' %}is-active{% endif %}"><i class="bx bx-time-five"></i> Report Schedules</a>
+  <a href="{% url 'employees:whatsapp_logs' %}" class="{% if active == 'logs' %}is-active{% endif %}"><i class="bx bx-list-ul"></i> Message Log</a>
+</div>
