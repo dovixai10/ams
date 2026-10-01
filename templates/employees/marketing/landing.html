@@ -412,6 +412,9 @@
   .lp-final-cta h2 { color: #fff; font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 0.6rem; }
   .lp-final-cta p { color: rgba(255,255,255,0.85); margin-bottom: 1.5rem; max-width: 46ch; }
   .lp-final-cta-actions { display: flex; flex-wrap: wrap; gap: 0.85rem; }
+  .lp-final-cta-contact { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: 1.25rem; }
+  .lp-final-cta-contact a { color: rgba(255,255,255,0.9); font-weight: 600; font-size: 0.92rem; display: inline-flex; align-items: center; gap: 0.4rem; }
+  .lp-final-cta-contact a:hover { color: #fff; }
   .lp-final-visual { display: flex; justify-content: center; }
   .lp-final-visual .lp-mock-card { background: rgba(255,255,255,0.97); }
 
@@ -450,42 +453,7 @@
   <!-- ============================================================
         1. NAVBAR
   ============================================================= -->
-  <header class="lp-navbar">
-    <div class="lp-container">
-      <a href="{% url 'employees:home' %}" class="lp-brand">
-        <span class="lp-brand-mark"><i class="bx bx-current-location"></i></span>
-        Dovix AI
-      </a>
-
-      <ul class="lp-nav-links">
-        <li><a href="#features">Features</a></li>
-        <li><a href="#solutions">Solutions</a></li>
-        <li><a href="#pricing">Pricing</a></li>
-        <li><a href="#about">About</a></li>
-        <li><a href="#contact">Contact</a></li>
-      </ul>
-
-      <div class="lp-nav-actions">
-        <a href="{% url 'employees:login' %}" class="lp-login-link">Log In</a>
-        <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary lp-btn-sm d-none d-lg-inline-flex">Request a Demo</a>
-        <button type="button" class="lp-nav-toggle" id="lpNavToggle" aria-label="Toggle menu">
-          <i class="bx bx-menu"></i>
-        </button>
-      </div>
-    </div>
-
-    <div class="lp-mobile-menu" id="lpMobileMenu">
-      <a href="#features">Features</a>
-      <a href="#solutions">Solutions</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#about">About</a>
-      <a href="#contact">Contact</a>
-      <div class="lp-mobile-cta">
-        <a href="{% url 'employees:login' %}" class="lp-btn lp-btn-outline lp-btn-sm flex-fill">Log In</a>
-        <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary lp-btn-sm flex-fill">Request a Demo</a>
-      </div>
-    </div>
-  </header>
+  {% include 'employees/marketing/partials/lp_header.html' %}
 
   <!-- ============================================================
         2. HERO
@@ -868,46 +836,65 @@
       </div>
 
       <div class="lp-pricing-grid">
-        <div class="lp-price-card">
-          <h4>Starter</h4>
-          <p class="lp-price-note">Perfect for small teams</p>
-          <div class="lp-price-amt">₹999<span>/month</span></div>
-          <ul class="lp-price-list">
-            <li><i class="bx bx-check"></i> Up to 25 employees</li>
-            <li><i class="bx bx-check"></i> Attendance &amp; geofencing</li>
-            <li><i class="bx bx-check"></i> Leave management</li>
-            <li><i class="bx bx-check"></i> Basic reports</li>
-          </ul>
-          <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-outline">Get Started</a>
-        </div>
+        {% if plans %}
+          {% for plan in plans %}
+            <div class="lp-price-card {% if plan.is_featured %}lp-featured{% endif %}">
+              {% if plan.is_featured %}<span class="lp-price-badge">Most Popular</span>{% endif %}
+              <h4>{{ plan.name }}</h4>
+              <p class="lp-price-note">{{ plan.description|default:"" }}</p>
+              <div class="lp-price-amt">{{ plan.price_display }}{% if not plan.is_free %}<span>/{{ plan.duration_display }}</span>{% endif %}</div>
+              <ul class="lp-price-list">
+                {% for f in plan.features.all %}
+                  {% if f.is_enabled %}<li><i class="bx bx-check"></i> {{ f.label }}</li>{% endif %}
+                {% endfor %}
+                <li><i class="bx bx-check"></i> {% if plan.max_branches %}Up to {{ plan.max_branches }} branch{{ plan.max_branches|pluralize }}{% else %}Unlimited branches{% endif %}</li>
+                <li><i class="bx bx-check"></i> {% if plan.max_employees %}Up to {{ plan.max_employees }} employees{% else %}Unlimited employees{% endif %}</li>
+              </ul>
+              <a href="{% url 'employees:office_register' %}" class="lp-btn {% if plan.is_featured %}lp-btn-primary{% else %}lp-btn-outline{% endif %}">Get Started</a>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="lp-price-card">
+            <h4>Starter</h4>
+            <p class="lp-price-note">Perfect for small teams</p>
+            <div class="lp-price-amt">₹999<span>/month</span></div>
+            <ul class="lp-price-list">
+              <li><i class="bx bx-check"></i> Up to 25 employees</li>
+              <li><i class="bx bx-check"></i> Attendance &amp; geofencing</li>
+              <li><i class="bx bx-check"></i> Leave management</li>
+              <li><i class="bx bx-check"></i> Basic reports</li>
+            </ul>
+            <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-outline">Get Started</a>
+          </div>
 
-        <div class="lp-price-card lp-featured">
-          <span class="lp-price-badge">Most Popular</span>
-          <h4>Growth</h4>
-          <p class="lp-price-note">For growing businesses</p>
-          <div class="lp-price-amt">₹2,499<span>/month</span></div>
-          <ul class="lp-price-list">
-            <li><i class="bx bx-check"></i> Up to 100 employees</li>
-            <li><i class="bx bx-check"></i> Payroll &amp; salary slips</li>
-            <li><i class="bx bx-check"></i> Task &amp; project management</li>
-            <li><i class="bx bx-check"></i> Multi-branch support</li>
-            <li><i class="bx bx-check"></i> Advanced reports</li>
-          </ul>
-          <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary">Get Started</a>
-        </div>
+          <div class="lp-price-card lp-featured">
+            <span class="lp-price-badge">Most Popular</span>
+            <h4>Growth</h4>
+            <p class="lp-price-note">For growing businesses</p>
+            <div class="lp-price-amt">₹2,499<span>/month</span></div>
+            <ul class="lp-price-list">
+              <li><i class="bx bx-check"></i> Up to 100 employees</li>
+              <li><i class="bx bx-check"></i> Payroll &amp; salary slips</li>
+              <li><i class="bx bx-check"></i> Task &amp; project management</li>
+              <li><i class="bx bx-check"></i> Multi-branch support</li>
+              <li><i class="bx bx-check"></i> Advanced reports</li>
+            </ul>
+            <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary">Get Started</a>
+          </div>
 
-        <div class="lp-price-card">
-          <h4>Enterprise</h4>
-          <p class="lp-price-note">For large organizations</p>
-          <div class="lp-price-amt" style="font-size:1.5rem;">Custom Pricing</div>
-          <ul class="lp-price-list" style="margin-top:1.4rem;">
-            <li><i class="bx bx-check"></i> Unlimited employees</li>
-            <li><i class="bx bx-check"></i> Advanced security</li>
-            <li><i class="bx bx-check"></i> Custom integrations</li>
-            <li><i class="bx bx-check"></i> Dedicated support</li>
-          </ul>
-          <a href="#contact" class="lp-btn lp-btn-outline">Contact Sales</a>
-        </div>
+          <div class="lp-price-card">
+            <h4>Enterprise</h4>
+            <p class="lp-price-note">For large organizations</p>
+            <div class="lp-price-amt" style="font-size:1.5rem;">Custom Pricing</div>
+            <ul class="lp-price-list" style="margin-top:1.4rem;">
+              <li><i class="bx bx-check"></i> Unlimited employees</li>
+              <li><i class="bx bx-check"></i> Advanced security</li>
+              <li><i class="bx bx-check"></i> Custom integrations</li>
+              <li><i class="bx bx-check"></i> Dedicated support</li>
+            </ul>
+            <a href="#contact" class="lp-btn lp-btn-outline">Contact Sales</a>
+          </div>
+        {% endif %}
       </div>
     </div>
   </section>
@@ -986,6 +973,10 @@
             <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-white">Get Started Free</a>
             <a href="#contact" class="lp-btn lp-btn-light">Book a Demo</a>
           </div>
+          <div class="lp-final-cta-contact">
+            <a href="mailto:info@dovix.ai"><i class="bx bx-envelope"></i> info@dovix.ai</a>
+            <a href="tel:+919116382399"><i class="bx bx-phone"></i> +91 91163 82399</a>
+          </div>
         </div>
         <div class="lp-final-visual">
           <div class="lp-mock-card" style="max-width:320px;">
@@ -1013,64 +1004,7 @@
   <!-- ============================================================
         14. FOOTER
   ============================================================= -->
-  <footer class="lp-footer">
-    <div class="lp-container">
-      <div class="lp-footer-grid">
-        <div>
-          <a href="{% url 'employees:home' %}" class="lp-brand">
-            <span class="lp-brand-mark"><i class="bx bx-current-location"></i></span>
-            Dovix AI
-          </a>
-          <p class="lp-footer-tag">All-in-one HRMS platform for attendance, payroll, tasks, and more.</p>
-          <div class="lp-footer-social">
-            <a href="#"><i class="bxl-facebook"></i></a>
-            <a href="#"><i class="bxl-twitter"></i></a>
-            <a href="#"><i class="bxl-linkedin"></i></a>
-            <a href="#"><i class="bxl-instagram"></i></a>
-          </div>
-        </div>
-
-        <div class="lp-footer-col">
-          <h6>Product</h6>
-          <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#">Integrations</a>
-          <a href="#">Changelog</a>
-        </div>
-
-        <div class="lp-footer-col">
-          <h6>Company</h6>
-          <a href="#about">About Us</a>
-          <a href="#">Careers</a>
-          <a href="#">Blog</a>
-          <a href="#contact">Contact</a>
-        </div>
-
-        <div class="lp-footer-col">
-          <h6>Support</h6>
-          <a href="#">Help Center</a>
-          <a href="#">Privacy Policy</a>
-          <a href="#">Terms of Service</a>
-          <div style="margin-top:1.25rem;">
-            <h6 style="margin-bottom:0.6rem;">Stay Updated</h6>
-            <form class="lp-newsletter" onsubmit="return false;">
-              <input type="email" placeholder="Enter your email">
-              <button type="submit" class="lp-btn lp-btn-primary lp-btn-sm">Subscribe</button>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <div class="lp-footer-bottom">
-        <span>© 2026 Dovix AI. All rights reserved.</span>
-        <div class="lp-legal-links">
-          <a href="#">Privacy</a>
-          <a href="#">Terms</a>
-          <a href="#">Cookies</a>
-        </div>
-      </div>
-    </div>
-  </footer>
+  {% include 'employees/marketing/partials/lp_footer.html' %}
 
 </div>
 {% endblock %}

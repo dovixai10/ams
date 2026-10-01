@@ -748,6 +748,13 @@
     }, 3000); // 3 second timeout as fallback
   </script>
 
+  {% if not office_plan %}
+    <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4" role="alert">
+      <div><i class="bx bx-error-circle me-1"></i> You haven't chosen a subscription plan yet - most sections are hidden until you do.</div>
+      <a href="{% url 'employees:choose_plan' %}" class="btn btn-sm btn-warning"><i class="bx bx-credit-card-alt me-1"></i>Choose a Plan</a>
+    </div>
+  {% endif %}
+
   <div class="row">
     <!-- Welcome Message -->
     <div class="col-12 mb-4" data-aos="fade-up" data-aos-duration="800">

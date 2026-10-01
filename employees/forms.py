@@ -23,6 +23,7 @@ from .models import (
     Designation,
     Department,
     EmploymentType,
+    SubscriptionPlan,
 )
 
 from django.utils import timezone
@@ -1422,6 +1423,7 @@ class TaskForm(forms.ModelForm):
             'severity',
             'status',
             'due_date',
+            'estimated_hours',
         ]
         widgets = {
             'project': forms.Select(attrs={'class': 'form-select'}),
@@ -1434,6 +1436,7 @@ class TaskForm(forms.ModelForm):
             'severity': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'estimated_hours': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.25', 'min': '0', 'placeholder': 'e.g. 4'}),
         }
 
     def __init__(self, *args, assigned_by=None, request=None, employee=None, project=None, team=None, **kwargs):
@@ -1727,3 +1730,57 @@ class AttendanceRuleForm(forms.ModelForm):
             setattr(instance, field, value)
         instance.clean()  # reuse model-level validation
         return cleaned
+
+
+class SubscriptionPlanForm(forms.ModelForm):
+    """Platform admin: create/edit a subscription plan. Which features it
+    includes is a separate checklist (SubscriptionPlanFeature rows), handled
+    by the view - not part of this form, since it's dynamic (one checkbox
+    per permissions.FEATURE_PERMISSIONS entry, not a fixed model field)."""
+
+    class Meta:
+        model = SubscriptionPlan
+        fields = [
+            'name', 'slug', 'description', 'price', 'is_free', 'duration_value', 'duration_unit',
+            'max_branches', 'max_employees', 'is_active', 'is_default', 'is_featured', 'order',
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Growth'}),
+            'slug': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Leave blank to auto-generate'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'is_free': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'duration_value': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'duration_unit': forms.Select(attrs={'class': 'form-select'}),
+            'max_branches': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'max_employees': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'placeholder': 'Unlimited'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_default': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_featured': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        }
+
+    def __init__(self, *args, created_by=None, **kwargs):
+        self.created_by = created_by
+        super().__init__(*args, **kwargs)
+        self.fields['slug'].required = False
+        self.fields['max_employees'].required = False
+        self.fields['max_branches'].required = False
+
+    def clean_slug(self):
+        slug = (self.cleaned_data.get('slug') or '').strip()
+        if slug:
+            clash = SubscriptionPlan.objects.filter(slug=slug)
+            if self.instance.pk:
+                clash = clash.exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise forms.ValidationError('That slug is already used by another plan.')
+        return slug
+
+    def save(self, commit=True):
+        plan = super().save(commit=False)
+        if self.created_by and not plan.created_by_id:
+            plan.created_by = self.created_by
+        if commit:
+            plan.save()
+        return plan

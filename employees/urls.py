@@ -1,11 +1,13 @@
 from django.urls import path, include
-from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views, integration_views
+from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views, integration_views, reports_views, subscription_views
 
 app_name = 'employees'
 
 urlpatterns = [
     # Root URL - public marketing landing page (signed-in users are bounced to their dashboard)
     path('', views.landing_page, name='home'),
+    path("privacy-policy/", views.privacy_policy, name="privacy_policy"),
+    path("terms-of-service/", views.terms_of_service, name="terms_of_service"),
 
     #open attendence
     path("attendance-kiosk/<uuid:token>/", views.attendance_kiosk, name="attendance_kiosk"),
@@ -290,6 +292,10 @@ urlpatterns = [
     path('integrations/whatsapp/<str:kind>/<int:pk>/toggle/', integration_views.whatsapp_toggle, name='whatsapp_toggle'),
     path('integrations/whatsapp/<str:kind>/<int:pk>/delete/', integration_views.whatsapp_delete, name='whatsapp_delete'),
 
+    # Reports
+    path('reports/employee-performance/', reports_views.employee_performance_report, name='employee_performance_report'),
+    path('reports/employee-performance/export/', reports_views.employee_performance_export, name='employee_performance_export'),
+
     # Employee attribute types (Designation / Department / Employment Type)
     path('employee-settings/<str:kind>/', views.admin_employee_attribute_types, name='admin_employee_attribute_types'),
     path('employee-settings/<str:kind>/<int:pk>/update/', views.admin_employee_attribute_type_update, name='admin_employee_attribute_type_update'),
@@ -305,6 +311,13 @@ urlpatterns = [
     path('platform/office-approvals/', views.platform_office_approvals, name='platform_office_approvals'),
     path('platform/dashboard/', views.platform_dashboard, name='platform_dashboard'),
     path('platform/profile/', views.platform_profile, name='platform_profile'),
+    path('platform/plans/', subscription_views.platform_plans, name='platform_plans'),
+    path('platform/plans/<int:pk>/update/', subscription_views.platform_plan_update, name='platform_plan_update'),
+    path('platform/plans/<int:pk>/toggle/', subscription_views.platform_plan_toggle, name='platform_plan_toggle'),
+    path('platform/plans/<int:pk>/delete/', subscription_views.platform_plan_delete, name='platform_plan_delete'),
+    path('platform/offices/<int:pk>/set-plan/', subscription_views.platform_office_set_plan, name='platform_office_set_plan'),
+    path('subscription/choose-plan/', subscription_views.choose_plan, name='choose_plan'),
+    path('api/plans/', subscription_views.public_plans_api, name='public_plans_api'),
 
     # attendance rule 
 

@@ -1,0 +1,445 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Employee Performance | Reports{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .perf-shell { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.3rem; padding: 0.5rem 0 2rem; }
+
+  .perf-crumb { font-size: 0.82rem; color: #6b7280; display: flex; align-items: center; gap: 0.35rem; }
+  .perf-crumb a { color: #696cff; text-decoration: none; }
+
+  .perf-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .perf-header h1 { font-size: 1.55rem; font-weight: 700; color: #1f2937; margin: 0; }
+  .perf-header p { font-size: 0.86rem; color: #6b7280; margin: 0.2rem 0 0; }
+
+  .perf-filters { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  .perf-filters select, .perf-filters input[type="date"] {
+    border: 1px solid #d1d5db; border-radius: 8px; padding: 0.45rem 0.7rem; font-size: 0.85rem; background: #fff;
+  }
+  .perf-custom-dates { display: none; align-items: center; gap: 0.4rem; }
+  .perf-custom-dates.show { display: flex; }
+  .btn-export {
+    background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; border-radius: 8px;
+    padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;
+  }
+
+  /* Tiles */
+  .tiles-row { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 0.9rem; }
+  @media (max-width: 900px) { .tiles-row { grid-template-columns: repeat(2, 1fr); } }
+  .tile { background: #fff; border-radius: 14px; padding: 1rem 1.1rem; border: 1px solid rgba(148, 163, 184, 0.18); display: flex; gap: 0.8rem; align-items: flex-start; }
+  .tile-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex: 0 0 auto; }
+  .tile.total .tile-icon { background: #eef2ff; color: #4f46e5; }
+  .tile.active .tile-icon { background: #ecfdf5; color: #059669; }
+  .tile.completed .tile-icon { background: #eff6ff; color: #2563eb; }
+  .tile.hours .tile-icon { background: #fdf4ff; color: #a21caf; }
+  .tile.ontime .tile-icon { background: #f0fdf4; color: #16a34a; }
+  .tile-label { font-size: 0.78rem; color: #6b7280; }
+  .tile-value { font-size: 1.35rem; font-weight: 700; color: #1f2937; margin-top: 0.15rem; }
+  .tile-delta { font-size: 0.74rem; font-weight: 600; margin-top: 0.15rem; }
+  .tile-delta.up { color: #16a34a; }
+  .tile-delta.down { color: #dc2626; }
+
+  /* Cards */
+  .perf-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148, 163, 184, 0.18); padding: 1.1rem 1.2rem; display: flex; flex-direction: column; height: 100%; }
+  .perf-card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
+  .perf-card-title { font-size: 0.98rem; font-weight: 700; color: #1f2937; display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+  .perf-card-title i { color: #f59e0b; }
+  .perf-card-title .sub { font-size: 0.74rem; font-weight: 500; color: #9ca3af; }
+  .perf-link { font-size: 0.8rem; color: #696cff; text-decoration: none; font-weight: 600; }
+  .tab-group { display: flex; gap: 0.3rem; background: #f3f4f6; border-radius: 8px; padding: 0.2rem; }
+  .tab-group a, .tab-group button {
+    border: none; background: transparent; padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.76rem; font-weight: 600;
+    color: #6b7280; cursor: pointer; text-decoration: none;
+  }
+  .tab-group a.active, .tab-group button.active { background: #fff; color: #4f46e5; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+  /* Leaderboard */
+  .leader-row { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0; border-bottom: 1px solid #f3f4f6; }
+  .leader-row:last-child { border-bottom: none; }
+  .leader-rank { width: 22px; font-weight: 700; color: #9ca3af; font-size: 0.85rem; text-align: center; }
+  .leader-row:nth-child(1) .leader-rank { color: #f59e0b; }
+  .leader-avatar {
+    width: 36px; height: 36px; border-radius: 50%; background: #696cff; color: #fff; font-weight: 700; font-size: 0.82rem;
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  }
+  .leader-info { flex: 1 1 auto; min-width: 0; }
+  .leader-name { font-size: 0.86rem; font-weight: 600; color: #1f2937; }
+  .leader-role { font-size: 0.74rem; color: #9ca3af; }
+  .leader-stats { text-align: right; flex: 0 0 auto; }
+  .leader-meta { font-size: 0.72rem; color: #6b7280; margin-bottom: 0.25rem; }
+  .leader-bar-track { width: 110px; height: 6px; background: #f3f4f6; border-radius: 999px; overflow: hidden; }
+  .leader-bar-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); border-radius: 999px; }
+  .leader-pct { font-size: 0.72rem; font-weight: 700; color: #4f46e5; margin-top: 0.2rem; }
+
+  /* Donut */
+  .donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; }
+  .donut-center-label { font-size: 1.6rem; font-weight: 700; color: #1f2937; }
+  .donut-legend { width: 100%; display: flex; flex-direction: column; gap: 0.5rem; }
+  .donut-legend-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+  .donut-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+  .donut-legend-label { flex: 1 1 auto; color: #4b5563; }
+  .donut-legend-pct { font-weight: 700; color: #1f2937; }
+
+  /* Best performer */
+  .best-card {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5); border-radius: 14px; padding: 1rem 1.1rem; color: #fff;
+    display: flex; align-items: center; gap: 0.8rem; margin-top: 0.9rem;
+  }
+  .best-card-icon { font-size: 1.6rem; }
+  .best-card-title { font-size: 0.78rem; opacity: 0.85; }
+  .best-avatar { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .best-name { font-weight: 700; font-size: 0.92rem; }
+  .best-role { font-size: 0.74rem; opacity: 0.85; }
+
+  /* Employee table */
+  .perf-search { border: 1px solid #d1d5db; border-radius: 8px; padding: 0.4rem 0.7rem 0.4rem 2.1rem; font-size: 0.82rem; position: relative; }
+  .perf-search-wrap { position: relative; }
+  .perf-search-wrap i { position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+  .perf-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  .perf-table th { text-align: left; padding: 0.5rem 0.6rem; color: #9ca3af; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #f3f4f6; }
+  .perf-table td { padding: 0.6rem; border-bottom: 1px solid #f9fafb; vertical-align: middle; }
+  .perf-table-name { display: flex; align-items: center; gap: 0.55rem; }
+  .perf-table-avatar { width: 30px; height: 30px; border-radius: 50%; background: #696cff; color: #fff; font-size: 0.72rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .status-pill { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700; }
+  .status-pill.success { background: #dcfce7; color: #15803d; }
+  .status-pill.info { background: #dbeafe; color: #1d4ed8; }
+  .status-pill.warning { background: #fef3c7; color: #b45309; }
+  .status-pill.danger { background: #fee2e2; color: #b91c1c; }
+  .status-pill.secondary { background: #f1f5f9; color: #64748b; }
+  .mini-bar-track { width: 60px; height: 5px; background: #f3f4f6; border-radius: 999px; display: inline-block; margin-inline-end: 0.4rem; vertical-align: middle; }
+  .mini-bar-fill { height: 100%; border-radius: 999px; background: #6366f1; }
+
+  /* Task list */
+  .task-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0; border-bottom: 1px solid #f9fafb; }
+  .task-row:last-child { border-bottom: none; }
+  .task-row-title { font-size: 0.83rem; font-weight: 600; color: #1f2937; }
+  .task-row-sub { font-size: 0.72rem; color: #9ca3af; }
+  .task-row-hours { font-size: 0.78rem; color: #6b7280; flex: 0 0 auto; }
+
+  /* Insights */
+  .insight-item { display: flex; gap: 0.6rem; padding: 0.6rem 0; border-bottom: 1px solid #f9fafb; }
+  .insight-item:last-child { border-bottom: none; }
+  .insight-item i { font-size: 1.15rem; color: #696cff; flex: 0 0 auto; margin-top: 0.1rem; }
+  .insight-title { font-size: 0.83rem; font-weight: 600; color: #1f2937; }
+  .insight-body { font-size: 0.76rem; color: #6b7280; margin-top: 0.1rem; }
+
+  .perf-empty { text-align: center; padding: 2rem 1rem; color: #9ca3af; font-size: 0.85rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="perf-shell">
+
+  {% comment %} <nav class="perf-crumb"><a href="#">Reports</a> <i class="bx bx-chevron-right"></i> <span>Employee Performance</span></nav> {% endcomment %}
+
+  <div class="perf-header">
+    <div>
+      <h1>Employee Performance</h1>
+      <p>Track team productivity, task completion and individual performance across all projects.</p>
+    </div>
+
+    <form method="get" class="perf-filters" id="filterForm">
+      <select name="range" id="rangeSelect">
+        {% for key, label in range_choices %}
+          <option value="{{ key }}" {% if key == mode %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <span class="perf-custom-dates {% if mode == 'custom' %}show{% endif %}" id="customDates">
+        <input type="date" name="start" value="{{ custom_start }}">
+        <span>&ndash;</span>
+        <input type="date" name="end" value="{{ custom_end }}">
+        <button type="submit" class="btn btn-sm btn-outline-primary">Go</button>
+      </span>
+      <select name="team" onchange="this.form.submit()">
+        <option value="">All Teams</option>
+        {% for t in teams %}<option value="{{ t.id }}" {% if team and team.id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+      </select>
+      <select name="employee" onchange="this.form.submit()">
+        <option value="">All Employees</option>
+        {% for e in employees_for_filter %}
+          <option value="{{ e.id }}" {% if employee_filter and employee_filter.id == e.id %}selected{% endif %}>{{ e.full_name|default:e.name }}</option>
+        {% endfor %}
+      </select>
+      <a href="{% url 'employees:employee_performance_export' %}?{{ request.GET.urlencode }}" class="btn-export"><i class="bx bx-download"></i> Export Report</a>
+    </form>
+  </div>
+  <div class="text-muted small" style="margin-top: -0.8rem;"><i class="bx bx-calendar"></i> {{ period_label }}</div>
+
+  {% if not employees_for_filter and not employee_filter %}
+    <div class="perf-empty"><i class="bx bx-group" style="font-size: 2rem;"></i><p class="mb-0 mt-2">No employees match these filters yet.</p></div>
+  {% endif %}
+
+  <!-- Tiles -->
+  <div class="tiles-row">
+    {% for tile in tiles %}
+      <div class="tile {{ tile.key }}">
+        <div class="tile-icon"><i class="bx {{ tile.icon }}"></i></div>
+        <div>
+          <div class="tile-label">{{ tile.label }}</div>
+          <div class="tile-value">{{ tile.value }}</div>
+          {% if tile.delta is not None %}
+            <div class="tile-delta {{ tile.direction }}"><i class="bx bx-{% if tile.direction == 'up' %}up{% else %}down{% endif %}-arrow-alt"></i> {{ tile.delta }}% vs previous period</div>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Leaderboard / chart / donut -->
+  <div class="row g-3">
+    <div class="col-xl-4">
+      <div class="perf-card">
+        <div class="perf-card-head">
+          <h2 class="perf-card-title"><i class="bx bxs-trophy"></i> Top 5 Employees <span class="sub">({{ period_label }})</span></h2>
+        </div>
+        {% if leaderboard %}
+          {% for row in leaderboard %}
+            <div class="leader-row">
+              <div class="leader-rank">{{ forloop.counter }}</div>
+              <div class="leader-avatar">{{ row.name|slice:":1" }}</div>
+              <div class="leader-info">
+                <div class="leader-name">{{ row.name }}</div>
+                <div class="leader-role">{{ row.role }}</div>
+              </div>
+              <div class="leader-stats">
+                <div class="leader-meta">{{ row.tasks }} Task{{ row.tasks|pluralize }} &middot; {{ row.hours }} hrs</div>
+                <div class="leader-bar-track"><div class="leader-bar-fill" style="width: {{ row.rate }}%;"></div></div>
+                <div class="leader-pct">{{ row.rate }}%</div>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="perf-empty">No task activity yet for this period.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="perf-card">
+        <div class="perf-card-head">
+          <h2 class="perf-card-title"><i class="bx bx-line-chart"></i> Team Performance Overview <span class="sub">({{ period_label }})</span></h2>
+        </div>
+        <div id="perfLineChart"></div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="perf-card">
+        <div class="perf-card-head">
+          <h2 class="perf-card-title"><i class="bx bx-pie-chart-alt-2"></i> Task Completion Rate</h2>
+        </div>
+        {% if donut_total %}
+          <div class="donut-wrap">
+            <div id="perfDonutChart"></div>
+            <div class="donut-legend">
+              <div class="donut-legend-row"><span class="donut-dot" style="background:#7c3aed;"></span><span class="donut-legend-label">Completed</span><span class="donut-legend-pct">{{ donut.completed.pct }}%</span></div>
+              <div class="donut-legend-row"><span class="donut-dot" style="background:#3b82f6;"></span><span class="donut-legend-label">In Progress</span><span class="donut-legend-pct">{{ donut.in_progress.pct }}%</span></div>
+              <div class="donut-legend-row"><span class="donut-dot" style="background:#f59e0b;"></span><span class="donut-legend-label">Blocked</span><span class="donut-legend-pct">{{ donut.blocked.pct }}%</span></div>
+              <div class="donut-legend-row"><span class="donut-dot" style="background:#ef4444;"></span><span class="donut-legend-label">Overdue</span><span class="donut-legend-pct">{{ donut.overdue.pct }}%</span></div>
+              {% if donut.pending.count %}<div class="donut-legend-row"><span class="donut-dot" style="background:#94a3b8;"></span><span class="donut-legend-label">Pending</span><span class="donut-legend-pct">{{ donut.pending.pct }}%</span></div>{% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div class="perf-empty">No tasks assigned yet.</div>
+        {% endif %}
+
+        {% if leaderboard %}
+          <div class="best-card">
+            <i class="bx bxs-trophy best-card-icon"></i>
+            <div class="best-avatar">{{ leaderboard.0.name|slice:":1" }}</div>
+            <div>
+              <div class="best-card-title">Best Performer This Period</div>
+              <div class="best-name">{{ leaderboard.0.name }}</div>
+              <div class="best-role">{{ leaderboard.0.role }}</div>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Table / task list / insights -->
+  <div class="row g-3">
+    <div class="col-xl-5">
+      <div class="perf-card">
+        <div class="perf-card-head">
+          <h2 class="perf-card-title"><i class="bx bx-group"></i> Employee Performance</h2>
+          <div class="perf-search-wrap">
+            <i class="bx bx-search"></i>
+            <input type="search" class="perf-search" id="tableSearch" placeholder="Search employee...">
+          </div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="perf-table" id="perfTable">
+            <thead><tr><th>Employee</th><th>Role</th><th>Tasks</th><th>Hours</th><th>Completion</th><th>Status</th></tr></thead>
+            <tbody>
+              {% for row in table %}
+                <tr data-search="{{ row.name|lower }} {{ row.role|lower }}">
+                  <td class="perf-table-name"><span class="perf-table-avatar">{{ row.name|slice:":1" }}</span> {{ row.name }}</td>
+                  <td>{{ row.role }}</td>
+                  <td>{{ row.tasks }}</td>
+                  <td>{{ row.hours }} h</td>
+                  <td><span class="mini-bar-track"><span class="mini-bar-fill" style="width: {{ row.rate }}%;"></span></span>{{ row.rate }}%</td>
+                  <td><span class="status-pill {{ row.status_color }}">{{ row.status_label }}</span></td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="6" class="perf-empty">No employees to show.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="perf-empty" id="tableNoMatch" style="display: none;">No employee matches your search.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="perf-card">
+        <div class="perf-card-head">
+          <h2 class="perf-card-title"><i class="bx bx-list-check"></i> Tasks & Working Hours</h2>
+        </div>
+        <div class="tab-group mb-2">
+          <button type="button" class="task-tab active" data-tab="all">All Tasks</button>
+          <button type="button" class="task-tab" data-tab="completed">Completed</button>
+          <button type="button" class="task-tab" data-tab="overdue">Overdue</button>
+        </div>
+        <div id="taskListBox">
+          {% for t in task_list %}
+            <div class="task-row" data-status="{{ t.status }}" data-overdue="{{ t.overdue|yesno:'1,0' }}">
+              <div style="flex: 1 1 auto; min-width: 0;">
+                <div class="task-row-title">{{ t.title }}</div>
+                <div class="task-row-sub">{{ t.project }} &middot; {{ t.assignee }}</div>
+              </div>
+              <div class="task-row-hours">{{ t.hours }}</div>
+              <span class="status-pill {{ t.status_color }}">{{ t.status_display }}</span>
+            </div>
+          {% empty %}
+            <div class="perf-empty">No tasks yet.</div>
+          {% endfor %}
+        </div>
+        <div class="perf-empty" id="taskListNoMatch" style="display: none;">No tasks in this view.</div>
+      </div>
+    </div>
+
+    <div class="col-xl-3">
+      <div class="perf-card">
+        <div class="perf-card-head">
+          <h2 class="perf-card-title"><i class="bx bx-bulb"></i> Quick Insights</h2>
+        </div>
+        {% for item in insights %}
+          <div class="insight-item">
+            <i class="bx {{ item.icon }}"></i>
+            <div>
+              <div class="insight-title">{{ item.title }}</div>
+              <div class="insight-body">{{ item.body }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ chart|json_script:"chart-data" }}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/apex-charts/apexcharts.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // --- Date range select: every choice submits right away, except Custom -
+  // that one just reveals the date inputs and waits for "Go", so picking it
+  // doesn't immediately fire off a request with no dates chosen yet. ---
+  var rangeSelect = document.getElementById('rangeSelect');
+  var customDates = document.getElementById('customDates');
+  rangeSelect.addEventListener('change', function () {
+    if (rangeSelect.value === 'custom') {
+      customDates.classList.add('show');
+      customDates.querySelector('input[name="start"]').focus();
+    } else {
+      rangeSelect.form.submit();
+    }
+  });
+
+  // --- Employee table live search ---
+  var searchInput = document.getElementById('tableSearch');
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#perfTable tbody tr[data-search]'));
+  var noMatch = document.getElementById('tableNoMatch');
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      var q = searchInput.value.trim().toLowerCase();
+      var shown = 0;
+      rows.forEach(function (row) {
+        var match = !q || row.getAttribute('data-search').indexOf(q) !== -1;
+        row.style.display = match ? '' : 'none';
+        if (match) shown++;
+      });
+      noMatch.style.display = shown ? 'none' : '';
+    });
+  }
+
+  // --- Tasks & Working Hours tabs (client-side, all data already on the page) ---
+  var taskRows = Array.prototype.slice.call(document.querySelectorAll('#taskListBox .task-row'));
+  var taskNoMatch = document.getElementById('taskListNoMatch');
+  document.querySelectorAll('.task-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      document.querySelectorAll('.task-tab').forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      var key = tab.getAttribute('data-tab');
+      var shown = 0;
+      taskRows.forEach(function (row) {
+        var match = key === 'all'
+          || (key === 'completed' && row.getAttribute('data-status') === 'completed')
+          || (key === 'overdue' && row.getAttribute('data-overdue') === '1');
+        row.style.display = match ? '' : 'none';
+        if (match) shown++;
+      });
+      taskNoMatch.style.display = shown ? 'none' : '';
+    });
+  });
+
+  // --- Charts ---
+  var chartData = JSON.parse(document.getElementById('chart-data').textContent);
+  var lineEl = document.getElementById('perfLineChart');
+  if (lineEl && window.ApexCharts) {
+    new ApexCharts(lineEl, {
+      chart: { type: 'line', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+      series: [
+        { name: 'Tasks Completed', data: chartData.completed },
+        { name: 'Working Hours', data: chartData.hours },
+      ],
+      xaxis: { categories: chartData.labels, labels: { style: { fontSize: '11px' } } },
+      yaxis: [
+        { title: { text: 'Tasks Completed' }, min: 0, forceNiceScale: true },
+        { opposite: true, title: { text: 'Working Hours' }, min: 0, forceNiceScale: true },
+      ],
+      colors: ['#6366f1', '#38bdf8'],
+      stroke: { curve: 'smooth', width: 3 },
+      markers: { size: 4 },
+      grid: { borderColor: '#f1f5f9' },
+      legend: { position: 'top', horizontalAlign: 'left' },
+      dataLabels: { enabled: false },
+    }).render();
+  }
+
+  var donutEl = document.getElementById('perfDonutChart');
+  {% if donut_total %}
+  if (donutEl && window.ApexCharts) {
+    new ApexCharts(donutEl, {
+      chart: { type: 'donut', height: 220, fontFamily: 'inherit' },
+      series: [{{ donut.completed.count }}, {{ donut.in_progress.count }}, {{ donut.blocked.count }}, {{ donut.overdue.count }}, {{ donut.pending.count }}],
+      labels: ['Completed', 'In Progress', 'Blocked', 'Overdue', 'Pending'],
+      colors: ['#7c3aed', '#3b82f6', '#f59e0b', '#ef4444', '#94a3b8'],
+      legend: { show: false },
+      dataLabels: { enabled: false },
+      plotOptions: { pie: { donut: { size: '72%', labels: { show: true, total: { show: true, label: 'Completed', formatter: function () { return '{{ donut.completed.pct }}%'; } } } } } },
+      stroke: { width: 2, colors: ['#fff'] },
+    }).render();
+  }
+  {% endif %}
+});
+</script>
+{% endblock %}

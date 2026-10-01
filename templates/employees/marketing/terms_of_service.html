@@ -1,0 +1,204 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Dovix AI — Terms of Service{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+{% include 'employees/marketing/partials/lp_chrome_css.html' %}
+<style>
+  .legal-page { min-height: 100vh; }
+
+  .legal-container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 1.25rem; }
+
+  .legal-hero {
+    padding:4.25rem 0 3.5rem;
+    background:
+      radial-gradient(circle at 8% 12%, rgba(105,108,255,.15), transparent 45%),
+      radial-gradient(circle at 92% 82%, rgba(139,92,246,.12), transparent 42%), #fff;
+  }
+  .legal-eyebrow {
+    display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .9rem;
+    border-radius:999px; background:rgba(105,108,255,.1); color:var(--lp-primary);
+    font-size:.78rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    margin-bottom:1rem;
+  }
+  .legal-hero h1 { margin:0 0 .7rem; font-size:clamp(2rem,4.4vw,3rem); line-height:1.12; letter-spacing:-.02em; }
+  .legal-hero p { color:var(--lp-muted); max-width:700px; margin:0; font-size:1.03rem; line-height:1.7; }
+
+  .legal-layout { display:grid; grid-template-columns:260px minmax(0,1fr); gap:2.5rem; padding:4rem 0 5rem; }
+  .legal-toc {
+    position:sticky; top:100px; align-self:start; padding:1.25rem;
+    background:var(--lp-bg-alt); border:1px solid var(--lp-border); border-radius:16px;
+  }
+  .legal-toc h3 { font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; margin:0 0 .8rem; }
+  .legal-toc a { display:block; color:var(--lp-muted); font-size:.82rem; line-height:1.4; padding:.4rem 0; }
+  .legal-toc a:hover { color:var(--lp-primary); }
+
+  .legal-content {
+    min-width:0; background:#fff; border:1px solid var(--lp-border);
+    border-radius:24px; padding:clamp(1.5rem,4vw,3rem); box-shadow:var(--lp-shadow);
+  }
+  .legal-content section { scroll-margin-top:100px; margin:0 0 2.4rem; }
+  .legal-content section:last-child { margin-bottom:0; }
+  .legal-content h2 { font-size:1.25rem; margin:0 0 .7rem; color:var(--lp-ink); }
+  .legal-content h3 { font-size:1rem; margin:1.2rem 0 .45rem; color:var(--lp-ink); }
+  .legal-content p, .legal-content li { color:var(--lp-muted); font-size:.92rem; line-height:1.75; }
+  .legal-content p { margin:0 0 .75rem; }
+  .legal-content ul { margin:.5rem 0 1rem; padding-left:1.2rem; }
+  .legal-content li { margin:.25rem 0; }
+  .legal-note { padding:1rem 1.1rem; border-radius:12px; background:rgba(105,108,255,.07); border:1px solid rgba(105,108,255,.12); margin-bottom:1.75rem; }
+  .legal-note p { margin:0; }
+
+  @media (max-width: 991px) {
+    .legal-layout { grid-template-columns:1fr; }
+    .legal-toc { position:static; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="legal-page lp">
+  {% include 'employees/marketing/partials/lp_header.html' %}
+
+  <section class="legal-hero">
+    <div class="legal-container">
+      <span class="legal-eyebrow"><i class="bx bx-shield-quarter"></i> Privacy</span>
+      <h1>Terms of Service</h1>
+      <p>How Dovix AI collects, uses, stores, protects, and processes information when you use AMS — our HRMS and project management platform.</p>
+    </div>
+  </section>
+
+  <main class="legal-container legal-layout">
+    <aside class="legal-toc">
+      <h3>On this page</h3>
+      <a href="#overview">Overview</a>
+      <a href="#information">Information We Collect</a>
+      <a href="#use">How We Use Information</a>
+      <a href="#organizations">Organizations & Customers</a>
+      <a href="#sharing">Sharing & Disclosure</a>
+      <a href="#security">Data Security</a>
+      <a href="#retention">Data Retention</a>
+      <a href="#rights">Your Privacy Rights</a>
+      <a href="#responsibilities">Organization Responsibilities</a>
+      <a href="#contact">Contact Us</a>
+    </aside>
+
+    <article class="legal-content">
+      <div class="legal-note">
+        <p><strong>Last Updated:</strong> [Insert Date]</p>
+      </div>
+
+      <section id="overview">
+        <h2>1. Agreement to These Terms</h2>
+        <p>These Terms of Service ("Terms", "Agreement") govern your access to and use of the AMS – HRMS &amp; Project Management System ("AMS", "Platform", or "Service") provided by DOVIX AI ("DOVIX AI", "DOVIX", "we", "us", or "our").</p>
+        <p>By creating an account, accessing, or using AMS, you agree to these Terms. If you use AMS on behalf of a company or organization, you represent that you have authority to accept these Terms on its behalf.</p>
+      </section>
+
+      <section id="information">
+        <h2>2. Description of the Service</h2>
+        <p>AMS is a business management and workplace software platform that may provide employee management, onboarding, employee documents, document approvals, asset management, attendance, leave management, projects, task boards, workflows, teams, employee reports, salary and payslip functionality, reimbursements, loan requests, support tickets, branches, roles and permissions, holidays, rules and regulations, attendance rules, designations, departments, employment types, shifts, integrations, subscriptions, and payment functionality.</p>
+        <p>Features may vary depending on the subscription plan, organization configuration, or version of AMS.</p>
+      </section>
+
+      <section id="use">
+        <h2>3. Eligibility and Account Registration</h2>
+        <p>You may use AMS only if you are legally capable of entering into a binding agreement, have authority to use AMS on behalf of your organization where applicable, comply with applicable laws, and comply with these Terms.</p>
+        <p>You agree to provide accurate and current account information and to keep it updated. You are responsible for maintaining credential confidentiality, protecting your account, restricting unauthorized access, and notifying DOVIX AI of suspected unauthorized access.</p>
+      </section>
+
+      <section id="organizations">
+        <h2>4. Organization Accounts and Permissions</h2>
+        <p>Organizations may create administrative accounts and may create or deactivate users, assign roles, configure permissions, manage employee information, manage branches, configure attendance rules and shifts, manage holidays and policies, access reports, configure integrations, and manage organizational settings.</p>
+        <p>The organization is responsible for determining which users receive access to which information and for configuring appropriate permissions.</p>
+      </section>
+
+      <section id="sharing">
+        <h2>5. Customer Data</h2>
+        <p>"Customer Data" means information, files, documents, employee records, project information, financial information, or other content submitted to AMS by or on behalf of an organization or its users.</p>
+        <p>The organization retains its rights in Customer Data. DOVIX AI does not claim ownership of Customer Data merely because it is stored or processed through AMS. The organization grants DOVIX AI the limited rights necessary to host, process, transmit, display, back up, and otherwise handle Customer Data for providing and maintaining the Service.</p>
+      </section>
+
+      <section id="security">
+        <h2>6. User Responsibilities and Prohibited Uses</h2>
+        <p>You must use AMS responsibly and lawfully. You must not use the Service for unlawful activities, attempt unauthorized access, circumvent security controls, access another user's account without authorization, upload malicious software, interfere with the Platform, reverse engineer it where prohibited by law, copy or resell it without authorization, scrape or systematically extract data without permission, abuse APIs or integrations, infringe another person's rights, upload information you do not have the right to process, or use the Platform to harass, threaten, defraud, or harm others.</p>
+        <p>We may suspend or restrict access where we reasonably believe these Terms have been violated or continued use creates a security, legal, or operational risk.</p>
+      </section>
+
+      <section id="retention">
+        <h2>7. Employee, Attendance, Financial, and Project Information</h2>
+        <p>Organizations may use AMS to process employee identity, employment, attendance, leave, salary, payslip, document, asset, project, task, reimbursement, loan, support, and face or biometric-related information where applicable.</p>
+        <p>The organization is responsible for ensuring it has the necessary rights, permissions, notices, consents, and legal authority to collect and process such information.</p>
+        <p>AMS is a management and record-keeping platform. DOVIX AI does not determine whether an employee was actually present, whether leave should be approved, whether attendance should be regularized, whether an employee should receive salary or benefits, or whether an employment decision is legally appropriate.</p>
+        <p>Unless expressly stated in a separate agreement, AMS should not be considered payroll, tax, accounting, legal, or employment advice. Organizations are responsible for ensuring that salary calculations, deductions, taxes, statutory benefits, and employment-related payments comply with applicable laws.</p>
+      </section>
+
+      <section id="rights">
+        <h2>8. Intellectual Property</h2>
+        <p>AMS, including its software, interface, design, logos, trademarks, documentation, workflows, technology, and underlying intellectual property, is owned by or licensed to DOVIX AI.</p>
+        <p>Except as expressly permitted by these Terms, you may not copy, reproduce, resell, sublicense, modify, reverse engineer where prohibited by law, remove proprietary notices from, or use DOVIX AI branding in connection with the Platform without authorization.</p>
+      </section>
+
+      <section id="responsibilities">
+        <h2>9. Integrations, Payments, and Subscriptions</h2>
+        <p>AMS may integrate with third-party services, including WhatsApp, payment providers, email services, authentication services, and other applications. Third-party services are subject to their own terms and privacy policies, and DOVIX AI does not control their independent operation.</p>
+        <p>Certain AMS features may require a paid subscription. Applicable pricing, billing periods, feature limits, user limits, and payment terms will be communicated during the subscription process or through the applicable order or subscription page. Taxes may apply as required by law.</p>
+        <p>Payments may be processed through third-party payment providers. Free trials, promotional plans, discounts, or limited-access versions may be offered subject to their stated conditions.</p>
+
+        <h3>Service Availability and Updates</h3>
+        <p>We aim to provide a reliable service, but AMS may occasionally be unavailable due to scheduled or emergency maintenance, infrastructure failures, third-party service failures, security incidents, force majeure events, or circumstances outside our reasonable control.</p>
+        <p>We may update, modify, improve, or discontinue features from time to time, including security improvements, bug fixes, performance improvements, new features, or replacement of outdated functionality.</p>
+
+        <h3>Privacy</h3>
+        <p>DOVIX AI's processing of personal information is described in our Privacy Policy. Organizations using AMS remain responsible for their own legal obligations regarding employee and customer data.</p>
+
+        <h3>Confidentiality</h3>
+        <p>Each party may receive confidential information belonging to the other. The receiving party will use reasonable measures to protect confidential information and will not disclose it except to authorized personnel and service providers who need it, where required by law, where necessary to provide the Service, or with authorization.</p>
+      </section>
+
+      <section id="contact">
+        <h2>10. Disclaimers and Limitation of Liability</h2>
+        <p>To the maximum extent permitted by applicable law, AMS is provided on an "as available" and "as is" basis. DOVIX AI does not guarantee uninterrupted or error-free operation, that all information will always be accurate, that the Platform will meet every organization's requirements, that third-party integrations will always function, or that automated features will always produce accurate results.</p>
+        <p>To the maximum extent permitted by applicable law, DOVIX AI will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, including loss of profits, revenue, business opportunities, goodwill, or data, arising from or related to use of AMS.</p>
+        <p>To the extent permitted by law, DOVIX AI's aggregate liability arising from the Service will be limited to the amount paid by the customer to DOVIX AI for the Service during the applicable period preceding the event giving rise to the claim. Nothing in these Terms limits liability that cannot legally be limited.</p>
+
+        <h3>Suspension and Termination</h3>
+        <p>We may suspend or terminate access if you materially breach these Terms, use the account for unlawful activity, create a security risk, fail to pay applicable fees, attempt to compromise the Platform, or where suspension is required by law. Data handling after termination will be governed by the applicable agreement, retention requirements, and Privacy Policy.</p>
+
+        <h3>Governing Law</h3>
+        <p>These Terms will be governed by and interpreted in accordance with the applicable laws of India, unless a separate written agreement provides otherwise. Subject to applicable law, disputes will be subject to the jurisdiction of the appropriate courts in Jaipur, Rajasthan, India.</p>
+
+        <h3>Changes to These Terms</h3>
+        <p>We may update these Terms from time to time. The revised Terms will be published on this page with an updated "Last Updated" date. Continued use of AMS after the effective date of updated Terms may constitute acceptance of the revised Terms where permitted by applicable law.</p>
+
+        <h3>Contact Us</h3>
+        <p><strong>DOVIX AI</strong><br>
+        <strong>Email:</strong> info@dovix.ai<br>
+        <strong>Phone:</strong> +91 91163 82399</p>
+        <p><strong>Registered Office:</strong><br>
+        B-18, 2nd Floor, Shiv Marg,<br>
+        Opposite Maharishi Raman Diagnostic Center,<br>
+        Kanti Nagar, Bani Park,<br>
+        Jaipur, Rajasthan 302015, India</p>
+      </section>
+    </article>
+  </main>
+
+  {% include 'employees/marketing/partials/lp_footer.html' %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+(function () {
+  var navToggle = document.getElementById('lpNavToggle');
+  var mobileMenu = document.getElementById('lpMobileMenu');
+  if (navToggle && mobileMenu) {
+    navToggle.addEventListener('click', function () {
+      mobileMenu.classList.toggle('lp-open');
+    });
+  }
+})();
+</script>
+{% endblock %}

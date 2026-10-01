@@ -1,0 +1,106 @@
+{% extends layout_path %}
+
+{% block title %}Choose a Plan{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .cp-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.3rem; padding: 0.75rem 0 2rem; }
+  .cp-header h1 { font-size: 1.5rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.6rem; }
+  .cp-header h1 i { color: #4f46e5; }
+  .cp-header p { font-size: 0.88rem; color: #6b7280; margin: 0.3rem 0 0; max-width: 62ch; }
+
+  .cp-notice {
+    background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #92400e;
+    border-radius: 12px; padding: 0.8rem 1rem; font-size: 0.86rem; display: flex; gap: 0.6rem; align-items: flex-start;
+  }
+  .cp-notice i { font-size: 1.2rem; flex: 0 0 auto; }
+
+  .cp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 1.1rem; }
+  .cp-card { background: #fff; border-radius: 18px; border: 1px solid rgba(148, 163, 184, 0.22); padding: 1.4rem; display: flex; flex-direction: column; gap: 0.8rem; position: relative; }
+  .cp-card.featured { border-color: #818cf8; box-shadow: 0 16px 36px rgba(79, 70, 229, 0.14); }
+  .cp-card.current { border-color: #16a34a; box-shadow: 0 16px 36px rgba(22, 163, 74, 0.12); }
+  .cp-badge { position: absolute; top: -11px; right: 1.1rem; font-size: 0.68rem; font-weight: 700; padding: 0.22rem 0.65rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .cp-badge.featured { background: #4f46e5; color: #fff; }
+  .cp-badge.current { background: #16a34a; color: #fff; }
+
+  .cp-name { font-size: 1.15rem; font-weight: 700; color: #1f2937; }
+  .cp-desc { font-size: 0.82rem; color: #6b7280; min-height: 1.2em; }
+  .cp-price { font-size: 1.8rem; font-weight: 800; color: #1f2937; }
+  .cp-price small { font-size: 0.78rem; font-weight: 500; color: #9ca3af; }
+  .cp-free-badge { display: inline-block; background: #dcfce7; color: #15803d; font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; margin-inline-start: 0.4rem; }
+
+  .cp-limits { display: flex; gap: 1rem; font-size: 0.8rem; color: #4b5563; }
+  .cp-limits span i { color: #9ca3af; margin-inline-end: 0.25rem; }
+
+  .cp-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.83rem; color: #374151; flex: 1 1 auto; }
+  .cp-features li { display: flex; align-items: flex-start; gap: 0.45rem; }
+  .cp-features li i { color: #16a34a; margin-top: 0.15rem; flex: 0 0 auto; }
+  .cp-features .none { color: #9ca3af; font-style: italic; }
+
+  .cp-btn { border: none; border-radius: 10px; padding: 0.65rem; font-weight: 600; font-size: 0.88rem; cursor: pointer; width: 100%; }
+  .cp-btn.choose { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
+  .cp-btn.current { background: rgba(22, 163, 74, 0.1); color: #15803d; cursor: default; }
+
+  .cp-empty { text-align: center; padding: 3rem 1rem; color: #9ca3af; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cp-shell">
+  <div class="cp-header">
+    <h1><i class="bx bx-credit-card-alt"></i> Choose a Plan</h1>
+    <p>Pick the plan that fits your office. You can change this any time - switching plans applies immediately.</p>
+  </div>
+
+  {% if not current_plan %}
+    <div class="cp-notice">
+      <i class="bx bx-info-circle"></i>
+      <div>You haven't chosen a plan yet, so the features below aren't available to your office until you pick one.</div>
+    </div>
+  {% endif %}
+
+  {% if plans %}
+    <div class="cp-grid">
+      {% for plan in plans %}
+        <div class="cp-card {% if plan.is_featured %}featured{% endif %} {% if current_plan and current_plan.id == plan.id %}current{% endif %}">
+          {% if current_plan and current_plan.id == plan.id %}
+            <span class="cp-badge current">Your Plan</span>
+          {% elif plan.is_featured %}
+            <span class="cp-badge featured">Most Popular</span>
+          {% endif %}
+          <div class="cp-name">{{ plan.name }}</div>
+          <div class="cp-desc">{{ plan.description|default:"" }}</div>
+          <div class="cp-price">
+            {{ plan.price_display }}{% if not plan.is_free %}<small> / {{ plan.duration_display }}</small>{% endif %}
+            {% if plan.is_free %}<span class="cp-free-badge">Free</span>{% endif %}
+          </div>
+          <div class="cp-limits">
+            <span><i class="bx bx-git-branch"></i>{% if plan.max_branches %}{{ plan.max_branches }} branch{{ plan.max_branches|pluralize }}{% else %}Unlimited branches{% endif %}</span>
+            <span><i class="bx bx-group"></i>{% if plan.max_employees %}{{ plan.max_employees }} employees{% else %}Unlimited employees{% endif %}</span>
+          </div>
+          <ul class="cp-features">
+            {% with plan.features.all|dictsort:"feature_key" as plan_features %}
+              {% for f in plan_features %}
+                {% if f.is_enabled %}<li><i class="bx bx-check"></i>{{ f.label }}</li>{% endif %}
+              {% endfor %}
+            {% endwith %}
+            {% if not plan.enabled_feature_keys %}<li class="none">No modules included.</li>{% endif %}
+          </ul>
+          {% if current_plan and current_plan.id == plan.id %}
+            <button type="button" class="cp-btn current" disabled><i class="bx bx-check-circle me-1"></i>Current plan</button>
+          {% else %}
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="plan_id" value="{{ plan.id }}">
+              <button type="submit" class="cp-btn choose">Choose {{ plan.name }}</button>
+            </form>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="cp-empty"><i class="bx bx-credit-card-alt" style="font-size: 2.5rem;"></i><p class="mt-2 mb-0">No plans are available right now - contact support.</p></div>
+  {% endif %}
+</div>
+{% endblock %}

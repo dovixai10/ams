@@ -1,0 +1,36 @@
+{% load static %}
+<header class="lp-navbar">
+  <div class="lp-container">
+    <a href="{% url 'employees:home' %}" class="lp-brand">
+      <img loading="prelaod" decoding="async" class="img-fluid" width="160" src="{% static 'img2/Dovixai.svg' %}" alt="Dovix AI">
+    </a>
+
+    <ul class="lp-nav-links">
+      <li><a href="{% url 'employees:home' %}#features">Features</a></li>
+      <li><a href="{% url 'employees:home' %}#solutions">Solutions</a></li>
+      <li><a href="{% url 'employees:home' %}#pricing">Pricing</a></li>
+      <li><a href="{% url 'employees:home' %}#about">About</a></li>
+      <li><a href="{% url 'employees:home' %}#contact">Contact</a></li>
+    </ul>
+
+    <div class="lp-nav-actions">
+      <a href="{% url 'employees:login' %}" class="lp-login-link">Log In</a>
+      <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary lp-btn-sm d-none d-lg-inline-flex">Request a Demo</a>
+      <button type="button" class="lp-nav-toggle" id="lpNavToggle" aria-label="Toggle menu">
+        <i class="bx bx-menu"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="lp-mobile-menu" id="lpMobileMenu">
+    <a href="{% url 'employees:home' %}#features">Features</a>
+    <a href="{% url 'employees:home' %}#solutions">Solutions</a>
+    <a href="{% url 'employees:home' %}#pricing">Pricing</a>
+    <a href="{% url 'employees:home' %}#about">About</a>
+    <a href="{% url 'employees:home' %}#contact">Contact</a>
+    <div class="lp-mobile-cta">
+      <a href="{% url 'employees:login' %}" class="lp-btn lp-btn-outline lp-btn-sm flex-fill">Log In</a>
+      <a href="{% url 'employees:office_register' %}" class="lp-btn lp-btn-primary lp-btn-sm flex-fill">Request a Demo</a>
+    </div>
+  </div>
+</header>

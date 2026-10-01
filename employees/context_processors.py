@@ -60,6 +60,17 @@ def office_branding(request):
         from .permissions import employee_permission_keys
         employee_permissions = employee_permission_keys(user.employee_profile)
 
+    # Every feature key this user can actually use right now - combines the
+    # admin/role check above with the office's subscription plan (a plan
+    # that doesn't include a module hides it even from that office's own
+    # admin). The sidebar checks this set instead of `is_office_admin or
+    # '<key>' in employee_permissions` directly, so a plan restriction can't
+    # be bypassed just because someone is an office admin.
+    office_visible_features = set()
+    if user and user.is_authenticated:
+        from .permissions import FEATURE_PERMISSION_KEYS, has_permission
+        office_visible_features = {key for key in FEATURE_PERMISSION_KEYS if has_permission(user, key)}
+
     # Teams this employee is a member of, so the sidebar can link straight
     # to their team board(s) even if they don't hold 'teams.manage' (which
     # only gates the admin create/edit-teams page, not board access).
@@ -77,5 +88,7 @@ def office_branding(request):
         'available_branches': available_branches,
         'employee_permissions': employee_permissions,
         'has_any_permission': bool(employee_permissions),
+        'office_visible_features': office_visible_features,
+        'office_plan': office.plan if office else None,
         'my_teams': my_teams,
     }

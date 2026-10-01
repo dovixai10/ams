@@ -39,6 +39,12 @@
   .reject-form input[type="text"] { flex: 1 1 220px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
 
   .rejection-note { font-size: 0.8rem; color: #b91c1c; margin-top: 0.5rem; background: #fef2f2; padding: 0.5rem 0.7rem; border-radius: 6px; }
+
+  .plan-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px dashed #e5e7eb; flex-wrap: wrap; }
+  .plan-row label { font-size: 0.78rem; color: #6b7280; font-weight: 600; }
+  .plan-row select { border: 1px solid #d1d5db; border-radius: 6px; padding: 0.35rem 0.6rem; font-size: 0.82rem; min-width: 180px; }
+  .plan-badge { font-size: 0.74rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; background: #eef2ff; color: #4338ca; }
+  .plan-badge.none { background: #f3f4f6; color: #6b7280; }
 </style>
 {% endblock %}
 
@@ -67,6 +73,7 @@
                   <div class="office-name">
                     {{ office.name }}
                     <span class="status-badge status-{{ office.status }}">{{ office.get_status_display }}</span>
+                    {% if office.plan %}<span class="plan-badge">{{ office.plan.name }} plan</span>{% else %}<span class="plan-badge none">No plan (unrestricted)</span>{% endif %}
                   </div>
                   <div class="office-meta">
                     <div><i class="bx bx-map"></i> {{ office.address }}</div>
@@ -89,6 +96,19 @@
               {% elif office.status == 'suspended' and office.rejection_reason %}
                 <div class="rejection-note"><i class="bx bx-info-circle"></i> Suspended: {{ office.rejection_reason }}</div>
               {% endif %}
+
+              <form method="post" action="{% url 'employees:platform_office_set_plan' office.pk %}" class="plan-row">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <label for="plan-select-{{ office.id }}">Plan</label>
+                <select name="plan_id" id="plan-select-{{ office.id }}">
+                  <option value="">No plan (unrestricted)</option>
+                  {% for plan in plans %}
+                    <option value="{{ plan.id }}" {% if office.plan_id == plan.id %}selected{% endif %}>{{ plan.name }} - {{ plan.price_display }}{% if not plan.is_free %}/{{ plan.duration_display }}{% endif %}</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="btn-sm btn-outline">Set Plan</button>
+              </form>
 
               {% if office.status == 'pending' %}
                 <div class="office-actions">

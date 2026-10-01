@@ -58,6 +58,16 @@ class Office(models.Model):
     approved_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(blank=True)
 
+    # Subscription - which plan this office is on, and since when. Null plan
+    # means "unrestricted" (see permissions.office_feature_enabled), so an
+    # office that predates the plan system keeps working exactly as before
+    # until the platform admin actually puts it on one.
+    plan = models.ForeignKey(
+        'SubscriptionPlan', on_delete=models.SET_NULL, null=True, blank=True, related_name='offices',
+        help_text="Which subscription plan gates this office's features and branch limit - blank means unrestricted.",
+    )
+    plan_assigned_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -68,7 +78,17 @@ class Office(models.Model):
         self.status = self.Status.APPROVED
         self.approved_by = admin_user
         self.approved_at = timezone.now()
-        self.save(update_fields=['status', 'approved_by', 'approved_at', 'updated_at'])
+        update_fields = ['status', 'approved_by', 'approved_at', 'updated_at']
+        # A newly approved office with no plan set yet starts on whichever
+        # plan is marked "default" (if any) - same as a fresh signup would
+        # get on the public pricing page.
+        if self.plan_id is None:
+            default_plan = SubscriptionPlan.objects.filter(is_default=True, is_active=True).first()
+            if default_plan:
+                self.plan = default_plan
+                self.plan_assigned_at = timezone.now()
+                update_fields += ['plan', 'plan_assigned_at']
+        self.save(update_fields=update_fields)
         # Activate the owning admin's login now that the office is approved
         owner = self.admins.filter(is_owner=True).first()
         if owner and not owner.user.is_active:
@@ -90,6 +110,11 @@ class Office(models.Model):
                 'longitude': self.longitude,
             },
         )
+
+    def set_plan(self, plan, admin_user=None):
+        self.plan = plan
+        self.plan_assigned_at = timezone.now()
+        self.save(update_fields=['plan', 'plan_assigned_at', 'updated_at'])
 
     def reject(self, admin_user, reason=''):
         self.status = self.Status.REJECTED
@@ -2702,6 +2727,10 @@ class SprintConfig(models.Model):
     anchor_start_date = models.DateField(
         help_text="Start date of Sprint 1 - every later sprint's dates are computed from this",
     )
+    weekly_working_hours = models.DecimalField(
+        max_digits=6, decimal_places=2, default=40,
+        help_text="Working hours per employee, per week (e.g. 40) - every team member gets this same budget for a sprint, shown on the board",
+    )
     is_enabled = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2939,6 +2968,14 @@ class ProjectAttachment(models.Model):
         super().save(*args, **kwargs)
 
 
+def format_hours(value):
+    """Decimal hours -> compact display: 2 -> '2h', 2.5 -> '2.5h'. None -> None."""
+    if value is None:
+        return None
+    text = f"{value:.2f}".rstrip('0').rstrip('.')
+    return f"{text}h"
+
+
 class Task(models.Model):
     """Task assignments for employees with shared status updates."""
 
@@ -3045,6 +3082,10 @@ class Task(models.Model):
         null=True,
         help_text="Optional due date for the task",
     )
+    estimated_hours = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        help_text="Planned effort for this task, in hours (e.g. 4 or 2.5)",
+    )
     status_updated_at = models.DateTimeField(
         blank=True,
         null=True,
@@ -3131,6 +3172,10 @@ class Task(models.Model):
     @property
     def latest_update(self):
         return self.updates.order_by('-created_at').first()
+
+    @property
+    def estimated_hours_display(self):
+        return format_hours(self.estimated_hours)
 
 
 class TaskUpdate(models.Model):
@@ -4974,7 +5019,7 @@ class WhatsAppAccount(models.Model):
     label = models.CharField(max_length=100, help_text="A name for you, e.g. 'HR alerts number'")
     phone_number_id = models.CharField(max_length=50, help_text="The Phone number ID from Meta's WhatsApp Manager (not the phone number itself)")
     display_phone_number = models.CharField(max_length=30, blank=True, help_text="Optional - the number as people see it, for reference only")
-    api_version = models.CharField(max_length=10, default='v21.0', help_text="Graph API version, e.g. v21.0")
+    api_version = models.CharField(max_length=10, default='v26.0', help_text="Graph API version, e.g. v21.0")
     access_token_encrypted = models.TextField(blank=True, help_text="Encrypted at rest - never shown back in the UI")
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
@@ -5225,3 +5270,120 @@ class WhatsAppMessageLog(models.Model):
 
     def __str__(self):
         return f"{self.recipient_label or self.to_address} - {self.get_status_display()}"
+
+
+# ===========================
+# SUBSCRIPTION PLANS
+# ===========================
+# What the platform admin sells offices on - price, billing period, a branch
+# cap, and which of FEATURE_PERMISSIONS' modules are included. An office's
+# `plan` gates both: permissions.has_permission() checks it on every
+# feature_required() call (on top of the employee's own role), and
+# admin_branches' create action checks `max_branches`. No plan on an office
+# means unrestricted - see permissions.office_feature_enabled - so this
+# never locks out an office nobody has put on a plan yet.
+
+class SubscriptionPlan(models.Model):
+    """One pricing tier - e.g. 'Starter' (free, head office only) or
+    'Growth' (paid, 5 branches, WhatsApp + Reports included). The public
+    pricing page you build separately can read these via the read-only
+    /api/plans/ endpoint."""
+
+    class DurationUnit(models.TextChoices):
+        DAY = ('day', 'Day(s)')
+        MONTH = ('month', 'Month(s)')
+        YEAR = ('year', 'Year(s)')
+
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True, blank=True, help_text="Leave blank to auto-generate from the name")
+    description = models.TextField(blank=True)
+
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_free = models.BooleanField(
+        default=False,
+        help_text='Shows a "Free" badge; also settable on a plan with a non-zero price if you want a promo.',
+    )
+    duration_value = models.PositiveIntegerField(default=1)
+    duration_unit = models.CharField(max_length=10, choices=DurationUnit.choices, default=DurationUnit.MONTH)
+
+    max_branches = models.PositiveIntegerField(
+        default=1, null=True, blank=True,
+        help_text="Active branches an office on this plan can have at once, counting the head office - e.g. 1 = head office only, no extra branches. Leave blank for unlimited.",
+    )
+    max_employees = models.PositiveIntegerField(null=True, blank=True, help_text="Leave blank for unlimited.")
+
+    is_active = models.BooleanField(default=True, help_text="Unpublished plans are hidden from new assignment but keep working for any office already on them.")
+    is_default = models.BooleanField(default=False, help_text="Auto-assigned to every newly approved office. Only one plan should have this on.")
+    is_featured = models.BooleanField(default=False, help_text='Highlighted as "Most Popular" on the plans page.')
+    order = models.PositiveIntegerField(default=0)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'price', 'name']
+        verbose_name = 'Subscription Plan'
+        verbose_name_plural = 'Subscription Plans'
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            from django.utils.text import slugify
+            base = slugify(self.name) or 'plan'
+            slug, suffix = base, 1
+            while SubscriptionPlan.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                suffix += 1
+                slug = f'{base}-{suffix}'
+            self.slug = slug
+        super().save(*args, **kwargs)
+        if self.is_default:
+            SubscriptionPlan.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+
+    @property
+    def duration_display(self):
+        unit = self.get_duration_unit_display()
+        if self.duration_value == 1:
+            unit = unit.replace('(s)', '')
+        return f'{self.duration_value} {unit}'
+
+    @property
+    def price_display(self):
+        if self.is_free:
+            return 'Free'
+        return f'₹{self.price:,.0f}' if self.price == self.price.to_integral_value() else f'₹{self.price:,.2f}'
+
+    @property
+    def enabled_feature_keys(self):
+        return set(self.features.filter(is_enabled=True).values_list('feature_key', flat=True))
+
+    @property
+    def office_count(self):
+        return self.offices.count()
+
+
+class SubscriptionPlanFeature(models.Model):
+    """One included module on a plan. feature_key matches a
+    permissions.FEATURE_PERMISSIONS key (e.g. 'integrations.manage') - a
+    plan only grants a feature if a row for it exists here with
+    is_enabled=True; nothing listed means not included in this tier."""
+
+    plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE, related_name='features')
+    feature_key = models.CharField(max_length=50, help_text="Matches a FEATURE_PERMISSIONS key, e.g. 'integrations.manage'")
+    is_enabled = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ['plan', 'feature_key']
+        ordering = ['feature_key']
+        verbose_name = 'Plan Feature'
+        verbose_name_plural = 'Plan Features'
+
+    def __str__(self):
+        return f"{self.plan.name} - {self.feature_key} ({'on' if self.is_enabled else 'off'})"
+
+    @property
+    def label(self):
+        from .permissions import FEATURE_PERMISSIONS
+        return next((label for key, label, _category in FEATURE_PERMISSIONS if key == self.feature_key), self.feature_key)

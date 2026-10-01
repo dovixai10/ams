@@ -57,6 +57,41 @@
   .insight-label { font-size: 0.72rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
   .insight-value { font-size: 1.15rem; font-weight: 700; color: #1f2937; }
 
+  /* Sprint hours strip - per-employee average across the team */
+  .capacity-row {
+    display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr));
+    gap: 0.75rem; margin-bottom: 0.5rem;
+  }
+  @media (max-width: 900px) { .capacity-row { grid-template-columns: repeat(2, 1fr); } }
+  .capacity-tile {
+    background: #fff; border-radius: 12px; padding: 0.85rem 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.18); display: flex; align-items: center; gap: 0.7rem;
+  }
+  .capacity-icon {
+    width: 38px; height: 38px; border-radius: 10px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+  }
+  .capacity-tile.capacity .capacity-icon { background: #f3e8ff; color: #7e22ce; }
+  .capacity-tile.todo .capacity-icon { background: #e0f2fe; color: #0369a1; }
+  .capacity-tile.in_progress .capacity-icon { background: #fef3c7; color: #b45309; }
+  .capacity-tile.done .capacity-icon { background: #dcfce7; color: #15803d; }
+  .capacity-tile.left .capacity-icon { background: #fff7ed; color: #c2410c; }
+  .capacity-tile.left.over .capacity-icon { background: #fee2e2; color: #b91c1c; }
+  .capacity-label { font-size: 0.72rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
+  .capacity-value { font-size: 1.15rem; font-weight: 700; color: #1f2937; }
+  .capacity-value.over { color: #b91c1c; }
+  .capacity-hint { font-size: 0.76rem; color: #9ca3af; margin: 0 0 1.1rem; }
+
+  /* Hours badge on a task card */
+  .hours-badge { display: flex; align-items: center; gap: 0.2rem; }
+
+  /* Per-employee hours chip on a row header */
+  .row-hours { display: flex; align-items: center; gap: 0.35rem; margin-inline-start: 0.5rem; font-size: 0.74rem; }
+  .row-hours .chip { padding: 0.08rem 0.5rem; border-radius: 999px; font-weight: 600; }
+  .row-hours .chip.done { background: #dcfce7; color: #15803d; }
+  .row-hours .chip.left { background: #fff7ed; color: #c2410c; }
+  .row-hours .chip.left.over { background: #fee2e2; color: #b91c1c; }
+
   /* Sprint / Project dropdowns */
   .filter-row {
     display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.1rem;
@@ -346,6 +381,37 @@
   </div>
 </div>
 
+{% if hours %}
+<div class="capacity-row" id="capacity-row">
+  <div class="capacity-tile capacity" title="Each team member's own hours budget for this sprint (weekly hours x sprint length)">
+    <div class="capacity-icon"><i class="bx bx-time-five"></i></div>
+    <div><div class="capacity-label">Avg Capacity</div><div class="capacity-value">{{ hours.avgCapacity|floatformat:"-1" }}h</div></div>
+  </div>
+  <div class="capacity-tile todo" title="Average hours of To Do work per team member">
+    <div class="capacity-icon"><i class="bx bx-file"></i></div>
+    <div><div class="capacity-label">Avg To Do</div><div class="capacity-value">{{ hours.avgTodo|floatformat:"-1" }}h</div></div>
+  </div>
+  <div class="capacity-tile in_progress" title="Average hours of In Progress work per team member">
+    <div class="capacity-icon"><i class="bx bx-loader-circle"></i></div>
+    <div><div class="capacity-label">Avg In Progress</div><div class="capacity-value">{{ hours.avgInProgress|floatformat:"-1" }}h</div></div>
+  </div>
+  <div class="capacity-tile done" title="Average hours of Done work per team member">
+    <div class="capacity-icon"><i class="bx bx-check-circle"></i></div>
+    <div><div class="capacity-label">Avg Done</div><div class="capacity-value">{{ hours.avgDone|floatformat:"-1" }}h</div></div>
+  </div>
+  <div class="capacity-tile left {% if hours.avgLeft < 0 %}over{% endif %}" title="Avg Capacity minus Avg Done">
+    <div class="capacity-icon"><i class="bx bx-hourglass"></i></div>
+    <div><div class="capacity-label">Avg Left</div><div class="capacity-value {% if hours.avgLeft < 0 %}over{% endif %}">{{ hours.avgLeft|floatformat:"-1" }}h</div></div>
+  </div>
+</div>
+<p class="capacity-hint">Per employee, averaged across the team - each member's own numbers are on their row below.</p>
+{% elif selected_sprint_key != 'backlog' and team.branch %}
+<div class="text-muted small mb-3">
+  <i class="bx bx-info-circle"></i> Set a weekly working-hours budget in
+  <a href="{% url 'employees:admin_teams' %}">Sprint Settings</a> to see hours left for this sprint.
+</div>
+{% endif %}
+
 <div class="board-rows">
   {% for row in rows %}
     <div class="board-row" data-row="{{ row.key }}">
@@ -357,6 +423,12 @@
         {% else %}
           <span class="row-avatar unassigned">?</span>
           <span class="row-name">Unassigned</span>
+        {% endif %}
+        {% if row.hours %}
+          <span class="row-hours">
+            {% if row.hours.done %}<span class="chip done" title="Done hours">{{ row.hours.done|floatformat:"-1" }}h done</span>{% endif %}
+            {% if row.member %}<span class="chip left {% if row.hours.left < 0 %}over{% endif %}" title="This person's capacity left for the sprint">{{ row.hours.left|floatformat:"-1" }}h left</span>{% endif %}
+          </span>
         {% endif %}
         <span class="row-count">{{ row.total_count }} task{{ row.total_count|pluralize }}</span>
       </div>
@@ -383,6 +455,7 @@
                     <div class="task-card-meta">
                       <span class="task-card-tags">
                         {% if task.due_date %}<span title="Due {{ task.due_date }}"><i class="bx bx-calendar"></i> {{ task.due_date|date:"M d" }}</span>{% endif %}
+                        {% if task.estimated_hours_display %}<span class="hours-badge" title="Hours"><i class="bx bx-time-five"></i> {{ task.estimated_hours_display }}</span>{% endif %}
                         {% if task.comment_count %}<span class="task-comment-count"><i class="bx bx-comment-detail"></i> {{ task.comment_count }}</span>{% endif %}
                       </span>
                     </div>
@@ -483,6 +556,11 @@
           {% for p in all_projects %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
         </select>
       </div>
+    </div>
+    <div class="task-panel-field">
+      <label>Hours</label>
+      <input type="number" id="panel-estimate" class="form-control form-control-sm" min="0" max="999" step="0.25" placeholder="e.g. 4">
+      <span style="display: block; font-size: 0.78rem; color: #9ca3af; margin-top: 0.3rem;">Your best current number - if it runs long, just bump this up. Every change shows in Activity below.</span>
     </div>
     <button type="button" class="btn-sm btn-primary" id="panel-save">Save changes</button>
 
@@ -688,6 +766,7 @@
     document.getElementById('panel-sprint').value = task.sprintId || '';
     document.getElementById('panel-assignee').value = (task.assignedTo && task.assignedTo.id) || '';
     document.getElementById('panel-project').value = task.projectId || '';
+    document.getElementById('panel-estimate').value = task.estimatedHours || '';
 
     var descAttachmentsEl = document.getElementById('panel-description-attachments');
     descAttachmentsEl.innerHTML = (task.attachments || []).map(renderAttachment).join('');
@@ -754,6 +833,7 @@
       description: document.getElementById('panel-description').value,
       sprint: document.getElementById('panel-sprint').value,
       project: document.getElementById('panel-project').value,
+      estimatedHours: document.getElementById('panel-estimate').value,
     }).then(function (res) {
       if (!res.ok || !res.data.success) {
         notify(res.data.error || 'Could not save changes.', 'error');

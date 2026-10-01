@@ -1,0 +1,224 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Dovix AI — Privacy Policy{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+{% include 'employees/marketing/partials/lp_chrome_css.html' %}
+<style>
+  .legal-page { min-height: 100vh; }
+
+  .legal-container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 1.25rem; }
+
+  .legal-hero {
+    padding:4.25rem 0 3.5rem;
+    background:
+      radial-gradient(circle at 8% 12%, rgba(105,108,255,.15), transparent 45%),
+      radial-gradient(circle at 92% 82%, rgba(139,92,246,.12), transparent 42%), #fff;
+  }
+  .legal-eyebrow {
+    display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .9rem;
+    border-radius:999px; background:rgba(105,108,255,.1); color:var(--lp-primary);
+    font-size:.78rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    margin-bottom:1rem;
+  }
+  .legal-hero h1 { margin:0 0 .7rem; font-size:clamp(2rem,4.4vw,3rem); line-height:1.12; letter-spacing:-.02em; }
+  .legal-hero p { color:var(--lp-muted); max-width:700px; margin:0; font-size:1.03rem; line-height:1.7; }
+
+  .legal-layout { display:grid; grid-template-columns:260px minmax(0,1fr); gap:2.5rem; padding:4rem 0 5rem; }
+  .legal-toc {
+    position:sticky; top:100px; align-self:start; padding:1.25rem;
+    background:var(--lp-bg-alt); border:1px solid var(--lp-border); border-radius:16px;
+  }
+  .legal-toc h3 { font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; margin:0 0 .8rem; }
+  .legal-toc a { display:block; color:var(--lp-muted); font-size:.82rem; line-height:1.4; padding:.4rem 0; }
+  .legal-toc a:hover { color:var(--lp-primary); }
+
+  .legal-content {
+    min-width:0; background:#fff; border:1px solid var(--lp-border);
+    border-radius:24px; padding:clamp(1.5rem,4vw,3rem); box-shadow:var(--lp-shadow);
+  }
+  .legal-content section { scroll-margin-top:100px; margin:0 0 2.4rem; }
+  .legal-content section:last-child { margin-bottom:0; }
+  .legal-content h2 { font-size:1.25rem; margin:0 0 .7rem; color:var(--lp-ink); }
+  .legal-content h3 { font-size:1rem; margin:1.2rem 0 .45rem; color:var(--lp-ink); }
+  .legal-content p, .legal-content li { color:var(--lp-muted); font-size:.92rem; line-height:1.75; }
+  .legal-content p { margin:0 0 .75rem; }
+  .legal-content ul { margin:.5rem 0 1rem; padding-left:1.2rem; }
+  .legal-content li { margin:.25rem 0; }
+  .legal-note { padding:1rem 1.1rem; border-radius:12px; background:rgba(105,108,255,.07); border:1px solid rgba(105,108,255,.12); margin-bottom:1.75rem; }
+  .legal-note p { margin:0; }
+
+  @media (max-width: 991px) {
+    .legal-layout { grid-template-columns:1fr; }
+    .legal-toc { position:static; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="legal-page lp">
+  {% include 'employees/marketing/partials/lp_header.html' %}
+
+  <section class="legal-hero">
+    <div class="legal-container">
+      <span class="legal-eyebrow"><i class="bx bx-shield-quarter"></i> Privacy</span>
+      <h1>Privacy Policy</h1>
+      <p>How Dovix AI collects, uses, stores, protects, and processes information when you use AMS — our HRMS and project management platform.</p>
+    </div>
+  </section>
+
+  <main class="legal-container legal-layout">
+    <aside class="legal-toc">
+      <h3>On this page</h3>
+      <a href="#overview">Overview</a>
+      <a href="#information">Information We Collect</a>
+      <a href="#use">How We Use Information</a>
+      <a href="#organizations">Organizations & Customers</a>
+      <a href="#sharing">Sharing & Disclosure</a>
+      <a href="#security">Data Security</a>
+      <a href="#retention">Data Retention</a>
+      <a href="#rights">Your Privacy Rights</a>
+      <a href="#responsibilities">Organization Responsibilities</a>
+      <a href="#contact">Contact Us</a>
+    </aside>
+
+    <article class="legal-content">
+      <div class="legal-note">
+        <p><strong>Last Updated:</strong> [Insert Date]</p>
+      </div>
+
+      <section id="overview">
+        <h2>1. Overview</h2>
+        <p>DOVIX AI ("DOVIX AI", "DOVIX", "we", "us", or "our") respects your privacy and is committed to protecting the personal and business information entrusted to us.</p>
+        <p>This Privacy Policy explains how we collect, use, store, process, disclose, and protect information when you use our AMS – HRMS &amp; Project Management System ("Platform", "Service", or "AMS"), our website, and related services.</p>
+        <p>AMS provides employee management, onboarding, documents, attendance, leave, projects, tasks, reports, salary-related records, reimbursements, support, roles and permissions, shift management, integrations, subscriptions, and related business functionality.</p>
+      </section>
+
+      <section id="information">
+        <h2>2. Information We Collect</h2>
+        <h3>2.1 Account and Identification Information</h3>
+        <p>We may process full name, email address, phone number, username, employee ID, profile photograph, address, emergency contacts, employment information, designation, department, branch, employment type, joining date, reporting manager, and other information required by an organization.</p>
+
+        <h3>2.2 Employment and HR Information</h3>
+        <p>This may include employee records, employment history, onboarding information, documents, certifications, employment agreements, company assets, leave records, attendance records, shift information, regularization requests, employee reports, and work-related information.</p>
+
+        <h3>2.3 Financial Information</h3>
+        <p>Where enabled, AMS may process salary information, payslip information, reimbursement information, loan request information, payment-related records, and other compensation-related information.</p>
+
+        <h3>2.4 Documents and Files</h3>
+        <p>Users may upload identity documents, employment documents, certificates, payslips, contracts, reimbursement documents, company documents, and other HR or business records.</p>
+
+        <h3>2.5 Attendance and Device Information</h3>
+        <p>Depending on the configuration, we may process attendance records, check-in and check-out times, shift information, attendance logs, IP address, device information, browser information, login information, and location information where required for configured attendance functionality and permitted by applicable law.</p>
+
+        <h3>2.6 Face or Biometric-Related Information</h3>
+        <p>Certain features may involve employee photographs, facial images, face verification, or similar technologies. Where enabled, the organization using AMS is responsible for ensuring that it has the appropriate legal basis, notices, permissions, consents, and authorizations required by applicable law.</p>
+
+        <h3>2.7 Project, Work, and Support Information</h3>
+        <p>We may process projects, tasks, assignments, teams, workflow information, comments, work-related activity, reports, support tickets, communications, and attachments.</p>
+
+        <h3>2.8 Subscription and Technical Information</h3>
+        <p>We may process subscription, billing, invoice, transaction status, login timestamps, session information, error logs, security logs, IP address, browser type, operating system, device type, and application usage information.</p>
+      </section>
+
+      <section id="use">
+        <h2>3. How We Use Information</h2>
+        <ul>
+          <li>Provide and operate AMS.</li>
+          <li>Create and manage user accounts and authentication.</li>
+          <li>Manage employee records, attendance, leave, projects, tasks, and HR workflows.</li>
+          <li>Generate reports and manage documents and approvals.</li>
+          <li>Process salary, reimbursement, loan, and payslip-related information.</li>
+          <li>Provide customer support and service-related notifications.</li>
+          <li>Maintain security, detect unauthorized access, fraud, abuse, and security incidents.</li>
+          <li>Maintain backups and troubleshoot technical problems.</li>
+          <li>Improve and maintain the Platform.</li>
+          <li>Comply with legal and regulatory obligations and enforce our agreements.</li>
+        </ul>
+      </section>
+
+      <section id="organizations">
+        <h2>4. Organizations and Customers</h2>
+        <p>AMS is primarily provided to organizations. When an organization creates an AMS account and enters employee or business information into the Platform, that organization determines how such information is collected and used for its business purposes.</p>
+        <p>DOVIX AI may process information on behalf of the organization as a service provider or processor, depending on applicable law and the contractual arrangement.</p>
+        <p>Employees and other end users with questions about how their organization uses their personal information should generally contact their employer or organization first.</p>
+      </section>
+
+      <section id="sharing">
+        <h2>5. Sharing and Disclosure</h2>
+        <p>We may share information as reasonably necessary to provide and operate the Platform or meet legal and contractual requirements.</p>
+        <h3>Service Providers</h3>
+        <p>We may use trusted third parties for cloud hosting, database infrastructure, email delivery, authentication, payment processing, communication services, WhatsApp or messaging integrations, analytics, security, backups, and infrastructure monitoring.</p>
+        <h3>Organizations and Authorized Users</h3>
+        <p>Employee and business information may be accessible to authorized administrators, HR personnel, managers, employees, or other users according to the organization's roles and permissions.</p>
+        <h3>Legal Requirements and Business Transactions</h3>
+        <p>We may disclose information where required by law, regulation, court order, governmental request, or legal process. Information may also be transferred as part of a merger, acquisition, restructuring, financing, or sale of assets, subject to applicable law.</p>
+        <p>We do not sell personal information to third parties for their independent advertising purposes.</p>
+      </section>
+
+      <section id="security">
+        <h2>6. Data Security</h2>
+        <p>We use reasonable technical and organizational measures designed to protect information against unauthorized access, unauthorized disclosure, loss, misuse, alteration, and destruction. Measures may include access controls, authentication mechanisms, encryption where appropriate, logging, monitoring, backups, and infrastructure security controls.</p>
+        <p>No internet-based service can guarantee absolute security. Users and organizations are responsible for maintaining credential confidentiality and appropriate internal security controls.</p>
+      </section>
+
+      <section id="retention">
+        <h2>7. Data Retention and Deletion</h2>
+        <p>We retain information for as long as reasonably necessary to provide the Platform, maintain business and accounting records, meet contractual obligations, resolve disputes, enforce agreements, comply with applicable legal requirements, and maintain security and audit records.</p>
+        <p>Subject to applicable law and contractual requirements, an organization may request deletion of information associated with its account. Certain information may need to be retained where required by law, for legitimate security purposes, to resolve disputes, or to maintain necessary business records.</p>
+      </section>
+
+      <section id="rights">
+        <h2>8. Your Privacy Rights</h2>
+        <p>Depending on your location and applicable law, you may have rights regarding your personal information, including access, correction, deletion where legally available, information about processing, withdrawal of consent where applicable, objection to certain processing, restriction of processing, and the right to raise a complaint with a relevant regulatory authority.</p>
+        <p>Because AMS is often operated on behalf of an organization, some requests may need to be addressed through your employer or organization.</p>
+      </section>
+
+      <section id="responsibilities">
+        <h2>9. Organization Responsibilities</h2>
+        <p>Organizations using AMS are responsible for providing appropriate privacy notices, obtaining legally required permissions or consents, ensuring lawful collection and use of employee information, configuring roles and permissions appropriately, protecting administrator credentials, determining appropriate retention periods, responding to employee privacy requests where applicable, and ensuring that uploaded documents and integrations are used lawfully.</p>
+
+        <h3>Cookies and Similar Technologies</h3>
+        <p>The Platform and our website may use cookies, local storage, session technologies, analytics tools, and similar technologies to maintain login sessions, remember preferences, improve functionality, understand usage, monitor performance, and improve security.</p>
+
+        <h3>Third-Party Integrations</h3>
+        <p>AMS may integrate with services such as WhatsApp, payment providers, communication services, authentication services, or other business applications. Information shared with an integration may be processed according to that third party's privacy policy and terms.</p>
+
+        <h3>Changes to This Privacy Policy</h3>
+        <p>We may update this Privacy Policy from time to time to reflect changes in our services, technology, legal requirements, or business practices. The updated version will be published on this page with a revised "Last Updated" date.</p>
+      </section>
+
+      <section id="contact">
+        <h2>10. Contact Us</h2>
+        <p>If you have questions, concerns, or requests regarding this Privacy Policy or the processing of personal information, please contact DOVIX AI.</p>
+        <p><strong>Email:</strong> info@dovix.ai<br>
+        <strong>Phone:</strong> +91 91163 82399</p>
+        <p><strong>Registered Office:</strong><br>
+        B-18, 2nd Floor, Shiv Marg,<br>
+        Opposite Maharishi Raman Diagnostic Center,<br>
+        Kanti Nagar, Bani Park,<br>
+        Jaipur, Rajasthan 302015, India</p>
+      </section>
+    </article>
+  </main>
+
+  {% include 'employees/marketing/partials/lp_footer.html' %}
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+(function () {
+  var navToggle = document.getElementById('lpNavToggle');
+  var mobileMenu = document.getElementById('lpMobileMenu');
+  if (navToggle && mobileMenu) {
+    navToggle.addEventListener('click', function () {
+      mobileMenu.classList.toggle('lp-open');
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -161,85 +161,87 @@
                 {% endif %}
               </div>
             </div>
-            <div class="row">
-              <div class="col-md-4 mb-3">
-                <label for="{{ form.department.id_for_label }}" class="form-label">{{ form.department.label }}</label>
-                {% render_field form.department class="form-control" %}
-                {% if form.department.errors %}
-                  <div class="text-danger small mt-1">
-                    {% for error in form.department.errors %}{{ error }}{% endfor %}
-                  </div>
-                {% endif %}
-                <small class="text-muted">
-                  {{ form.department.help_text }} &middot;
-                  <a href="{% url 'employees:admin_employee_attribute_types' kind='departments' %}" target="_blank">Manage departments</a>
-                </small>
+            <div class="row mb-4 form-section animate-fade" id="section-basic">
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.department.id_for_label }}" class="form-label">{{ form.department.label }}</label>
+                  {% render_field form.department class="form-control" %}
+                  {% if form.department.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for error in form.department.errors %}{{ error }}{% endfor %}
+                    </div>
+                  {% endif %}
+                  <small class="text-muted">
+                    {{ form.department.help_text }} &middot;
+                    <a href="{% url 'employees:admin_employee_attribute_types' kind='departments' %}" target="_blank">Manage departments</a>
+                  </small>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.designation.id_for_label }}" class="form-label">{{ form.designation.label }}</label>
+                  {% render_field form.designation class="form-control" %}
+                  {% if form.designation.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for error in form.designation.errors %}{{ error }}{% endfor %}
+                    </div>
+                  {% endif %}
+                  <small class="text-muted">
+                    {{ form.designation.help_text }} &middot;
+                    <a href="{% url 'employees:admin_employee_attribute_types' kind='designations' %}" target="_blank">Manage designations</a>
+                  </small>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.employee_type.id_for_label }}" class="form-label">{{ form.employee_type.label }}</label>
+                  {% render_field form.employee_type class="form-control" %}
+                  {% if form.employee_type.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for error in form.employee_type.errors %}{{ error }}{% endfor %}
+                    </div>
+                  {% endif %}
+                  <small class="text-muted">
+                    {{ form.employee_type.help_text }} &middot;
+                    <a href="{% url 'employees:admin_employee_attribute_types' kind='employment-types' %}" target="_blank">Manage employment types</a>
+                  </small>
+                </div>
               </div>
-              <div class="col-md-4 mb-3">
-                <label for="{{ form.designation.id_for_label }}" class="form-label">{{ form.designation.label }}</label>
-                {% render_field form.designation class="form-control" %}
-                {% if form.designation.errors %}
-                  <div class="text-danger small mt-1">
-                    {% for error in form.designation.errors %}{{ error }}{% endfor %}
-                  </div>
-                {% endif %}
-                <small class="text-muted">
-                  {{ form.designation.help_text }} &middot;
-                  <a href="{% url 'employees:admin_employee_attribute_types' kind='designations' %}" target="_blank">Manage designations</a>
-                </small>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.branch.id_for_label }}" class="form-label">
+                    {{ form.branch.label }}
+                    {% if form.branch.field.required %}<span class="text-danger">*</span>{% endif %}
+                  </label>
+                  {% render_field form.branch class="form-control" %}
+                  {% if form.branch.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for error in form.branch.errors %}
+                        {{ error }}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  <small class="text-muted">Which branch this employee is assigned to.</small>
+                </div>
               </div>
-              <div class="col-md-4 mb-3">
-                <label for="{{ form.employee_type.id_for_label }}" class="form-label">{{ form.employee_type.label }}</label>
-                {% render_field form.employee_type class="form-control" %}
-                {% if form.employee_type.errors %}
-                  <div class="text-danger small mt-1">
-                    {% for error in form.employee_type.errors %}{{ error }}{% endfor %}
-                  </div>
-                {% endif %}
-                <small class="text-muted">
-                  {{ form.employee_type.help_text }} &middot;
-                  <a href="{% url 'employees:admin_employee_attribute_types' kind='employment-types' %}" target="_blank">Manage employment types</a>
-                </small>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label for="{{ form.branch.id_for_label }}" class="form-label">
-                  {{ form.branch.label }}
-                  {% if form.branch.field.required %}<span class="text-danger">*</span>{% endif %}
-                </label>
-                {% render_field form.branch class="form-control" %}
-                {% if form.branch.errors %}
-                  <div class="text-danger small mt-1">
-                    {% for error in form.branch.errors %}
-                      {{ error }}
+              <div class="row">
+                <div class="col-12 mb-3">
+                  <label class="form-label">
+                    {{ form.roles.label }}
+                  </label>
+                  <div class="d-flex flex-wrap gap-3">
+                    {% for checkbox in form.roles %}
+                      <div class="form-check">
+                        {{ checkbox.tag }}
+                        <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label>
+                      </div>
+                    {% empty %}
+                      <small class="text-muted">No roles created yet - see Company Settings &rarr; Roles &amp; Permissions.</small>
                     {% endfor %}
                   </div>
-                {% endif %}
-                <small class="text-muted">Which branch this employee is assigned to.</small>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-12 mb-3">
-                <label class="form-label">
-                  {{ form.roles.label }}
-                </label>
-                <div class="d-flex flex-wrap gap-3">
-                  {% for checkbox in form.roles %}
-                    <div class="form-check">
-                      {{ checkbox.tag }}
-                      <label class="form-check-label" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label>
+                  {% if form.roles.errors %}
+                    <div class="text-danger small mt-1">
+                      {% for error in form.roles.errors %}{{ error }}{% endfor %}
                     </div>
-                  {% empty %}
-                    <small class="text-muted">No roles created yet - see Company Settings &rarr; Roles &amp; Permissions.</small>
-                  {% endfor %}
+                  {% endif %}
+                  <small class="text-muted">Optional - delegated admin permissions this employee should hold (e.g. HR).</small>
                 </div>
-                {% if form.roles.errors %}
-                  <div class="text-danger small mt-1">
-                    {% for error in form.roles.errors %}{{ error }}{% endfor %}
-                  </div>
-                {% endif %}
-                <small class="text-muted">Optional - delegated admin permissions this employee should hold (e.g. HR).</small>
               </div>
             </div>
 

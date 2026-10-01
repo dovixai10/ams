@@ -14,7 +14,7 @@ from django.views.generic import TemplateView, ListView, CreateView, UpdateView,
 from django.urls import reverse_lazy, reverse
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_http_methods
-from django.db.models import Q, Min, Max, Count, Prefetch
+from django.db.models import Q, Min, Max, Count, Sum, Prefetch
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponseBadRequest, FileResponse, Http404
 from django.template.loader import render_to_string
@@ -27,7 +27,7 @@ from web_project.template_helpers.theme import TemplateHelper
 from employees.models import Employee, PaidLeaveAdjustment
 # from .models import LeaveAdjustment, Employee
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from .models import LeaveType, EmployeeLeaveBalance, LeaveCreditLog
 
 from datetime import date
@@ -82,6 +82,7 @@ from .models import (
     Task,
     TaskUpdate,
     TaskAttachment,
+    format_hours,
     Project,
     ProjectAttachment,
     Team,
@@ -288,16 +289,18 @@ def platform_office_approvals(request):
         return redirect('employees:platform_office_approvals')
 
     status_filter = request.GET.get('status', 'pending')
-    offices = Office.objects.select_related().prefetch_related('admins__user').order_by('-created_at')
+    offices = Office.objects.select_related('plan').prefetch_related('admins__user').order_by('-created_at')
     if status_filter and status_filter in Office.Status.values:
         offices = offices.filter(status=status_filter)
 
+    from .models import SubscriptionPlan
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'offices': offices,
         'status_filter': status_filter,
         'status_choices': Office.Status.choices,
+        'plans': SubscriptionPlan.objects.filter(is_active=True).order_by('order', 'price', 'name'),
     })
     return render(request, 'employees/platform/office_approvals.html', context)
 
@@ -760,6 +763,7 @@ def _pending_leave_verifications_for_employee(employee):
 def landing_page(request):
     """Public marketing homepage at '/'. Signed-in users skip straight to
     their dashboard; everyone else sees the marketing page."""
+    from .models import SubscriptionPlan
 
     if request.user.is_authenticated:
         if is_platform_admin(request.user):
@@ -775,9 +779,38 @@ def landing_page(request):
         'layout_path': TemplateHelper.set_layout('layout_blank.html', context),
         'hide_mobile_nav': True,
         'show_mobile_nav': False,
+        'plans': SubscriptionPlan.objects.filter(is_active=True).prefetch_related('features').order_by('order', 'price', 'name'),
     })
     return render(request, 'employees/marketing/landing.html', context)
 
+def privacy_policy(request):
+    context = TemplateLayout.init(request, context={})
+
+    context.update({
+        'layout_path': TemplateHelper.set_layout(
+            'layout_blank.html',
+            context
+        ),
+        'hide_mobile_nav': True,
+        'show_mobile_nav': False,
+    })
+
+    return render(request,'employees/marketing/privacy_policy.html',context)
+
+
+def terms_of_service(request):
+    context = TemplateLayout.init(request, context={})
+
+    context.update({
+        'layout_path': TemplateHelper.set_layout(
+            'layout_blank.html',
+            context
+        ),
+        'hide_mobile_nav': True,
+        'show_mobile_nav': False,
+    })
+
+    return render(request,'employees/marketing/terms_of_service.html',context)
 
 # Authentication Views
 from .models import Office, OfficeAdmin  # add this import near your other model imports
@@ -7884,8 +7917,17 @@ def admin_branches(request):
 
         if action == 'create':
             name = (request.POST.get('name') or '').strip()
+            plan = office.plan
+            active_branch_count = Branch.objects.filter(office=office, is_active=True).count()
             if not name:
                 messages.error(request, 'Branch name is required.')
+            elif plan is not None and plan.max_branches is not None and active_branch_count >= plan.max_branches:
+                limit_word = 'branch' if plan.max_branches == 1 else 'branches'
+                messages.error(
+                    request,
+                    f'Your "{plan.name}" plan allows {plan.max_branches} active {limit_word} (including the head office) - '
+                    f'you already have {active_branch_count}. Deactivate one first, or ask the platform admin to move you to a plan with a higher branch limit.',
+                )
             else:
                 base_slug = slugify(name) or 'branch'
                 slug = base_slug
@@ -8126,14 +8168,21 @@ def admin_teams(request):
                 except ValueError:
                     duration_weeks = 2
                 anchor_start_date = parse_date(request.POST.get('anchor_start_date') or '')
+                try:
+                    weekly_working_hours = Decimal(request.POST.get('weekly_working_hours') or '40')
+                except InvalidOperation:
+                    weekly_working_hours = None
                 if duration_weeks < 1 or not anchor_start_date:
                     messages.error(request, 'Enter a valid sprint length and start date.')
+                elif weekly_working_hours is None or weekly_working_hours < 0:
+                    messages.error(request, 'Enter a valid weekly working hours value.')
                 else:
                     SprintConfig.objects.update_or_create(
                         branch=branch,
                         defaults={
                             'duration_weeks': duration_weeks,
                             'anchor_start_date': anchor_start_date,
+                            'weekly_working_hours': weekly_working_hours,
                             'is_enabled': True,
                         },
                     )
@@ -8182,6 +8231,84 @@ def _project_tag_colors(project_id):
         return None
     bg, fg = PROJECT_TAG_COLORS[project_id % len(PROJECT_TAG_COLORS)]
     return {'bg': bg, 'fg': fg}
+
+
+def _sprint_hours(request, team, sprint):
+    """Per-employee hours picture for one sprint's board - None for the
+    Backlog (not time-boxed) or when the branch hasn't set a weekly-hours
+    budget yet.
+
+    There's only one hours field per task (Task.estimated_hours) - whoever's
+    working it bumps the number up if it runs long, rather than keeping a
+    separate running log. So a task's current hours ARE its actual hours once
+    it's Done, and 'left' is simply each employee's capacity minus their Done
+    hours. Capacity itself is a PER-EMPLOYEE budget (the branch's weekly hours
+    x this sprint's own length) - every member gets the same one, so the
+    board-wide tiles show the average across members rather than a sum that
+    would just grow with headcount. `byMember`/`unassigned` carry each row's
+    own numbers for the per-person breakdown on the board.
+    """
+    if sprint is None or team.branch_id is None:
+        return None
+    sprint_config = SprintConfig.objects.filter(branch=team.branch).first()
+    if not sprint_config or not sprint_config.weekly_working_hours:
+        return None
+
+    span_days = (sprint.end_date - sprint.start_date).days + 1
+    weeks = Decimal(span_days) / Decimal(7)
+    per_person_capacity = (sprint_config.weekly_working_hours * weeks).quantize(Decimal('0.1'))
+
+    status_key = {
+        Task.Status.PENDING: 'todo',
+        Task.Status.IN_PROGRESS: 'inProgress',
+        Task.Status.COMPLETED: 'done',
+        # Blocked tasks aren't counted in any hours tile - they're neither
+        # queued work nor finished work while stuck.
+    }
+    zero_bucket = lambda: {'todo': Decimal('0'), 'inProgress': Decimal('0'), 'done': Decimal('0')}
+
+    by_member_raw = {}
+    unassigned_raw = zero_bucket()
+    sprint_tasks = tenant_queryset(request, Task.objects.filter(team=team, sprint=sprint))
+    grouped = sprint_tasks.values('assigned_to_id', 'status').annotate(hours=Sum('estimated_hours'))
+    for row in grouped:
+        key = status_key.get(row['status'])
+        if key is None:
+            continue
+        hours = row['hours'] or Decimal('0')
+        member_id = row['assigned_to_id']
+        bucket = unassigned_raw if member_id is None else by_member_raw.setdefault(member_id, zero_bucket())
+        bucket[key] += hours
+
+    member_ids = list(team.members.values_list('id', flat=True))
+    for member_id in member_ids:
+        by_member_raw.setdefault(member_id, zero_bucket())
+    member_count = len(member_ids) or 1
+
+    def summarize(raw, with_capacity):
+        out = {key: float(value) for key, value in raw.items()}
+        if with_capacity:
+            out['capacity'] = float(per_person_capacity)
+            out['left'] = float((per_person_capacity - raw['done']).quantize(Decimal('0.1')))
+        return out
+
+    by_member = {str(member_id): summarize(raw, True) for member_id, raw in by_member_raw.items()}
+    unassigned = summarize(unassigned_raw, False)
+
+    total_todo = sum((raw['todo'] for raw in by_member_raw.values()), unassigned_raw['todo'])
+    total_in_progress = sum((raw['inProgress'] for raw in by_member_raw.values()), unassigned_raw['inProgress'])
+    total_done = sum((raw['done'] for raw in by_member_raw.values()), unassigned_raw['done'])
+    avg_done = (total_done / member_count).quantize(Decimal('0.1'))
+
+    return {
+        'avgCapacity': float(per_person_capacity),
+        'avgTodo': float((total_todo / member_count).quantize(Decimal('0.1'))),
+        'avgInProgress': float((total_in_progress / member_count).quantize(Decimal('0.1'))),
+        'avgDone': float(avg_done),
+        'avgLeft': float((per_person_capacity - avg_done).quantize(Decimal('0.1'))),
+        'byMember': by_member,
+        'unassigned': unassigned,
+    }
 
 
 @login_required
@@ -8262,6 +8389,7 @@ def team_board(request, team_id):
         'blocked': sum(1 for t in tasks if t.status == Task.Status.BLOCKED),
         'completed': sum(1 for t in tasks if t.status == Task.Status.COMPLETED),
     }
+    hours = _sprint_hours(request, team, selected_sprint)
 
     def _new_columns():
         return [
@@ -8274,6 +8402,8 @@ def team_board(request, team_id):
     member_list = list(team.members.select_related('user').order_by('full_name'))
     rows = [{'member': member, 'key': str(member.id), 'columns': _new_columns()} for member in member_list]
     rows.append({'member': None, 'key': 'unassigned', 'columns': _new_columns()})
+    for row in rows:
+        row['hours'] = (hours['byMember'].get(row['key']) if row['key'] != 'unassigned' else hours['unassigned']) if hours else None
     rows_by_key = {r['key']: r for r in rows}
 
     tasks_by_id = {}
@@ -8296,6 +8426,7 @@ def team_board(request, team_id):
             'dueDate': task.due_date.isoformat() if task.due_date else None,
             'sprintId': task.sprint_id,
             'projectId': task.project_id,
+            'estimatedHours': str(task.estimated_hours) if task.estimated_hours is not None else '',
             'assignedTo': (
                 {'id': task.assigned_to_id, 'name': task.assigned_to.full_name or task.assigned_to.name}
                 if task.assigned_to_id else None
@@ -8352,6 +8483,7 @@ def team_board(request, team_id):
         'switchable_teams': switchable_teams,
         'rows': rows,
         'insights': insights,
+        'hours': hours,
         'sprint_tabs': sprint_tabs,
         'sprints': sprints,
         'selected_sprint_key': selected_sprint_key,
@@ -8425,6 +8557,24 @@ def team_board_move_task(request, pk):
         task.severity = payload.get('severity')
         update_fields.append('severity')
         notes.append(f'Severity set to {task.get_severity_display()}.')
+
+    if 'estimatedHours' in payload:
+        raw_estimate = payload.get('estimatedHours')
+        new_estimate = None
+        if raw_estimate not in (None, ''):
+            try:
+                new_estimate = Decimal(str(raw_estimate))
+            except InvalidOperation:
+                return JsonResponse({'success': False, 'error': 'Estimated hours must be a number.'}, status=400)
+            if new_estimate < 0 or new_estimate > Decimal('999'):
+                return JsonResponse({'success': False, 'error': 'Estimated hours must be between 0 and 999.'}, status=400)
+            new_estimate = new_estimate.quantize(Decimal('0.01'))
+        if new_estimate != task.estimated_hours:
+            old_label = task.estimated_hours_display or 'no estimate'
+            new_label = format_hours(new_estimate) or 'no estimate'
+            notes.append(f'Estimate changed from {old_label} to {new_label}.')
+            task.estimated_hours = new_estimate
+            update_fields.append('estimated_hours')
 
     if 'title' in payload:
         new_title = (payload.get('title') or '').strip()

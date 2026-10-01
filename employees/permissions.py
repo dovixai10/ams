@@ -47,6 +47,7 @@ FEATURE_PERMISSIONS = [
     ('shifts.manage', 'Manage Shifts & Shift Assignment', 'Shift Management'),
     ('roles.manage', 'Manage Roles & Permissions', 'Company Settings'),
     ('integrations.manage', 'Manage Integrations (WhatsApp accounts, recipients & report schedules)', 'Integrations'),
+    ('reports.view', 'View Reports (Employee Performance)', 'Reports'),
 ]
 
 FEATURE_PERMISSION_KEYS = {key for key, _, _ in FEATURE_PERMISSIONS}
@@ -82,15 +83,48 @@ def employee_permission_keys(employee):
     return keys
 
 
+def _acting_office(user):
+    """Which office's subscription plan should gate `user`'s access - None
+    for the platform admin (sees everything, no plan applies to them) or
+    anyone not tied to a single office."""
+    if is_platform_admin(user):
+        return None
+    if hasattr(user, 'office_admin_profile'):
+        return user.office_admin_profile.office
+    if hasattr(user, 'employee_profile'):
+        return user.employee_profile.office
+    return None
+
+
+def office_feature_enabled(office, perm_key):
+    """True if `office`'s current subscription plan includes perm_key.
+    `office=None` is the platform admin - always unrestricted, no plan
+    applies to them. An office with NO plan chosen yet gets nothing gated -
+    it has to pick a plan first (see subscription_views.choose_plan); every
+    office that already existed before plans shipped was grandfathered onto
+    a full-access plan in migration 0047, so this doesn't retroactively
+    lock anyone out."""
+    if office is None:
+        return True
+    if office.plan_id is None:
+        return False
+    return perm_key in office.plan.enabled_feature_keys
+
+
 def has_permission(user, perm_key):
     """True if user is a full admin (platform/office) OR an employee
-    holding a role that grants perm_key. Use via feature_required(key)
-    for @user_passes_test, or call directly for finer checks."""
+    holding a role that grants perm_key - AND, either way, their office's
+    subscription plan actually includes that feature (a plan with the
+    feature switched off blocks it even for the office's own admin). Use
+    via feature_required(key) for @user_passes_test, or call directly for
+    finer checks."""
     if office_admin_required(user):
-        return True
-    if is_employee(user):
-        return employee_has_permission(user.employee_profile, perm_key)
-    return False
+        granted = True
+    elif is_employee(user):
+        granted = employee_has_permission(user.employee_profile, perm_key)
+    else:
+        return False
+    return granted and office_feature_enabled(_acting_office(user), perm_key)
 
 
 def can_manage_team(user, team):

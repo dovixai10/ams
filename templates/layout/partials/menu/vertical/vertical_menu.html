@@ -28,7 +28,28 @@
     </li>
 
 
-    {% if is_office_admin or 'employees.manage' in employee_permissions %}
+    {% if request.user.is_superuser %}
+    <!-- ===============================
+           PLATFORM ADMIN GROUP
+    =================================-->
+    <li class="menu-item {% if '/platform/' in request.path %}menu-item-open active{% endif %}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-shield-quarter"></i>
+        <div>Platform Admin</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if 'office-approvals' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:platform_office_approvals' %}" class="menu-link"><div>Office Approvals</div></a>
+        </li>
+        <li class="menu-item {% if '/platform/plans' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:platform_plans' %}" class="menu-link"><div>Subscription Plans</div></a>
+        </li>
+      </ul>
+    </li>
+    {% endif %}
+
+
+    {% if 'employees.manage' in office_visible_features %}
     <!-- ===============================
            EMPLOYEE MANAGEMENT GROUP
     =================================-->
@@ -49,7 +70,7 @@
     {% endif %}
 
 
-    {% if is_office_admin or 'attendance.manage' in employee_permissions or 'leave.manage' in employee_permissions %}
+    {% if 'attendance.manage' in office_visible_features or 'leave.manage' in office_visible_features %}
     <!-- ===============================
            ATTENDANCE GROUP
     =================================-->
@@ -59,7 +80,7 @@
         <div>Attendance</div>
       </a>
       <ul class="menu-sub">
-        {% if is_office_admin or 'attendance.manage' in employee_permissions %}
+        {% if 'attendance.manage' in office_visible_features %}
         <li class="menu-item"><a href="{% url 'employees:attendance_list' %}" class="menu-link"><div>Attendance List</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_attendance_calendar' %}" class="menu-link"><div>Attendance Calendar</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_attendance_logs' %}" class="menu-link"><div>Activity Logs</div></a></li>
@@ -74,7 +95,7 @@
           </a>
         </li>
         {% endif %}
-        {% if is_office_admin or 'leave.manage' in employee_permissions %}
+        {% if 'leave.manage' in office_visible_features %}
         <li class="menu-item {% if 'leave-types' in request.path %}active{% endif %}">
           <a href="{% url 'employees:admin_leave_types' %}" class="menu-link">
             <div>Leave Types</div>
@@ -93,7 +114,7 @@
 
 
 
-    {% if is_office_admin or 'tasks.manage' in employee_permissions or 'teams.manage' in employee_permissions or my_teams %}
+    {% if 'tasks.manage' in office_visible_features or 'teams.manage' in office_visible_features or my_teams %}
     <!-- ===============================
            TASKS & WORKFLOWS GROUP
     =================================-->
@@ -103,12 +124,12 @@
         <div>Tasks & Workflows</div>
       </a>
       <ul class="menu-sub">
-        {% if is_office_admin or 'tasks.manage' in employee_permissions %}
+        {% if 'tasks.manage' in office_visible_features %}
         <li class="menu-item"><a href="{% url 'employees:admin_projects' %}" class="menu-link"><div>Projects</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_tasks' %}" class="menu-link"><div>Task Board</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_face_update_requests' %}" class="menu-link"><div>Face Update Requests</div></a></li>
         {% endif %}
-        {% if is_office_admin or 'teams.manage' in employee_permissions %}
+        {% if 'teams.manage' in office_visible_features %}
         <!-- Can create/edit/delete teams (branch-wide permission or full admin) - this page also lists every team with an "Open Board" button, so it covers both managing and jumping to a board. -->
         <li class="menu-item"><a href="{% url 'employees:admin_teams' %}" class="menu-link"><div>Teams</div></a></li>
         {% elif my_teams %}
@@ -120,7 +141,25 @@
     {% endif %}
 
 
-    {% if is_office_admin or 'finance.manage' in employee_permissions %}
+    {% if 'reports.view' in office_visible_features %}
+    <!-- ===============================
+           REPORTS GROUP
+    =================================-->
+    <li class="menu-item {% if '/reports/' in request.path %}menu-item-open active{% endif %}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-bar-chart-alt-2"></i>
+        <div>Reports</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if 'reports/employee-performance' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:employee_performance_report' %}" class="menu-link"><div>Employee Performance</div></a>
+        </li>
+      </ul>
+    </li>
+    {% endif %}
+
+
+    {% if 'finance.manage' in office_visible_features %}
     <!-- ===============================
            FINANCE GROUP
     =================================-->
@@ -139,7 +178,7 @@
     {% endif %}
 
 
-    {% if is_office_admin or 'tickets.manage' in employee_permissions %}
+    {% if 'tickets.manage' in office_visible_features %}
     <!-- ===============================
            SUPPORT GROUP
     =================================-->
@@ -155,7 +194,7 @@
     {% endif %}
 
 
-    {% if is_office_admin or 'branches.manage' in employee_permissions or 'roles.manage' in employee_permissions or 'holidays.manage' in employee_permissions or 'rules.manage' in employee_permissions or 'attendance.manage' in employee_permissions or 'employees.manage' in employee_permissions %}
+    {% if 'branches.manage' in office_visible_features or 'roles.manage' in office_visible_features or 'holidays.manage' in office_visible_features or 'rules.manage' in office_visible_features or 'attendance.manage' in office_visible_features or 'employees.manage' in office_visible_features %}
     <!-- ===============================
            COMPANY MANAGEMENT GROUP
     =================================-->
@@ -165,26 +204,26 @@
         <div>Company Settings</div>
       </a>
       <ul class="menu-sub">
-        {% if is_office_admin or 'branches.manage' in employee_permissions %}
+        {% if 'branches.manage' in office_visible_features %}
         <li class="menu-item"><a href="{% url 'employees:admin_branches' %}" class="menu-link"><div>Branches</div></a></li>
         {% endif %}
-        {% if is_office_admin or 'roles.manage' in employee_permissions %}
+        {% if 'roles.manage' in office_visible_features %}
         <li class="menu-item"><a href="{% url 'employees:admin_roles' %}" class="menu-link"><div>Roles & Permissions</div></a></li>
         {% endif %}
-        {% if is_office_admin or 'holidays.manage' in employee_permissions %}
+        {% if 'holidays.manage' in office_visible_features %}
         <li class="menu-item"><a href="{% url 'employees:holidays_calendar' %}" class="menu-link"><div>Holidays Calendar</div></a></li>
         {% endif %}
-        {% if is_office_admin or 'rules.manage' in employee_permissions %}
+        {% if 'rules.manage' in office_visible_features %}
         <li class="menu-item"><a href="{% url 'employees:admin_rules' %}" class="menu-link"><div>Rules & Regulations</div></a></li>
         {% endif %}
-        {% if is_office_admin or 'attendance.manage' in employee_permissions %}
+        {% if 'attendance.manage' in office_visible_features %}
         <li class="menu-item {% if 'attendance/rule-settings' in request.path %}active{% endif %}">
           <a href="{% url 'employees:attendance_rule_settings' %}" class="menu-link">
             <div>Attendance Rule</div>
           </a>
         </li>
         {% endif %}
-        {% if is_office_admin or 'employees.manage' in employee_permissions %}
+        {% if 'employees.manage' in office_visible_features %}
         <li class="menu-item {% if 'employee-settings/designations' in request.path %}active{% endif %}">
           <a href="{% url 'employees:admin_employee_attribute_types' kind='designations' %}" class="menu-link">
             <div>Designations</div>
@@ -206,7 +245,7 @@
     {% endif %}
 
 
-    {% if is_office_admin or 'integrations.manage' in employee_permissions %}
+    {% if 'integrations.manage' in office_visible_features %}
     <!-- ===============================
            INTEGRATIONS GROUP
     =================================-->
@@ -239,7 +278,7 @@
     {% endif %}
 
 
-    {% if is_office_admin or 'shifts.manage' in employee_permissions %}
+    {% if 'shifts.manage' in office_visible_features %}
     <!-- ===============================
            SHIFT MANAGEMENT GROUP
     =================================-->
@@ -255,7 +294,17 @@
     </li>
     {% endif %}
 
-
+    {% if is_office_admin %}
+    <!-- Subscription - always reachable for an office admin, plan or no
+         plan, since this IS the page you use to get one. -->
+    <li class="menu-item {% if 'choose-plan' in request.path %}active{% endif %}">
+      <a href="{% url 'employees:choose_plan' %}" class="menu-link">
+        <i class="menu-icon bx bx-credit-card-alt"></i>
+        <div class="text-truncate">Subscription{% if not office_plan %} <span class="badge bg-warning rounded-pill ms-1">Choose a plan</span>{% endif %}</div>
+      </a>
+    </li>
+    {% endif %}
+    
     <!-- Profile -->
     <li class="menu-item {% if '/admin-profile/' in request.path or '/profile/' in request.path %}active{% endif %}">
       <a href="{% if request.user.is_superuser %}{% url 'employees:platform_profile' %}{% elif is_office_admin %}{% url 'employees:superadmin_profile' %}{% elif has_any_permission %}{% url 'employees:employee_profile_mobile' %}{% else %}{% url 'employees:employee_profile' %}{% endif %}" class="menu-link">

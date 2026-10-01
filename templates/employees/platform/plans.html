@@ -1,0 +1,289 @@
+{% extends layout_path %}
+
+{% block title %}Subscription Plans | Platform Admin{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .plans-shell { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.2rem; padding: 0.75rem 0 2rem; }
+
+  .plans-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .plans-header h1 { font-size: 1.5rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.6rem; }
+  .plans-header h1 i { color: #4f46e5; }
+  .plans-header p { font-size: 0.86rem; color: #6b7280; margin: 0.2rem 0 0; max-width: 60ch; }
+
+  .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+  .plan-card { background: #fff; border-radius: 16px; border: 1px solid rgba(148, 163, 184, 0.2); padding: 1.2rem; display: flex; flex-direction: column; gap: 0.7rem; position: relative; }
+  .plan-card.featured { border-color: #818cf8; box-shadow: 0 10px 30px rgba(79, 70, 229, 0.12); }
+  .plan-card.inactive { opacity: 0.6; }
+  .plan-featured-badge { position: absolute; top: -10px; right: 1rem; background: #4f46e5; color: #fff; font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+  .plan-name { font-size: 1.1rem; font-weight: 700; color: #1f2937; }
+  .plan-desc { font-size: 0.8rem; color: #6b7280; min-height: 1.2em; }
+  .plan-price { font-size: 1.6rem; font-weight: 800; color: #1f2937; }
+  .plan-price small { font-size: 0.75rem; font-weight: 500; color: #9ca3af; }
+  .plan-free-badge { display: inline-block; background: #dcfce7; color: #15803d; font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; }
+
+  .plan-limits { display: flex; gap: 1rem; font-size: 0.8rem; color: #4b5563; }
+  .plan-limits span i { color: #9ca3af; margin-inline-end: 0.2rem; }
+
+  .plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; color: #374151; }
+  .plan-features li { display: flex; align-items: flex-start; gap: 0.4rem; }
+  .plan-features li i { color: #16a34a; margin-top: 0.15rem; flex: 0 0 auto; }
+  .plan-features .none { color: #9ca3af; font-style: italic; }
+
+  .plan-meta { font-size: 0.74rem; color: #9ca3af; display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .plan-actions { display: flex; gap: 0.5rem; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid #f3f4f6; }
+  .plan-btn { border: none; border-radius: 8px; padding: 0.35rem 0.7rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+  .plan-btn.edit { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
+  .plan-btn.toggle.on { background: rgba(16, 185, 129, 0.12); color: #047857; }
+  .plan-btn.toggle.off { background: rgba(148, 163, 184, 0.16); color: #64748b; }
+  .plan-btn.delete { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+  /* Side panel (reuses the same slide-in pattern as other admin pages) */
+  .panel-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); z-index: 1200; display: none; }
+  .panel-backdrop.show { display: block; }
+  .plan-panel {
+    position: fixed; inset-block: 0; inset-inline-end: 0; width: min(520px, 100vw); background: #fff; z-index: 1201;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15); transform: translateX(100%); transition: transform 0.2s ease-in-out;
+    display: flex; flex-direction: column;
+  }
+  .plan-panel.show { transform: translateX(0); }
+  .panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+  .panel-header h2 { font-size: 1.05rem; font-weight: 700; margin: 0; color: #1f2937; }
+  .panel-close { background: none; border: none; font-size: 1.3rem; color: #6b7280; cursor: pointer; }
+  .panel-body { padding: 1.1rem 1.25rem; overflow-y: auto; flex: 1 1 auto; }
+
+  .field-row { display: flex; gap: 0.75rem; }
+  .field-row .field { flex: 1 1 0; }
+  .field { margin-bottom: 0.9rem; }
+  .field label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; font-weight: 600; display: block; margin-bottom: 0.3rem; }
+  .field .form-control, .field .form-select { width: 100%; }
+  .field-check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.7rem; }
+  .field-check label { margin: 0; font-size: 0.85rem; font-weight: 600; color: #374151; }
+  .field-hint { font-size: 0.76rem; color: #9ca3af; margin-top: 0.25rem; display: block; }
+
+  .section-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; font-weight: 700; margin: 1.1rem 0 0.5rem; }
+  .feature-group { margin-bottom: 0.8rem; }
+  .feature-group-name { font-size: 0.8rem; font-weight: 700; color: #4b5563; margin-bottom: 0.35rem; }
+  .feature-check { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.3rem 0; }
+  .feature-check label { font-size: 0.83rem; color: #374151; margin: 0; }
+
+  .panel-save { width: 100%; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; border-radius: 10px; padding: 0.7rem; font-weight: 600; margin-top: 1rem; cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="plans-shell">
+  <div class="plans-header">
+    <div>
+      <h1><i class="bx bx-credit-card-alt"></i> Subscription Plans</h1>
+      <p>What offices pay for and what each tier includes - the price/duration an office sees, the branch limit, and which modules of this app their office can use at all (on top of each employee's own role).</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="openPanelBtn"><i class="bx bx-plus me-1"></i>New Plan</button>
+  </div>
+
+  {% if plans %}
+    <div class="plans-grid">
+      {% for plan in plans %}
+        <div class="plan-card {% if plan.is_featured %}featured{% endif %} {% if not plan.is_active %}inactive{% endif %}">
+          {% if plan.is_featured %}<span class="plan-featured-badge">Most Popular</span>{% endif %}
+          <div class="plan-name">{{ plan.name }}</div>
+          <div class="plan-desc">{{ plan.description|default:"" }}</div>
+          <div class="plan-price">
+            {{ plan.price_display }}{% if not plan.is_free %}<small> / {{ plan.duration_display }}</small>{% endif %}
+            {% if plan.is_free %}<span class="plan-free-badge">Free</span>{% endif %}
+          </div>
+          <div class="plan-limits">
+            <span><i class="bx bx-git-branch"></i>{% if plan.max_branches %}{{ plan.max_branches }} branch{{ plan.max_branches|pluralize }}{% else %}Unlimited branches{% endif %}</span>
+            <span><i class="bx bx-group"></i>{% if plan.max_employees %}{{ plan.max_employees }} employees{% else %}Unlimited employees{% endif %}</span>
+          </div>
+          <ul class="plan-features">
+            {% with plan.features.all|dictsort:"feature_key" as plan_features %}
+              {% for f in plan_features %}
+                {% if f.is_enabled %}<li><i class="bx bx-check"></i>{{ f.label }}</li>{% endif %}
+              {% endfor %}
+            {% endwith %}
+            {% if not plan.enabled_feature_keys %}<li class="none">No modules included yet - edit this plan to add some.</li>{% endif %}
+          </ul>
+          <div class="plan-meta">
+            <span>{{ plan.office_count }} office{{ plan.office_count|pluralize }} on this plan</span>
+            {% if plan.is_default %}<span><i class="bx bx-star"></i> Default for new offices</span>{% endif %}
+          </div>
+          <div class="plan-actions">
+            <button type="button" class="plan-btn edit js-edit" data-key="{{ plan.pk }}"><i class="bx bx-edit"></i> Edit</button>
+            <form method="post" action="{% url 'employees:platform_plan_toggle' plan.pk %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="plan-btn toggle {% if plan.is_active %}on{% else %}off{% endif %}">{% if plan.is_active %}Active{% else %}Inactive{% endif %}</button>
+            </form>
+            <form method="post" action="{% url 'employees:platform_plan_delete' plan.pk %}" class="d-inline"
+                  onsubmit="return confirm('Delete {{ plan.name|escapejs }}? Offices on it will become unrestricted (no plan), not broken.');">
+              {% csrf_token %}
+              <button type="submit" class="plan-btn delete"><i class="bx bx-trash"></i></button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-center text-muted py-5"><i class="bx bx-credit-card-alt" style="font-size: 2.5rem;"></i><p class="mt-2 mb-0">No plans yet - create your first one.</p></div>
+  {% endif %}
+</div>
+
+<!-- Create / edit panel -->
+<div class="panel-backdrop" id="panelBackdrop"></div>
+<div class="plan-panel" id="planPanel">
+  <div class="panel-header">
+    <h2 id="panelTitle">New plan</h2>
+    <button type="button" class="panel-close" id="panelClose">&times;</button>
+  </div>
+  <div class="panel-body">
+    <form method="post" id="planForm" action="{% url 'employees:platform_plans' %}">
+      {% csrf_token %}
+      <div class="field">
+        <label for="id_name">Name</label>
+        <input type="text" name="name" id="id_name" class="form-control" placeholder="e.g. Growth" required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="id_slug">Slug</label>
+          <input type="text" name="slug" id="id_slug" class="form-control" placeholder="Auto-generated">
+        </div>
+        <div class="field">
+          <label for="id_order">Order</label>
+          <input type="number" name="order" id="id_order" class="form-control" value="0" min="0">
+        </div>
+      </div>
+      <div class="field">
+        <label for="id_description">Description</label>
+        <textarea name="description" id="id_description" class="form-control" rows="2"></textarea>
+      </div>
+
+      <div class="section-label">Pricing &amp; duration</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="id_price">Price</label>
+          <input type="number" name="price" id="id_price" class="form-control" step="0.01" min="0" value="0">
+        </div>
+        <div class="field field-check" style="align-self: center; margin-top: 1.1rem;">
+          <input type="checkbox" name="is_free" id="id_is_free" class="form-check-input">
+          <label for="id_is_free">Is free</label>
+        </div>
+      </div>
+      <span class="field-hint" style="margin-top: -0.6rem; margin-bottom: 0.8rem; display: block;">Shows a "Free" badge; also settable on a plan with a non-zero price if you want a promo.</span>
+      <div class="field-row">
+        <div class="field">
+          <label for="id_duration_value">Duration value</label>
+          <input type="number" name="duration_value" id="id_duration_value" class="form-control" min="1" value="1">
+        </div>
+        <div class="field">
+          <label for="id_duration_unit">Duration unit</label>
+          <select name="duration_unit" id="id_duration_unit" class="form-select">
+            {% for key, label in form.fields.duration_unit.choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="id_max_branches">Max branches</label>
+          <input type="number" name="max_branches" id="id_max_branches" class="form-control" min="1" value="1" placeholder="Unlimited">
+          <span class="field-hint">Including the head office - e.g. 1 = head office only. Leave blank for unlimited.</span>
+        </div>
+        <div class="field">
+          <label for="id_max_employees">Max employees</label>
+          <input type="number" name="max_employees" id="id_max_employees" class="form-control" min="1" placeholder="Unlimited">
+        </div>
+      </div>
+
+      <div class="section-label">Visibility</div>
+      <div class="field-check">
+        <input type="checkbox" name="is_active" id="id_is_active" class="form-check-input" checked>
+        <label for="id_is_active">Is active</label>
+      </div>
+      <span class="field-hint">Unpublished plans are hidden from new assignment but keep working for any office already on them.</span>
+      <div class="field-check" style="margin-top: 0.6rem;">
+        <input type="checkbox" name="is_default" id="id_is_default" class="form-check-input">
+        <label for="id_is_default">Is default</label>
+      </div>
+      <span class="field-hint">Auto-assigned to every newly approved office. Only one plan should have this on.</span>
+      <div class="field-check" style="margin-top: 0.6rem;">
+        <input type="checkbox" name="is_featured" id="id_is_featured" class="form-check-input">
+        <label for="id_is_featured">Is featured</label>
+      </div>
+      <span class="field-hint">Highlighted as "Most Popular" on the plans page.</span>
+
+      <div class="section-label">Plan features</div>
+      <span class="field-hint" style="margin-bottom: 0.5rem; display: block;">What this plan includes - an office on this plan only sees these modules, regardless of any employee's own role.</span>
+      {% for group in feature_groups %}
+        <div class="feature-group">
+          <div class="feature-group-name">{{ group.category }}</div>
+          {% for item in group.items %}
+            <div class="feature-check">
+              <input type="checkbox" name="feature_{{ item.key }}" id="id_feature_{{ item.key }}" class="form-check-input feature-checkbox" data-key="{{ item.key }}">
+              <label for="id_feature_{{ item.key }}">{{ item.label }}</label>
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+
+      <button type="submit" class="panel-save" id="panelSave">Save plan</button>
+    </form>
+  </div>
+</div>
+
+{{ edit_data|json_script:"editData" }}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var panel = document.getElementById('planPanel');
+  var backdrop = document.getElementById('panelBackdrop');
+  var form = document.getElementById('planForm');
+  var title = document.getElementById('panelTitle');
+  var save = document.getElementById('panelSave');
+  var createUrl = "{% url 'employees:platform_plans' %}";
+  var editData = JSON.parse(document.getElementById('editData').textContent);
+
+  function openPanel() { panel.classList.add('show'); backdrop.classList.add('show'); }
+  function closePanel() { panel.classList.remove('show'); backdrop.classList.remove('show'); }
+
+  function fill(values, featureKeys) {
+    Object.entries(values).forEach(function (pair) {
+      var el = form.querySelector('[name="' + pair[0] + '"]');
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!pair[1];
+      else el.value = pair[1] === null || pair[1] === undefined ? '' : pair[1];
+    });
+    form.querySelectorAll('.feature-checkbox').forEach(function (cb) {
+      cb.checked = featureKeys.indexOf(cb.dataset.key) !== -1;
+    });
+  }
+
+  document.getElementById('openPanelBtn').addEventListener('click', function () {
+    form.reset();
+    form.action = createUrl;
+    title.textContent = 'New plan';
+    save.textContent = 'Save plan';
+    openPanel();
+  });
+  document.getElementById('panelClose').addEventListener('click', closePanel);
+  backdrop.addEventListener('click', closePanel);
+
+  document.querySelectorAll('.js-edit').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var item = editData[btn.dataset.key];
+      form.reset();
+      form.action = item.url;
+      fill(item.values, item.featureKeys);
+      title.textContent = 'Edit "' + item.title + '"';
+      save.textContent = 'Update plan';
+      openPanel();
+    });
+  });
+
+  {% if form_has_errors %}openPanel();{% endif %}
+});
+</script>
+{% endblock %}

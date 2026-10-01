@@ -198,7 +198,8 @@
           <h5>Sprint Settings <small class="text-muted fw-normal">for branch: {{ active_branch.name }}</small></h5>
           {% if sprint_config %}
             <p class="text-muted small mb-3">
-              Currently {{ sprint_config.duration_weeks }}-week sprints, starting from Sprint 1 on {{ sprint_config.anchor_start_date }}.
+              Currently {{ sprint_config.duration_weeks }}-week sprints, starting from Sprint 1 on {{ sprint_config.anchor_start_date }},
+              with each team member budgeted {{ sprint_config.weekly_working_hours|floatformat:"-2" }}h/week.
               The next sprint is always created one in advance automatically when anyone opens a board.
             </p>
           {% else %}
@@ -216,6 +217,11 @@
               <label class="form-label">Sprint 1 start date <small>(later sprints are computed from this)</small></label>
               <input type="date" name="anchor_start_date" class="form-control"
                      value="{{ sprint_config.anchor_start_date|date:'Y-m-d' }}" required>
+            </div>
+            <div>
+              <label class="form-label">Weekly working hours <small>(per employee - e.g. 40 - every member gets this same budget on the board)</small></label>
+              <input type="number" name="weekly_working_hours" class="form-control" min="0" max="500" step="0.5" style="width: 140px;"
+                     value="{{ sprint_config.weekly_working_hours|default:40|floatformat:"-2" }}" required>
             </div>
             <button type="submit" class="btn-sm btn-primary">
               <i class="bx bx-save me-1"></i>{% if sprint_config %}Update{% else %}Set Up{% endif %} Sprints

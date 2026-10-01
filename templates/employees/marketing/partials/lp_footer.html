@@ -1,0 +1,46 @@
+{% load static %}
+<footer class="lp-footer">
+  <div class="lp-container">
+    <div class="lp-footer-grid">
+      <div>
+        <a href="{% url 'employees:home' %}" class="lp-brand">
+          <img loading="prelaod" decoding="async" class="img-fluid" width="160" src="{% static 'img2/Dovixai.svg' %}" alt="Dovix AI">
+        </a>
+        <p class="lp-footer-tag">All-in-one HRMS platform for attendance, payroll, tasks, and more.</p>
+        {% comment %} <div class="lp-footer-social">
+          <a href="#"><i class="bxl-facebook"></i></a>
+          <a href="#"><i class="bxl-twitter"></i></a>
+          <a href="#"><i class="bxl-linkedin"></i></a>
+          <a href="#"><i class="bxl-instagram"></i></a>
+        </div> {% endcomment %}
+      </div>
+
+      <div class="lp-footer-col">
+        <h6>Product</h6>
+        <a href="{% url 'employees:home' %}#features">Features</a>
+        <a href="{% url 'employees:home' %}#pricing">Pricing</a>
+      </div>
+
+      <div class="lp-footer-col">
+        <h6>Company</h6>
+        <a href="{% url 'employees:home' %}#about">About Us</a>
+        <a href="{% url 'employees:home' %}#contact">Contact</a>
+      </div>
+
+      <div class="lp-footer-col">
+        <h6>Support</h6>
+        <a href="#">Help Center</a>
+        <a href="{% url 'employees:privacy_policy' %}">Privacy Policy</a>
+        <a href="{% url 'employees:terms_of_service' %}">Terms of Service</a>
+      </div>
+    </div>
+
+    <div class="lp-footer-bottom">
+      <span>© 2026 Dovix AI. All rights reserved.</span>
+      <div class="lp-legal-links">
+        <a href="{% url 'employees:privacy_policy' %}">Privacy</a>
+        <a href="{% url 'employees:terms_of_service' %}">Terms</a>
+      </div>
+    </div>
+  </div>
+</footer>
