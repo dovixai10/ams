@@ -84,20 +84,34 @@
 </div>
 
 <style>
+    /* ===== DOVIX AI brand tokens — tweak here to retune the whole card ===== */
+    :root {
+        --dovix-navy: #0b0f19;
+        --dovix-navy-soft: #131a2b;
+        --dovix-accent-start: #4f46e5;   /* indigo  */
+        --dovix-accent-end: #06b6d4;     /* cyan    */
+        --dovix-accent-solid: #4f46e5;
+        --dovix-ink: #0b0f19;
+        --dovix-muted: #5b6472;
+        --dovix-card-bg: #f7f8fb;
+    }
+
     .id-card {
         width: 450px;
         height: 720px;
         background: white;
-        border: 2px solid #000;
+        border: 1px solid #e2e4ea;
         display: flex;
         position: relative;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        box-shadow: 0 10px 30px rgba(11,15,25,0.15);
         margin: 0 auto;
+        border-radius: 6px;
+        overflow: hidden;
     }
 
     .sidebar {
         width: 140px;
-        background: #1a1a1a;
+        background: linear-gradient(180deg, var(--dovix-navy) 0%, var(--dovix-navy-soft) 100%);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -111,22 +125,23 @@
         left: 50%;
         transform: translateX(-50%);
         display: flex;
-        font-size: 24px;
-        font-weight: bold;
-        letter-spacing: 1px;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        border-radius: 4px;
+        overflow: hidden;
     }
 
-    .kwik {
-        background: #1a8a9f;
+    .brand-navy {
+        background: var(--dovix-navy);
         color: white;
         padding: 5px 8px;
     }
 
-    .ster {
-        background: #1a1a1a;
+    .brand-accent {
+        background: linear-gradient(135deg, var(--dovix-accent-start), var(--dovix-accent-end));
         color: white;
         padding: 5px 8px;
-        border: 2px solid white;
     }
 
     .vertical-text {
@@ -134,12 +149,13 @@
         top: 50%;
         left: 50%;
         transform: translateX(-50%) translateY(-50%) rotate(-90deg);
-        color: white;
-        font-size: 16px;
+        color: rgba(255,255,255,0.85);
+        font-size: 15px;
         white-space: nowrap;
         width: 400px;
         text-align: center;
         font-weight: 400;
+        letter-spacing: 0.5px;
     }
 
     .content {
@@ -148,24 +164,27 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        background: #f5f5f5;
+        background: var(--dovix-card-bg);
     }
 
     .logo {
-        font-size: 32px;
-        font-weight: bold;
+        font-size: 28px;
+        font-weight: 800;
         margin-bottom: 30px;
-        letter-spacing: 2px;
+        letter-spacing: 1px;
+        display: flex;
+        border-radius: 4px;
+        overflow: hidden;
     }
 
-    .kwik-logo {
-        background: #1a8a9f;
+    .brand-navy-badge {
+        background: var(--dovix-navy);
         color: white;
         padding: 8px 12px;
     }
 
-    .ster-logo {
-        background: #1a1a1a;
+    .brand-accent-badge {
+        background: linear-gradient(135deg, var(--dovix-accent-start), var(--dovix-accent-end));
         color: white;
         padding: 8px 12px;
     }
@@ -176,7 +195,8 @@
         border-radius: 50%;
         overflow: hidden;
         margin-bottom: 20px;
-        border: 3px solid #333;
+        border: 3px solid var(--dovix-accent-start);
+        box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
     }
 
     .photo-circle img {
@@ -187,10 +207,10 @@
 
     .employee-name {
         font-size: 22px;
-        font-weight: bold;
+        font-weight: 700;
         margin-bottom: 20px;
         text-align: center;
-        color: #1a1a1a;
+        color: var(--dovix-ink);
     }
 
     .details {
@@ -202,22 +222,25 @@
         display: flex;
         margin-bottom: 8px;
         font-size: 14px;
-        color: #1a1a1a;
+        color: var(--dovix-ink);
     }
 
     .label {
         width: 110px;
         font-weight: 400;
+        color: var(--dovix-muted);
     }
 
     .colon {
         width: 20px;
         text-align: center;
+        color: var(--dovix-muted);
     }
 
     .value {
         flex: 1;
-        font-weight: 600;
+        font-weight: 700;
+        color: var(--dovix-accent-solid);
     }
 
     .qr-code {
@@ -232,8 +255,8 @@
 
     .scan-text {
         font-size: 14px;
-        font-weight: bold;
-        color: #1a1a1a;
+        font-weight: 700;
+        color: var(--dovix-ink);
         text-align: center;
     }
 
@@ -243,29 +266,34 @@
     }
 
     .company-name {
-        font-size: 36px;
-        font-weight: bold;
+        font-size: 34px;
+        font-weight: 800;
         margin-bottom: 5px;
+        display: flex;
+        justify-content: center;
     }
 
-    .kwik-company {
-        color: #1a8a9f;
+    .brand-navy-text {
+        color: var(--dovix-ink);
     }
 
-    .ster-company {
-        color: #1a1a1a;
+    .brand-accent-text {
+        background: linear-gradient(135deg, var(--dovix-accent-start), var(--dovix-accent-end));
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
 
     .company-tagline {
         font-size: 13px;
         margin-bottom: 20px;
-        color: #333;
+        color: var(--dovix-muted);
     }
 
     .address {
         font-size: 12px;
         line-height: 1.6;
-        color: #1a1a1a;
+        color: var(--dovix-ink);
     }
 
     .address p {
@@ -424,13 +452,13 @@
                 <div class="id-card">
                     <div class="sidebar">
                         <div class="sidebar-text">
-                            <span class="kwik">DOVIX</span><span class="ster">AI</span>
+                            <span class="brand-navy">DOVIX</span><span class="brand-accent">AI</span>
                         </div>
-                        <div class="vertical-text">Executing Vision Through Intelligence</div>
+                        <div class="vertical-text">AI-Powered | Future-Ready</div>
                     </div>
                     <div class="content">
                         <div class="logo">
-                            <span class="kwik-logo">DOVIX</span><span class="ster-logo">AI</span>
+                            <span class="brand-navy-badge">DOVIX</span><span class="brand-accent-badge">AI</span>
                         </div>
                         <div class="photo-circle">
                             <img src="${data.employee_photo_url}" alt="Employee Photo" onerror="this.src='/static/default-avatar.png'">
@@ -562,13 +590,13 @@
                 <div class="id-card">
                     <div class="sidebar">
                         <div class="sidebar-text">
-                            <span class="kwik">DOVIX</span><span class="ster">AI</span>
+                            <span class="brand-navy">DOVIX</span><span class="brand-accent">AI</span>
                         </div>
-                        <div class="vertical-text">Executing Vision Through Intelligence</div>
+                        <div class="vertical-text">AI-Powered | Future-Ready</div>
                     </div>
                     <div class="content">
                         <div class="logo">
-                            <span class="kwik-logo">DOVIX</span><span class="ster-logo">AI</span>
+                            <span class="brand-navy-badge">DOVIX</span><span class="brand-accent-badge">AI</span>
                         </div>
                         <div class="qr-code-back">
                             <svg width="180" height="180" viewBox="0 0 180 180">
@@ -648,8 +676,8 @@
                         </div>
                         <div class="scan-text">Scan for Website</div>
                         <div class="company-info">
-                            <div class="company-name"><span class="kwik-company">DOVIX</span><span class="ster-company">AI</span></div>
-                            <div class="company-tagline">Executing Vision Through Intelligence</div>
+                            <div class="company-name"><span class="brand-navy-text">DOVIX</span><span class="brand-accent-text">AI</span></div>
+                            <div class="company-tagline">Intelligent Solutions. Real-World Impact.</div>
                             <div class="address">
                                 <p><strong>B-18, 2nd Floor, Shiv Marg, Opposite Maharishi Raman Diagnostic Center, Kanti Nagar, Bani Park, Jaipur, Rajasthan 302015, India</strong></p>
                                 <p><strong>Mob. : +91 91163 82399</strong></p>

@@ -19,7 +19,10 @@ from .models import (
     SalarySlip,
     EmployeeIDCard,
     EmployeeSalary,
-    PaidLeaveAdjustment
+    PaidLeaveAdjustment,
+    EmployeeLeaveBalance,
+    LeaveCreditLog,
+    LeaveType
 )
 
 
@@ -522,4 +525,4 @@ class EmployeeIDCardAdmin(admin.ModelAdmin):
     )
 from django.contrib import admin
 
-admin.site.register(PaidLeaveAdjustment)
+admin.site.register([PaidLeaveAdjustment, LeaveType, EmployeeLeaveBalance, LeaveCreditLog])

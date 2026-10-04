@@ -428,7 +428,345 @@ class Employee(models.Model):
         return max(final_balance, Decimal('0.0'))
 
 
+# ===========================
+# CONFIGURABLE LEAVE TYPES
+# ===========================
 
+class LeaveType(models.Model):
+    """
+    Admin-configurable leave type (e.g. Earned Leave, Casual Leave,
+    Maternity Leave). Controls how much leave is credited and how often.
+
+    Example: to get "1 paid leave per month", admin creates a LeaveType
+    with accrual_frequency=MONTHLY and accrual_amount=1.
+    """
+
+    class Category(models.TextChoices):
+        PAID = ('paid', 'Paid Leave')
+        UNPAID = ('unpaid', 'Unpaid Leave')
+
+    class AccrualFrequency(models.TextChoices):
+        MONTHLY = ('monthly', 'Monthly')
+        YEARLY = ('yearly', 'Yearly')
+        ONE_TIME = ('one_time', 'One Time (fixed allocation)')
+        NONE = ('none', 'No Auto Accrual (manual only)')
+
+    class ApplicableGender(models.TextChoices):
+        ALL = ('all', 'All')
+        MALE = ('male', 'Male')
+        FEMALE = ('female', 'Female')
+
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Full name of the leave type (e.g. 'Earned Leave')"
+    )
+    code = models.CharField(
+        max_length=20,
+        unique=True,
+        help_text="Short code (e.g. EL, CL, SL, ML, PL, COMP)"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Explanation of when/how this leave can be used"
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=Category.choices,
+        default=Category.PAID,
+        help_text="Whether this leave type is paid or unpaid"
+    )
+
+    # ----- Accrual configuration -----
+    accrual_frequency = models.CharField(
+        max_length=20,
+        choices=AccrualFrequency.choices,
+        default=AccrualFrequency.MONTHLY,
+        help_text="How often leave is auto-credited"
+    )
+    accrual_amount = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Days credited per accrual cycle (e.g. 1 per month, 15 per year)"
+    )
+    annual_limit = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Max total days this leave type can credit in a calendar year (blank = no limit)"
+    )
+    max_balance_cap = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Max balance an employee can hold at once (blank = no cap)"
+    )
+
+    # ----- Carry forward -----
+    allow_carry_forward = models.BooleanField(
+        default=True,
+        help_text="Whether unused balance carries into the next year"
+    )
+    carry_forward_cap = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Max days that can be carried forward (blank = no cap, only relevant if carry forward allowed)"
+    )
+
+    # ----- Eligibility -----
+    min_service_days_required = models.IntegerField(
+        default=0,
+        help_text="Employee must have completed this many days since joining before this leave applies (e.g. 90 for Comp-off eligibility, 180 for Maternity)"
+    )
+    applicable_gender = models.CharField(
+        max_length=10,
+        choices=ApplicableGender.choices,
+        default=ApplicableGender.ALL,
+        help_text="Restrict this leave type to a gender (e.g. Maternity → Female, Paternity → Male)"
+    )
+    requires_document = models.BooleanField(
+        default=False,
+        help_text="Whether supporting documents are mandatory for this leave type"
+    )
+    max_consecutive_days = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Max consecutive days allowed per request (blank = no limit, useful for Bereavement/Marriage leave)"
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Inactive leave types are hidden from employees but history is preserved"
+    )
+    display_order = models.IntegerField(
+        default=0,
+        help_text="Order in which leave types appear in dropdowns/lists"
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_leave_types'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['display_order', 'name']
+        verbose_name = 'Leave Type'
+        verbose_name_plural = 'Leave Types'
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+    @property
+    def accrual_display(self):
+        if self.accrual_frequency == self.AccrualFrequency.NONE:
+            return "Manual only"
+        return f"{self.accrual_amount} day(s) / {self.get_accrual_frequency_display().lower()}"
+
+    def is_applicable_for(self, employee) -> bool:
+        """Check gender + service-length eligibility for a given employee."""
+        if self.applicable_gender != self.ApplicableGender.ALL:
+            emp_gender = getattr(employee, 'gender', None)
+            if emp_gender and emp_gender.lower() != self.applicable_gender:
+                return False
+
+        if self.min_service_days_required and employee.joining_date:
+            days_served = (date.today() - employee.joining_date).days
+            if days_served < self.min_service_days_required:
+                return False
+
+        return True
+
+
+# models.py — add this near the top, above EmployeeLeaveBalance,
+# right after your imports (date, Decimal, etc.)
+
+def fiscal_year_for(d: date) -> int:
+    """Fiscal year label: April 1 -> March 31. E.g. Feb 2027 -> FY 2026, Apr 2027 -> FY 2027."""
+    return d.year if d.month >= 4 else d.year - 1
+
+class EmployeeLeaveBalance(models.Model):
+    """Per-employee, per-leave-type running balance."""
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='leave_balances'
+    )
+    leave_type = models.ForeignKey(
+        LeaveType,
+        on_delete=models.CASCADE,
+        related_name='employee_balances'
+    )
+    balance = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=0,
+        help_text="Current available balance for this leave type"
+    )
+    total_credited_this_year = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=0,
+        help_text="Total credited so far in `credit_year` (used to enforce annual_limit)"
+    )
+    credit_year = models.IntegerField(
+        help_text="Calendar year this total_credited_this_year applies to; reset when year changes"
+    )
+    last_credited_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of the most recent auto-accrual credit"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('employee', 'leave_type')
+        ordering = ['employee', 'leave_type']
+        verbose_name = 'Employee Leave Balance'
+        verbose_name_plural = 'Employee Leave Balances'
+
+    def __str__(self):
+        return f"{self.employee.full_name} — {self.leave_type.code}: {self.balance}"
+
+    def credit(self, amount, credit_type='auto_accrual', note='', credited_by=None, commit=True):
+        """
+        Add `amount` to the balance, respecting max_balance_cap and annual_limit,
+        and write an audit log entry. Returns the LeaveCreditLog created (or None
+        if nothing was credited because caps were already reached).
+        """
+        from decimal import Decimal
+        amount = Decimal(str(amount))
+
+        today = date.today()
+        current_fy = fiscal_year_for(today)   # <-- module-level function, no import needed
+        if self.credit_year != current_fy:
+            self.total_credited_this_year = Decimal('0.0')
+            self.credit_year = current_fy
+
+        # Respect annual_limit
+        if self.leave_type.annual_limit is not None:
+            remaining_annual = self.leave_type.annual_limit - self.total_credited_this_year
+            if remaining_annual <= 0:
+                return None
+            amount = min(amount, remaining_annual)
+
+        new_balance = self.balance + amount
+
+        # Respect max_balance_cap
+        if self.leave_type.max_balance_cap is not None:
+            new_balance = min(new_balance, self.leave_type.max_balance_cap)
+            amount = new_balance - self.balance
+
+        if amount <= 0:
+            return None
+
+        self.balance = new_balance
+        self.total_credited_this_year += amount
+        self.last_credited_date = today
+
+        if commit:
+            self.save(update_fields=[
+                'balance', 'total_credited_this_year', 'credit_year',
+                'last_credited_date', 'updated_at'
+            ])
+
+        return LeaveCreditLog.objects.create(
+            employee=self.employee,
+            leave_type=self.leave_type,
+            amount=amount,
+            balance_after=self.balance,
+            credit_type=credit_type,
+            note=note,
+            credited_by=credited_by,
+        )
+
+
+    def deduct(self, amount, note='', commit=True):
+        """Deduct `amount` (e.g. when a leave request is approved) and log it."""
+        from decimal import Decimal
+        amount = Decimal(str(amount))
+        self.balance = max(self.balance - amount, Decimal('0.0'))
+        if commit:
+            self.save(update_fields=['balance', 'updated_at'])
+        return LeaveCreditLog.objects.create(
+            employee=self.employee,
+            leave_type=self.leave_type,
+            amount=-amount,
+            balance_after=self.balance,
+            credit_type='deduction',
+            note=note,
+        )
+
+    
+
+class LeaveCreditLog(models.Model):
+    """Audit trail of every credit/debit against an employee's leave balance."""
+
+    class CreditType(models.TextChoices):
+        AUTO_ACCRUAL = ('auto_accrual', 'Auto Accrual')
+        INITIAL_ALLOCATION = ('initial_allocation', 'Initial Allocation')
+        MANUAL_ADJUSTMENT = ('manual_adjustment', 'Manual Adjustment')
+        CARRY_FORWARD = ('carry_forward', 'Carry Forward')
+        DEDUCTION = ('deduction', 'Deduction (Leave Taken)')
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='leave_credit_logs'
+    )
+    leave_type = models.ForeignKey(
+        LeaveType,
+        on_delete=models.CASCADE,
+        related_name='credit_logs'
+    )
+    amount = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        help_text="Positive for credits, negative for deductions"
+    )
+    balance_after = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        help_text="Balance after this transaction was applied"
+    )
+    credit_type = models.CharField(
+        max_length=30,
+        choices=CreditType.choices,
+        default=CreditType.AUTO_ACCRUAL
+    )
+    note = models.TextField(blank=True)
+    credited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leave_credits_made',
+        help_text="Admin who made this adjustment (blank for system auto-accrual)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Leave Credit Log'
+        verbose_name_plural = 'Leave Credit Logs'
+        indexes = [
+            models.Index(fields=['employee', 'leave_type', '-created_at']),
+        ]
+
+    def __str__(self):
+        sign = '+' if self.amount >= 0 else ''
+        return f"{self.employee.full_name} · {self.leave_type.code} · {sign}{self.amount} ({self.get_credit_type_display()})"
 
 
 
@@ -1054,6 +1392,15 @@ class LeaveRequest(models.Model):
         blank=True,
         null=True,
         help_text="Receipt or supporting document (e.g., medical certificate)"
+    )
+
+    leave_type_ref = models.ForeignKey(
+        'LeaveType',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leave_requests',
+        help_text="Configurable leave type this request draws from (Earned Leave, Comp-off, etc.)"
     )
     start_date = models.DateField(help_text="Leave start date (inclusive)")
     end_date = models.DateField(help_text="Leave end date (inclusive)")

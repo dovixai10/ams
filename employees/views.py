@@ -27,6 +27,12 @@ from web_project.template_helpers.theme import TemplateHelper
 from employees.models import Employee, PaidLeaveAdjustment
 # from .models import LeaveAdjustment, Employee
 
+from decimal import Decimal
+from .models import LeaveType, EmployeeLeaveBalance, LeaveCreditLog
+
+from datetime import date
+from .leave_accrual import initialize_balances_for_new_type, get_employee_leave_type_balances
+
 
 import sys
 
@@ -1236,13 +1242,37 @@ def admin_breaks_dashboard(request):
     return render(request, 'employees/breaks/admin_breaks.html', context)
 
 
+
+# def get_employee_leave_type_balances(employee):
+#     """
+#     Returns a list of dicts: [{'leave_type': LeaveType, 'balance': Decimal}, ...]
+#     for every active LeaveType applicable to this employee.
+#     Creates a zero-balance EmployeeLeaveBalance row the first time a type is seen.
+#     """
+#     leave_types = LeaveType.objects.filter(is_active=True).order_by('display_order', 'name')
+#     result = []
+
+#     for lt in leave_types:
+#         if not lt.is_applicable_for(employee):
+#             continue
+
+#         balance_obj, _ = EmployeeLeaveBalance.objects.get_or_create(
+#             employee=employee,
+#             leave_type=lt,
+#             defaults={'balance': 0, 'credit_year': date.today().year},
+#         )
+
+#         result.append({
+#             'leave_type': lt,
+#             'balance': balance_obj.balance,
+#         })
+
+#     return result
+
 @login_required
 @user_passes_test(is_employee)
 def employee_leave_requests(request):
-    """Allow employees to request leave and review their history."""
-
     employee = request.user.employee_profile
-    print(employee, 'QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ')
     leave_qs = LeaveRequest.objects.filter(employee=employee).order_by('-created_at')
 
     if request.method == 'POST':
@@ -1253,9 +1283,7 @@ def employee_leave_requests(request):
             leave_request.status = LeaveRequest.Status.PENDING
             leave_request.save()
 
-            message_line = (
-                "Your leave request has been submitted and is awaiting review."
-            )
+            message_line = "Your leave request has been submitted and is awaiting review."
             send_leave_notification_email(
                 leave_request,
                 subject="Leave request submitted",
@@ -1264,7 +1292,6 @@ def employee_leave_requests(request):
             )
 
             messages.success(request, 'Leave request submitted successfully. We will notify you once it is reviewed.')
-            # Store leave ID in session for verification upload
             request.session['latest_leave_id'] = leave_request.id
             return redirect('employees:employee_leave_requests')
         else:
@@ -1272,15 +1299,14 @@ def employee_leave_requests(request):
     else:
         form = LeaveRequestForm(employee=employee)
 
-    # Get latest leave ID from session if available
     latest_leave_id = request.session.pop('latest_leave_id', None)
-    
-    # Calculate paid leave balance
-    # paid_leave_balance = employee.calculate_paid_leave_balance()
+
+    # Legacy single number (kept so nothing else breaks)
     paid_leave_balance = employee.get_final_leave_balance()
-    # paid_leave_balance = 2
-    print("paid_leave_balancepppppppppppppppppppppppppppppppppppp",paid_leave_balance)
-    
+
+    # NEW: per-leave-type balances
+    leave_type_balances = get_employee_leave_type_balances(employee)
+
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
@@ -1288,9 +1314,9 @@ def employee_leave_requests(request):
         'leave_requests': leave_qs,
         'latest_leave_id': latest_leave_id,
         'paid_leave_balance': float(paid_leave_balance),
+        'leave_type_balances': leave_type_balances,
     })
     return render(request, 'employees/leave/employee_leave_requests_new.html', context)
-
 
 @login_required
 @user_passes_test(is_employee)
@@ -1499,21 +1525,28 @@ def admin_leave_requests(request):
 
             if leave_request.leave_category == LeaveRequest.LeaveCategory.PAID:
                 employee = leave_request.employee
-
-                # Calculate number of leave days accurately
                 calendar_days = (leave_request.end_date - leave_request.start_date).days + 1
 
                 if leave_request.leave_type == LeaveRequest.LeaveType.FULL_DAY:
                     leave_days = Decimal(str(calendar_days))
                 else:
-                    # First half / second half
                     leave_days = Decimal(str(calendar_days * 0.5))
 
-                # Deduct from manual extra leaves
+                # Existing legacy deduction (kept so nothing else in the app breaks)
                 employee.manual_extra_leaves -= leave_days
-
-                # Save updated employee leave balance
                 employee.save()
+
+                # NEW: deduct from the specific EmployeeLeaveBalance the employee selected
+                if leave_request.leave_type_ref:
+                    balance_obj, _ = EmployeeLeaveBalance.objects.get_or_create(
+                        employee=employee,
+                        leave_type=leave_request.leave_type_ref,
+                        defaults={'balance': 0, 'credit_year': date.today().year},
+                    )
+                    balance_obj.deduct(
+                        leave_days,
+                        note=f"Leave #{leave_request.id} approved ({leave_request.start_date} → {leave_request.end_date})"
+                    )
             # ---------------------------------------------------------
 
             # Auto-mark attendance based on leave category
@@ -7445,3 +7478,158 @@ def employee_salary_excel_report(request):
     wb.save(response)
     return response
 
+
+# Leave Type Creation
+from .models import LeaveType
+from .forms import LeaveTypeForm
+
+
+from .leave_accrual import initialize_balances_for_new_type, resync_balances_for_type_change   # add this import at the top
+
+
+@login_required
+@user_passes_test(is_superadmin)
+def admin_leave_types(request):
+    """Admin page to create and list configurable leave types."""
+
+    if request.method == 'POST':
+        form = LeaveTypeForm(request.POST)
+        if form.is_valid():
+            leave_type = form.save(commit=False)
+            leave_type.created_by = request.user
+            leave_type.save()
+
+            # NEW: instantly credit every eligible employee
+            credited_count = initialize_balances_for_new_type(leave_type, credited_by=request.user)
+
+            if credited_count:
+                messages.success(
+                    request,
+                    f'Leave type "{leave_type.name}" created successfully. '
+                    f'Initial balance credited to {credited_count} employee(s).'
+                )
+            else:
+                messages.success(
+                    request,
+                    f'Leave type "{leave_type.name}" created successfully.'
+                )
+            return redirect('employees:admin_leave_types')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = LeaveTypeForm()
+
+    leave_types = LeaveType.objects.all().order_by('display_order', 'name')
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'form': form,
+        'leave_types': leave_types,
+    })
+    return render(request, 'employees/leave/admin_leave_types.html', context)
+
+
+@login_required
+@user_passes_test(is_superadmin)
+@require_http_methods(["POST"])
+def admin_leave_type_update(request, pk):
+    """Update an existing leave type, resyncing balances if accrual_amount changed."""
+    leave_type = get_object_or_404(LeaveType, pk=pk)
+    old_amount = leave_type.accrual_amount  # snapshot BEFORE the form overwrites it
+
+    form = LeaveTypeForm(request.POST, instance=leave_type)
+    if form.is_valid():
+        form.save()
+
+        if leave_type.accrual_amount != old_amount:
+            updated = resync_balances_for_type_change(leave_type, old_amount, admin_user=request.user)
+            if updated:
+                messages.success(
+                    request,
+                    f'Leave type "{leave_type.name}" updated. Balances resynced for {updated} employee(s).'
+                )
+            else:
+                messages.success(request, f'Leave type "{leave_type.name}" updated successfully.')
+        else:
+            messages.success(request, f'Leave type "{leave_type.name}" updated successfully.')
+    else:
+        messages.error(request, f'Could not update leave type: {form.errors.as_text()}')
+    return redirect('employees:admin_leave_types')
+
+
+
+@login_required
+@user_passes_test(is_superadmin)
+@require_http_methods(["POST"])
+def admin_leave_type_toggle(request, pk):
+    """Toggle active/inactive status — inactive types are hidden from employees."""
+    leave_type = get_object_or_404(LeaveType, pk=pk)
+    leave_type.is_active = not leave_type.is_active
+    leave_type.save(update_fields=['is_active', 'updated_at'])
+    state = 'activated' if leave_type.is_active else 'deactivated'
+    messages.success(request, f'Leave type "{leave_type.name}" {state}.')
+    return redirect('employees:admin_leave_types')
+
+
+@login_required
+@user_passes_test(is_superadmin)
+@require_http_methods(["POST"])
+def admin_leave_type_delete(request, pk):
+    """Delete a leave type — blocked only if it has real credit/debit history
+    or leave requests tied to it."""
+    leave_type = get_object_or_404(LeaveType, pk=pk)
+
+    has_history = (
+        leave_type.credit_logs.exists()
+        or leave_type.leave_requests.exists()
+    )
+    if has_history:
+        messages.error(
+            request,
+            f'"{leave_type.name}" already has leave history linked to it and cannot be deleted. '
+            'Deactivate it instead.'
+        )
+    else:
+        name = leave_type.name
+        leave_type.delete()
+        messages.success(request, f'Leave type "{name}" deleted.')
+
+    return redirect('employees:admin_leave_types')
+
+
+
+@login_required
+@user_passes_test(is_employee)
+def employee_leave_balances(request):
+    employee = request.user.employee_profile
+
+    # This creates balance rows if missing, settles any overdue year-end
+    # carry-forward, AND runs any due monthly/yearly accrual — all lazily.
+    live_balances = get_employee_leave_type_balances(employee)
+
+    balances = []
+    for item in live_balances:
+        leave_type = item['leave_type']
+        balance_obj = EmployeeLeaveBalance.objects.filter(
+            employee=employee, leave_type=leave_type
+        ).first()
+
+        recent_logs = LeaveCreditLog.objects.filter(
+            employee=employee, leave_type=leave_type
+        ).order_by('-created_at')[:5] if balance_obj else []
+
+        balances.append({
+            'leave_type': leave_type,
+            'balance': item['balance'],
+            'last_credited_date': balance_obj.last_credited_date if balance_obj else None,
+            'total_credited_this_year': balance_obj.total_credited_this_year if balance_obj else Decimal('0.0'),
+            'recent_logs': recent_logs,
+        })
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'balances': balances,
+    })
+    return render(request, 'employees/leave/employee_leave_balances.html', context)

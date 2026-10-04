@@ -53,21 +53,26 @@
         <li class="menu-item"><a href="{% url 'employees:attendance_list' %}" class="menu-link"><div>Attendance List</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_attendance_calendar' %}" class="menu-link"><div>Attendance Calendar</div></a></li>
         <li class="menu-item"><a href="{% url 'employees:admin_attendance_logs' %}" class="menu-link"><div>Activity Logs</div></a></li>
-          <li class="menu-item {% if 'leave/manage' in request.path %}active{% endif %}">
-      <a href="{% url 'employees:admin_leave_requests' %}" class="menu-link">
-        <div>Leave Requests</div>
-      </a>
-    </li>
+        <li class="menu-item {% if 'leave-types' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:admin_leave_types' %}" class="menu-link">
+            <div>Leave Types</div>
+          </a>
+        </li>
+        <li class="menu-item {% if 'leave/manage' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:admin_leave_requests' %}" class="menu-link">
+            <div>Leave Requests</div>
+          </a>
+        </li>
         <!-- <li class="menu-item {% if 'manual-attendance' in request.path %}active{% endif %}"><a href="{% url 'employees:manual_attendance' %}" class="menu-link"></i><div>Manual Attendance</div></a></li> -->
         <li class="menu-item {% if 'adjust-paid-leave' in request.path %}active{% endif %}"><a href="{% url 'employees:adjust_paid_leave' %}" class="menu-link"></i><div>Adjust Paid Leave</div></a></li>
       </ul>
     </li>
     <li class="menu-item {% if 'manual-attendance' in request.path %}active{% endif %}">
-    <a href="{% url 'employees:manual_attendance' %}" class="menu-link">
-        <i class="menu-icon bx bx-calendar-check"></i>
-        <div>Manual Attendance</div>
-    </a>
-</li>
+      <a href="{% url 'employees:manual_attendance' %}" class="menu-link">
+          <i class="menu-icon bx bx-calendar-check"></i>
+          <div>Manual Attendance</div>
+      </a>
+    </li>
 
 
 

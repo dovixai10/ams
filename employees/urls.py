@@ -220,4 +220,11 @@ urlpatterns = [
         name="manual_leave_adjustment"
     ),
 
+    # Leave Type Management (admin)
+    path('leave-types/', views.admin_leave_types, name='admin_leave_types'),
+    path('leave-types/<int:pk>/update/', views.admin_leave_type_update, name='admin_leave_type_update'),
+    path('leave-types/<int:pk>/toggle/', views.admin_leave_type_toggle, name='admin_leave_type_toggle'),
+    path('leave-types/<int:pk>/delete/', views.admin_leave_type_delete, name='admin_leave_type_delete'),
+
+    path('leave/balances/', views.employee_leave_balances, name='employee_leave_balances'),
 ]

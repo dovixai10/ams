@@ -13,6 +13,8 @@ from .models import LeaveRequest, LeaveVerificationDocument
 from web_project import TemplateLayout
 from web_project.template_helpers.theme import TemplateHelper
 
+from .leave_accrual import get_employee_leave_type_balances
+
 logger = logging.getLogger(__name__)
 
 

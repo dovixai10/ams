@@ -445,6 +445,34 @@
     box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
     white-space: nowrap;
   }
+
+  .leave-type-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+  margin: 0.5rem 0 0.25rem;
+}
+.leave-type-balance-card {
+  background: rgba(37, 99, 235, 0.07);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 14px;
+  padding: 0.7rem 0.9rem;
+}
+.leave-type-balance-card .type-name {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(15, 23, 42, 0.55);
+  margin-bottom: 0.15rem;
+}
+.leave-type-balance-card .type-balance {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
 /* --- Mobile Font Resize Fix (Max-width: 480px) --- */
 @media (max-width: 480px) {
 
@@ -545,10 +573,10 @@
     </h1>
     
     <!-- Paid Leave Badge -->
-    <div class="paid-leave-badge">
+    {% comment %} <div class="paid-leave-badge">
       <span class="badge-label">Available Paid Leave:</span>
       <span class="badge-value">{{ paid_leave_balance|floatformat:1 }} Days</span>
-    </div>
+    </div> {% endcomment %}
   </div>
 
   <!-- Paid Leave Balance -->
@@ -580,7 +608,7 @@
         <div class="alert alert-danger mb-3">{{ form.non_field_errors|striptags }}</div>
       {% endif %}
 
-      <form method="post" id="leaveRequestForm" novalidate>
+      {% comment %} <form method="post" id="leaveRequestForm" novalidate>
         {% csrf_token %}
 
         <!-- Start Date -->
@@ -649,7 +677,102 @@
         <button type="submit" class="leave-submit" id="submitLeaveBtn">
           <i class="bx bx-paper-plane"></i> Submit Request
         </button>
-      </form>
+      </form> {% endcomment %}
+
+      <form method="post" class="leave-form" id="leaveRequestForm" novalidate>
+  {% csrf_token %}
+
+  {% if leave_type_balances %}
+    <div class="leave-type-balance-grid">
+      {% for item in leave_type_balances %}
+        <div class="leave-type-balance-card">
+          <span class="type-name">{{ item.leave_type.code }}</span>
+          <span class="type-balance">{{ item.balance|floatformat:1 }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="leave-field">
+    <label for="id_start_date">Start date <span class="text-danger">*</span></label>
+    {{ form.start_date }}
+    {% if form.start_date.errors %}
+      <div class="text-danger small mt-1" role="alert">{{ form.start_date.errors|striptags }}</div>
+    {% endif %}
+  </div>
+  <div class="leave-field">
+    <label for="id_end_date">End date <span class="text-danger">*</span></label>
+    {{ form.end_date }}
+    {% if form.end_date.errors %}
+      <div class="text-danger small mt-1" role="alert">{{ form.end_date.errors|striptags }}</div>
+    {% endif %}
+  </div>
+
+  <!-- Leave Category -->
+  <div class="leave-field">
+    <label class="mb-2">Leave category <span class="text-danger">*</span></label>
+    <div class="leave-type-options" role="radiogroup">
+      <label class="leave-type-option">
+        <input type="radio" name="leave_category" value="paid" id="id_leave_category_paid"
+               {% if form.leave_category.value == 'paid' or not form.leave_category.value %}checked{% endif %} required>
+        <span>Paid Leave</span>
+      </label>
+      <label class="leave-type-option">
+        <input type="radio" name="leave_category" value="lwp" id="id_leave_category_lwp"
+               {% if form.leave_category.value == 'lwp' %}checked{% endif %}>
+        <span>Without Pay</span>
+      </label>
+    </div>
+    {% if form.leave_category.errors %}
+      <div class="text-danger small mt-1" role="alert">{{ form.leave_category.errors|striptags }}</div>
+    {% endif %}
+  </div>
+
+  <!-- Leave Type (which balance to draw from) -->
+  <div class="leave-field" id="leaveTypeRefWrapper">
+    <label for="id_leave_type_ref">Which leave type? <span class="text-danger">*</span></label>
+    {{ form.leave_type_ref }}
+    {% if form.leave_type_ref.errors %}
+      <div class="text-danger small mt-1" role="alert">{{ form.leave_type_ref.errors|striptags }}</div>
+    {% endif %}
+  </div>
+
+  <div class="leave-field">
+    <label class="mb-2">Duration <span class="text-danger">*</span></label>
+    <div class="leave-type-options" role="radiogroup" aria-label="Select leave type">
+      <label class="leave-type-option">
+        <input type="radio" name="leave_type" value="first_half" id="id_leave_type_0"
+               {% if form.leave_type.value == 'first_half' or not form.leave_type.value %}checked{% endif %} required>
+        <span>First Half</span>
+      </label>
+      <label class="leave-type-option">
+        <input type="radio" name="leave_type" value="second_half" id="id_leave_type_1"
+               {% if form.leave_type.value == 'second_half' %}checked{% endif %}>
+        <span>Second Half</span>
+      </label>
+      <label class="leave-type-option">
+        <input type="radio" name="leave_type" value="full_day" id="id_leave_type_2"
+               {% if form.leave_type.value == 'full_day' %}checked{% endif %}>
+        <span>Full Day</span>
+      </label>
+    </div>
+    {% if form.leave_type.errors %}
+      <div class="text-danger small mt-1" role="alert">{{ form.leave_type.errors|striptags }}</div>
+    {% endif %}
+  </div>
+
+  <div class="leave-field">
+    <label for="id_reason">Reason <span class="text-danger">*</span></label>
+    {{ form.reason }}
+    {% if form.reason.errors %}
+      <div class="text-danger small mt-1" role="alert">{{ form.reason.errors|striptags }}</div>
+    {% endif %}
+  </div>
+
+  <button type="submit" class="btn btn-primary leave-submit" id="submitLeaveBtn" aria-label="Submit leave request">
+    <i class="bx bx-paper-plane me-1"></i>Submit request
+  </button>
+</form>
     </div>
   </div>
 
@@ -722,6 +845,19 @@
 </div>
 
 <script>
+
+  function toggleLeaveTypeRef() {
+  const lwp = document.getElementById('id_leave_category_lwp');
+  const wrapper = document.getElementById('leaveTypeRefWrapper');
+  if (!lwp || !wrapper) return;
+  wrapper.style.display = lwp.checked ? 'none' : 'flex';
+}
+document.querySelectorAll('input[name="leave_category"]').forEach(el => {
+  el.addEventListener('change', toggleLeaveTypeRef);
+});
+toggleLeaveTypeRef();
+
+
 function switchTab(event, tabName) {
   event.preventDefault();
   

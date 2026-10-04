@@ -1,0 +1,739 @@
+{% extends layout_path %}
+{% load humanize %}
+
+{% block title %}Leave Types | Kwikster CRM{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .leavetype-shell {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    padding: 0.75rem 0 2rem;
+  }
+
+  .leavetype-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .leavetype-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .leavetype-header h1 i {
+    color: #2563eb;
+  }
+
+  .leavetype-header p {
+    font-size: 0.9rem;
+    color: rgba(15, 23, 42, 0.65);
+    margin: 0.2rem 0 0;
+  }
+
+  .leavetype-new-btn {
+    border-radius: 14px;
+    padding: 0.65rem 1.2rem;
+    font-weight: 600;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+  }
+
+  /* Create / Edit panel */
+  .leave-card {
+    background: linear-gradient(160deg, rgba(59, 130, 246, 0.09), rgba(37, 99, 235, 0.02));
+    border-radius: 22px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    box-shadow: 0 24px 48px rgba(37, 99, 235, 0.12);
+    padding: 1.4rem 1.4rem 1.6rem;
+    display: none;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  .leave-card.is-open {
+    display: flex;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .leave-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .leave-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  .leave-card__title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0.25rem 0 0;
+    color: #0f172a;
+  }
+
+  .leave-close-btn {
+    border: none;
+    background: rgba(148, 163, 184, 0.18);
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(15, 23, 42, 0.6);
+    flex-shrink: 0;
+  }
+
+  .leavetype-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .leavetype-form .leave-field.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .leave-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .leave-field label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.75);
+  }
+
+  .leave-field .form-control,
+  .leave-field .form-select,
+  .leave-field textarea {
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.65rem 0.9rem;
+    font-size: 0.92rem;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.12);
+  }
+
+  .leave-field textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+
+  .leave-switch {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(255, 255, 255, 0.75);
+  }
+
+  .leave-switch input {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  .leave-switch label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.75);
+    margin: 0;
+  }
+
+  .leave-submit-row {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  .leave-submit {
+    border-radius: 14px;
+    padding: 0.7rem 1.4rem;
+    font-weight: 600;
+    box-shadow: 0 18px 36px rgba(37, 99, 235, 0.18);
+  }
+
+  .leave-cancel {
+    border-radius: 14px;
+    padding: 0.7rem 1.2rem;
+    font-weight: 600;
+  }
+
+  /* List of leave types as cards */
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .history-entry {
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    padding: 20px;
+    transition: all 0.2s ease;
+  }
+
+  .history-entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .lt-name-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .lt-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .lt-code-badge {
+    padding: 0.15rem 0.55rem;
+    border-radius: 8px;
+    background: rgba(148, 163, 184, 0.18);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: rgba(15, 23, 42, 0.65);
+    letter-spacing: 0.04em;
+  }
+
+  .lt-desc {
+    font-size: 0.82rem;
+    color: rgba(15, 23, 42, 0.55);
+  }
+
+  .history-meta-right {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .history-type-badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    background: rgba(148, 163, 184, 0.15);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .history-type-badge.paid {
+    background: rgba(16, 185, 129, 0.14);
+    color: #047857;
+  }
+
+  .history-type-badge.unpaid {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+  }
+
+  .history-days-badge {
+    padding: 0.4rem 0.85rem;
+    background: rgba(37, 99, 235, 0.12);
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1d4ed8;
+    white-space: nowrap;
+  }
+
+  .status-toggle-form {
+    display: inline-flex;
+  }
+
+  .status-toggle-btn {
+    border: none;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .status-dot-approved { background: #10b981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
+  .status-dot-pending { background: #94a3b8; box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.25); }
+
+  .status-toggle-btn.is-active { background: rgba(16, 185, 129, 0.12); color: #047857; }
+  .status-toggle-btn.is-inactive { background: rgba(148, 163, 184, 0.16); color: rgba(15, 23, 42, 0.55); }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+  }
+
+  .icon-btn.danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+
+  .history-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.7rem;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .history-meta-item {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 14px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+  }
+
+  .history-meta-item .label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(15, 23, 42, 0.55);
+    margin-bottom: 0.25rem;
+  }
+
+  .history-meta-item .value {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .history-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    background: rgba(248, 250, 252, 0.75);
+    border-radius: 18px;
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    color: rgba(15, 23, 42, 0.55);
+  }
+
+  .history-empty i {
+    font-size: 2.3rem;
+    color: rgba(37, 99, 235, 0.55);
+    margin-bottom: 0.5rem;
+  }
+
+  /* Toast Notification (same as employee page) */
+  .toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 400px;
+  }
+
+  .toast {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    border-left: 4px solid #2563eb;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    animation: toastSlideIn 0.3s ease;
+    min-width: 280px;
+  }
+
+  .toast.toast-success { border-left-color: #10b981; }
+  .toast.toast-error { border-left-color: #ef4444; }
+  .toast-icon { font-size: 1.25rem; flex-shrink: 0; }
+  .toast.toast-success .toast-icon { color: #10b981; }
+  .toast.toast-error .toast-icon { color: #ef4444; }
+  .toast-message { flex: 1; font-size: 0.9rem; color: #0f172a; }
+
+  @keyframes toastSlideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes toastSlideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+  }
+
+  .toast.fade-out { animation: toastSlideOut 0.3s ease forwards; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="leavetype-shell">
+
+  <div class="leavetype-header">
+    <div>
+      <h1><i class="bx bx-calendar-star"></i> Leave Types</h1>
+      <p>Create and manage the leave types employees can apply for.</p>
+    </div>
+    <button type="button" class="btn btn-primary leavetype-new-btn" id="openCreatePanelBtn">
+      <i class="bx bx-plus me-1"></i>New Leave Type
+    </button>
+  </div>
+
+  <!-- Create / Edit Panel -->
+  <div class="leave-card" id="leaveTypeCard">
+    <div class="leave-card__header">
+      <div>
+        <span class="leave-chip"><i class="bx bx-edit"></i> <span id="panelModeLabel">New leave type</span></span>
+        <h2 class="leave-card__title" id="panelTitle">Create a leave type</h2>
+      </div>
+      <button type="button" class="leave-close-btn" id="closeCreatePanelBtn" aria-label="Close">
+        <i class="bx bx-x"></i>
+      </button>
+    </div>
+
+    <form method="post" id="leaveTypeForm" action="{% url 'employees:admin_leave_types' %}">
+      {% csrf_token %}
+      <div class="leavetype-form">
+        <div class="leave-field">
+          <label for="id_name">Name <span class="text-danger">*</span></label>
+          {{ form.name }}
+        </div>
+        <div class="leave-field">
+          <label for="id_code">Code <span class="text-danger">*</span></label>
+          {{ form.code }}
+        </div>
+        <div class="leave-field full-width">
+          <label for="id_description">Description</label>
+          {{ form.description }}
+        </div>
+        <div class="leave-field">
+          <label for="id_category">Category</label>
+          {{ form.category }}
+        </div>
+        <div class="leave-field">
+          <label for="id_accrual_frequency">Accrual Frequency</label>
+          {{ form.accrual_frequency }}
+        </div>
+        <div class="leave-field">
+          <label for="id_accrual_amount">Accrual Amount (days)</label>
+          {{ form.accrual_amount }}
+        </div>
+        <div class="leave-field">
+          <label for="id_annual_limit">Annual Limit</label>
+          {{ form.annual_limit }}
+        </div>
+        <div class="leave-field">
+          <label for="id_max_balance_cap">Max Balance Cap</label>
+          {{ form.max_balance_cap }}
+        </div>
+        <div class="leave-field">
+          <label for="id_carry_forward_cap">Carry Forward Cap</label>
+          {{ form.carry_forward_cap }}
+        </div>
+        <div class="leave-field">
+          <label for="id_min_service_days_required">Min Service Days Required</label>
+          {{ form.min_service_days_required }}
+        </div>
+        <div class="leave-field">
+          <label for="id_applicable_gender">Applicable Gender</label>
+          {{ form.applicable_gender }}
+        </div>
+        <div class="leave-field">
+          <label for="id_max_consecutive_days">Max Consecutive Days</label>
+          {{ form.max_consecutive_days }}
+        </div>
+        <div class="leave-field">
+          <label for="id_display_order">Display Order</label>
+          {{ form.display_order }}
+        </div>
+
+        <div class="leave-switch">
+          {{ form.allow_carry_forward }}
+          <label for="id_allow_carry_forward">Allow Carry Forward</label>
+        </div>
+        <div class="leave-switch">
+          {{ form.requires_document }}
+          <label for="id_requires_document">Requires Document</label>
+        </div>
+        <div class="leave-switch">
+          {{ form.is_active }}
+          <label for="id_is_active">Active</label>
+        </div>
+
+        <div class="leave-submit-row">
+          <button type="button" class="btn btn-label-secondary leave-cancel" id="cancelFormBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary leave-submit" id="leaveTypeSubmitBtn">
+            <i class="bx bx-check me-1"></i>Save Leave Type
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- List -->
+  <div>
+    {% if leave_types %}
+      <div class="history-list">
+        {% for lt in leave_types %}
+          <div class="history-entry">
+            <div class="history-entry-header">
+              <div class="lt-name-block">
+                <div class="lt-name">
+                  {{ lt.name }}
+                  <span class="lt-code-badge">{{ lt.code }}</span>
+                  <span class="history-type-badge {{ lt.category }}">{{ lt.get_category_display }}</span>
+                </div>
+                {% if lt.description %}
+                  <div class="lt-desc">{{ lt.description|truncatechars:90 }}</div>
+                {% endif %}
+              </div>
+
+              <div class="history-meta-right">
+                <span class="history-days-badge">{{ lt.accrual_display }}</span>
+
+                <form method="post" action="{% url 'employees:admin_leave_type_toggle' lt.pk %}" class="status-toggle-form">
+                  {% csrf_token %}
+                  <button type="submit" class="status-toggle-btn {% if lt.is_active %}is-active{% else %}is-inactive{% endif %}">
+                    <span class="status-dot {% if lt.is_active %}status-dot-approved{% else %}status-dot-pending{% endif %}"></span>
+                    {% if lt.is_active %}Active{% else %}Inactive{% endif %}
+                  </button>
+                </form>
+
+                <button type="button" class="icon-btn js-edit-leavetype"
+                  data-id="{{ lt.pk }}"
+                  data-url="{% url 'employees:admin_leave_type_update' lt.pk %}"
+                  data-name="{{ lt.name }}"
+                  data-code="{{ lt.code }}"
+                  data-description="{{ lt.description }}"
+                  data-category="{{ lt.category }}"
+                  data-accrual_frequency="{{ lt.accrual_frequency }}"
+                  data-accrual_amount="{{ lt.accrual_amount }}"
+                  data-annual_limit="{{ lt.annual_limit|default_if_none:'' }}"
+                  data-max_balance_cap="{{ lt.max_balance_cap|default_if_none:'' }}"
+                  data-carry_forward_cap="{{ lt.carry_forward_cap|default_if_none:'' }}"
+                  data-min_service_days_required="{{ lt.min_service_days_required }}"
+                  data-applicable_gender="{{ lt.applicable_gender }}"
+                  data-max_consecutive_days="{{ lt.max_consecutive_days|default_if_none:'' }}"
+                  data-display_order="{{ lt.display_order }}"
+                  data-allow_carry_forward="{{ lt.allow_carry_forward|yesno:'true,false' }}"
+                  data-requires_document="{{ lt.requires_document|yesno:'true,false' }}"
+                  data-is_active="{{ lt.is_active|yesno:'true,false' }}"
+                  aria-label="Edit {{ lt.name }}">
+                  <i class="bx bx-edit"></i>
+                </button>
+
+                <form method="post" action="{% url 'employees:admin_leave_type_delete' lt.pk %}" class="d-inline"
+                  onsubmit="return confirm('Delete {{ lt.name }}? This cannot be undone.');">
+                  {% csrf_token %}
+                  <button type="submit" class="icon-btn danger" aria-label="Delete {{ lt.name }}">
+                    <i class="bx bx-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div class="history-meta-grid">
+              <div class="history-meta-item">
+                <span class="label">Annual Limit</span>
+                <span class="value">{{ lt.annual_limit|default:"No limit" }}</span>
+              </div>
+              <div class="history-meta-item">
+                <span class="label">Max Balance Cap</span>
+                <span class="value">{{ lt.max_balance_cap|default:"No cap" }}</span>
+              </div>
+              <div class="history-meta-item">
+                <span class="label">Carry Forward</span>
+                <span class="value">{% if lt.allow_carry_forward %}Yes{% else %}No{% endif %}</span>
+              </div>
+              <div class="history-meta-item">
+                <span class="label">Min Service Days</span>
+                <span class="value">{{ lt.min_service_days_required }}</span>
+              </div>
+              <div class="history-meta-item">
+                <span class="label">Gender</span>
+                <span class="value">{{ lt.get_applicable_gender_display }}</span>
+              </div>
+              <div class="history-meta-item">
+                <span class="label">Document Required</span>
+                <span class="value">{% if lt.requires_document %}Yes{% else %}No{% endif %}</span>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="history-empty">
+        <i class="bx bx-notepad"></i>
+        <p class="mb-1">No leave types created yet</p>
+        <p class="mb-0 small">Click "New Leave Type" above to create your first one.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+  function showToast(message, type = 'success') {
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'toast-container';
+      container.id = 'toastContainer';
+      container.setAttribute('role', 'region');
+      container.setAttribute('aria-live', 'polite');
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', 'alert');
+    const icon = type === 'success' ? 'bx-check-circle' : 'bx-error-circle';
+    toast.innerHTML = `<i class="bx ${icon} toast-icon"></i><span class="toast-message">${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const card = document.getElementById('leaveTypeCard');
+    const form = document.getElementById('leaveTypeForm');
+    const panelTitle = document.getElementById('panelTitle');
+    const panelModeLabel = document.getElementById('panelModeLabel');
+    const submitBtn = document.getElementById('leaveTypeSubmitBtn');
+    const createUrl = "{% url 'employees:admin_leave_types' %}";
+
+    function openPanel() {
+      card.classList.add('is-open');
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function closePanel() {
+      card.classList.remove('is-open');
+    }
+
+    function resetToCreateMode() {
+      form.reset();
+      form.action = createUrl;
+      panelTitle.innerText = 'Create a leave type';
+      panelModeLabel.innerText = 'New leave type';
+      submitBtn.innerHTML = '<i class="bx bx-check me-1"></i>Save Leave Type';
+    }
+
+    document.getElementById('openCreatePanelBtn').addEventListener('click', function () {
+      resetToCreateMode();
+      openPanel();
+    });
+
+    document.getElementById('closeCreatePanelBtn').addEventListener('click', closePanel);
+    document.getElementById('cancelFormBtn').addEventListener('click', closePanel);
+
+    document.querySelectorAll('.js-edit-leavetype').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const d = btn.dataset;
+        form.action = d.url;
+        panelTitle.innerText = `Edit "${d.name}"`;
+        panelModeLabel.innerText = 'Edit leave type';
+        submitBtn.innerHTML = '<i class="bx bx-check me-1"></i>Update Leave Type';
+
+        form.querySelector('[name="name"]').value = d.name || '';
+        form.querySelector('[name="code"]').value = d.code || '';
+        form.querySelector('[name="description"]').value = d.description || '';
+        form.querySelector('[name="category"]').value = d.category || 'paid';
+        form.querySelector('[name="accrual_frequency"]').value = d.accrual_frequency || 'monthly';
+        form.querySelector('[name="accrual_amount"]').value = d.accrual_amount || 0;
+        form.querySelector('[name="annual_limit"]').value = d.annual_limit || '';
+        form.querySelector('[name="max_balance_cap"]').value = d.max_balance_cap || '';
+        form.querySelector('[name="carry_forward_cap"]').value = d.carry_forward_cap || '';
+        form.querySelector('[name="min_service_days_required"]').value = d.min_service_days_required || 0;
+        form.querySelector('[name="applicable_gender"]').value = d.applicable_gender || 'all';
+        form.querySelector('[name="max_consecutive_days"]').value = d.max_consecutive_days || '';
+        form.querySelector('[name="display_order"]').value = d.display_order || 0;
+        form.querySelector('[name="allow_carry_forward"]').checked = (d.allow_carry_forward === 'true');
+        form.querySelector('[name="requires_document"]').checked = (d.requires_document === 'true');
+        form.querySelector('[name="is_active"]').checked = (d.is_active === 'true');
+
+        openPanel();
+      });
+    });
+
+    {% if form.errors %}
+      openPanel();
+    {% endif %}
+
+    {% if messages %}
+      {% for message in messages %}
+        {% if message.tags == 'success' %}
+          showToast('{{ message|escapejs }}', 'success');
+        {% elif message.tags == 'error' %}
+          showToast('{{ message|escapejs }}', 'error');
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  });
+</script>
+{% endblock %}
