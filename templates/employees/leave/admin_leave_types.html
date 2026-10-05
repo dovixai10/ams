@@ -173,6 +173,36 @@
     margin: 0;
   }
 
+  .lt-info {
+    display: inline-block;
+    margin-left: 0.3rem;
+    font-size: 0.95rem;
+    color: #696cff;
+    cursor: help;
+    vertical-align: -0.15em;
+    outline: none;
+  }
+  .lt-info:focus-visible { border-radius: 4px; box-shadow: 0 0 0 2px rgba(105, 108, 255, 0.35); }
+
+  .lt-tip {
+    position: fixed;
+    z-index: 2000;
+    width: max-content;
+    max-width: 240px;
+    padding: 0.5rem 0.7rem;
+    border-radius: 10px;
+    background: #1e1b3a;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.4;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .lt-tip.is-visible { opacity: 1; }
+
   .leave-submit-row {
     grid-column: 1 / -1;
     display: flex;
@@ -457,69 +487,69 @@
       {% csrf_token %}
       <div class="leavetype-form">
         <div class="leave-field">
-          <label for="id_name">Name <span class="text-danger">*</span></label>
+          <label for="id_name">Name <span class="text-danger">*</span><i class="bx bx-info-circle lt-info" tabindex="0" data-tip="The name employees will see, like Earned Leave or Casual Leave."></i></label>
           {{ form.name }}
         </div>
         <div class="leave-field">
-          <label for="id_code">Code <span class="text-danger">*</span></label>
+          <label for="id_code">Code <span class="text-danger">*</span><i class="bx bx-info-circle lt-info" tabindex="0" data-tip="A short code for this leave, like EL or CL. Keep it unique."></i></label>
           {{ form.code }}
         </div>
         <div class="leave-field full-width">
-          <label for="id_description">Description</label>
+          <label for="id_description">Description<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="Optional note telling employees when they can use this leave."></i></label>
           {{ form.description }}
         </div>
         <div class="leave-field">
-          <label for="id_category">Category</label>
+          <label for="id_category">Category<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="Paid: employee still gets salary on leave days. Unpaid: salary is cut for those days."></i></label>
           {{ form.category }}
         </div>
         <div class="leave-field">
-          <label for="id_accrual_frequency">Accrual Frequency</label>
+          <label for="id_accrual_frequency">Accrual Frequency<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="How often leave is added automatically: Monthly, Yearly, One Time (added once), or No Auto Accrual (you add it manually)."></i></label>
           {{ form.accrual_frequency }}
         </div>
         <div class="leave-field">
-          <label for="id_accrual_amount">Accrual Amount (days)</label>
+          <label for="id_accrual_amount">Accrual Amount (days)<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="How many days are added each time. Example: 1 per month, or 15 per year."></i></label>
           {{ form.accrual_amount }}
         </div>
         <div class="leave-field">
-          <label for="id_annual_limit">Annual Limit</label>
+          <label for="id_annual_limit">Annual Limit<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="The most days this leave can be added in one calendar year. Empty = no limit."></i></label>
           {{ form.annual_limit }}
         </div>
         <div class="leave-field">
-          <label for="id_max_balance_cap">Max Balance Cap</label>
+          <label for="id_max_balance_cap">Max Balance Cap<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="The most days an employee can hold at one time. Extra days are not added. Empty = no cap."></i></label>
           {{ form.max_balance_cap }}
         </div>
         <div class="leave-field">
-          <label for="id_carry_forward_cap">Carry Forward Cap</label>
+          <label for="id_carry_forward_cap">Carry Forward Cap<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="The most unused days that move to next year. Empty = no cap. Only used when carry forward is on."></i></label>
           {{ form.carry_forward_cap }}
         </div>
         <div class="leave-field">
-          <label for="id_min_service_days_required">Min Service Days Required</label>
+          <label for="id_min_service_days_required">Min Service Days Required<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="Days an employee must work before they can use this leave. Example: 90 days."></i></label>
           {{ form.min_service_days_required }}
         </div>
         <div class="leave-field">
-          <label for="id_applicable_gender">Applicable Gender</label>
+          <label for="id_applicable_gender">Applicable Gender<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="Limit this leave to one gender, like Maternity for Female. All = everyone."></i></label>
           {{ form.applicable_gender }}
         </div>
         <div class="leave-field">
-          <label for="id_max_consecutive_days">Max Consecutive Days</label>
+          <label for="id_max_consecutive_days">Max Consecutive Days<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="The longest single leave request allowed, in days. Empty = no limit."></i></label>
           {{ form.max_consecutive_days }}
         </div>
         <div class="leave-field">
-          <label for="id_display_order">Display Order</label>
+          <label for="id_display_order">Display Order<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="Position in the list. 0 shows first, bigger numbers show later."></i></label>
           {{ form.display_order }}
         </div>
 
         <div class="leave-switch">
           {{ form.allow_carry_forward }}
-          <label for="id_allow_carry_forward">Allow Carry Forward</label>
+          <label for="id_allow_carry_forward">Allow Carry Forward<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="If on, unused days move to the next year."></i></label>
         </div>
         <div class="leave-switch">
           {{ form.requires_document }}
-          <label for="id_requires_document">Requires Document</label>
+          <label for="id_requires_document">Requires Document<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="If on, employee must upload proof (like a medical certificate) when applying."></i></label>
         </div>
         <div class="leave-switch">
           {{ form.is_active }}
-          <label for="id_is_active">Active</label>
+          <label for="id_is_active">Active<i class="bx bx-info-circle lt-info" tabindex="0" data-tip="If off, employees cannot see or apply for this leave. Old records are kept."></i></label>
         </div>
 
         <div class="leave-submit-row">
@@ -658,6 +688,61 @@
       setTimeout(() => toast.remove(), 300);
     }, 3000);
   }
+
+  (function () {
+    const tip = document.createElement('div');
+    tip.className = 'lt-tip';
+    tip.setAttribute('role', 'tooltip');
+    document.body.appendChild(tip);
+    let active = null;
+
+    function infoOf(node) {
+      return node && node.closest ? node.closest('.lt-info') : null;
+    }
+
+    function show(icon) {
+      active = icon;
+      tip.textContent = icon.dataset.tip || '';
+      const r = icon.getBoundingClientRect();
+      const width = tip.offsetWidth;
+      const height = tip.offsetHeight;
+      let left = Math.min(r.left, window.innerWidth - width - 12);
+      left = Math.max(12, left);
+      let top = r.bottom + 8;
+      if (top + height > window.innerHeight - 12) top = r.top - height - 8;
+      tip.style.left = left + 'px';
+      tip.style.top = Math.max(12, top) + 'px';
+      tip.classList.add('is-visible');
+    }
+
+    function hide() {
+      active = null;
+      tip.classList.remove('is-visible');
+    }
+
+    document.addEventListener('mouseover', function (e) {
+      const icon = infoOf(e.target);
+      if (icon && icon !== active) show(icon);
+    });
+    document.addEventListener('mouseout', function (e) {
+      const icon = infoOf(e.target);
+      if (icon && !infoOf(e.relatedTarget)) hide();
+    });
+    document.addEventListener('focusin', function (e) {
+      const icon = infoOf(e.target);
+      if (icon) show(icon);
+    });
+    document.addEventListener('focusout', function (e) {
+      if (infoOf(e.target)) hide();
+    });
+    document.addEventListener('click', function (e) {
+      const icon = infoOf(e.target);
+      if (!icon) return;
+      e.preventDefault();
+      show(icon);
+    });
+    window.addEventListener('scroll', hide, true);
+  })();
 
   document.addEventListener('DOMContentLoaded', function () {
     const card = document.getElementById('leaveTypeCard');

@@ -124,11 +124,6 @@
         <div>Tasks & Workflows</div>
       </a>
       <ul class="menu-sub">
-        {% if 'tasks.manage' in office_visible_features %}
-        <li class="menu-item"><a href="{% url 'employees:admin_projects' %}" class="menu-link"><div>Projects</div></a></li>
-        <li class="menu-item"><a href="{% url 'employees:admin_tasks' %}" class="menu-link"><div>Task Board</div></a></li>
-        <li class="menu-item"><a href="{% url 'employees:admin_face_update_requests' %}" class="menu-link"><div>Face Update Requests</div></a></li>
-        {% endif %}
         {% if 'teams.manage' in office_visible_features %}
         <!-- Can create/edit/delete teams (branch-wide permission or full admin) - this page also lists every team with an "Open Board" button, so it covers both managing and jumping to a board. -->
         <li class="menu-item"><a href="{% url 'employees:admin_teams' %}" class="menu-link"><div>Teams</div></a></li>
@@ -136,6 +131,12 @@
         <!-- Plain member, no manage permission - one link to "which teams am I on", not a separate line per team. -->
         <li class="menu-item"><a href="{% url 'employees:employee_my_teams' %}" class="menu-link"><div>Teams</div></a></li>
         {% endif %}
+        {% if 'tasks.manage' in office_visible_features %}
+        <li class="menu-item"><a href="{% url 'employees:admin_projects' %}" class="menu-link"><div>Projects</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:admin_tasks' %}" class="menu-link"><div>Task Board</div></a></li>
+        <li class="menu-item"><a href="{% url 'employees:admin_face_update_requests' %}" class="menu-link"><div>Face Update Requests</div></a></li>
+        {% endif %}
+        
       </ul>
     </li>
     {% endif %}
@@ -178,20 +179,7 @@
     {% endif %}
 
 
-    {% if 'tickets.manage' in office_visible_features %}
-    <!-- ===============================
-           SUPPORT GROUP
-    =================================-->
-    <li class="menu-item menu-item-open">
-      <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon bx bx-support"></i>
-        <div>Support</div>
-      </a>
-      <ul class="menu-sub">
-        <li class="menu-item"><a href="{% url 'employees:admin_tickets' %}" class="menu-link"><div>Support Tickets</div></a></li>
-      </ul>
-    </li>
-    {% endif %}
+    
 
 
     {% if 'branches.manage' in office_visible_features or 'roles.manage' in office_visible_features or 'holidays.manage' in office_visible_features or 'rules.manage' in office_visible_features or 'attendance.manage' in office_visible_features or 'employees.manage' in office_visible_features %}
@@ -302,6 +290,21 @@
         <i class="menu-icon bx bx-credit-card-alt"></i>
         <div class="text-truncate">Subscription{% if not office_plan %} <span class="badge bg-warning rounded-pill ms-1">Choose a plan</span>{% endif %}</div>
       </a>
+    </li>
+    {% endif %}
+
+    {% if 'tickets.manage' in office_visible_features %}
+    <!-- ===============================
+           SUPPORT GROUP
+    =================================-->
+    <li class="menu-item menu-item-open">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-support"></i>
+        <div>Support</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item"><a href="{% url 'employees:admin_tickets' %}" class="menu-link"><div>Support Tickets</div></a></li>
+      </ul>
     </li>
     {% endif %}
     

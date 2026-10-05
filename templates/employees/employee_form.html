@@ -314,26 +314,6 @@
                   <small class="text-muted">{{ form.bank_passbook_document.help_text }}</small>
                 {% endif %}
               </div>
-              <div class="col-md-4 mb-3">
-                <label for="{{ form.educational_qualifications.id_for_label }}" class="form-label">
-                  Educational Certificates
-                  {% if form.educational_qualifications.field.required %}<span class="text-danger">*</span>{% endif %}
-                </label>
-                {% render_field form.educational_qualifications class="form-control" %}
-                {% if form.educational_qualifications.errors %}
-                  <div class="text-danger small mt-1">
-                    {% for error in form.educational_qualifications.errors %}
-                      {{ error }}
-                    {% endfor %}
-                  </div>
-                {% endif %}
-                {% if form.instance.pk and form.instance.educational_qualifications %}
-                  <small class="d-block mt-1"><a href="{{ form.instance.educational_qualifications.url }}" target="_blank" rel="noopener" download>Download current file</a></small>
-                {% endif %}
-                {% if form.educational_qualifications.help_text %}
-                  <small class="text-muted">{{ form.educational_qualifications.help_text }}</small>
-                {% endif %}
-              </div>
             </div> -->
 
             <!-- Financial Information -->

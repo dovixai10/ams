@@ -346,7 +346,6 @@ class EmployeeForm(forms.ModelForm):
             'aadhar_card_number', 'account_number', 'ifsc_code', 'pan_card',
             'current_address', 'permanent_address',
             'relative_name', 'relative_contact', 'relation_with_employee',
-            'educational_qualifications',
             'aadhar_document', 'pan_document', 'bank_passbook_document',
             'joining_date', 'department', 'designation', 'employee_type',
             'shift', 'branch', 'roles',
@@ -385,7 +384,6 @@ class EmployeeForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Enter PAN card number'
             }),
-            'educational_qualifications': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'aadhar_document': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'pan_document': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'bank_passbook_document': forms.ClearableFileInput(attrs={'class': 'form-control'}),
@@ -415,7 +413,6 @@ class EmployeeForm(forms.ModelForm):
             'relative_name': 'Name of a relative for emergency contact',
             'relative_contact': 'Contact number of the relative',
             'relation_with_employee': 'Relationship with the employee',
-            'educational_qualifications': 'Upload educational certificates (PDF or image)',
             'aadhar_document': 'Upload Aadhar (PDF or image)',
             'pan_document': 'Upload PAN (PDF or image)',
             'bank_passbook_document': 'Upload bank passbook or cancelled cheque (PDF or image)',
@@ -510,9 +507,8 @@ class EmployeeDocumentForm(forms.ModelForm):
 
     class Meta:
         model = Employee
-        fields = ['educational_qualifications', 'aadhar_document', 'pan_document', 'bank_passbook_document']
+        fields = ['aadhar_document', 'pan_document', 'bank_passbook_document']
         widgets = {
-            'educational_qualifications': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'aadhar_document': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'pan_document': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'bank_passbook_document': forms.ClearableFileInput(attrs={'class': 'form-control'}),
@@ -572,7 +568,6 @@ class EmployeeUpdateForm(forms.ModelForm):
             'aadhar_card_number', 'account_number', 'ifsc_code', 'pan_card',
             'current_address', 'permanent_address',
             'relative_name', 'relative_contact', 'relation_with_employee',
-            'educational_qualifications',
             'aadhar_document', 'pan_document', 'bank_passbook_document',
             'joining_date', 'department', 'designation', 'employee_type',
             'shift', 'branch', 'roles',
@@ -611,7 +606,6 @@ class EmployeeUpdateForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Enter PAN card number'
             }),
-            'educational_qualifications': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'aadhar_document': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'pan_document': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'bank_passbook_document': forms.ClearableFileInput(attrs={'class': 'form-control'}),
@@ -641,7 +635,6 @@ class EmployeeUpdateForm(forms.ModelForm):
             'relative_name': 'Name of a relative for emergency contact',
             'relative_contact': 'Contact number of the relative',
             'relation_with_employee': 'Relationship with the employee',
-            'educational_qualifications': 'Mention highest education, degrees, and institutes',
             'aadhar_document': 'Upload Aadhar (PDF or image)',
             'pan_document': 'Upload PAN (PDF or image)',
             'bank_passbook_document': 'Upload bank passbook or cancelled cheque (PDF or image)',

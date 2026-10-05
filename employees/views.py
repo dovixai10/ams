@@ -3006,11 +3006,23 @@ def employee_detail(request, pk):
 
     monthly_ctc = current_salary.gross_salary + current_salary.fixed_deductions if current_salary else 0
 
+    latest_upload_by_type = {}
+    for doc in employee.documents.select_related('document_type').order_by('-uploaded_at'):
+        latest_upload_by_type.setdefault(doc.document_type_id, doc)
+    applicable_types = DocumentType.objects.filter(
+        office=employee.office, is_active=True,
+    ).filter(Q(branch__isnull=True) | Q(branch=employee.branch))
+    document_rows = [
+        {'type': dt, 'doc': latest_upload_by_type.pop(dt.pk, None)}
+        for dt in applicable_types
+    ]
+    document_rows += [{'type': doc.document_type, 'doc': doc} for doc in latest_upload_by_type.values()]
 
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'employee': employee,
+        'document_rows': document_rows,
         'total_attendance': total_attendance,
         'current_month_attendance': current_month_attendance,
         'recent_attendance': recent_attendance,
@@ -9461,6 +9473,36 @@ def _build_salary_slip_pdf(salary_slip):
     elements.append(info_table)
     elements.append(Spacer(1, 8 * mm))
 
+    calc = calculate_salary_for_month(employee, salary_slip.month.year, salary_slip.month.month)
+    if calc:
+        def _days(value):
+            return f"{value:g}"
+
+        attendance_table = Table(
+            [
+                ['Days in Month', _days(calc['total_days']), 'Holidays & Sundays', _days(calc['holidays'])],
+                ['Present Days', _days(calc['present_days']), 'Paid Leave Days', _days(calc['paid_leave_days'])],
+                ['Paid Days', _days(calc['paid_days']), 'LWP Days', _days(calc['lwp_days'])],
+                ['Per Day Salary (₹)', f"{calc['per_day_salary']:,.2f}", 'LWP Deduction (₹)', f"{calc['lwp_deduction']:,.2f}"],
+            ],
+            colWidths=[42.5 * mm, 42.5 * mm, 42.5 * mm, 42.5 * mm],
+        )
+        attendance_table.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#6b7280')),
+            ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#6b7280')),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(Paragraph("Attendance Breakdown", section_style))
+        elements.append(attendance_table)
+        elements.append(Spacer(1, 8 * mm))
+
     amount_style = ParagraphStyle('Amount', parent=styles['Normal'], alignment=TA_RIGHT)
     earnings_deductions = Table(
         [
@@ -10605,25 +10647,14 @@ from datetime import date as date_cls
 # ---------------------------------------------------------------------------
 
 def get_holidays_in_month(year, month):
-    """Returns a set of dates that are holidays: every Sunday + the
-    1st, 3rd, and 5th Saturday of the month. Adjust here if your holiday
-    policy differs (e.g. if you have a separate Holiday model)."""
-    holidays = set()
-    saturdays = []
+    """Returns the weekly-off dates for the month: every Sunday. Other
+    holidays come from the Holiday model, managed per office."""
     total_days = cal_module.monthrange(year, month)[1]
-
-    for day in range(1, total_days + 1):
-        d = date_cls(year, month, day)
-        if d.weekday() == 6:  # Sunday
-            holidays.add(d)
-        elif d.weekday() == 5:  # Saturday
-            saturdays.append(d)
-
-    for idx, sat in enumerate(saturdays, start=1):
-        if idx in (1, 3, 5):
-            holidays.add(sat)
-
-    return holidays
+    return {
+        date_cls(year, month, day)
+        for day in range(1, total_days + 1)
+        if date_cls(year, month, day).weekday() == 6
+    }
 
 
 def get_salary_profile_for_month(employee, year, month):
@@ -10645,51 +10676,111 @@ def get_salary_profile_for_month(employee, year, month):
     )
 
 
+def _attendance_paid_fraction(record, thresholds):
+    """How much of a working day an attendance row pays: 1 for a full day,
+    0.5 for a half day, 0 otherwise. With a punch-out and a shift, worked
+    hours are judged against the office's current attendance rule; manual
+    rows without punches fall back to their saved status."""
+    from .shift_attendance_logic import attendance_worked_hours
+
+    if record.check_in_time and not record.check_out_time:
+        return 0
+
+    status_fallback = {'present': 1, 'half_day': 0.5, 'late_penalty': 0.5}.get(record.final_status, 0)
+    if thresholds is None or not record.check_out_time:
+        return status_fallback
+
+    hours = attendance_worked_hours(record)
+    if hours >= thresholds['full_day_threshold']:
+        fraction = 1
+    elif hours >= thresholds['half_day_threshold']:
+        fraction = 0.5
+    else:
+        fraction = 0
+    if record.final_status == 'late_penalty':
+        fraction = min(fraction, 0.5)
+    return fraction
+
+
 def calculate_salary_for_month(employee, year, month):
     """Computes attendance-adjusted payable salary for one employee for one
     month, using whichever EmployeeSalary row was effective during THAT
     month (picked via effective_from) — not just their current/latest row.
     Returns None if no salary profile was effective yet for that month
     (e.g. viewing a month before the employee had any salary set up)."""
-    from employees.models import Attendance  # adjust import/model name if different
+    from datetime import timedelta
+    from employees.models import Attendance, Holiday
 
     salary_profile = get_salary_profile_for_month(employee, year, month)
     if not salary_profile:
         return None
 
     total_days = cal_module.monthrange(year, month)[1]
-    holiday_dates = get_holidays_in_month(year, month)
-    working_days = total_days - len(holiday_dates)
+    month_start = date_cls(year, month, 1)
+    month_end = date_cls(year, month, total_days)
 
-    attendance_qs = Attendance.objects.filter(
+    holiday_dates = set(get_holidays_in_month(year, month))
+    if employee.office_id:
+        holiday_dates |= set(
+            Holiday.objects.filter(
+                office_id=employee.office_id,
+                date__range=(month_start, month_end),
+            ).filter(
+                Q(branch__isnull=True) | Q(branch_id=employee.branch_id)
+            ).values_list('date', flat=True)
+        )
+
+    attendance_by_date = {
+        a.date: a
+        for a in Attendance.objects.filter(employee=employee, date__range=(month_start, month_end))
+    }
+
+    from .shift_attendance_logic import get_shift_thresholds
+    thresholds = get_shift_thresholds(employee.shift, office=employee.office) if employee.shift_id else None
+
+    paid_leave_fraction_by_date = {}
+    paid_leaves = LeaveRequest.objects.filter(
         employee=employee,
-        date__year=year,
-        date__month=month,
+        status=LeaveRequest.Status.APPROVED,
+        leave_category=LeaveRequest.LeaveCategory.PAID,
+        start_date__lte=month_end,
+        end_date__gte=month_start,
     )
-    attendance_by_date = {a.date: a for a in attendance_qs}
+    for leave in paid_leaves:
+        fraction = 0.5 if leave.leave_type in (LeaveRequest.LeaveType.FIRST_HALF, LeaveRequest.LeaveType.SECOND_HALF) else 1
+        day = max(leave.start_date, month_start)
+        last = min(leave.end_date, month_end)
+        while day <= last:
+            paid_leave_fraction_by_date[day] = min(1, paid_leave_fraction_by_date.get(day, 0) + fraction)
+            day += timedelta(days=1)
 
     present_days = 0
     half_days = 0
-    lwp_days = 0
+    paid_leave_days = 0
+    paid_days = 0
 
     for day_num in range(1, total_days + 1):
         d = date_cls(year, month, day_num)
+        leave_fraction = paid_leave_fraction_by_date.get(d, 0)
+
         if d in holiday_dates:
+            paid_days += 1
             continue
 
         record = attendance_by_date.get(d)
-        if record:
-            if getattr(record, 'is_half_day', False):
-                half_days += 1
-                present_days += 0.5
-                lwp_days += 0.5
-            else:
-                present_days += 1
-        else:
-            lwp_days += 1
+        attendance_fraction = _attendance_paid_fraction(record, thresholds) if record else 0
+        if attendance_fraction == 0.5:
+            half_days += 1
+        present_days += attendance_fraction
 
+        day_paid = min(1, attendance_fraction + leave_fraction)
+        paid_leave_days += day_paid - attendance_fraction
+        paid_days += day_paid
+
+    holidays = len(holiday_dates)
+    lwp_days = total_days - paid_days
     base_amount = salary_profile.net_salary_before_attendance
-    per_day_salary = (base_amount / working_days) if working_days else 0
+    per_day_salary = base_amount / total_days if total_days else 0
     lwp_deduction = per_day_salary * lwp_days
     payable_salary = base_amount - lwp_deduction
 
@@ -10697,10 +10788,12 @@ def calculate_salary_for_month(employee, year, month):
         'salary_profile': salary_profile,
         'effective_from': salary_profile.effective_from,
         'total_days': total_days,
-        'working_days': working_days,
-        'holidays': len(holiday_dates),
+        'working_days': total_days - holidays,
+        'holidays': holidays,
         'present_days': present_days,
         'half_days': half_days,
+        'paid_leave_days': paid_leave_days,
+        'paid_days': paid_days,
         'lwp_days': lwp_days,
         'per_day_salary': round(per_day_salary, 2),
         'lwp_deduction': round(lwp_deduction, 2),

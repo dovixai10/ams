@@ -490,14 +490,6 @@ class Employee(models.Model):
         help_text="Employee's PAN card number"
     )
 
-    educational_qualifications = models.FileField(
-        upload_to='employee_docs/education/',
-        blank=True,
-        null=True,
-        validators=[FileExtensionValidator(['jpg', 'jpeg', 'png', 'pdf'])],
-        help_text="Uploaded copy of the employee's educational certificates"
-    )
-
     # Document Uploads
     aadhar_document = models.FileField(
         upload_to='employee_docs/aadhar/',

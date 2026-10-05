@@ -112,7 +112,6 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
             'aadhar_document': _absolute_file_url(obj.aadhar_document, request),
             'pan_document': _absolute_file_url(obj.pan_document, request),
             'bank_passbook_document': _absolute_file_url(obj.bank_passbook_document, request),
-            'educational_qualifications': _absolute_file_url(obj.educational_qualifications, request),
         }
 
     def get_has_registered_face(self, obj):

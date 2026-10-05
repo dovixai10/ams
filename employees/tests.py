@@ -13,7 +13,7 @@ from .models import Employee
 
 
 class EmployeeFormTests(TestCase):
-    def test_employee_form_sets_legacy_name_and_accepts_educational_qualifications(self):
+    def test_employee_form_sets_legacy_name(self):
         form_data = {
             'full_name': 'Jane Doe',
             'email': 'jane@example.com',
@@ -27,20 +27,15 @@ class EmployeeFormTests(TestCase):
             'relative_name': 'John Doe',
             'relative_contact': '+918888888888',
             'relation_with_employee': 'Brother',
-            'educational_qualifications': 'B.Tech, XYZ University',
             'password': 'StrongPass123',
             'confirm_password': 'StrongPass123',
         }
 
-        sample_file = SimpleUploadedFile('degree.pdf', b'%PDF-1.4 education', content_type='application/pdf')
-
-        form = EmployeeForm(data=form_data, files={'educational_qualifications': sample_file})
+        form = EmployeeForm(data=form_data)
         self.assertTrue(form.is_valid(), form.errors)
         employee = form.save(commit=False)
         self.assertEqual(employee.full_name, 'Jane Doe')
         self.assertEqual(employee.name, 'Jane Doe')
-        self.assertTrue(employee.educational_qualifications)
-        self.assertIn('degree.pdf', employee.educational_qualifications.name)
 
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
@@ -70,12 +65,10 @@ class EmployeeDocumentUploadViewTests(TestCase):
         self.client.login(username='employee@example.com', password='testpass123')
 
         sample_file = SimpleUploadedFile('doc.pdf', b'%PDF-1.4 sample content', content_type='application/pdf')
-        degree_file = SimpleUploadedFile('degree.pdf', b'%PDF-1.4 degree', content_type='application/pdf')
 
         response = self.client.post(
             reverse('employees:employee_documents'),
             data={
-                'educational_qualifications': degree_file,
                 'aadhar_document': sample_file,
                 'pan_document': sample_file,
                 'bank_passbook_document': sample_file,
@@ -85,14 +78,12 @@ class EmployeeDocumentUploadViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.employee.refresh_from_db()
-        self.assertTrue(self.employee.educational_qualifications.name)
         self.assertTrue(self.employee.aadhar_document.name)
         self.assertTrue(self.employee.pan_document.name)
         self.assertTrue(self.employee.bank_passbook_document.name)
 
         # Ensure files actually exist on disk
         for doc_field in [
-            self.employee.educational_qualifications,
             self.employee.aadhar_document,
             self.employee.pan_document,
             self.employee.bank_passbook_document,

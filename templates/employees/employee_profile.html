@@ -463,18 +463,6 @@
               {% endif %}
             </div>
 
-            <div class="document-status-card">
-              <div class="document-status-header">
-                <span class="document-status-icon bg-label-success"><i class="bx bx-book"></i></span>
-                <span class="document-status-title">Education proof</span>
-              </div>
-              {% if employee.educational_qualifications %}
-                <span class="badge bg-label-success">Uploaded</span>
-                <a href="{{ employee.educational_qualifications.url }}" class="document-status-link" target="_blank" rel="noopener">View file</a>
-              {% else %}
-                <span class="badge bg-label-warning">Pending</span>
-              {% endif %}
-            </div>
           </div>
 
           <div>

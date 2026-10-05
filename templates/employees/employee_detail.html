@@ -471,15 +471,6 @@
 
             <div class="row mb-3 info-row">
               <div class="col-sm-4">
-                <strong>Educational Qualifications</strong>
-              </div>
-              <div class="col-sm-8">
-                {{ employee.educational_qualifications|default:"Not provided"|linebreaks }}
-              </div>
-            </div>
-
-            <div class="row mb-3 info-row">
-              <div class="col-sm-4">
                 <strong>Face Recognition</strong>
               </div>
               <div class="col-sm-8">
@@ -515,6 +506,66 @@
         </div>
       </div>
 
+      <!-- Employment Details -->
+      <div class="col-xl-6 col-lg-12 col-md-12">
+        <div class="card h-100 border-0 shadow-sm card-hover-lift">
+          <div class="card-header bg-white border-0 pb-0">
+            <h5 class="card-title m-0 section-heading">Employment Details</h5>
+          </div>
+          <div class="card-body pt-3">
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4"><strong>Date of Joining</strong></div>
+              <div class="col-sm-8">{{ employee.joining_date|date:"M d, Y"|default:"Not provided" }}</div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4"><strong>Branch</strong></div>
+              <div class="col-sm-8">
+                {% if employee.branch %}
+                  {{ employee.branch.name }}
+                  {% if employee.branch.is_head_office %}<span class="badge bg-label-primary ms-1">Head Office</span>{% endif %}
+                {% else %}
+                  Not assigned
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4"><strong>Department</strong></div>
+              <div class="col-sm-8">{{ employee.department.name|default:"Not assigned" }}</div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4"><strong>Designation</strong></div>
+              <div class="col-sm-8">{{ employee.designation.name|default:"Not assigned" }}</div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4"><strong>Employment Type</strong></div>
+              <div class="col-sm-8">{{ employee.employee_type.name|default:"Not assigned" }}</div>
+            </div>
+
+            <div class="row mb-3 info-row">
+              <div class="col-sm-4"><strong>Shift</strong></div>
+              <div class="col-sm-8">{{ employee.shift.name|default:"Not assigned" }}</div>
+            </div>
+
+            <div class="row info-row mb-0">
+              <div class="col-sm-4"><strong>Roles</strong></div>
+              <div class="col-sm-8">
+                {% with employee_roles=employee.roles.all %}
+                  {% for role in employee_roles %}
+                    <span class="badge bg-label-info me-1 mb-1">{{ role.name }}</span>
+                  {% empty %}
+                    <span class="text-muted">No roles assigned</span>
+                  {% endfor %}
+                {% endwith %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Document Uploads & Address Information -->
       <div class="col-xl-6 col-lg-12 col-md-12">
         <div class="card h-100 border-0 shadow-sm card-hover-lift">
@@ -534,54 +585,64 @@
           </div>
           <div class="card-body pt-3">
             <div class="document-admin-grid mb-4">
-              {% for doc in employee.documents.all %}
+              {% for row in document_rows %}
+                {% with doc=row.doc %}
                 <div class="document-admin-card">
                   <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="fw-semibold">{{ doc.document_type.name }}</span>
-                    <span class="badge 
-                      {% if doc.status == 'verified' %}
-                        bg-label-success
-                      {% elif doc.status == 'submitted' %}
-                        bg-label-info
-                      {% elif doc.status == 'rejected' %}
-                        bg-label-danger
-                      {% else %}
-                        bg-label-warning
-                      {% endif %}
-                    ">{{ doc.get_status_display }}</span>
+                    <span class="fw-semibold">{{ row.type.name }}</span>
+                    {% if doc %}
+                      <span class="badge
+                        {% if doc.status == 'verified' %}
+                          bg-label-success
+                        {% elif doc.status == 'submitted' %}
+                          bg-label-info
+                        {% elif doc.status == 'rejected' %}
+                          bg-label-danger
+                        {% else %}
+                          bg-label-warning
+                        {% endif %}
+                      ">{{ doc.get_status_display }}</span>
+                    {% else %}
+                      <span class="badge bg-label-secondary">Not uploaded</span>
+                    {% endif %}
                   </div>
-                  {% if doc.needs_resubmission %}
-                    <div class="alert alert-warning py-2 px-3 mb-2">
-                      <i class="bx bx-info-circle me-1"></i>
-                      Resubmission requested
-                      {% if doc.resubmit_reason %}
-                        <div class="small mb-0">{{ doc.resubmit_reason }}</div>
-                      {% endif %}
-                    </div>
-                  {% endif %}
-                  {% if doc.file %}
-                    <div class="mb-2 d-flex flex-wrap gap-2">
-                      <button type="button"
-                              class="btn btn-sm btn-outline-primary"
-                              data-view-document
-                              data-doc-url="{{ doc.file.url }}"
-                              data-doc-title="{{ doc.document_type.name }}">
-                        <i class="bx bx-show me-1"></i>View
-                      </button>
-                      {% if doc.status != 'verified' %}
-                        <button class="btn btn-sm btn-outline-success verify-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.document_type.name }}">
-                          <i class="bx bx-check me-1"></i>Verify
+                  {% if doc %}
+                    {% if doc.needs_resubmission %}
+                      <div class="alert alert-warning py-2 px-3 mb-2">
+                        <i class="bx bx-info-circle me-1"></i>
+                        Resubmission requested
+                        {% if doc.resubmit_reason %}
+                          <div class="small mb-0">{{ doc.resubmit_reason }}</div>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                    {% if doc.file %}
+                      <div class="mb-2 d-flex flex-wrap gap-2">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                data-view-document
+                                data-doc-url="{{ doc.file.url }}"
+                                data-doc-title="{{ row.type.name }}">
+                          <i class="bx bx-show me-1"></i>View
                         </button>
-                      {% endif %}
-                      <button class="btn btn-sm btn-outline-warning resubmit-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ doc.document_type.name }}">
-                        <i class="bx bx-refresh me-1"></i>Request Resubmit
-                      </button>
-                    </div>
-                    <small class="text-muted d-block">Uploaded: {{ doc.uploaded_at|date:"M d, Y H:i" }}</small>
+                        {% if doc.status != 'verified' %}
+                          <button class="btn btn-sm btn-outline-success verify-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ row.type.name }}">
+                            <i class="bx bx-check me-1"></i>Verify
+                          </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-warning resubmit-doc-btn" data-doc-id="{{ doc.id }}" data-doc-type="{{ row.type.name }}">
+                          <i class="bx bx-refresh me-1"></i>Request Resubmit
+                        </button>
+                      </div>
+                      <small class="text-muted d-block">Uploaded: {{ doc.uploaded_at|date:"M d, Y H:i" }}</small>
+                    {% else %}
+                      <span class="text-muted small">No file uploaded</span>
+                    {% endif %}
                   {% else %}
-                    <span class="text-muted small">No file uploaded</span>
+                    <span class="text-muted small">Employee has not uploaded this document yet</span>
                   {% endif %}
                 </div>
+                {% endwith %}
               {% empty %}
                 <div class="col-12">
                   <div class="alert alert-info mb-0">
