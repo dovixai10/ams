@@ -3,6 +3,7 @@ import logging
 
 from celery import shared_task
 
+from .integrations.crm_whatsapp import poll_all_sources
 from .integrations.services import deliver_log, dispatch_due_schedules
 from .integrations.whatsapp_client import WhatsAppError
 from .models import WhatsAppMessageLog
@@ -17,6 +18,17 @@ def dispatch_due_whatsapp_reports():
     if ran:
         logger.info('Dispatched WhatsApp report schedules: %s', ran)
     return ran
+
+
+@shared_task(name='employees.tasks.poll_crm_whatsapp_leads')
+def poll_crm_whatsapp_leads():
+    """Beat runs this every couple of minutes: pull new messages from each
+    office's configured WhatsApp lead source and create Leads from them."""
+    results = poll_all_sources()
+    created = sum(results.values())
+    if created:
+        logger.info('CRM WhatsApp poll created %s lead(s) across %s office(s)', created, len(results))
+    return results
 
 
 @shared_task(bind=True, max_retries=3, name='employees.tasks.send_whatsapp_log')

@@ -1,5 +1,5 @@
 from django.urls import path, include
-from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views, integration_views, reports_views, subscription_views
+from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views, integration_views, reports_views, subscription_views, crm_views, invoice_views
 
 app_name = 'employees'
 
@@ -295,6 +295,32 @@ urlpatterns = [
     # Reports
     path('reports/employee-performance/', reports_views.employee_performance_report, name='employee_performance_report'),
     path('reports/employee-performance/export/', reports_views.employee_performance_export, name='employee_performance_export'),
+
+    # CRM - Leads
+    path('crm/leads/', crm_views.crm_leads, name='crm_leads'),
+    path('crm/leads/add/', crm_views.crm_lead_create, name='crm_lead_create'),
+    path('crm/leads/import/', crm_views.crm_lead_import, name='crm_lead_import'),
+    path('crm/leads/import/sample/', crm_views.crm_lead_import_sample, name='crm_lead_import_sample'),
+    path('crm/leads/export/', crm_views.crm_lead_export, name='crm_lead_export'),
+    path('crm/leads/<int:pk>/update/', crm_views.crm_lead_update, name='crm_lead_update'),
+    path('crm/leads/<int:pk>/delete/', crm_views.crm_lead_delete, name='crm_lead_delete'),
+    path('crm/leads/bulk-delete/', crm_views.crm_lead_bulk_delete, name='crm_lead_bulk_delete'),
+    path('crm/settings/', crm_views.crm_settings, name='crm_settings'),
+    # Public sample lead-capture page for one office - no login required.
+    path('l/<slug:slug>/', crm_views.crm_public_lead_page, name='crm_public_lead_page'),
+
+    # Invoicing
+    path('invoices/', invoice_views.invoice_list, name='invoice_list'),
+    path('invoices/create/', invoice_views.invoice_create, name='invoice_create'),
+    path('invoices/<int:pk>/edit/', invoice_views.invoice_create, name='invoice_update'),
+    path('invoices/<int:pk>/delete/', invoice_views.invoice_delete, name='invoice_delete'),
+    path('invoices/<int:pk>/cancel/', invoice_views.invoice_cancel, name='invoice_cancel'),
+    path('invoices/<int:pk>/download/', invoice_views.invoice_download_pdf, name='invoice_download_pdf'),
+    path('invoices/clients/', invoice_views.clients_view, name='invoice_clients'),
+    path('invoices/clients/<int:pk>/update/', invoice_views.client_update, name='invoice_client_update'),
+    path('invoices/clients/<int:pk>/toggle/', invoice_views.client_toggle, name='invoice_client_toggle'),
+    path('invoices/clients/<int:pk>/delete/', invoice_views.client_delete, name='invoice_client_delete'),
+    path('invoices/settings/', invoice_views.invoice_settings, name='invoice_settings'),
 
     # Employee attribute types (Designation / Department / Employment Type)
     path('employee-settings/<str:kind>/', views.admin_employee_attribute_types, name='admin_employee_attribute_types'),

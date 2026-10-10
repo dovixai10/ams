@@ -1,0 +1,765 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Lead Management | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .crm-page {
+    --crm-primary: #696CFF;
+    --crm-secondary: #8592A3;
+    --crm-success: #71DD37;
+    --crm-info: #03C3EC;
+    --crm-warning: #FFAB00;
+    --crm-danger: #FF3E1D;
+    --crm-dark: #2B2C40;
+    --crm-body: #566A7F;
+    --crm-bg: #F5F6FA;
+    --crm-card: #FFFFFF;
+    --crm-border: #E5E7EF;
+    --crm-light-primary: #F0F0FF;
+    --crm-light-blue: #EEF5FF;
+    --crm-light-green: #E8F8EE;
+    --crm-light-orange: #FFF5E5;
+    --crm-light-red: #FFF0F0;
+    --crm-gradient: linear-gradient(135deg, #696CFF, #8B5CF6);
+    color: var(--crm-dark);
+  }
+  .crm-page * { box-sizing: border-box; }
+  .crm-page a { text-decoration: none; }
+
+  .crm-breadcrumb { font-size: 0.72rem; color: var(--crm-secondary); margin-bottom: 0.4rem; }
+  .crm-breadcrumb a { color: var(--crm-secondary); }
+  .crm-breadcrumb .sep { margin: 0 0.3rem; }
+  .crm-breadcrumb .current { color: var(--crm-primary); font-weight: 600; }
+
+  .crm-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .crm-header h1 { font-size: 20px; font-weight: 600; color: var(--crm-dark); margin: 0 0 0.2rem; }
+  .crm-header p { font-size: 0.8rem; color: var(--crm-body); margin: 0; max-width: 62ch; }
+  .crm-header-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+  .crm-btn {
+    display: inline-flex; align-items: center; gap: 0.4rem; font-size: 11px; font-weight: 600;
+    padding: 0.5rem 0.9rem; border-radius: 6px; border: 1px solid var(--crm-border);
+    background: #fff; color: var(--crm-dark); cursor: pointer; white-space: nowrap;
+  }
+  .crm-btn:hover { border-color: var(--crm-primary); color: var(--crm-primary); }
+  .crm-btn-primary { background: var(--crm-gradient); color: #fff; border: none; box-shadow: 0 8px 18px rgba(105,108,255,0.3); }
+  .crm-btn-primary:hover { color: #fff; opacity: 0.94; }
+  .crm-dropdown { position: relative; }
+  .crm-dropdown-menu {
+    display: none; position: absolute; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid var(--crm-border);
+    border-radius: 8px; box-shadow: 0 10px 24px rgba(43,44,64,0.1); min-width: 200px; z-index: 40; padding: 0.35rem;
+  }
+  .crm-dropdown.open .crm-dropdown-menu { display: block; }
+  .crm-dropdown-menu a, .crm-dropdown-menu button {
+    display: block; width: 100%; text-align: left; padding: 0.5rem 0.6rem; border-radius: 6px; border: none; background: none;
+    font-size: 11px; color: var(--crm-dark); cursor: pointer;
+  }
+  .crm-dropdown-menu a:hover, .crm-dropdown-menu button:hover { background: var(--crm-light-primary); color: var(--crm-primary); }
+  .crm-dropdown-menu button:disabled { color: #c3c7d1; cursor: not-allowed; }
+  .crm-dropdown-menu button:disabled:hover { background: none; }
+
+  .crm-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 10px; }
+  .crm-kpi-card { background: var(--crm-card); border: 1px solid var(--crm-border); border-radius: 8px; padding: 0.85rem 1rem; display: flex; gap: 0.7rem; align-items: center; min-height: 80px; box-shadow: 0 2px 8px rgba(67,89,113,0.06); }
+  .crm-kpi-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-size: 1.1rem; flex-shrink: 0; }
+  .crm-kpi-label { font-size: 10px; color: var(--crm-body); margin-bottom: 0.2rem; }
+  .crm-kpi-value { font-size: 21px; font-weight: 600; color: var(--crm-dark); line-height: 1.1; }
+  .crm-kpi-change { font-size: 10px; font-weight: 600; margin-top: 0.15rem; }
+  .crm-kpi-change.up { color: var(--crm-success); }
+  .crm-kpi-change.down { color: var(--crm-danger); }
+  .crm-kpi-change .muted { color: #a7adbb; font-weight: 400; margin-left: 0.2rem; }
+
+  .crm-pipeline { background: var(--crm-card); border: 1px solid var(--crm-border); border-radius: 8px; padding: 0.75rem; margin-bottom: 10px; display: flex; align-items: center; gap: 0.4rem; overflow-x: auto; }
+  .crm-stage { flex: 1 1 0; min-width: 130px; display: flex; align-items: center; gap: 0.55rem; padding: 0.55rem 0.7rem; border-radius: 8px; height: 60px; }
+  .crm-stage-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; font-size: 0.85rem; }
+  .crm-stage-name { font-size: 10px; color: var(--crm-body); }
+  .crm-stage-count { font-size: 15px; font-weight: 700; color: var(--crm-dark); line-height: 1.1; }
+  .crm-stage-pct { font-size: 9px; color: var(--crm-body); }
+  .crm-stage.active { outline: 2px solid var(--crm-primary); }
+  .crm-chevron { color: #c3c7d1; font-size: 1rem; flex-shrink: 0; }
+
+  .crm-grid { display: grid; grid-template-columns: 81fr 19fr; gap: 12px; align-items: start; }
+
+  .crm-card { background: var(--crm-card); border: 1px solid var(--crm-border); border-radius: 8px; box-shadow: 0 2px 8px rgba(67,89,113,0.06); }
+
+  .crm-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem; border-bottom: 1px solid var(--crm-border); }
+  .crm-toolbar input, .crm-toolbar select {
+    font-size: 11px; padding: 0.42rem 0.6rem; border-radius: 6px; border: 1px solid var(--crm-border); background: #fff; color: var(--crm-dark);
+  }
+  .crm-toolbar .crm-search { flex: 1 1 180px; min-width: 150px; }
+  .crm-toolbar .crm-date { width: 135px; }
+
+  .crm-bulk-delete-btn {
+    display: none; color: var(--crm-danger); border-color: var(--crm-danger); background: var(--crm-light-red);
+  }
+  .crm-bulk-delete-btn.show { display: inline-flex; }
+
+  .crm-table-wrap { overflow-x: auto; }
+  table.crm-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.crm-table th {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; color: var(--crm-body);
+    text-align: left; padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--crm-border); white-space: nowrap;
+  }
+  table.crm-table td { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--crm-border); vertical-align: middle; height: 40px; }
+  table.crm-table tr:hover td { background: #FAFBFF; }
+  .crm-row-num { color: #a7adbb; }
+  .crm-name-cell { display: flex; align-items: center; gap: 0.5rem; }
+  .crm-avatar { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--crm-light-primary); color: var(--crm-primary); font-weight: 700; font-size: 11px; flex-shrink: 0; object-fit: cover; }
+  .crm-lead-name { font-size: 11px; font-weight: 500; color: var(--crm-dark); }
+  .crm-lead-company { font-size: 9px; color: var(--crm-body); }
+  .crm-contact-phone { font-size: 11px; color: var(--crm-dark); }
+  .crm-contact-email { font-size: 10px; color: var(--crm-body); }
+
+  .crm-badge { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 10px; font-weight: 600; padding: 0.25rem 0.55rem; border-radius: 999px; white-space: nowrap; }
+  .crm-badge--website { background: var(--crm-light-blue); color: #0b8fb0; }
+  .crm-badge--whatsapp { background: var(--crm-light-green); color: #3f9a1c; }
+  .crm-badge--csv { background: var(--crm-light-primary); color: var(--crm-primary); }
+  .crm-badge--manual { background: #F1F2F5; color: var(--crm-secondary); }
+
+  .crm-status { display: inline-flex; font-size: 10px; font-weight: 600; padding: 0.28rem 0.6rem; border-radius: 5px; white-space: nowrap; }
+  .crm-status--new { background: var(--crm-light-blue); color: #0b8fb0; }
+  .crm-status--contacted { background: #E3F2FD; color: #1668b5; }
+  .crm-status--interested { background: var(--crm-light-orange); color: #b06a00; }
+  .crm-status--proposal_sent { background: var(--crm-light-primary); color: var(--crm-primary); }
+  .crm-status--follow_up { background: var(--crm-light-red); color: #c23616; }
+  .crm-status--converted { background: var(--crm-light-green); color: #3f9a1c; }
+  .crm-status--lost { background: #F1F2F5; color: var(--crm-secondary); }
+
+  .crm-assignee { display: flex; align-items: center; gap: 0.4rem; }
+  .crm-assignee .crm-avatar { width: 23px; height: 23px; font-size: 9px; }
+  .crm-assignee-name { font-size: 10.5px; color: var(--crm-dark); }
+
+  .crm-activity-desc { font-size: 10.5px; color: var(--crm-dark); }
+  .crm-activity-time { font-size: 9px; color: var(--crm-body); }
+
+  .crm-actions-cell { display: flex; align-items: center; gap: 0.3rem; }
+  .crm-icon-btn {
+    width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--crm-border);
+    background: #fff; color: var(--crm-body); font-size: 0.8rem; cursor: pointer;
+  }
+  .crm-icon-btn:hover { border-color: var(--crm-primary); color: var(--crm-primary); }
+  .crm-icon-btn.wa:hover { border-color: var(--crm-success); color: var(--crm-success); }
+  .crm-icon-btn.danger:hover { border-color: var(--crm-danger); color: var(--crm-danger); }
+
+  .crm-table-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem; padding: 0.75rem; font-size: 10.5px; color: var(--crm-body); }
+  .crm-table-footer select { font-size: 10.5px; padding: 0.2rem 0.4rem; border-radius: 6px; border: 1px solid var(--crm-border); }
+  .crm-pagination { display: flex; gap: 0.3rem; align-items: center; }
+  .crm-pagination a, .crm-pagination span {
+    width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--crm-border);
+    color: var(--crm-dark); font-size: 10.5px; background: #fff;
+  }
+  .crm-pagination a:hover { border-color: var(--crm-primary); color: var(--crm-primary); }
+  .crm-pagination .active { background: var(--crm-gradient); color: #fff; border: none; }
+  .crm-pagination .disabled { opacity: 0.4; }
+
+  .crm-sidebar { display: flex; flex-direction: column; gap: 10px; }
+  .crm-sidebar-card { padding: 0.9rem; }
+  .crm-sidebar-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
+  .crm-sidebar-head h6 { font-size: 13px; font-weight: 600; color: var(--crm-dark); margin: 0; }
+  .crm-sidebar-head a { font-size: 10px; color: var(--crm-primary); font-weight: 600; }
+
+  .crm-field { margin-bottom: 0.6rem; }
+  .crm-field label { display: block; font-size: 10px; font-weight: 600; color: var(--crm-body); margin-bottom: 0.25rem; }
+  .crm-field input, .crm-field select, .crm-field textarea {
+    width: 100%; font-size: 11px; padding: 0.5rem 0.6rem; border-radius: 6px; border: 1px solid var(--crm-border); background: #fff; color: var(--crm-dark);
+  }
+  .crm-field textarea { resize: vertical; min-height: 60px; }
+  .crm-save-btn { width: 100%; border: none; background: var(--crm-gradient); color: #fff; font-size: 11px; font-weight: 600; padding: 0.6rem; border-radius: 6px; cursor: pointer; margin-top: 0.3rem; }
+
+  .crm-upload-box { border: 1.5px dashed var(--crm-border); border-radius: 8px; padding: 1.1rem 0.8rem; text-align: center; background: var(--crm-light-blue); }
+  .crm-upload-box i { font-size: 1.6rem; color: var(--crm-primary); }
+  .crm-upload-box .title { font-size: 11px; font-weight: 600; color: var(--crm-dark); margin: 0.3rem 0 0.1rem; }
+  .crm-upload-box .hint { font-size: 9.5px; color: var(--crm-body); margin-bottom: 0.5rem; }
+  .crm-choose-btn { font-size: 10.5px; font-weight: 600; padding: 0.4rem 0.9rem; border-radius: 6px; border: 1px solid var(--crm-primary); background: #fff; color: var(--crm-primary); cursor: pointer; }
+  .crm-sample-link { display: block; text-align: center; font-size: 10px; color: var(--crm-body); margin-top: 0.6rem; }
+  .crm-sample-link:hover { color: var(--crm-primary); }
+  .crm-import-result { margin-top: 0.6rem; font-size: 10.5px; border-radius: 6px; padding: 0.5rem 0.6rem; display: none; }
+  .crm-import-result.ok { display: block; background: var(--crm-light-green); color: #3f9a1c; }
+  .crm-import-result.err { display: block; background: var(--crm-light-red); color: #c23616; }
+
+  .crm-donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.7rem; }
+  .crm-donut-center { font-size: 0.75rem; }
+  .crm-donut-legend { width: 100%; display: flex; flex-direction: column; gap: 0.4rem; }
+  .crm-donut-legend-row { display: flex; align-items: center; gap: 0.4rem; font-size: 10.5px; }
+  .crm-donut-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .crm-donut-legend-label { flex: 1 1 auto; color: var(--crm-body); }
+  .crm-donut-legend-pct { font-weight: 700; color: var(--crm-dark); }
+
+  .crm-activity-list { display: flex; flex-direction: column; gap: 0.6rem; }
+  .crm-activity-item { display: flex; align-items: flex-start; gap: 0.5rem; }
+  .crm-activity-icon { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 0.65rem; flex-shrink: 0; color: #fff; }
+
+  .crm-setup-hint { padding: 0.6rem 0.75rem; border-radius: 8px; background: var(--crm-light-blue); font-size: 10.5px; color: #0b5e78; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .crm-setup-hint a { font-weight: 700; color: var(--crm-primary); }
+
+  .crm-modal-backdrop { position: fixed; inset: 0; background: rgba(43,44,64,0.35); z-index: 1200; display: none; }
+  .crm-modal-backdrop.show { display: block; }
+  .crm-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(480px, 92vw); max-height: 86vh; overflow-y: auto; background: #fff; border-radius: 10px; z-index: 1201; display: none; box-shadow: 0 20px 50px rgba(43,44,64,0.25); }
+  .crm-modal.show { display: block; }
+  .crm-modal-head { display: flex; justify-content: space-between; align-items: center; padding: 0.9rem 1.1rem; border-bottom: 1px solid var(--crm-border); }
+  .crm-modal-head h5 { font-size: 13px; font-weight: 600; margin: 0; color: var(--crm-dark); }
+  .crm-modal-close { border: none; background: none; font-size: 1.1rem; color: var(--crm-body); cursor: pointer; }
+  .crm-modal-body { padding: 1rem 1.1rem; }
+  .crm-modal-footer { padding: 0.8rem 1.1rem; border-top: 1px solid var(--crm-border); display: flex; justify-content: space-between; gap: 0.5rem; }
+
+  @media (max-width: 1399px) {
+    .crm-kpis { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 1199px) {
+    .crm-grid { grid-template-columns: 1fr; }
+    .crm-pipeline { overflow-x: auto; }
+    .crm-stage { min-width: 150px; }
+  }
+  @media (max-width: 767px) {
+    .crm-kpis { grid-template-columns: repeat(2, 1fr); }
+    table.crm-table { min-width: 900px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="crm-page">
+  <div class="crm-breadcrumb"><a href="{% url 'employees:crm_leads' %}">Leads</a><span class="sep">&rsaquo;</span><span class="current">All Leads</span></div>
+
+  <div class="crm-header">
+    <div>
+      <h1>Lead Management</h1>
+      <p>Manage all your leads from website, WhatsApp and CSV import. Track, follow up and convert them into customers.</p>
+    </div>
+    <div class="crm-header-actions">
+      <button type="button" class="crm-btn" id="crmImportBtn"><i class="bx bx-cloud-upload"></i> Import from CSV</button>
+      <div class="crm-dropdown" id="crmDownloadDropdown">
+        <button type="button" class="crm-btn" id="crmDownloadToggle"><i class="bx bx-download"></i> Download Leads <i class="bx bx-chevron-down"></i></button>
+        <div class="crm-dropdown-menu">
+          <a href="#" id="crmDownloadAll"><i class="bx bx-list-ul me-1"></i> Download All Leads</a>
+          <a href="#" id="crmDownloadFiltered"><i class="bx bx-filter-alt me-1"></i> Download Filtered Leads</a>
+          <button type="button" id="crmDownloadSelected" disabled><i class="bx bx-check-square me-1"></i> Download Selected (<span id="crmSelectedCount">0</span>)</button>
+        </div>
+      </div>
+      <a href="#addLeadCard" class="crm-btn crm-btn-primary"><i class="bx bx-plus"></i> Add Lead</a>
+    </div>
+  </div>
+
+  {% if not website_page and not whatsapp_source %}
+  <div class="crm-setup-hint">
+    <span><i class="bx bx-info-circle me-1"></i> Set up your website lead page and WhatsApp lead source to start capturing leads automatically.</span>
+    <a href="{% url 'employees:crm_settings' %}">Open CRM Settings &rarr;</a>
+  </div>
+  {% endif %}
+
+  <!-- KPI cards -->
+  <div class="crm-kpis">
+    <div class="crm-kpi-card">
+      <div class="crm-kpi-icon" style="background:var(--crm-light-primary);color:var(--crm-primary);"><i class="bx bx-group"></i></div>
+      <div>
+        <div class="crm-kpi-label">Total Leads</div>
+        <div class="crm-kpi-value">{{ kpis.total.count }}</div>
+        <div class="crm-kpi-change {% if kpis.total.change >= 0 %}up{% else %}down{% endif %}"><i class="bx bx-{% if kpis.total.change >= 0 %}up{% else %}down{% endif %}-arrow-alt"></i> {{ kpis.total.change }}%<span class="muted">vs last month</span></div>
+      </div>
+    </div>
+    <div class="crm-kpi-card">
+      <div class="crm-kpi-icon" style="background:var(--crm-light-green);color:var(--crm-success);"><i class="bx bxl-whatsapp"></i></div>
+      <div>
+        <div class="crm-kpi-label">From WhatsApp</div>
+        <div class="crm-kpi-value">{{ kpis.whatsapp.count }}</div>
+        <div class="crm-kpi-change {% if kpis.whatsapp.change >= 0 %}up{% else %}down{% endif %}"><i class="bx bx-{% if kpis.whatsapp.change >= 0 %}up{% else %}down{% endif %}-arrow-alt"></i> {{ kpis.whatsapp.change }}%<span class="muted">vs last month</span></div>
+      </div>
+    </div>
+    <div class="crm-kpi-card">
+      <div class="crm-kpi-icon" style="background:var(--crm-light-blue);color:#0b8fb0;"><i class="bx bx-globe"></i></div>
+      <div>
+        <div class="crm-kpi-label">From Website</div>
+        <div class="crm-kpi-value">{{ kpis.website.count }}</div>
+        <div class="crm-kpi-change {% if kpis.website.change >= 0 %}up{% else %}down{% endif %}"><i class="bx bx-{% if kpis.website.change >= 0 %}up{% else %}down{% endif %}-arrow-alt"></i> {{ kpis.website.change }}%<span class="muted">vs last month</span></div>
+      </div>
+    </div>
+    <div class="crm-kpi-card">
+      <div class="crm-kpi-icon" style="background:var(--crm-light-orange);color:#b06a00;"><i class="bx bx-upload"></i></div>
+      <div>
+        <div class="crm-kpi-label">From CSV</div>
+        <div class="crm-kpi-value">{{ kpis.csv.count }}</div>
+        <div class="crm-kpi-change {% if kpis.csv.change >= 0 %}up{% else %}down{% endif %}"><i class="bx bx-{% if kpis.csv.change >= 0 %}up{% else %}down{% endif %}-arrow-alt"></i> {{ kpis.csv.change }}%<span class="muted">vs last month</span></div>
+      </div>
+    </div>
+    <div class="crm-kpi-card">
+      <div class="crm-kpi-icon" style="background:var(--crm-light-red);color:var(--crm-danger);"><i class="bx bx-trophy"></i></div>
+      <div>
+        <div class="crm-kpi-label">Converted</div>
+        <div class="crm-kpi-value">{{ kpis.converted.count }}</div>
+        <div class="crm-kpi-change {% if kpis.converted.change >= 0 %}up{% else %}down{% endif %}"><i class="bx bx-{% if kpis.converted.change >= 0 %}up{% else %}down{% endif %}-arrow-alt"></i> {{ kpis.converted.change }}%<span class="muted">vs last month</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="crm-pipeline">
+    {% for stage in pipeline %}
+      <a class="crm-stage {% if filters.status == stage.key %}active{% endif %}"
+         href="?status={% if filters.status == stage.key %}{% else %}{{ stage.key }}{% endif %}"
+         style="background:
+           {% if stage.key == 'new' %}var(--crm-light-blue)
+           {% elif stage.key == 'contacted' %}#E3F2FD
+           {% elif stage.key == 'interested' %}var(--crm-light-orange)
+           {% elif stage.key == 'proposal_sent' %}var(--crm-light-primary)
+           {% elif stage.key == 'follow_up' %}var(--crm-light-red)
+           {% else %}var(--crm-light-green){% endif %};">
+        <div class="crm-stage-icon" style="background:rgba(255,255,255,0.65);
+          color:{% if stage.key == 'new' %}#0b8fb0{% elif stage.key == 'contacted' %}#1668b5{% elif stage.key == 'interested' %}#b06a00{% elif stage.key == 'proposal_sent' %}var(--crm-primary){% elif stage.key == 'follow_up' %}#c23616{% else %}#3f9a1c{% endif %};">
+          <i class="bx {% if stage.key == 'new' %}bx-star{% elif stage.key == 'contacted' %}bx-phone-call{% elif stage.key == 'interested' %}bx-heart{% elif stage.key == 'proposal_sent' %}bx-file{% elif stage.key == 'follow_up' %}bx-time-five{% else %}bx-check-double{% endif %}"></i>
+        </div>
+        <div>
+          <div class="crm-stage-name">{{ stage.label }}</div>
+          <div class="crm-stage-count">{{ stage.count }}</div>
+          <div class="crm-stage-pct">{{ stage.pct }}%</div>
+        </div>
+      </a>
+      {% if not forloop.last %}<i class="bx bx-chevron-right crm-chevron"></i>{% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="crm-grid">
+    <!-- Main: filters + table -->
+    <div>
+      <div class="crm-card">
+        <form method="get" class="crm-toolbar" id="crmFilterForm">
+          <input type="text" name="q" class="crm-search" placeholder="Search leads..." value="{{ filters.q }}">
+          <select name="source" onchange="this.form.submit()">
+            <option value="">All Sources</option>
+            {% for value, label in sources %}
+              <option value="{{ value }}" {% if filters.source == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <select name="status" onchange="this.form.submit()">
+            <option value="">All Status</option>
+            {% for value, label in statuses %}
+              <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <select name="assignee" onchange="this.form.submit()">
+            <option value="">All Assignees</option>
+            <option value="unassigned" {% if filters.assignee == 'unassigned' %}selected{% endif %}>Unassigned</option>
+            {% for emp in employees %}
+              <option value="{{ emp.pk }}" {% if filters.assignee == emp.pk|stringformat:'s' %}selected{% endif %}>{{ emp.full_name }}</option>
+            {% endfor %}
+          </select>
+          <input type="date" name="date_from" class="crm-date" value="{{ filters.date_from }}">
+          <input type="date" name="date_to" class="crm-date" value="{{ filters.date_to }}">
+          <button type="submit" class="crm-btn"><i class="bx bx-filter-alt"></i> Filters</button>
+          <a href="{% url 'employees:crm_leads' %}" class="crm-btn"><i class="bx bx-reset"></i> Reset</a>
+          <button type="button" class="crm-btn crm-bulk-delete-btn" id="crmBulkDeleteBtn" title="Delete selected">
+            <i class="bx bx-trash"></i> Delete (<span id="crmBulkCount">0</span>)
+          </button>
+        </form>
+
+        <form method="post" action="{% url 'employees:crm_lead_bulk_delete' %}" id="crmBulkDeleteForm" style="display:none;">
+          {% csrf_token %}
+          <input type="hidden" name="ids" id="crmBulkDeleteIds" value="">
+          <input type="hidden" name="next_qs" value="{{ request.GET.urlencode }}">
+        </form>
+
+        <div class="crm-table-wrap">
+          <table class="crm-table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="crmSelectAll"></th>
+                <th>#</th>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Assigned To</th>
+                <th>Last Activity</th>
+                <th>Created At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for lead in leads %}
+                {% with last_activity=lead.activities.first %}
+                <tr>
+                  <td><input type="checkbox" class="crm-row-check" value="{{ lead.pk }}"></td>
+                  <td class="crm-row-num">{{ forloop.counter0|add:leads.start_index }}</td>
+                  <td>
+                    <div class="crm-name-cell">
+                      <div class="crm-avatar">{{ lead.name|default:lead.phone|first|upper }}</div>
+                      <div>
+                        <div class="crm-lead-name">{{ lead.name|default:"-" }}</div>
+                        {% if lead.company %}<div class="crm-lead-company">{{ lead.company }}</div>{% endif %}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="crm-contact-phone">{{ lead.phone|default:"-" }}</div>
+                    {% if lead.email %}<div class="crm-contact-email">{{ lead.email }}</div>{% endif %}
+                  </td>
+                  <td><span class="crm-badge crm-badge--{{ lead.source }}">{{ lead.get_source_display }}</span></td>
+                  <td><span class="crm-status crm-status--{{ lead.status }}">{{ lead.get_status_display }}</span></td>
+                  <td>
+                    {% if lead.assigned_to %}
+                      <div class="crm-assignee">
+                        <div class="crm-avatar">{{ lead.assigned_to.full_name|first|upper }}</div>
+                        <span class="crm-assignee-name">{{ lead.assigned_to.full_name }}</span>
+                      </div>
+                    {% else %}
+                      <span class="crm-assignee-name text-muted">Unassigned</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if last_activity %}
+                      <div class="crm-activity-desc">{{ last_activity.description|truncatechars:28 }}</div>
+                      <div class="crm-activity-time">{{ last_activity.created_at|timesince }} ago</div>
+                    {% else %}
+                      <span class="text-muted">-</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div>{{ lead.created_at|date:"M d, Y" }}</div>
+                    <div class="crm-activity-time">{{ lead.created_at|date:"h:i A" }}</div>
+                  </td>
+                  <td>
+                    <div class="crm-actions-cell">
+                      {% if lead.phone %}<a class="crm-icon-btn" href="tel:{{ lead.phone }}" title="Call"><i class="bx bx-phone"></i></a>{% endif %}
+                      {% if lead.phone %}<a class="crm-icon-btn wa" href="https://wa.me/{{ lead.phone|cut:'+'|cut:' ' }}" target="_blank" rel="noopener" title="WhatsApp"><i class="bx bxl-whatsapp"></i></a>{% endif %}
+                      {% if lead.email %}<a class="crm-icon-btn" href="mailto:{{ lead.email }}" title="Email"><i class="bx bx-envelope"></i></a>{% endif %}
+                      <button type="button" class="crm-icon-btn crm-edit-btn" title="Edit"
+                        data-lead='{"id": {{ lead.pk }}, "name": "{{ lead.name|escapejs }}", "phone": "{{ lead.phone|escapejs }}", "email": "{{ lead.email|escapejs }}", "company": "{{ lead.company|escapejs }}", "message": "{{ lead.message|escapejs }}", "status": "{{ lead.status }}", "assigned_to": "{{ lead.assigned_to_id|default_if_none:'' }}"}'>
+                        <i class="bx bx-dots-vertical-rounded"></i>
+                      </button>
+                      <form method="post" action="{% url 'employees:crm_lead_delete' pk=lead.pk %}" class="d-inline"
+                        onsubmit="return confirm('Delete this lead ({{ lead.name|default:lead.phone|escapejs }})? This cannot be undone.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="next_qs" value="{{ request.GET.urlencode }}">
+                        <button type="submit" class="crm-icon-btn danger" title="Delete"><i class="bx bx-trash"></i></button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% endwith %}
+              {% empty %}
+                <tr><td colspan="10" class="text-center text-muted py-4">No leads yet. Add one, import a CSV, or set up your website/WhatsApp lead sources.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="crm-table-footer">
+          <div style="display:flex;align-items:center;gap:0.4rem;">
+            <span>Show</span>
+            <select id="crmPerPage" onchange="crmChangePerPage(this.value)">
+              <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+              <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+              <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+              <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+            <span>entries</span>
+          </div>
+          <div>Showing {{ leads.start_index }} to {{ leads.end_index }} of {{ page_obj.paginator.count }} leads</div>
+          <div class="crm-pagination">
+            {% if page_obj.has_previous %}
+              <a href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}"><i class="bx bx-chevron-left"></i></a>
+            {% else %}
+              <span class="disabled"><i class="bx bx-chevron-left"></i></span>
+            {% endif %}
+            {% for num in page_range %}
+              {% if num == page_obj.number %}
+                <span class="active">{{ num }}</span>
+              {% elif num == page_obj.paginator.ELLIPSIS %}
+                <span class="disabled">&hellip;</span>
+              {% else %}
+                <a href="?{{ request.GET.urlencode }}&page={{ num }}">{{ num }}</a>
+              {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+              <a href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}"><i class="bx bx-chevron-right"></i></a>
+            {% else %}
+              <span class="disabled"><i class="bx bx-chevron-right"></i></span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="crm-sidebar">
+      <div class="crm-card crm-sidebar-card" id="addLeadCard">
+        <div class="crm-sidebar-head"><h6>Add New Lead</h6></div>
+        <form method="post" action="{% url 'employees:crm_lead_create' %}">
+          {% csrf_token %}
+          <input type="hidden" name="next_qs" value="">
+          <div class="crm-field"><label>Full Name *</label><input type="text" name="name" placeholder="Enter name" required></div>
+          <div class="crm-field"><label>Phone Number *</label><input type="text" name="phone" placeholder="+91 Enter phone number" required></div>
+          <div class="crm-field"><label>Email</label><input type="email" name="email" placeholder="Enter email (optional)"></div>
+          <div class="crm-field"><label>Assign To</label>
+            <select name="assigned_to">
+              <option value="">Select assignee</option>
+              {% for emp in employees %}<option value="{{ emp.pk }}">{{ emp.full_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="crm-save-btn">Save Lead</button>
+        </form>
+      </div>
+
+      <div class="crm-card crm-sidebar-card">
+        <div class="crm-sidebar-head"><h6>Import Leads from CSV</h6></div>
+        <div class="crm-upload-box" id="crmDropZone">
+          <i class="bx bx-cloud-upload"></i>
+          <div class="title">Upload CSV File</div>
+          <div class="hint">Drag &amp; drop your file here or</div>
+          <button type="button" class="crm-choose-btn" id="crmChooseFileBtn">Choose File</button>
+          <input type="file" id="crmFileInput" accept=".csv" style="display:none;">
+        </div>
+        <a href="{% url 'employees:crm_lead_import_sample' %}" class="crm-sample-link"><i class="bx bx-download me-1"></i> Download Sample CSV</a>
+        <div class="crm-import-result" id="crmImportResult"></div>
+      </div>
+
+      {% if donut %}
+      <div class="crm-card crm-sidebar-card">
+        <div class="crm-sidebar-head"><h6>Lead Sources</h6></div>
+        <div class="crm-donut-wrap">
+          <div id="crmDonutChart"></div>
+          <div class="crm-donut-legend">
+            {% for d in donut %}
+              <div class="crm-donut-legend-row"><span class="crm-donut-dot" style="background:{{ d.color }};"></span><span class="crm-donut-legend-label">{{ d.label }}</span><span class="crm-donut-legend-pct">{{ d.count }} ({{ d.pct }}%)</span></div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="crm-card crm-sidebar-card">
+        <div class="crm-sidebar-head"><h6>Recent Activities</h6></div>
+        <div class="crm-activity-list">
+          {% for item in recent_activities %}
+            <div class="crm-activity-item">
+              <div class="crm-activity-icon" style="background:{{ item.color }};"><i class="{{ item.icon }}"></i></div>
+              <div>
+                <div class="crm-activity-desc">{{ item.activity.description }}</div>
+                <div class="crm-activity-time">{{ item.activity.created_at|timesince }} ago</div>
+              </div>
+            </div>
+          {% empty %}
+            <span class="text-muted" style="font-size:10.5px;">No activity yet.</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Lead modal -->
+<div class="crm-modal-backdrop" id="crmModalBackdrop"></div>
+<div class="crm-modal" id="crmEditModal">
+  <div class="crm-modal-head">
+    <h5>Edit Lead</h5>
+    <button type="button" class="crm-modal-close" id="crmModalClose">&times;</button>
+  </div>
+  <form method="post" id="crmEditForm">
+    {% csrf_token %}
+    <input type="hidden" name="next_qs" id="crmEditNextQs" value="">
+    <div class="crm-modal-body">
+      <div class="crm-field"><label>Full Name</label><input type="text" name="name" id="crmEditName"></div>
+      <div class="crm-field"><label>Phone</label><input type="text" name="phone" id="crmEditPhone"></div>
+      <div class="crm-field"><label>Email</label><input type="email" name="email" id="crmEditEmail"></div>
+      <div class="crm-field"><label>Company</label><input type="text" name="company" id="crmEditCompany"></div>
+      <div class="crm-field"><label>Status</label>
+        <select name="status" id="crmEditStatus">
+          {% for value, label in statuses %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="crm-field"><label>Assign To</label>
+        <select name="assigned_to" id="crmEditAssignee">
+          <option value="">Unassigned</option>
+          {% for emp in employees %}<option value="{{ emp.pk }}">{{ emp.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="crm-field"><label>Notes / Message</label><textarea name="message" id="crmEditMessage"></textarea></div>
+    </div>
+    <div class="crm-modal-footer">
+      <button type="submit" form="crmDeleteForm" class="crm-btn" style="color:var(--crm-danger);border-color:var(--crm-danger);" onclick="return confirm('Delete this lead? This cannot be undone.');"><i class="bx bx-trash"></i> Delete</button>
+      <button type="submit" class="crm-btn crm-btn-primary">Save Changes</button>
+    </div>
+  </form>
+  <form method="post" id="crmDeleteForm" style="display:none;">{% csrf_token %}</form>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var updateUrlTemplate = "{% url 'employees:crm_lead_update' pk=0 %}";
+  var deleteUrlTemplate = "{% url 'employees:crm_lead_delete' pk=0 %}";
+  function updateUrlFor(id) { return updateUrlTemplate.replace('/0/update/', '/' + id + '/update/'); }
+  function deleteUrlFor(id) { return deleteUrlTemplate.replace('/0/delete/', '/' + id + '/delete/'); }
+
+  // Keep current filters attached to the Add Lead / Edit / Delete forms so we land back on the same view.
+  var qs = window.location.search.replace(/^\?/, '');
+  document.querySelectorAll('input[name="next_qs"]').forEach(function (el) { el.value = qs; });
+
+  // Dropdown toggle
+  var dd = document.getElementById('crmDownloadDropdown');
+  document.getElementById('crmDownloadToggle').addEventListener('click', function (e) {
+    e.stopPropagation();
+    dd.classList.toggle('open');
+  });
+  document.addEventListener('click', function () { dd.classList.remove('open'); });
+
+  // Download links
+  var exportBase = "{% url 'employees:crm_lead_export' %}";
+  document.getElementById('crmDownloadAll').addEventListener('click', function (e) {
+    e.preventDefault();
+    window.location.href = exportBase + '?scope=all';
+  });
+  document.getElementById('crmDownloadFiltered').addEventListener('click', function (e) {
+    e.preventDefault();
+    window.location.href = exportBase + '?scope=filtered&' + qs;
+  });
+
+  // Select all / selected count
+  var selectAll = document.getElementById('crmSelectAll');
+  var rowChecks = document.querySelectorAll('.crm-row-check');
+  var selectedCountEl = document.getElementById('crmSelectedCount');
+  var downloadSelectedBtn = document.getElementById('crmDownloadSelected');
+  var bulkCountEl = document.getElementById('crmBulkCount');
+  var bulkDeleteBtn = document.getElementById('crmBulkDeleteBtn');
+  var bulkDeleteForm = document.getElementById('crmBulkDeleteForm');
+  var bulkDeleteIds = document.getElementById('crmBulkDeleteIds');
+
+  function updateSelectedCount() {
+    var checked = Array.prototype.filter.call(rowChecks, function (c) { return c.checked; });
+    var ids = checked.map(function (c) { return c.value; }).join(',');
+    selectedCountEl.textContent = checked.length;
+    downloadSelectedBtn.disabled = checked.length === 0;
+    downloadSelectedBtn.dataset.ids = ids;
+
+    bulkCountEl.textContent = checked.length;
+    bulkDeleteIds.value = ids;
+    bulkDeleteBtn.classList.toggle('show', checked.length > 0);
+  }
+
+  bulkDeleteBtn.addEventListener('click', function () {
+    var count = bulkDeleteIds.value.split(',').filter(Boolean).length;
+    if (!count) return;
+    if (confirm('Delete ' + count + ' selected lead(s)? This cannot be undone.')) {
+      bulkDeleteForm.submit();
+    }
+  });
+  if (selectAll) {
+    selectAll.addEventListener('change', function () {
+      rowChecks.forEach(function (c) { c.checked = selectAll.checked; });
+      updateSelectedCount();
+    });
+  }
+  rowChecks.forEach(function (c) { c.addEventListener('change', updateSelectedCount); });
+  downloadSelectedBtn.addEventListener('click', function () {
+    if (downloadSelectedBtn.disabled) return;
+    window.location.href = exportBase + '?scope=selected&ids=' + downloadSelectedBtn.dataset.ids;
+  });
+
+  // Per-page
+  window.crmChangePerPage = function (value) {
+    var params = new URLSearchParams(window.location.search);
+    params.set('per_page', value);
+    params.delete('page');
+    window.location.search = params.toString();
+  };
+
+  // Edit modal
+  var backdrop = document.getElementById('crmModalBackdrop');
+  var modal = document.getElementById('crmEditModal');
+  var form = document.getElementById('crmEditForm');
+  var deleteForm = document.getElementById('crmDeleteForm');
+
+  function openModal(lead) {
+    form.action = updateUrlFor(lead.id);
+    deleteForm.action = deleteUrlFor(lead.id);
+    document.getElementById('crmEditName').value = lead.name || '';
+    document.getElementById('crmEditPhone').value = lead.phone || '';
+    document.getElementById('crmEditEmail').value = lead.email || '';
+    document.getElementById('crmEditCompany').value = lead.company || '';
+    document.getElementById('crmEditMessage').value = lead.message || '';
+    document.getElementById('crmEditStatus').value = lead.status || 'new';
+    document.getElementById('crmEditAssignee').value = lead.assigned_to || '';
+    document.getElementById('crmEditNextQs').value = qs;
+    backdrop.classList.add('show');
+    modal.classList.add('show');
+  }
+  function closeModal() {
+    backdrop.classList.remove('show');
+    modal.classList.remove('show');
+  }
+  document.querySelectorAll('.crm-edit-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { openModal(JSON.parse(btn.dataset.lead)); });
+  });
+  document.getElementById('crmModalClose').addEventListener('click', closeModal);
+  backdrop.addEventListener('click', closeModal);
+
+  // CSV import
+  var fileInput = document.getElementById('crmFileInput');
+  var dropZone = document.getElementById('crmDropZone');
+  var resultBox = document.getElementById('crmImportResult');
+
+  document.getElementById('crmImportBtn').addEventListener('click', function () { fileInput.click(); });
+  document.getElementById('crmChooseFileBtn').addEventListener('click', function () { fileInput.click(); });
+  ['dragover', 'dragenter'].forEach(function (evt) {
+    dropZone.addEventListener(evt, function (e) { e.preventDefault(); dropZone.style.borderColor = 'var(--crm-primary)'; });
+  });
+  ['dragleave', 'drop'].forEach(function (evt) {
+    dropZone.addEventListener(evt, function (e) { e.preventDefault(); dropZone.style.borderColor = ''; });
+  });
+  dropZone.addEventListener('drop', function (e) {
+    if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; uploadCsv(e.dataTransfer.files[0]); }
+  });
+  fileInput.addEventListener('change', function () {
+    if (fileInput.files.length) uploadCsv(fileInput.files[0]);
+  });
+
+  function csrfToken() {
+    return document.querySelector('#crmEditForm [name=csrfmiddlewaretoken]').value;
+  }
+
+  function uploadCsv(file) {
+    var fd = new FormData();
+    fd.append('file', file);
+    resultBox.className = 'crm-import-result';
+    resultBox.textContent = 'Importing...';
+    resultBox.style.display = 'block';
+    fetch("{% url 'employees:crm_lead_import' %}", {
+      method: 'POST', body: fd, headers: { 'X-CSRFToken': csrfToken() },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success) {
+          resultBox.className = 'crm-import-result ok';
+          resultBox.textContent = 'Imported ' + data.imported + ', skipped ' + data.skipped + ' duplicate(s), failed ' + data.failed + '.';
+          setTimeout(function () { window.location.reload(); }, 1400);
+        } else {
+          resultBox.className = 'crm-import-result err';
+          resultBox.textContent = data.error || 'Import failed.';
+        }
+      })
+      .catch(function () {
+        resultBox.className = 'crm-import-result err';
+        resultBox.textContent = 'Import failed - please try again.';
+      });
+  }
+
+  // Donut chart
+  {% if donut %}
+  if (window.ApexCharts) {
+    new ApexCharts(document.getElementById('crmDonutChart'), {
+      chart: { type: 'donut', height: 190, fontFamily: 'inherit' },
+      series: [{% for d in donut %}{{ d.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+      labels: [{% for d in donut %}"{{ d.label }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+      colors: [{% for d in donut %}"{{ d.color }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+      legend: { show: false },
+      dataLabels: { enabled: false },
+      plotOptions: { pie: { donut: { size: '72%', labels: { show: true, total: { show: true, label: 'Total Leads', formatter: function () { return '{{ total_count }}'; } } } } } },
+    }).render();
+  }
+  {% endif %}
+});
+</script>
+{% endblock %}

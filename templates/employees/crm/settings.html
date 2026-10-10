@@ -1,0 +1,122 @@
+{% extends layout_path %}
+
+{% block title %}CRM Settings | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .crm-settings-shell { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
+  .crm-settings-shell h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+  .crm-settings-shell h1 i { color: #696CFF; }
+  .crm-settings-shell > p { font-size: 0.85rem; color: #6b7280; margin: -0.6rem 0 0; }
+
+  .crm-settings-card { background: #fff; border: 1px solid rgba(148,163,184,0.2); border-radius: 14px; padding: 1.2rem 1.4rem; }
+  .crm-settings-card h5 { font-size: 0.98rem; font-weight: 700; color: #1f2937; margin: 0 0 0.3rem; display: flex; align-items: center; gap: 0.5rem; }
+  .crm-settings-card .hint { font-size: 0.8rem; color: #6b7280; margin: 0 0 1rem; }
+
+  .crm-url-box { display: flex; gap: 0.5rem; align-items: center; background: #F5F6FA; border: 1px solid #E5E7EF; border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 0.85rem; font-family: monospace; color: #2B2C40; word-break: break-all; }
+  .crm-url-box button { flex-shrink: 0; border: none; background: #696CFF; color: #fff; font-size: 0.75rem; font-weight: 600; padding: 0.4rem 0.7rem; border-radius: 7px; cursor: pointer; }
+
+  .crm-status-pill { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; }
+  .crm-status-pill.on { background: #E8F8EE; color: #3f9a1c; }
+  .crm-status-pill.off { background: #F1F2F5; color: #8592A3; }
+  .crm-status-pill.err { background: #FFF0F0; color: #c23616; }
+
+  .crm-settings-field { margin-bottom: 0.9rem; }
+  .crm-settings-field label { font-size: 0.78rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.3rem; }
+  .crm-settings-field input { width: 100%; font-size: 0.86rem; padding: 0.55rem 0.75rem; border-radius: 9px; border: 1px solid #E5E7EF; }
+  .crm-settings-field .field-hint { font-size: 0.74rem; color: #9ca3af; margin-top: 0.25rem; display: block; }
+
+  .crm-settings-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.4rem; }
+  .crm-settings-btn { border: none; border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+  .crm-settings-btn.primary { background: linear-gradient(135deg, #696CFF, #8B5CF6); color: #fff; }
+  .crm-settings-btn.outline { background: #fff; border: 1px solid #E5E7EF; color: #374151; }
+  .crm-settings-btn.danger { background: rgba(255,62,29,0.08); color: #FF3E1D; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="crm-settings-shell">
+  <div>
+    <h1><i class="bx bx-cog"></i> CRM Settings</h1>
+    <p>Configure where this office's leads come from - the sample public website page, and the WhatsApp marketing service that feeds in WhatsApp leads.</p>
+  </div>
+
+  <div class="crm-settings-card">
+    <h5><i class="bx bx-globe"></i> Website Lead Page</h5>
+    <p class="hint">A sample public page anyone can open to submit their name, phone, email and a message - it becomes a Lead here immediately. Share this URL on your real website later, or embed its form there.</p>
+    <div class="crm-url-box">
+      <span style="flex:1 1 auto;">{{ website_url }}</span>
+      <button type="button" onclick="navigator.clipboard.writeText('{{ website_url }}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy', 1500);">Copy</button>
+    </div>
+    <div style="margin-top:0.8rem;">
+      Status:
+      {% if website_page.is_active %}<span class="crm-status-pill on"><i class="bx bx-check-circle"></i> Active - accepting submissions</span>
+      {% else %}<span class="crm-status-pill off"><i class="bx bx-x-circle"></i> Inactive</span>{% endif %}
+    </div>
+    <form method="post" class="crm-settings-actions">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="toggle_website_page">
+      <button type="submit" class="crm-settings-btn outline">{% if website_page.is_active %}Deactivate Page{% else %}Activate Page{% endif %}</button>
+      <a href="{{ website_url }}" target="_blank" rel="noopener" class="crm-settings-btn primary" style="text-decoration:none;display:inline-flex;align-items:center;">Open Page &rarr;</a>
+    </form>
+  </div>
+
+  <div class="crm-settings-card">
+    <h5><i class="bx bxl-whatsapp"></i> WhatsApp Lead Source</h5>
+    <p class="hint">Point this at your WhatsApp marketing service's "received messages" endpoint. We check it every couple of minutes and turn new messages into Leads - only the customer's number, name and message are stored.</p>
+
+    {% if whatsapp_source %}
+      <div style="margin-bottom:0.8rem;">
+        Status:
+        {% if whatsapp_source.is_active and whatsapp_source.last_poll_ok %}
+          <span class="crm-status-pill on"><i class="bx bx-check-circle"></i> Connected</span>
+        {% elif whatsapp_source.is_active and whatsapp_source.last_poll_ok is False %}
+          <span class="crm-status-pill err"><i class="bx bx-error-circle"></i> Last check failed</span>
+        {% elif whatsapp_source.is_active %}
+          <span class="crm-status-pill off"><i class="bx bx-time"></i> Not checked yet</span>
+        {% else %}
+          <span class="crm-status-pill off"><i class="bx bx-x-circle"></i> Disabled</span>
+        {% endif %}
+        {% if whatsapp_source.last_polled_at %}<span style="font-size:0.74rem;color:#9ca3af;margin-left:0.5rem;">Last checked {{ whatsapp_source.last_polled_at|timesince }} ago</span>{% endif %}
+      </div>
+      {% if whatsapp_source.last_poll_error %}<div class="crm-settings-field"><span class="field-hint" style="color:#c23616;">{{ whatsapp_source.last_poll_error }}</span></div>{% endif %}
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_whatsapp_source">
+      <div class="crm-settings-field">
+        <label>Source URL</label>
+        <input type="url" name="source_url" placeholder="https://your-whatsapp-service.example.com/api/v1/messages/received/" value="{{ whatsapp_source.source_url|default:'' }}" required>
+      </div>
+      <div class="crm-settings-field">
+        <label>Access Token</label>
+        <input type="text" name="access_token" placeholder="{% if whatsapp_source.has_token %}Leave blank to keep the current token{% else %}e.g. Token sdfbdhfb{% endif %}">
+        <span class="field-hint">Paste exactly what your WhatsApp marketing service gave you, including any prefix like "Token " or "Bearer " - it's sent as-is in the Authorization header. Stored encrypted; never shown back here.</span>
+      </div>
+      <div class="crm-settings-field" style="max-width:220px;">
+        <label>Re-engage after (days)</label>
+        <input type="number" name="reengage_after_days" min="1" step="1" placeholder="Leave blank = once, ever" value="{{ whatsapp_source.reengage_after_days|default_if_none:'' }}">
+        <span class="field-hint">By default, a contact becomes a lead only once, ever. Set a number of days to let the same contact come back as a new lead after that long - but only if they've also messaged again since then.</span>
+      </div>
+      <div class="crm-settings-actions">
+        <button type="submit" class="crm-settings-btn primary">Save</button>
+      </div>
+    </form>
+
+    {% if whatsapp_source %}
+      <div class="crm-settings-actions" style="margin-top:0.6rem;border-top:1px solid #E5E7EF;padding-top:0.8rem;">
+        <form method="post"><input type="hidden" name="action" value="test_whatsapp_source">{% csrf_token %}
+          <button type="submit" class="crm-settings-btn outline"><i class="bx bx-refresh me-1"></i> Test Connection Now</button>
+        </form>
+        <form method="post"><input type="hidden" name="action" value="disable_whatsapp_source">{% csrf_token %}
+          <button type="submit" class="crm-settings-btn danger">Disable</button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+
+  <a href="{% url 'employees:crm_leads' %}" style="font-size:0.85rem;color:#696CFF;font-weight:600;"><i class="bx bx-arrow-back me-1"></i> Back to Leads</a>
+</div>
+{% endblock %}

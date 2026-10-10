@@ -1,0 +1,151 @@
+{% extends layout_path %}
+
+{% block title %}Clients | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .clients-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
+  .clients-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .clients-header h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+  .clients-header h1 i { color: #696CFF; }
+  .clients-header p { font-size: 0.85rem; color: #6b7280; margin: 0.2rem 0 0; }
+
+  .clients-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+  .client-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .client-card.inactive { opacity: 0.55; }
+  .client-name { font-size: 1rem; font-weight: 700; color: #1f2937; }
+  .client-meta { font-size: 0.8rem; color: #6b7280; display: flex; flex-direction: column; gap: 0.15rem; }
+  .client-actions { display: flex; gap: 0.5rem; margin-top: auto; padding-top: 0.6rem; border-top: 1px solid #f3f4f6; }
+  .client-btn { border: none; border-radius: 8px; padding: 0.3rem 0.65rem; font-size: 0.76rem; font-weight: 600; cursor: pointer; }
+  .client-btn.edit { background: rgba(37,99,235,0.1); color: #2563eb; }
+  .client-btn.toggle { background: rgba(148,163,184,0.16); color: #64748b; }
+  .client-btn.delete { background: rgba(239,68,68,0.1); color: #ef4444; }
+
+  .panel-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.35); z-index: 1200; display: none; }
+  .panel-backdrop.show { display: block; }
+  .client-panel {
+    position: fixed; inset-block: 0; inset-inline-end: 0; width: min(480px, 100vw); background: #fff; z-index: 1201;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.15); transform: translateX(100%); transition: transform 0.2s ease-in-out;
+    display: flex; flex-direction: column;
+  }
+  .client-panel.show { transform: translateX(0); }
+  .panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+  .panel-header h2 { font-size: 1.05rem; font-weight: 700; margin: 0; color: #1f2937; }
+  .panel-close { background: none; border: none; font-size: 1.3rem; color: #6b7280; cursor: pointer; }
+  .panel-body { padding: 1.1rem 1.25rem; overflow-y: auto; flex: 1 1 auto; }
+  .field { margin-bottom: 0.9rem; }
+  .field label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; font-weight: 600; display: block; margin-bottom: 0.3rem; }
+  .field input, .field textarea { width: 100%; font-size: 0.86rem; padding: 0.55rem 0.75rem; border-radius: 9px; border: 1px solid #E5E7EF; }
+  .field textarea { min-height: 70px; resize: vertical; }
+  .panel-save { width: 100%; background: linear-gradient(135deg, #696CFF, #8B5CF6); color: #fff; border: none; border-radius: 10px; padding: 0.7rem; font-weight: 600; margin-top: 0.5rem; cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="clients-shell">
+  <div class="clients-header">
+    <div>
+      <h1><i class="bx bx-id-card"></i> Clients</h1>
+      <p>Who you bill. Selecting a client on an invoice fills in their billing details automatically.</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="openClientPanelBtn"><i class="bx bx-plus me-1"></i>New Client</button>
+  </div>
+
+  {% if clients %}
+    <div class="clients-grid">
+      {% for client in clients %}
+        <div class="client-card {% if not client.is_active %}inactive{% endif %}">
+          <div class="client-name">{{ client.name }}</div>
+          <div class="client-meta">
+            {% if client.contact_person %}<span><i class="bx bx-user me-1"></i>{{ client.contact_person }}</span>{% endif %}
+            {% if client.phone %}<span><i class="bx bx-phone me-1"></i>{{ client.phone }}</span>{% endif %}
+            {% if client.email %}<span><i class="bx bx-envelope me-1"></i>{{ client.email }}</span>{% endif %}
+            {% if client.state %}<span><i class="bx bx-map me-1"></i>{{ client.state }}{% if client.pincode %} - {{ client.pincode }}{% endif %}</span>{% endif %}
+            {% if client.gstin %}<span><i class="bx bx-receipt me-1"></i>GSTIN: {{ client.gstin }}</span>{% endif %}
+          </div>
+          <div class="client-actions">
+            <button type="button" class="client-btn edit js-edit-client"
+              data-client='{"id": {{ client.pk }}, "name": "{{ client.name|escapejs }}", "contact_person": "{{ client.contact_person|escapejs }}", "email": "{{ client.email|escapejs }}", "phone": "{{ client.phone|escapejs }}", "billing_address": "{{ client.billing_address|escapejs }}", "state": "{{ client.state|escapejs }}", "pincode": "{{ client.pincode|escapejs }}", "gstin": "{{ client.gstin|escapejs }}"}'>Edit</button>
+            <form method="post" action="{% url 'employees:invoice_client_toggle' client.pk %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="client-btn toggle">{% if client.is_active %}Active{% else %}Inactive{% endif %}</button>
+            </form>
+            <form method="post" action="{% url 'employees:invoice_client_delete' client.pk %}" class="d-inline"
+              onsubmit="return confirm('Delete {{ client.name|escapejs }}? Clients with invoices on file are deactivated instead.');">
+              {% csrf_token %}
+              <button type="submit" class="client-btn delete">Delete</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-center text-muted py-5"><i class="bx bx-id-card" style="font-size: 2.5rem;"></i><p class="mt-2 mb-0">No clients yet - add your first one.</p></div>
+  {% endif %}
+</div>
+
+<div class="panel-backdrop" id="panelBackdrop"></div>
+<div class="client-panel" id="clientPanel">
+  <div class="panel-header">
+    <h2 id="panelTitle">New Client</h2>
+    <button type="button" class="panel-close" id="panelClose">&times;</button>
+  </div>
+  <div class="panel-body">
+    <form method="post" id="clientForm" action="{% url 'employees:invoice_clients' %}">
+      {% csrf_token %}
+      <div class="field"><label>Name *</label><input type="text" name="name" id="f_name" required></div>
+      <div class="field"><label>Contact Person</label><input type="text" name="contact_person" id="f_contact_person"></div>
+      <div class="field"><label>Email</label><input type="email" name="email" id="f_email"></div>
+      <div class="field"><label>Phone</label><input type="text" name="phone" id="f_phone"></div>
+      <div class="field"><label>Billing Address</label><textarea name="billing_address" id="f_billing_address"></textarea></div>
+      <div class="field"><label>State</label><input type="text" name="state" id="f_state" placeholder="e.g. Uttar Pradesh"></div>
+      <div class="field"><label>Pincode</label><input type="text" name="pincode" id="f_pincode"></div>
+      <div class="field"><label>GSTIN</label><input type="text" name="gstin" id="f_gstin" placeholder="Leave blank if unregistered"></div>
+      <button type="submit" class="panel-save" id="panelSave">Save Client</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var panel = document.getElementById('clientPanel');
+  var backdrop = document.getElementById('panelBackdrop');
+  var form = document.getElementById('clientForm');
+  var title = document.getElementById('panelTitle');
+  var save = document.getElementById('panelSave');
+  var createUrl = "{% url 'employees:invoice_clients' %}";
+
+  function openPanel() { panel.classList.add('show'); backdrop.classList.add('show'); }
+  function closePanel() { panel.classList.remove('show'); backdrop.classList.remove('show'); }
+
+  document.getElementById('openClientPanelBtn').addEventListener('click', function () {
+    form.reset();
+    form.action = createUrl;
+    title.textContent = 'New Client';
+    save.textContent = 'Save Client';
+    openPanel();
+  });
+  document.getElementById('panelClose').addEventListener('click', closePanel);
+  backdrop.addEventListener('click', closePanel);
+
+  document.querySelectorAll('.js-edit-client').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var c = JSON.parse(btn.dataset.client);
+      form.reset();
+      form.action = "{% url 'employees:invoice_clients' %}".replace(/clients\/$/, 'clients/' + c.id + '/update/');
+      Object.keys(c).forEach(function (key) {
+        var el = document.getElementById('f_' + key);
+        if (el) el.value = c[key] || '';
+      });
+      title.textContent = 'Edit "' + c.name + '"';
+      save.textContent = 'Update Client';
+      openPanel();
+    });
+  });
+});
+</script>
+{% endblock %}

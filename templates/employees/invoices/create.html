@@ -1,0 +1,600 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Create Invoice | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .inv-page {
+    --inv-primary: #696CFF; --inv-accent: #8B5CF6; --inv-dark: #2B2C40; --inv-body: #566A7F; --inv-muted: #8592A3;
+    --inv-bg: #F5F7FC; --inv-card: #FFFFFF; --inv-border: #E5E7EF;
+    --inv-light-purple: #F0F0FF; --inv-light-blue: #EEF5FF;
+    --inv-success: #71DD37; --inv-info: #03C3EC; --inv-warning: #FFAB00; --inv-danger: #FF3E1D;
+    --inv-gradient: linear-gradient(135deg, #696CFF, #8B5CF6);
+    color: var(--inv-dark);
+    /* The branch switcher (templates/layout/partials/branch_switcher.html)
+       floats fixed at top:14px/right:16px on every office-admin page,
+       on top of whatever happens to be there. Reserve room so it never
+       sits over the header's own action buttons. */
+    padding-top: 52px;
+  }
+  @media (max-width: 420px) { .inv-page { padding-top: 46px; } }
+  .inv-page * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  .inv-breadcrumb { font-size: 0.72rem; color: var(--inv-muted); margin-bottom: 0.4rem; }
+  .inv-breadcrumb a { color: var(--inv-muted); text-decoration: none; }
+  .inv-breadcrumb .current { color: var(--inv-primary); font-weight: 600; }
+
+  .inv-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+  .inv-header h1 { font-size: 20px; font-weight: 600; margin: 0 0 0.2rem; }
+  .inv-header p { font-size: 0.8rem; color: var(--inv-body); margin: 0; }
+  .inv-header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .inv-btn { border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 11px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--inv-border); background: #fff; color: var(--inv-dark); }
+  .inv-btn-primary { background: var(--inv-gradient); color: #fff; border: none; box-shadow: 0 8px 18px rgba(105,108,255,0.3); }
+
+  .inv-stepper { display: flex; gap: 0.4rem; margin-bottom: 1rem; overflow-x: auto; }
+  .inv-step { display: flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.8rem; border-radius: 999px; background: #fff; border: 1px solid var(--inv-border); font-size: 10.5px; font-weight: 600; color: var(--inv-muted); text-decoration: none; white-space: nowrap; }
+  .inv-step .num { width: 18px; height: 18px; border-radius: 50%; background: #F1F2F5; color: var(--inv-muted); display: grid; place-items: center; font-size: 9.5px; }
+  .inv-step.active { color: var(--inv-primary); border-color: var(--inv-primary); background: var(--inv-light-purple); }
+  .inv-step.active .num { background: var(--inv-gradient); color: #fff; }
+
+  .inv-grid { display: grid; grid-template-columns: 59fr 41fr; gap: 14px; align-items: start; }
+
+  .inv-card { background: var(--inv-card); border: 1px solid var(--inv-border); border-radius: 8px; padding: 1rem 1.1rem; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(67,89,113,0.05); }
+  .inv-card-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.9rem; }
+  .inv-card-icon { width: 30px; height: 30px; border-radius: 9px; background: var(--inv-light-purple); color: var(--inv-primary); display: grid; place-items: center; font-size: 0.95rem; }
+  .inv-card-head h5 { font-size: 13px; font-weight: 600; margin: 0; }
+
+  .inv-field { margin-bottom: 0.7rem; }
+  .inv-field label { display: block; font-size: 10.5px; font-weight: 500; color: var(--inv-body); margin-bottom: 0.3rem; }
+  .inv-field input, .inv-field select, .inv-field textarea {
+    width: 100%; font-size: 11.5px; padding: 0.45rem 0.65rem; border-radius: 6px; border: 1px solid var(--inv-border); height: 32px; color: var(--inv-dark);
+  }
+  .inv-field textarea { height: auto; min-height: 70px; resize: vertical; }
+  .inv-field .hint { font-size: 9.5px; color: var(--inv-muted); margin-top: 0.2rem; display: block; }
+
+  .inv-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+  .inv-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem; }
+  @media (max-width: 900px) { .inv-row-4 { grid-template-columns: 1fr 1fr; } }
+
+  .inv-client-details { background: var(--inv-light-purple); border-radius: 8px; padding: 0.75rem 0.9rem; margin-top: 0.7rem; display: none; }
+  .inv-client-details.show { display: block; }
+  .inv-client-details .title-row { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; color: var(--inv-primary); margin-bottom: 0.4rem; }
+  .inv-client-details .line { font-size: 10.5px; color: var(--inv-dark); margin-bottom: 0.15rem; }
+
+  .inv-items-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
+  .inv-items-table-wrap { overflow-x: auto; }
+  table.inv-items-table { width: 100%; min-width: 820px; table-layout: fixed; border-collapse: collapse; font-size: 10.5px; }
+  table.inv-items-table th { text-align: left; font-size: 9.5px; text-transform: uppercase; color: var(--inv-muted); padding: 0.4rem; border-bottom: 1px solid var(--inv-border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.inv-items-table td { padding: 0.35rem; border-bottom: 1px solid var(--inv-border); vertical-align: top; overflow: hidden; }
+  table.inv-items-table input, table.inv-items-table select {
+    width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
+    font-size: 10.5px; padding: 0.3rem 0.35rem; border-radius: 5px; border: 1px solid var(--inv-border); height: 28px;
+  }
+  .inv-item-amount { font-weight: 700; text-align: right; white-space: nowrap; padding-top: 0.5rem; display: block; }
+  .inv-remove-row { border: none; background: none; color: var(--inv-danger); cursor: pointer; font-size: 1rem; }
+  .inv-discount-row { display: flex; gap: 0.25rem; }
+  .inv-discount-row input { min-width: 0; flex: 1 1 auto; }
+  .inv-discount-row select { width: 42px; flex: 0 0 42px; padding-left: 0.15rem !important; padding-right: 0.15rem !important; }
+
+  .inv-bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 900px) { .inv-bottom-grid { grid-template-columns: 1fr; } }
+
+  .inv-summary-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 0.35rem 0; color: var(--inv-body); }
+  .inv-summary-row span.val { font-weight: 700; color: var(--inv-dark); }
+  .inv-summary-total { background: var(--inv-gradient); color: #fff; border-radius: 8px; padding: 0.7rem 0.9rem; display: flex; justify-content: space-between; align-items: center; margin-top: 0.6rem; font-weight: 700; }
+  .inv-summary-total .amt { font-size: 1.3rem; }
+
+  .inv-preview-wrap { position: sticky; top: 12px; }
+  .inv-preview-head { display: flex; justify-content: space-between; align-items: center; }
+  .inv-doc { background: #fff; border-radius: 10px; margin-top: 0.7rem; padding: 1rem; font-size: 9px; color: var(--inv-dark); max-height: 80vh; overflow-y: auto; }
+  .inv-doc.fullscreen {
+    position: fixed; top: 3vh; left: 50%; transform: translateX(-50%);
+    width: min(900px, 94vw); max-height: 94vh; z-index: 1300; margin-top: 0;
+    padding: 2rem 2.25rem; font-size: 12px; box-shadow: 0 30px 70px rgba(0,0,0,0.35);
+  }
+  .inv-doc.fullscreen .inv-doc-title { font-size: 20px; }
+  .inv-doc.fullscreen table.inv-doc-table { font-size: 11px; table-layout: fixed; }
+  .inv-doc.fullscreen .inv-doc-grand { font-size: 15px; }
+  .inv-doc.fullscreen .inv-doc-meta-box,
+  .inv-doc.fullscreen .inv-doc-billto,
+  .inv-doc.fullscreen .inv-doc-totals,
+  .inv-doc.fullscreen .inv-doc-words,
+  .inv-doc.fullscreen .inv-doc-bank { font-size: 11px; }
+  .inv-doc-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1299; }
+  .inv-doc-backdrop.show { display: block; }
+  .inv-doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--inv-primary); padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
+  .inv-doc-company { font-weight: 700; font-size: 11px; }
+  .inv-doc-title { text-align: center; font-size: 14px; font-weight: 700; color: var(--inv-dark); margin: 0.6rem 0; letter-spacing: 0.04em; }
+  .inv-doc-meta-box { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; font-size: 8.5px; margin-bottom: 0.6rem; }
+  .inv-doc-billto { background: var(--inv-light-purple); border-radius: 6px; padding: 0.55rem 0.7rem; margin-bottom: 0.6rem; }
+  .inv-doc-billto .label { font-weight: 700; color: var(--inv-primary); font-size: 8.5px; margin-bottom: 0.2rem; }
+  table.inv-doc-table { width: 100%; border-collapse: collapse; font-size: 8px; margin-bottom: 0.5rem; }
+  table.inv-doc-table th { background: var(--inv-primary); color: #fff; padding: 0.3rem; text-align: left; }
+  table.inv-doc-table td { padding: 0.3rem; border-bottom: 1px solid var(--inv-border); }
+  .inv-doc-totals { width: 60%; margin-left: auto; font-size: 8.5px; }
+  .inv-doc-totals .inv-doc-totals-row { display: flex; justify-content: space-between; align-items: baseline; padding: 0.15rem 0; }
+  .inv-doc-totals .inv-doc-totals-row > span:first-child { color: var(--inv-muted); }
+  .inv-doc-totals .inv-doc-totals-row > span:last-child { font-weight: 600; }
+  .inv-doc-grand { background: var(--inv-gradient); color: #fff; font-weight: 700; padding: 0.4rem 0.6rem; border-radius: 6px; display: flex; justify-content: space-between; margin-top: 0.3rem; font-size: 9.5px; }
+  .inv-doc-words { font-size: 8.5px; margin-top: 0.6rem; }
+  .inv-doc-bank { font-size: 8.5px; margin-top: 0.6rem; }
+  .inv-doc-terms { font-size: 7.5px; color: var(--inv-muted); margin-top: 0.6rem; white-space: pre-line; }
+  .inv-doc-sign { margin-top: 0.8rem; text-align: right; font-size: 8.5px; }
+  .inv-doc-sign img { max-width: 80px; max-height: 32px; }
+
+  @media (max-width: 1199px) { .inv-grid { grid-template-columns: 1fr; } .inv-preview-wrap { position: static; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="inv-page">
+  <div class="inv-header">
+    <div>
+      <h1>{% if invoice %}Edit Draft Invoice{% else %}Create Invoice{% endif %}</h1>
+      <p>Generate professional invoices for your clients.</p>
+    </div>
+    <div class="inv-header-actions">
+      <button type="button" class="inv-btn" id="saveDraftBtn"><i class="bx bx-save"></i> Save as Draft</button>
+      <button type="button" class="inv-btn" id="previewBtn"><i class="bx bx-show"></i> Preview</button>
+      <button type="button" class="inv-btn inv-btn-primary" id="generateBtn"><i class="bx bx-send"></i> Generate Invoice</button>
+    </div>
+  </div>
+
+  <div class="inv-stepper">
+    <a href="#section-client" class="inv-step active"><span class="num">1</span> Client &amp; Project</a>
+    <a href="#section-details" class="inv-step"><span class="num">2</span> Invoice Details</a>
+    <a href="#section-items" class="inv-step"><span class="num">3</span> Items &amp; Services</a>
+    <a href="#section-review" class="inv-step"><span class="num">4</span> Review &amp; Generate</a>
+  </div>
+
+  <form method="post" action="{% if invoice %}{% url 'employees:invoice_update' invoice.pk %}{% else %}{% url 'employees:invoice_create' %}{% endif %}" id="invoiceForm">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="formAction" value="save_draft">
+    <input type="hidden" name="items_json" id="itemsJsonInput" value="">
+
+    <div class="inv-grid">
+      <div class="inv-form-col">
+
+        <!-- 1. Client & Project -->
+        <div class="inv-card" id="section-client">
+          <div class="inv-card-head"><div class="inv-card-icon"><i class="bx bx-building"></i></div><h5>Client &amp; Project</h5></div>
+          <div class="inv-row-2">
+            <div class="inv-field">
+              <label>Select Client *</label>
+              <select name="client" id="clientSelect" required>
+                <option value="">Choose a client...</option>
+                {% for c in clients %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
+              </select>
+              <span class="hint">No clients yet? <a href="{% url 'employees:invoice_clients' %}" target="_blank">Add one</a>.</span>
+            </div>
+            <div class="inv-field">
+              <label>Project (Optional)</label>
+              <select name="project" id="projectSelect">
+                <option value="">No project</option>
+              </select>
+            </div>
+          </div>
+          <div class="inv-client-details" id="clientDetailsBox">
+            <div class="title-row"><span>Client Details</span></div>
+            <div class="line" id="cd_address"></div>
+            <div class="line" id="cd_state"></div>
+            <div class="line" id="cd_contact"></div>
+            <div class="line" id="cd_email"></div>
+            <div class="line" id="cd_phone"></div>
+            <div class="line" id="cd_gstin"></div>
+          </div>
+        </div>
+
+        <!-- 2. Invoice Details -->
+        <div class="inv-card" id="section-details">
+          <div class="inv-card-head"><div class="inv-card-icon"><i class="bx bx-detail"></i></div><h5>Invoice Details</h5></div>
+          <div class="inv-row-4">
+            <div class="inv-field">
+              <label>Invoice Type *</label>
+              <select name="invoice_type" id="invoiceTypeSelect" required>
+                {% for value, label in invoice_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="inv-field"><label>Invoice Date *</label><input type="date" name="invoice_date" id="invoiceDateInput" value="{{ invoice.invoice_date|date:'Y-m-d'|default:today }}" required></div>
+            <div class="inv-field"><label>Due Date</label><input type="date" name="due_date" id="dueDateInput" value="{{ invoice.due_date|date:'Y-m-d' }}"></div>
+            <div class="inv-field">
+              <label>Invoice Number <a href="{% url 'employees:invoice_settings' %}" target="_blank" title="Numbering settings"><i class="bx bx-cog" style="font-size:0.8em;"></i></a></label>
+              <input type="text" value="{{ invoice.invoice_number|default:'Assigned on Generate' }}" disabled>
+            </div>
+          </div>
+          <div class="inv-row-4">
+            <div class="inv-field"><label>Place of Supply *</label><input type="text" name="place_of_supply_state" id="placeOfSupplyInput" value="{{ invoice.place_of_supply_state }}" placeholder="e.g. Uttar Pradesh" required></div>
+            <div class="inv-field">
+              <label>Payment Terms</label>
+              <select name="payment_terms" id="paymentTermsSelect">
+                {% for value, label in payment_terms_choices %}<option value="{{ value }}" {% if invoice.payment_terms == value or default_payment_terms == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="inv-field">
+              <label>Sales Person</label>
+              <select name="sales_person">
+                <option value="">None</option>
+                {% for e in employees %}<option value="{{ e.pk }}" {% if invoice.sales_person_id == e.pk %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="inv-field"><label>Notes (Optional)</label><input type="text" name="notes" value="{{ invoice.notes }}" placeholder="Add any notes..."></div>
+          </div>
+        </div>
+
+        <!-- 3. Items & Services -->
+        <div class="inv-card" id="section-items">
+          <div class="inv-items-head">
+            <div class="inv-card-head" style="margin:0;"><div class="inv-card-icon"><i class="bx bx-list-ul"></i></div><h5>Items &amp; Services</h5></div>
+            <button type="button" class="inv-btn inv-btn-primary" id="addItemBtn"><i class="bx bx-plus"></i> Add Item</button>
+          </div>
+          <div class="inv-items-table-wrap">
+            <table class="inv-items-table">
+              <thead>
+                <tr><th style="width:3%;">#</th><th style="width:22%;">Description</th><th style="width:8%;">SAC</th><th style="width:7%;">Qty</th><th style="width:8%;">Unit</th><th style="width:10%;">Rate (₹)</th><th style="width:15%;">Discount</th><th style="width:7%;">Tax %</th><th style="width:14%;">Amount (₹)</th><th style="width:6%;"></th></tr>
+              </thead>
+              <tbody id="itemsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4. Terms & Summary -->
+        <div class="inv-bottom-grid" id="section-review">
+          <div class="inv-card">
+            <div class="inv-card-head"><div class="inv-card-icon"><i class="bx bx-file"></i></div><h5>Terms &amp; Conditions</h5></div>
+            <textarea name="terms_and_conditions" id="termsInput" rows="6">{{ invoice.terms_and_conditions|default:default_terms }}</textarea>
+          </div>
+          <div class="inv-card">
+            <div class="inv-card-head"><div class="inv-card-icon"><i class="bx bx-calculator"></i></div><h5>Summary</h5></div>
+            <div class="inv-summary-row"><span>Subtotal</span><span class="val" id="sumSubtotal">₹0.00</span></div>
+            <div class="inv-summary-row"><span>Discount</span><span class="val" id="sumDiscount">₹0.00</span></div>
+            <div class="inv-summary-row"><span>Taxable Amount</span><span class="val" id="sumTaxable">₹0.00</span></div>
+            <div class="inv-summary-row" id="row_cgst" style="display:none;"><span>CGST</span><span class="val" id="sumCgst">₹0.00</span></div>
+            <div class="inv-summary-row" id="row_sgst" style="display:none;"><span>SGST</span><span class="val" id="sumSgst">₹0.00</span></div>
+            <div class="inv-summary-row" id="row_igst" style="display:none;"><span>IGST</span><span class="val" id="sumIgst">₹0.00</span></div>
+            <div class="inv-summary-total"><span>Total Amount</span><span class="amt" id="sumGrand">₹0.00</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Preview -->
+      <div class="inv-preview-col">
+        <div class="inv-preview-wrap">
+          <div class="inv-card">
+            <div class="inv-preview-head">
+              <h5 style="font-size:13px;font-weight:600;margin:0;">Invoice Preview</h5>
+              <button type="button" class="inv-icon-btn" id="maximizePreviewBtn" title="Full screen" style="border:1px solid var(--inv-border);border-radius:50%;width:28px;height:28px;background:#fff;cursor:pointer;"><i class="bx bx-expand"></i></button>
+            </div>
+            <div class="inv-doc" id="invoiceDoc">
+              <div class="inv-doc-header">
+                <div class="inv-doc-company">
+                  {{ office.name }}<br>
+                  <span style="font-weight:400;color:var(--inv-muted);">{{ office.address }}</span><br>
+                  {% if office.gst_number %}<span style="font-weight:400;color:var(--inv-muted);">GSTIN: {{ office.gst_number }}</span>{% endif %}
+                </div>
+              </div>
+              <div class="inv-doc-title" id="doc_title">TAX INVOICE</div>
+              <div class="inv-doc-meta-box">
+                <div><strong>Invoice No.:</strong> <span id="doc_number">Assigned on Generate</span></div>
+                <div><strong>Invoice Date:</strong> <span id="doc_date">-</span></div>
+                <div><strong>Due Date:</strong> <span id="doc_due">-</span></div>
+                <div><strong>Place of Supply:</strong> <span id="doc_pos">-</span></div>
+              </div>
+              <div class="inv-doc-billto">
+                <div class="label">Bill To</div>
+                <div id="doc_billto">Select a client to see details here.</div>
+              </div>
+              <div style="font-size:8.5px;color:var(--inv-muted);margin-bottom:0.5rem;" id="doc_meta2"></div>
+              <table class="inv-doc-table">
+                <thead><tr><th style="width:5%;">#</th><th style="width:30%;">Description</th><th style="width:12%;">SAC</th><th style="width:9%;">Qty</th><th style="width:13%;">Rate</th><th style="width:10%;">Disc.</th><th style="width:7%;">Tax</th><th style="width:14%;">Amount</th></tr></thead>
+                <tbody id="doc_items"><tr><td colspan="8" style="text-align:center;color:var(--inv-muted);">No items added yet</td></tr></tbody>
+              </table>
+              <div class="inv-doc-totals">
+                <div class="inv-doc-totals-row"><span>Subtotal</span><span id="doc_subtotal">₹0.00</span></div>
+                <div class="inv-doc-totals-row"><span>Discount</span><span id="doc_discount">₹0.00</span></div>
+                <div class="inv-doc-totals-row"><span>Taxable Amount</span><span id="doc_taxable">₹0.00</span></div>
+                <div class="inv-doc-totals-row" id="doc_row_cgst" style="display:none;"><span>CGST</span><span id="doc_cgst">₹0.00</span></div>
+                <div class="inv-doc-totals-row" id="doc_row_sgst" style="display:none;"><span>SGST</span><span id="doc_sgst">₹0.00</span></div>
+                <div class="inv-doc-totals-row" id="doc_row_igst" style="display:none;"><span>IGST</span><span id="doc_igst">₹0.00</span></div>
+              </div>
+              <div class="inv-doc-grand"><span>Total Amount Payable</span><span id="doc_grand">₹0.00</span></div>
+              <div class="inv-doc-words"><strong>Amount in Words:</strong> <span id="doc_words">-</span></div>
+              <div class="inv-doc-bank" id="doc_bank"></div>
+              <div class="inv-doc-terms" id="doc_terms"></div>
+              <div class="inv-doc-sign" id="doc_sign"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="inv-doc-backdrop" id="docBackdrop"></div>
+
+{{ clients_data|json_script:"clientsDataJson" }}
+{{ projects_data|json_script:"projectsDataJson" }}
+{{ existing_items_data|json_script:"existingItemsDataJson" }}
+{{ bank_lines|json_script:"bankLinesJson" }}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var CLIENTS = JSON.parse(document.getElementById('clientsDataJson').textContent);
+  var PROJECTS = JSON.parse(document.getElementById('projectsDataJson').textContent);
+  var EXISTING_ITEMS = JSON.parse(document.getElementById('existingItemsDataJson').textContent);
+  var SELLER_STATE = "{{ branch.state|default:''|escapejs }}";
+  var BANK_LINES = JSON.parse(document.getElementById('bankLinesJson').textContent);
+
+  var form = document.getElementById('invoiceForm');
+  var clientSelect = document.getElementById('clientSelect');
+  var projectSelect = document.getElementById('projectSelect');
+  var clientDetailsBox = document.getElementById('clientDetailsBox');
+  var itemsBody = document.getElementById('itemsBody');
+  var docItemsBody = document.getElementById('doc_items');
+
+  function money(n) { return '₹' + (Math.round((n + Number.EPSILON) * 100) / 100).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
+  function findClient(id) { return CLIENTS.find(function (c) { return String(c.id) === String(id); }); }
+
+  // ---- Client / Project ----
+  function populateProjects() {
+    var clientId = clientSelect.value;
+    var current = projectSelect.value;
+    projectSelect.innerHTML = '<option value="">No project</option>';
+    PROJECTS.filter(function (p) { return !clientId || !p.client_id || String(p.client_id) === String(clientId); })
+      .forEach(function (p) {
+        var opt = document.createElement('option');
+        opt.value = p.id; opt.textContent = p.name;
+        projectSelect.appendChild(opt);
+      });
+    if ([...projectSelect.options].some(function (o) { return o.value === current; })) projectSelect.value = current;
+  }
+
+  function onClientChange() {
+    var client = findClient(clientSelect.value);
+    if (!client) {
+      clientDetailsBox.classList.remove('show');
+      document.getElementById('placeOfSupplyInput').value = '';
+    } else {
+      clientDetailsBox.classList.add('show');
+      document.getElementById('cd_address').textContent = client.billing_address || '';
+      document.getElementById('cd_state').textContent = [client.state, client.pincode].filter(Boolean).join(' - ');
+      document.getElementById('cd_contact').textContent = client.contact_person ? ('Contact: ' + client.contact_person) : '';
+      document.getElementById('cd_email').textContent = client.email ? ('Email: ' + client.email) : '';
+      document.getElementById('cd_phone').textContent = client.phone ? ('Phone: ' + client.phone) : '';
+      document.getElementById('cd_gstin').textContent = client.gstin ? ('GSTIN: ' + client.gstin) : '';
+      if (!document.getElementById('placeOfSupplyInput').value) {
+        document.getElementById('placeOfSupplyInput').value = client.state || '';
+      }
+    }
+    populateProjects();
+    recalc();
+  }
+  clientSelect.addEventListener('change', onClientChange);
+  document.getElementById('placeOfSupplyInput').addEventListener('input', recalc);
+  document.getElementById('invoiceTypeSelect').addEventListener('change', recalc);
+  document.getElementById('invoiceDateInput').addEventListener('input', updateDocMeta);
+  document.getElementById('dueDateInput').addEventListener('input', updateDocMeta);
+
+  // ---- Items table ----
+  var rowSeq = 0;
+  function addRow(data) {
+    data = data || {};
+    rowSeq += 1;
+    var tr = document.createElement('tr');
+    tr.dataset.rowId = rowSeq;
+    tr.innerHTML =
+      '<td style="padding-top:0.55rem;">' + itemsBody.children.length + 1 + '</td>' +
+      '<td><input type="text" class="f-desc" placeholder="Description" value="' + (data.description || '').replace(/"/g, '&quot;') + '"><input type="text" class="f-note" placeholder="Subtext (optional)" style="margin-top:3px;" value="' + (data.description_note || '').replace(/"/g, '&quot;') + '"></td>' +
+      '<td><input type="text" class="f-sac" value="' + (data.sac_code || '') + '"></td>' +
+      '<td><input type="number" step="0.01" min="0.01" class="f-qty" value="' + (data.quantity || '1') + '"></td>' +
+      '<td><select class="f-unit">' + ['Nos', 'Hrs', 'Days', 'Months'].map(function (u) { return '<option value="' + u + '"' + (data.unit === u ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '</select></td>' +
+      '<td><input type="number" step="0.01" min="0" class="f-rate" value="' + (data.rate || '0') + '"></td>' +
+      '<td><div class="inv-discount-row"><input type="number" step="0.01" min="0" class="f-disc-val" value="' + (data.discount_value || '0') + '"><select class="f-disc-type"><option value="fixed"' + (data.discount_type !== 'percentage' ? ' selected' : '') + '>₹</option><option value="percentage"' + (data.discount_type === 'percentage' ? ' selected' : '') + '>%</option></select></div></td>' +
+      '<td><input type="number" step="0.01" min="0" class="f-tax" value="' + (data.tax_rate || '18') + '"></td>' +
+      '<td><span class="inv-item-amount f-amount">₹0.00</span></td>' +
+      '<td><button type="button" class="inv-remove-row"><i class="bx bx-trash"></i></button></td>';
+    itemsBody.appendChild(tr);
+    tr.querySelectorAll('input, select').forEach(function (el) { el.addEventListener('input', recalc); el.addEventListener('change', recalc); });
+    tr.querySelector('.inv-remove-row').addEventListener('click', function () { tr.remove(); renumberRows(); recalc(); });
+  }
+  function renumberRows() {
+    Array.prototype.forEach.call(itemsBody.children, function (tr, idx) { tr.firstElementChild.textContent = idx + 1; });
+  }
+  document.getElementById('addItemBtn').addEventListener('click', function () { addRow(); recalc(); });
+
+  if (EXISTING_ITEMS.length) {
+    EXISTING_ITEMS.forEach(function (it) { addRow(it); });
+  } else {
+    addRow();
+  }
+
+  // ---- Calculation (mirrors employees/invoicing_calculations.py) ----
+  function calcLine(item, invoiceType) {
+    var gross = item.qty * item.rate;
+    var discount = item.discType === 'percentage' ? gross * item.discVal / 100 : Math.min(item.discVal, gross);
+    var taxable = gross - discount;
+    var noTax = invoiceType === 'bill_of_supply' || invoiceType === 'non_gst';
+    var tax = noTax ? 0 : taxable * item.taxRate / 100;
+    return { gross: gross, discount: discount, taxable: taxable, tax: tax, total: taxable + tax };
+  }
+
+  function readItems() {
+    return Array.prototype.map.call(itemsBody.children, function (tr) {
+      return {
+        description: tr.querySelector('.f-desc').value,
+        description_note: tr.querySelector('.f-note').value,
+        sac_code: tr.querySelector('.f-sac').value,
+        qty: parseFloat(tr.querySelector('.f-qty').value) || 0,
+        unit: tr.querySelector('.f-unit').value,
+        rate: parseFloat(tr.querySelector('.f-rate').value) || 0,
+        discType: tr.querySelector('.f-disc-type').value,
+        discVal: parseFloat(tr.querySelector('.f-disc-val').value) || 0,
+        taxRate: parseFloat(tr.querySelector('.f-tax').value) || 0,
+        row: tr,
+      };
+    });
+  }
+
+  function recalc() {
+    var invoiceType = document.getElementById('invoiceTypeSelect').value;
+    var placeOfSupply = document.getElementById('placeOfSupplyInput').value;
+    var noTax = invoiceType === 'bill_of_supply' || invoiceType === 'non_gst';
+    var sameState = !noTax && SELLER_STATE.trim().toLowerCase() === (placeOfSupply || '').trim().toLowerCase() && placeOfSupply.trim() !== '';
+    var taxMode = noTax ? 'none' : (sameState ? 'split' : 'igst');
+
+    var items = readItems();
+    var subtotal = 0, discountTotal = 0, taxable = 0, taxTotal = 0;
+    var docRowsHtml = [];
+
+    items.forEach(function (item, idx) {
+      var r = calcLine(item, invoiceType);
+      item.row.querySelector('.f-amount').textContent = money(r.total);
+      subtotal += r.gross; discountTotal += r.discount; taxable += r.taxable; taxTotal += r.tax;
+      docRowsHtml.push('<tr><td>' + (idx + 1) + '</td><td><strong>' + escapeHtml(item.description || '(no description)') + '</strong>' + (item.description_note ? '<br><span style="color:var(--inv-muted);">' + escapeHtml(item.description_note) + '</span>' : '') + '</td><td>' + escapeHtml(item.sac_code) + '</td><td>' + item.qty + ' ' + escapeHtml(item.unit) + '</td><td>' + money(item.rate) + '</td><td>' + (item.discVal || 0) + (item.discType === 'percentage' ? '%' : '') + '</td><td>' + item.taxRate + '%</td><td>' + money(r.total) + '</td></tr>');
+    });
+
+    docItemsBody.innerHTML = docRowsHtml.length ? docRowsHtml.join('') : '<tr><td colspan="8" style="text-align:center;color:var(--inv-muted);">No items added yet</td></tr>';
+
+    var cgst = 0, sgst = 0, igst = 0;
+    if (taxMode === 'split') { cgst = Math.round(taxTotal / 2 * 100) / 100; sgst = Math.round((taxTotal - cgst) * 100) / 100; }
+    else if (taxMode === 'igst') { igst = taxTotal; }
+    var grand = taxable + cgst + sgst + igst;
+
+    document.getElementById('sumSubtotal').textContent = money(subtotal);
+    document.getElementById('sumDiscount').textContent = money(discountTotal);
+    document.getElementById('sumTaxable').textContent = money(taxable);
+    document.getElementById('sumCgst').textContent = money(cgst);
+    document.getElementById('sumSgst').textContent = money(sgst);
+    document.getElementById('sumIgst').textContent = money(igst);
+    document.getElementById('sumGrand').textContent = money(grand);
+    document.getElementById('row_cgst').style.display = taxMode === 'split' ? 'flex' : 'none';
+    document.getElementById('row_sgst').style.display = taxMode === 'split' ? 'flex' : 'none';
+    document.getElementById('row_igst').style.display = taxMode === 'igst' ? 'flex' : 'none';
+
+    document.getElementById('doc_subtotal').textContent = money(subtotal);
+    document.getElementById('doc_discount').textContent = money(discountTotal);
+    document.getElementById('doc_taxable').textContent = money(taxable);
+    document.getElementById('doc_cgst').textContent = money(cgst);
+    document.getElementById('doc_sgst').textContent = money(sgst);
+    document.getElementById('doc_igst').textContent = money(igst);
+    document.getElementById('doc_grand').textContent = money(grand);
+    document.getElementById('doc_row_cgst').style.display = taxMode === 'split' ? 'flex' : 'none';
+    document.getElementById('doc_row_sgst').style.display = taxMode === 'split' ? 'flex' : 'none';
+    document.getElementById('doc_row_igst').style.display = taxMode === 'igst' ? 'flex' : 'none';
+
+    document.getElementById('doc_title').textContent = invoiceType === 'bill_of_supply' ? 'BILL OF SUPPLY' : (invoiceType === 'non_gst' ? 'INVOICE' : 'TAX INVOICE');
+    document.getElementById('doc_pos').textContent = placeOfSupply || '-';
+    document.getElementById('doc_words').textContent = grand > 0 ? '(computed on save)' : '-';
+
+    updateDocMeta();
+  }
+
+  function escapeHtml(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function updateDocMeta() {
+    var client = findClient(clientSelect.value);
+    document.getElementById('doc_billto').innerHTML = client
+      ? '<strong>' + escapeHtml(client.name) + '</strong><br>' +
+        (client.contact_person ? escapeHtml(client.contact_person) + '<br>' : '') +
+        (client.billing_address ? escapeHtml(client.billing_address) + '<br>' : '') +
+        [client.state, client.pincode].filter(Boolean).join(' ') + '<br>' +
+        (client.gstin ? 'GSTIN: ' + escapeHtml(client.gstin) + '<br>' : '') +
+        (client.phone ? 'Phone: ' + escapeHtml(client.phone) + '<br>' : '') +
+        (client.email ? 'Email: ' + escapeHtml(client.email) : '')
+      : 'Select a client to see details here.';
+
+    var dateVal = document.getElementById('invoiceDateInput').value;
+    var dueVal = document.getElementById('dueDateInput').value;
+    document.getElementById('doc_date').textContent = dateVal || '-';
+    document.getElementById('doc_due').textContent = dueVal || '-';
+
+    var projectOpt = projectSelect.options[projectSelect.selectedIndex];
+    var paymentOpt = document.getElementById('paymentTermsSelect');
+    document.getElementById('doc_meta2').textContent = [
+      projectOpt && projectOpt.value ? 'Project: ' + projectOpt.textContent : '',
+      'Payment Terms: ' + (paymentOpt.options[paymentOpt.selectedIndex] ? paymentOpt.options[paymentOpt.selectedIndex].textContent : ''),
+    ].filter(Boolean).join(' | ');
+
+    document.getElementById('doc_terms').textContent = document.getElementById('termsInput').value;
+    document.getElementById('doc_bank').innerHTML = BANK_LINES.length
+      ? '<strong>Bank Details</strong><br>' + BANK_LINES.map(escapeHtml).join('<br>')
+      : '';
+  }
+  document.getElementById('paymentTermsSelect').addEventListener('change', updateDocMeta);
+  document.getElementById('termsInput').addEventListener('input', updateDocMeta);
+
+  // ---- Submit ----
+  function serializeItems() {
+    return readItems().map(function (item) {
+      return {
+        description: item.description, description_note: item.description_note, sac_code: item.sac_code,
+        quantity: item.qty, unit: item.unit, rate: item.rate,
+        discount_type: item.discType, discount_value: item.discVal, tax_rate: item.taxRate,
+      };
+    });
+  }
+  function submitAs(action) {
+    if (!clientSelect.value) { alert('Please select a client.'); clientSelect.focus(); return; }
+    var items = serializeItems();
+    if (!items.length) { alert('Add at least one line item.'); return; }
+    document.getElementById('formAction').value = action;
+    document.getElementById('itemsJsonInput').value = JSON.stringify(items);
+    form.submit();
+  }
+  document.getElementById('saveDraftBtn').addEventListener('click', function () { submitAs('save_draft'); });
+  document.getElementById('generateBtn').addEventListener('click', function () {
+    if (confirm('Generate this invoice? It will be assigned a permanent invoice number and can no longer be edited.')) submitAs('generate');
+  });
+  document.getElementById('previewBtn').addEventListener('click', function () { toggleFullscreen(true); });
+
+  // ---- Fullscreen preview ----
+  // Some ancestor in this layout's sidebar/navbar wrapper applies a CSS
+  // transform, which turns position:fixed descendants into positioning
+  // relative to THAT ancestor instead of the real viewport (a standard CSS
+  // trap). Re-parenting the doc + backdrop to be direct children of <body>
+  // on open - and restoring them to their original spot on close - sidesteps
+  // that regardless of which ancestor is responsible.
+  var docEl = document.getElementById('invoiceDoc');
+  var backdrop = document.getElementById('docBackdrop');
+  var docHome = docEl.parentNode;
+  var docHomeNextSibling = docEl.nextSibling;
+
+  function toggleFullscreen(on) {
+    if (on) {
+      document.body.appendChild(backdrop);
+      document.body.appendChild(docEl);
+      docEl.classList.add('fullscreen');
+      backdrop.classList.add('show');
+    } else {
+      docEl.classList.remove('fullscreen');
+      backdrop.classList.remove('show');
+      docHome.insertBefore(docEl, docHomeNextSibling);
+    }
+  }
+  document.getElementById('maximizePreviewBtn').addEventListener('click', function () { toggleFullscreen(!docEl.classList.contains('fullscreen')); });
+  backdrop.addEventListener('click', function () { toggleFullscreen(false); });
+
+  // ---- Stepper active state on scroll ----
+  var steps = document.querySelectorAll('.inv-step');
+  var sections = ['section-client', 'section-details', 'section-items', 'section-review'].map(function (id) { return document.getElementById(id); });
+  window.addEventListener('scroll', function () {
+    var pos = window.scrollY + 140;
+    var activeIdx = 0;
+    sections.forEach(function (sec, idx) { if (sec && sec.offsetTop <= pos) activeIdx = idx; });
+    steps.forEach(function (s, idx) { s.classList.toggle('active', idx === activeIdx); });
+  });
+
+  onClientChange();
+  recalc();
+});
+</script>
+{% endblock %}

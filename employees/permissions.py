@@ -40,6 +40,8 @@ FEATURE_PERMISSIONS = [
     ('tasks.manage', 'Manage Projects, Tasks & Face Update Requests', 'Tasks & Workflows'),
     ('teams.manage', 'Manage Teams', 'Tasks & Workflows'),
     ('tickets.manage', 'Manage Support Tickets', 'Support'),
+    ('crm.manage', 'Manage CRM Leads', 'CRM'),
+    ('invoices.manage', 'Manage Invoices & Clients', 'Invoicing'),
     ('finance.manage', 'Manage Finance (salary, loans, reimbursements, payslips)', 'Finance'),
     ('holidays.manage', 'Manage Holidays Calendar', 'Company Settings'),
     ('rules.manage', 'Manage Rules & Regulations', 'Company Settings'),

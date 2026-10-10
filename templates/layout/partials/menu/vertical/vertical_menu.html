@@ -233,6 +233,52 @@
     {% endif %}
 
 
+    {% if 'invoices.manage' in office_visible_features %}
+    <!-- ===============================
+           INVOICING GROUP
+    =================================-->
+    <li class="menu-item {% if '/invoices/' in request.path %}menu-item-open active{% endif %}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-receipt"></i>
+        <div>Invoice</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if request.path == '/invoices/create/' %}active{% endif %}">
+          <a href="{% url 'employees:invoice_create' %}" class="menu-link"><div>Create Invoice</div></a>
+        </li>
+        <li class="menu-item {% if request.path == '/invoices/' %}active{% endif %}">
+          <a href="{% url 'employees:invoice_list' %}" class="menu-link"><div>All Invoices</div></a>
+        </li>
+        <li class="menu-item {% if request.path == '/invoices/clients/' %}active{% endif %}">
+          <a href="{% url 'employees:invoice_clients' %}" class="menu-link"><div>Clients</div></a>
+        </li>
+        <li class="menu-item {% if request.path == '/invoices/settings/' %}active{% endif %}">
+          <a href="{% url 'employees:invoice_settings' %}" class="menu-link"><div>Settings</div></a>
+        </li>
+      </ul>
+    </li>
+    {% endif %}
+
+    {% if 'crm.manage' in office_visible_features %}
+    <!-- ===============================
+           CRM GROUP
+    =================================-->
+    <li class="menu-item {% if '/crm/' in request.path %}menu-item-open active{% endif %}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-group"></i>
+        <div>CRM</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if request.path == '/crm/leads/' %}active{% endif %}">
+          <a href="{% url 'employees:crm_leads' %}" class="menu-link"><div>Leads</div></a>
+        </li>
+        <li class="menu-item {% if request.path == '/crm/settings/' %}active{% endif %}">
+          <a href="{% url 'employees:crm_settings' %}" class="menu-link"><div>Settings</div></a>
+        </li>
+      </ul>
+    </li>
+    {% endif %}
+
     {% if 'integrations.manage' in office_visible_features %}
     <!-- ===============================
            INTEGRATIONS GROUP

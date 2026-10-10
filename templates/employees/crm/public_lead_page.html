@@ -1,0 +1,93 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Contact {{ office.name }}{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .plp {
+    --plp-primary: #696cff;
+    --plp-ink: #1e1b3a;
+    --plp-muted: #64748b;
+    min-height: 100vh;
+    background: radial-gradient(circle at 10% 10%, rgba(105,108,255,0.08), transparent 45%), #f8f9fc;
+    display: flex; align-items: center; justify-content: center; padding: 2rem 1.25rem;
+  }
+  .plp * { box-sizing: border-box; }
+  .plp-card {
+    width: 100%; max-width: 920px; background: #fff; border-radius: 22px; overflow: hidden;
+    box-shadow: 0 30px 60px rgba(30,27,58,0.1); display: grid; grid-template-columns: 1fr;
+  }
+  @media (min-width: 860px) { .plp-card { grid-template-columns: 1fr 1fr; } }
+
+  .plp-hero { background: linear-gradient(150deg, #696cff, #8b5cf6); color: #fff; padding: 2.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.9rem; }
+  .plp-hero img { width: 120px; height: auto; margin-bottom: 0.5rem; background: #fff; border-radius: 12px; padding: 0.4rem; }
+  .plp-hero h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
+  .plp-hero p { font-size: 0.92rem; opacity: 0.9; margin: 0; max-width: 32ch; }
+  .plp-hero ul { list-style: none; margin: 0.6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; }
+  .plp-hero li { display: flex; align-items: center; gap: 0.5rem; opacity: 0.92; }
+
+  .plp-form-side { padding: 2.5rem; }
+  .plp-form-side h2 { font-size: 1.1rem; font-weight: 700; color: var(--plp-ink); margin: 0 0 0.3rem; }
+  .plp-form-side > p { font-size: 0.84rem; color: var(--plp-muted); margin: 0 0 1.4rem; }
+
+  .plp-field { margin-bottom: 1rem; }
+  .plp-field label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--plp-ink); margin-bottom: 0.35rem; }
+  .plp-field input, .plp-field textarea {
+    width: 100%; font-size: 0.9rem; padding: 0.7rem 0.9rem; border-radius: 10px; border: 1px solid rgba(30,27,58,0.12); background: #fafafe;
+  }
+  .plp-field textarea { min-height: 100px; resize: vertical; }
+  .plp-submit {
+    width: 100%; border: none; border-radius: 10px; padding: 0.8rem; font-weight: 700; font-size: 0.92rem; color: #fff;
+    background: linear-gradient(135deg, #696cff, #8b5cf6); cursor: pointer;
+  }
+  .plp-note { font-size: 0.74rem; color: var(--plp-muted); margin-top: 0.8rem; text-align: center; }
+
+  .plp-success { text-align: center; padding: 1.5rem 0; }
+  .plp-success i { font-size: 2.6rem; color: #71dd37; }
+  .plp-success h2 { margin: 0.6rem 0 0.3rem; }
+  .plp-success p { color: var(--plp-muted); font-size: 0.88rem; }
+  .plp-error { background: #fff0f0; color: #c23616; border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 0.82rem; margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="plp">
+  <div class="plp-card">
+    <div class="plp-hero">
+      {% if office.logo %}<img src="{{ office.logo.url }}" alt="{{ office.name }}">{% endif %}
+      <h1>{{ office.name }}</h1>
+      <p>This is a sample contact page for {{ office.name }} - fill the form and our team will get back to you shortly.</p>
+      <ul>
+        <li><i class="bx bx-check-circle"></i> We usually reply within one business day</li>
+        <li><i class="bx bx-check-circle"></i> Your details are only shared with {{ office.name }}</li>
+      </ul>
+    </div>
+    <div class="plp-form-side">
+      {% if submitted %}
+        <div class="plp-success">
+          <i class="bx bx-check-circle"></i>
+          <h2>Thank you!</h2>
+          <p>Your message has been received. {{ office.name }} will reach out to you soon.</p>
+        </div>
+      {% else %}
+        <h2>Get in touch</h2>
+        <p>Tell us a bit about what you need.</p>
+        {% if messages %}
+          {% for message in messages %}<div class="plp-error">{{ message }}</div>{% endfor %}
+        {% endif %}
+        <form method="post">
+          {% csrf_token %}
+          <div class="plp-field"><label>Full Name *</label><input type="text" name="name" placeholder="Your name" required></div>
+          <div class="plp-field"><label>Phone Number *</label><input type="text" name="phone" placeholder="Your phone number" required></div>
+          <div class="plp-field"><label>Email</label><input type="email" name="email" placeholder="you@example.com"></div>
+          <div class="plp-field"><label>Message</label><textarea name="message" placeholder="What are you looking for?"></textarea></div>
+          <button type="submit" class="plp-submit">Send Message</button>
+        </form>
+        <p class="plp-note">This is a sample lead-capture page for demonstration.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

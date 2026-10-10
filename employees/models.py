@@ -2808,6 +2808,11 @@ class Project(models.Model):
         max_length=150, blank=True,
         help_text="Client or internal department this project is for (optional)",
     )
+    client = models.ForeignKey(
+        'Client', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='projects',
+        help_text="Billing client this project is for, if any (used by Invoicing)",
+    )
 
     # --- Timeline ---
     start_date = models.DateField(null=True, blank=True)
@@ -5379,3 +5384,375 @@ class SubscriptionPlanFeature(models.Model):
     def label(self):
         from .permissions import FEATURE_PERMISSIONS
         return next((label for key, label, _category in FEATURE_PERMISSIONS if key == self.feature_key), self.feature_key)
+
+
+# ===========================
+# CRM - Leads
+# ===========================
+
+class Lead(models.Model):
+    """One prospect/contact captured for an office, from whichever source
+    brought them in. source=WHATSAPP rows are created by the periodic poll
+    against the office's configured CrmWhatsAppLeadSource; source=WEBSITE
+    rows come from that office's public CrmWebsiteLeadPage; source=CSV from
+    a bulk upload; source=MANUAL from the "Add Lead" form."""
+
+    class Source(models.TextChoices):
+        WEBSITE = ('website', 'Website')
+        WHATSAPP = ('whatsapp', 'WhatsApp')
+        CSV = ('csv', 'CSV Import')
+        MANUAL = ('manual', 'Manual')
+
+    class Status(models.TextChoices):
+        NEW = ('new', 'New')
+        CONTACTED = ('contacted', 'Contacted')
+        INTERESTED = ('interested', 'Interested')
+        PROPOSAL_SENT = ('proposal_sent', 'Proposal Sent')
+        FOLLOW_UP = ('follow_up', 'Follow Up')
+        CONVERTED = ('converted', 'Converted')
+        LOST = ('lost', 'Lost')
+
+    office = models.ForeignKey(
+        Office, on_delete=models.CASCADE, related_name='leads', db_index=True,
+    )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this lead belongs to, if known.",
+    )
+
+    name = models.CharField(max_length=150, blank=True)
+    phone = models.CharField(max_length=30, blank=True)
+    email = models.EmailField(blank=True)
+    company = models.CharField(max_length=150, blank=True)
+    message = models.TextField(blank=True, help_text="The message/enquiry the lead submitted, if any.")
+
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.MANUAL, db_index=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, db_index=True)
+
+    assigned_to = models.ForeignKey(
+        'Employee', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_leads',
+    )
+
+    external_id = models.CharField(
+        max_length=150, blank=True, db_index=True,
+        help_text="Source's own message/record id (e.g. WhatsApp's wamid) - used to avoid re-importing the same lead.",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Lead'
+        verbose_name_plural = 'Leads'
+
+    def __str__(self):
+        return self.name or self.phone or f'Lead #{self.pk}'
+
+    def log_activity(self, description, user=None):
+        return LeadActivity.objects.create(
+            lead=self, office_id=self.office_id, branch_id=self.branch_id, description=description,
+            created_by=user if (user and user.is_authenticated) else None,
+        )
+
+
+class LeadActivity(models.Model):
+    """One timeline entry for a Lead: created, status changed, reassigned,
+    a note added, or (for a WhatsApp lead) a message received. Powers both
+    the lead's own activity history and the CRM page's Recent Activities feed."""
+
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='activities')
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='lead_activities', db_index=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
+    description = models.CharField(max_length=255)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Lead Activity'
+        verbose_name_plural = 'Lead Activities'
+
+    def __str__(self):
+        return self.description
+
+
+class CrmWebsiteLeadPage(models.Model):
+    """A sample public lead-capture page for one office, reachable at
+    /l/<slug>/ with no login required. Each office gets exactly one; the
+    slug is random so the URL can't be guessed from the office name."""
+
+    office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name='crm_website_page')
+    slug = models.SlugField(max_length=40, unique=True, blank=True)
+    is_active = models.BooleanField(default=True, help_text="Turn off to stop accepting new submissions from this page.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            import secrets
+            from django.utils.text import slugify
+            base = slugify(self.office.name)[:24] or 'office'
+            self.slug = f"{base}-{secrets.token_hex(4)}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Website lead page for {self.office.name}"
+
+
+class CrmWhatsAppLeadSource(models.Model):
+    """Where this office's WhatsApp leads come from: a third-party WhatsApp
+    marketing service's "received messages" endpoint, which the office admin
+    points this at (and pastes that service's own auth token into). Polled
+    periodically - see employees.integrations.crm_whatsapp.poll_sources()."""
+
+    office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name='crm_whatsapp_source')
+    source_url = models.URLField(max_length=500, help_text="The GET endpoint that returns newly received WhatsApp messages.")
+    access_token_encrypted = models.TextField(
+        blank=True,
+        help_text="Encrypted at rest. Stored and sent exactly as given, e.g. 'Token abc123' - whatever the WhatsApp marketing service told you to use as the Authorization header.",
+    )
+    reengage_after_days = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text=(
+            "By default, each WhatsApp contact becomes a lead only once, ever. Set this to let the same "
+            "contact come back as a new lead after this many days, but only if they've also sent a new "
+            "message since then. Sent to the source as 'reengage_after_days'. Leave blank for once-ever."
+        ),
+    )
+    is_active = models.BooleanField(default=True)
+    last_polled_at = models.DateTimeField(null=True, blank=True)
+    last_poll_ok = models.BooleanField(null=True, blank=True)
+    last_poll_error = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def set_access_token(self, raw_token):
+        from .integrations.crypto import encrypt
+        self.access_token_encrypted = encrypt((raw_token or '').strip())
+
+    def get_access_token(self):
+        from .integrations.crypto import decrypt
+        return decrypt(self.access_token_encrypted)
+
+    @property
+    def has_token(self):
+        return bool(self.access_token_encrypted)
+
+    def __str__(self):
+        return f"WhatsApp lead source for {self.office.name}"
+
+
+# ===========================
+# Invoicing
+# ===========================
+
+class Client(models.Model):
+    """A company/person this office bills. Separate from a CRM Lead (a
+    prospect, not yet billed) and from Employee (internal) - a Client is who
+    an Invoice is addressed to."""
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='clients', db_index=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this record belongs to",
+    )
+
+    name = models.CharField(max_length=200)
+    contact_person = models.CharField(max_length=150, blank=True)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    billing_address = models.TextField(blank=True)
+    state = models.CharField(max_length=100, blank=True, help_text="Used as the place of supply default - determines CGST+SGST vs IGST on invoices")
+    pincode = models.CharField(max_length=10, blank=True)
+    gstin = models.CharField(max_length=20, blank=True, help_text="Leave blank if the client isn't GST-registered")
+
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Client'
+        verbose_name_plural = 'Clients'
+
+    def __str__(self):
+        return self.name
+
+
+class InvoiceSettings(models.Model):
+    """Per-office invoicing configuration: the numbering scheme (with the
+    race-safe counter invoices are allocated from - see allocate_number()),
+    default bank/signatory details shown on every invoice PDF, and default
+    terms text new invoices start from."""
+
+    office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name='invoice_settings')
+
+    number_prefix = models.CharField(max_length=20, default='INV')
+    current_financial_year = models.CharField(
+        max_length=10, blank=True,
+        help_text="e.g. '26-27' - set automatically as invoices are generated, do not edit directly",
+    )
+    last_sequence = models.PositiveIntegerField(
+        default=0, help_text="Last invoice number issued this financial year - do not edit directly",
+    )
+
+    default_payment_terms = models.CharField(max_length=30, blank=True, default='due_on_receipt')
+    default_terms_and_conditions = models.TextField(blank=True)
+
+    bank_name = models.CharField(max_length=150, blank=True)
+    bank_account_name = models.CharField(max_length=150, blank=True)
+    bank_account_number = models.CharField(max_length=40, blank=True)
+    ifsc_code = models.CharField(max_length=20, blank=True)
+    bank_branch_name = models.CharField(max_length=150, blank=True)
+    upi_vpa = models.CharField(max_length=100, blank=True, help_text="Your UPI ID, e.g. company@okaxis - used to generate the payment QR code")
+
+    signatory_name = models.CharField(max_length=150, blank=True)
+    signatory_designation = models.CharField(max_length=100, blank=True)
+    signature_image = models.ImageField(upload_to='invoice_signatures/', blank=True, null=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Invoice Settings'
+        verbose_name_plural = 'Invoice Settings'
+
+    def __str__(self):
+        return f"Invoice settings for {self.office.name}"
+
+    def allocate_number(self, financial_year_label):
+        """Allocates and returns the next invoice number for this office.
+        Call ONLY while holding a select_for_update() lock on this row
+        inside transaction.atomic() (see invoice_views.generate_invoice) -
+        that lock is what makes this race-safe under concurrent requests.
+        Resets the sequence to 0 the first time a new financial year is seen."""
+        if self.current_financial_year != financial_year_label:
+            self.current_financial_year = financial_year_label
+            self.last_sequence = 0
+        self.last_sequence += 1
+        self.save(update_fields=['current_financial_year', 'last_sequence', 'updated_at'])
+        return f"{self.number_prefix}/{financial_year_label}/{self.last_sequence:04d}"
+
+
+class Invoice(models.Model):
+    """A GST invoice issued by one branch of this office to a Client."""
+
+    class InvoiceType(models.TextChoices):
+        TAX_INVOICE = ('tax_invoice', 'Tax Invoice (GST)')
+        BILL_OF_SUPPLY = ('bill_of_supply', 'Bill of Supply')
+        NON_GST = ('non_gst', 'Non-GST Invoice')
+
+    class PaymentTerms(models.TextChoices):
+        DUE_ON_RECEIPT = ('due_on_receipt', 'Due on Receipt')
+        DAYS_7 = ('7_days', '7 Days')
+        DAYS_15 = ('15_days', '15 Days')
+        DAYS_30 = ('30_days', '30 Days')
+        DAYS_45 = ('45_days', '45 Days')
+        CUSTOM = ('custom', 'Custom')
+
+    class Status(models.TextChoices):
+        DRAFT = ('draft', 'Draft')
+        GENERATED = ('generated', 'Generated')
+        CANCELLED = ('cancelled', 'Cancelled')
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='invoices', db_index=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.PROTECT, related_name='invoices',
+        help_text="Issuing branch - its state determines CGST+SGST vs IGST",
+    )
+    client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name='invoices')
+    project = models.ForeignKey(
+        'Project', on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices',
+    )
+
+    invoice_type = models.CharField(max_length=20, choices=InvoiceType.choices, default=InvoiceType.TAX_INVOICE)
+    invoice_number = models.CharField(
+        max_length=40, blank=True, db_index=True,
+        help_text="Blank until Generated - allocated once via InvoiceSettings.allocate_number(), never reused",
+    )
+    invoice_date = models.DateField()
+    due_date = models.DateField(null=True, blank=True)
+    place_of_supply_state = models.CharField(
+        max_length=100, help_text="Buyer's state for this supply - defaults from the client but is editable",
+    )
+    payment_terms = models.CharField(max_length=30, choices=PaymentTerms.choices, default=PaymentTerms.DUE_ON_RECEIPT)
+    sales_person = models.ForeignKey(
+        'Employee', on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    notes = models.TextField(blank=True)
+    terms_and_conditions = models.TextField(blank=True)
+
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    currency = models.CharField(max_length=10, default='INR')
+
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    taxable_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    cgst_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    sgst_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    igst_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    amount_in_words = models.CharField(max_length=500, blank=True)
+
+    pdf_file = models.FileField(upload_to='invoices/%Y/%m/', blank=True, null=True)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Invoice'
+        verbose_name_plural = 'Invoices'
+
+    def __str__(self):
+        return self.invoice_number or f"Draft #{self.pk}"
+
+    @property
+    def is_draft(self):
+        return self.status == self.Status.DRAFT
+
+
+class InvoiceLineItem(models.Model):
+    class DiscountType(models.TextChoices):
+        PERCENTAGE = ('percentage', 'Percentage')
+        FIXED = ('fixed', 'Fixed Amount')
+
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
+    description = models.CharField(max_length=255)
+    description_note = models.CharField(max_length=255, blank=True)
+    sac_code = models.CharField(max_length=20, blank=True)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    unit = models.CharField(max_length=20, default='Nos')
+    rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_type = models.CharField(max_length=15, choices=DiscountType.choices, default=DiscountType.FIXED)
+    discount_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=18)
+
+    # Stored per-line results, recomputed server-side every save - never
+    # trusted from the client. Kept here (not just the invoice total) so a
+    # saved invoice carries its own audit breakdown.
+    line_taxable = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    line_tax = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['display_order', 'id']
+        verbose_name = 'Invoice Line Item'
+        verbose_name_plural = 'Invoice Line Items'
+
+    def __str__(self):
+        return f"{self.description} x{self.quantity}"

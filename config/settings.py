@@ -377,6 +377,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "employees.tasks.dispatch_due_whatsapp_reports",
         "schedule": 60.0,
     },
+    "poll-crm-whatsapp-leads": {
+        "task": "employees.tasks.poll_crm_whatsapp_leads",
+        "schedule": 30.0,
+    },
 }
 
 # Key used to encrypt stored integration credentials (WhatsApp access tokens).

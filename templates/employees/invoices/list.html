@@ -1,0 +1,119 @@
+{% extends layout_path %}
+
+{% block title %}Invoices | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .inv-list-shell { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
+  .inv-list-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .inv-list-header h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+  .inv-list-header h1 i { color: #696CFF; }
+  .inv-list-header p { font-size: 0.85rem; color: #6b7280; margin: 0.2rem 0 0; }
+  .inv-header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .inv-btn-outline { border: 1px solid #E5E7EF; background: #fff; color: #374151; border-radius: 8px; padding: 0.5rem 0.9rem; font-size: 0.82rem; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; }
+
+  .inv-card { background: #fff; border: 1px solid rgba(148,163,184,0.2); border-radius: 14px; }
+  .inv-toolbar { display: flex; flex-wrap: wrap; gap: 0.6rem; padding: 1rem 1.2rem; border-bottom: 1px solid #f1f2f5; }
+  .inv-toolbar input, .inv-toolbar select { font-size: 0.82rem; padding: 0.45rem 0.7rem; border-radius: 8px; border: 1px solid #E5E7EF; }
+
+  table.inv-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  table.inv-table th { text-align: left; padding: 0.7rem 1.1rem; font-size: 0.72rem; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f1f2f5; }
+  table.inv-table td { padding: 0.65rem 1.1rem; border-bottom: 1px solid #f1f2f5; vertical-align: middle; }
+  .inv-num { font-weight: 700; color: #1f2937; }
+  .inv-badge { font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; }
+  .inv-badge--draft { background: #F1F2F5; color: #8592A3; }
+  .inv-badge--generated { background: #E8F8EE; color: #3f9a1c; }
+  .inv-badge--cancelled { background: #FFF0F0; color: #c23616; }
+  .inv-amount { font-weight: 700; color: #1f2937; }
+  .inv-row-actions { display: flex; gap: 0.4rem; }
+  .inv-icon-btn { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1px solid #E5E7EF; background: #fff; color: #566A7F; font-size: 0.8rem; cursor: pointer; text-decoration: none; }
+  .inv-icon-btn:hover { border-color: #696CFF; color: #696CFF; }
+  .inv-icon-btn.danger:hover { border-color: #FF3E1D; color: #FF3E1D; }
+
+  .inv-pagination { display: flex; justify-content: flex-end; gap: 0.4rem; padding: 0.9rem 1.1rem; font-size: 0.8rem; }
+  .inv-pagination a, .inv-pagination span { padding: 0.3rem 0.65rem; border-radius: 6px; border: 1px solid #E5E7EF; color: #374151; }
+  .inv-pagination .active { background: linear-gradient(135deg, #696CFF, #8B5CF6); color: #fff; border: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="inv-list-shell">
+  <div class="inv-list-header">
+    <div>
+      <h1><i class="bx bx-receipt"></i> Invoices</h1>
+      <p>Create, track and download GST invoices for your clients.</p>
+    </div>
+    <div class="inv-header-actions">
+      <a href="{% url 'employees:invoice_clients' %}" class="inv-btn-outline"><i class="bx bx-id-card"></i> Clients</a>
+      <a href="{% url 'employees:invoice_settings' %}" class="inv-btn-outline"><i class="bx bx-cog"></i> Settings</a>
+      <a href="{% url 'employees:invoice_create' %}" class="btn btn-primary"><i class="bx bx-plus me-1"></i>Create Invoice</a>
+    </div>
+  </div>
+
+  <div class="inv-card">
+    <form method="get" class="inv-toolbar">
+      <input type="text" name="q" placeholder="Search invoice # or client..." value="{{ filters.q }}">
+      <select name="status" onchange="this.form.submit()">
+        <option value="">All Status</option>
+        {% for value, label in statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="client" onchange="this.form.submit()">
+        <option value="">All Clients</option>
+        {% for c in clients %}<option value="{{ c.pk }}" {% if filters.client == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="inv-btn-outline"><i class="bx bx-filter-alt"></i> Filter</button>
+      <a href="{% url 'employees:invoice_list' %}" class="inv-btn-outline"><i class="bx bx-reset"></i> Reset</a>
+    </form>
+
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th>Invoice #</th><th>Client</th><th>Invoice Date</th><th>Due Date</th><th>Status</th><th>Amount</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+          <tr>
+            <td class="inv-num">{{ inv.invoice_number|default:"Draft" }}</td>
+            <td>{{ inv.client.name }}</td>
+            <td>{{ inv.invoice_date|date:"d M Y" }}</td>
+            <td>{{ inv.due_date|date:"d M Y"|default:"-" }}</td>
+            <td><span class="inv-badge inv-badge--{{ inv.status }}">{{ inv.get_status_display }}</span></td>
+            <td class="inv-amount">₹{{ inv.grand_total|floatformat:2 }}</td>
+            <td>
+              <div class="inv-row-actions">
+                {% if inv.status == 'draft' %}
+                  <a class="inv-icon-btn" href="{% url 'employees:invoice_update' inv.pk %}" title="Edit"><i class="bx bx-edit"></i></a>
+                  <form method="post" action="{% url 'employees:invoice_delete' inv.pk %}" onsubmit="return confirm('Delete this draft?');">
+                    {% csrf_token %}
+                    <button type="submit" class="inv-icon-btn danger" title="Delete"><i class="bx bx-trash"></i></button>
+                  </form>
+                {% else %}
+                  <a class="inv-icon-btn" href="{% url 'employees:invoice_download_pdf' inv.pk %}" title="Download PDF"><i class="bx bx-download"></i></a>
+                  {% if inv.status == 'generated' %}
+                    <form method="post" action="{% url 'employees:invoice_cancel' inv.pk %}" onsubmit="return confirm('Cancel this invoice? Its number will not be reused.');">
+                      {% csrf_token %}
+                      <button type="submit" class="inv-icon-btn danger" title="Cancel"><i class="bx bx-x-circle"></i></button>
+                    </form>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-4">No invoices yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="inv-pagination">
+        {% if page_obj.has_previous %}<a href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}">Prev</a>{% endif %}
+        <span class="active">{{ page_obj.number }}</span>
+        {% if page_obj.has_next %}<a href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
