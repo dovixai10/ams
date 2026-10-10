@@ -316,6 +316,7 @@ urlpatterns = [
     path('invoices/<int:pk>/delete/', invoice_views.invoice_delete, name='invoice_delete'),
     path('invoices/<int:pk>/cancel/', invoice_views.invoice_cancel, name='invoice_cancel'),
     path('invoices/<int:pk>/download/', invoice_views.invoice_download_pdf, name='invoice_download_pdf'),
+    path('invoices/<int:pk>/preview/', invoice_views.invoice_preview_pdf, name='invoice_preview_pdf'),
     path('invoices/clients/', invoice_views.clients_view, name='invoice_clients'),
     path('invoices/clients/<int:pk>/update/', invoice_views.client_update, name='invoice_client_update'),
     path('invoices/clients/<int:pk>/toggle/', invoice_views.client_toggle, name='invoice_client_toggle'),

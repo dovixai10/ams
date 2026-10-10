@@ -5652,6 +5652,7 @@ class Invoice(models.Model):
         TAX_INVOICE = ('tax_invoice', 'Tax Invoice (GST)')
         BILL_OF_SUPPLY = ('bill_of_supply', 'Bill of Supply')
         NON_GST = ('non_gst', 'Non-GST Invoice')
+        CUSTOM = ('custom', 'Custom')
 
     class PaymentTerms(models.TextChoices):
         DUE_ON_RECEIPT = ('due_on_receipt', 'Due on Receipt')
@@ -5666,6 +5667,18 @@ class Invoice(models.Model):
         GENERATED = ('generated', 'Generated')
         CANCELLED = ('cancelled', 'Cancelled')
 
+    class PaymentStatus(models.TextChoices):
+        PENDING = ('pending', 'Payment Pending')
+        PAID = ('paid', 'Paid')
+
+    class PaymentMethod(models.TextChoices):
+        BANK_TRANSFER = ('bank_transfer', 'Bank Transfer')
+        UPI = ('upi', 'UPI')
+        CASH = ('cash', 'Cash')
+        CHEQUE = ('cheque', 'Cheque')
+        CARD = ('card', 'Card')
+        OTHER = ('other', 'Other')
+
     office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='invoices', db_index=True)
     branch = models.ForeignKey(
         'Branch', on_delete=models.PROTECT, related_name='invoices',
@@ -5677,6 +5690,10 @@ class Invoice(models.Model):
     )
 
     invoice_type = models.CharField(max_length=20, choices=InvoiceType.choices, default=InvoiceType.TAX_INVOICE)
+    custom_type_label = models.CharField(
+        max_length=100, blank=True,
+        help_text="Shown as the document title when Invoice Type is Custom, e.g. 'Proforma Invoice'",
+    )
     invoice_number = models.CharField(
         max_length=40, blank=True, db_index=True,
         help_text="Blank until Generated - allocated once via InvoiceSettings.allocate_number(), never reused",
@@ -5695,6 +5712,13 @@ class Invoice(models.Model):
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     currency = models.CharField(max_length=10, default='INR')
+
+    payment_status = models.CharField(
+        max_length=10, choices=PaymentStatus.choices, default=PaymentStatus.PENDING,
+        help_text="Pending invoices show a QR/bank details to pay; Paid invoices show the recorded payment instead.",
+    )
+    payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices, blank=True)
+    transaction_id = models.CharField(max_length=100, blank=True, help_text="Reference/transaction ID for the recorded payment")
 
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)

@@ -105,27 +105,83 @@
   .inv-doc.fullscreen .inv-doc-bank { font-size: 11px; }
   .inv-doc-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1299; }
   .inv-doc-backdrop.show { display: block; }
-  .inv-doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--inv-primary); padding-bottom: 0.6rem; margin-bottom: 0.6rem; }
-  .inv-doc-company { font-weight: 700; font-size: 11px; }
-  .inv-doc-title { text-align: center; font-size: 14px; font-weight: 700; color: var(--inv-dark); margin: 0.6rem 0; letter-spacing: 0.04em; }
-  .inv-doc-meta-box { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; font-size: 8.5px; margin-bottom: 0.6rem; }
-  .inv-doc-billto { background: var(--inv-light-purple); border-radius: 6px; padding: 0.55rem 0.7rem; margin-bottom: 0.6rem; }
-  .inv-doc-billto .label { font-weight: 700; color: var(--inv-primary); font-size: 8.5px; margin-bottom: 0.2rem; }
+  .inv-doc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; border-bottom: 2px solid var(--inv-primary); padding-bottom: 0.7rem; margin-bottom: 0.7rem; }
+  .inv-doc-logo img { max-width: 110px; max-height: 50px; object-fit: contain; }
+  .inv-doc-logo-fallback { font-weight: 800; font-size: 13px; color: var(--inv-primary); }
+  .inv-doc-company { text-align: right; }
+  .inv-doc-company-name { font-weight: 700; font-size: 10.5px; letter-spacing: 0.02em; }
+  .inv-doc-company-line { font-size: 8px; color: var(--inv-muted); line-height: 1.5; }
+  .inv-doc-company-contacts { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; margin-top: 0.25rem; }
+  .inv-doc-company-contacts span { font-size: 8px; color: var(--inv-muted); display: inline-flex; align-items: center; gap: 0.25rem; }
+  .inv-doc-company-contacts i { color: var(--inv-primary); font-size: 9px; }
+
+  .inv-doc-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin: 0.7rem 0; gap: 0.6rem; }
+  .inv-doc-title { font-size: 16px; font-weight: 800; color: var(--inv-dark); letter-spacing: 0.03em; }
+  .inv-doc-number-box { border: 1px solid var(--inv-border); border-radius: 7px; padding: 0.4rem 0.6rem; text-align: right; min-width: 140px; }
+  .inv-doc-number-row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 8.5px; }
+  .inv-doc-number-row span:first-child { color: var(--inv-muted); }
+  .inv-doc-number-row strong { color: var(--inv-primary); }
+  .inv-doc-date-row { font-size: 8px; color: var(--inv-muted); margin-top: 0.2rem; }
+
+  .inv-doc-info-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0.7rem; margin-bottom: 0.7rem; align-items: start; }
+  .inv-doc-billto { background: var(--inv-light-purple) !important; border-radius: 8px; padding: 0.6rem 0.75rem; font-size: 8.5px; line-height: 1.6; }
+  .inv-doc-billto .label { font-weight: 700; color: var(--inv-primary); font-size: 8.5px; margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  .inv-doc-billto .client-name { font-weight: 700; font-size: 9.5px; color: var(--inv-dark); margin-bottom: 0.1rem; }
+  .inv-doc-billto .icon-line { display: flex; align-items: center; gap: 0.3rem; color: var(--inv-body); }
+  .inv-doc-billto .icon-line i { color: var(--inv-primary); font-size: 8.5px; flex-shrink: 0; }
+  .inv-doc-meta-box { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 0.6rem; font-size: 8.5px; align-content: start; }
+  .inv-doc-meta-box .item .k { color: var(--inv-muted); font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.02em; display: block; }
+  .inv-doc-meta-box .item .v { color: var(--inv-dark); font-weight: 600; }
+
   table.inv-doc-table { width: 100%; border-collapse: collapse; font-size: 8px; margin-bottom: 0.5rem; }
-  table.inv-doc-table th { background: var(--inv-primary); color: #fff; padding: 0.3rem; text-align: left; }
+  table.inv-doc-table th { background: var(--inv-primary) !important; color: #fff !important; padding: 0.3rem; text-align: left; border: none; }
   table.inv-doc-table td { padding: 0.3rem; border-bottom: 1px solid var(--inv-border); }
-  .inv-doc-totals { width: 60%; margin-left: auto; font-size: 8.5px; }
+
+  .inv-doc-totals-wrap { display: flex; justify-content: flex-end; }
+  .inv-doc-totals-wrap > div { width: 60%; }
+  .inv-doc-totals { font-size: 8.5px; }
   .inv-doc-totals .inv-doc-totals-row { display: flex; justify-content: space-between; align-items: baseline; padding: 0.15rem 0; }
   .inv-doc-totals .inv-doc-totals-row > span:first-child { color: var(--inv-muted); }
   .inv-doc-totals .inv-doc-totals-row > span:last-child { font-weight: 600; }
   .inv-doc-grand { background: var(--inv-gradient); color: #fff; font-weight: 700; padding: 0.4rem 0.6rem; border-radius: 6px; display: flex; justify-content: space-between; margin-top: 0.3rem; font-size: 9.5px; }
-  .inv-doc-words { font-size: 8.5px; margin-top: 0.6rem; }
-  .inv-doc-bank { font-size: 8.5px; margin-top: 0.6rem; }
-  .inv-doc-terms { font-size: 7.5px; color: var(--inv-muted); margin-top: 0.6rem; white-space: pre-line; }
-  .inv-doc-sign { margin-top: 0.8rem; text-align: right; font-size: 8.5px; }
-  .inv-doc-sign img { max-width: 80px; max-height: 32px; }
+
+  .inv-doc-words { display: flex; align-items: flex-start; gap: 0.4rem; font-size: 8.5px; margin-top: 0.7rem; }
+  .inv-doc-words i { color: var(--inv-primary); font-size: 11px; margin-top: 0.1rem; }
+  .inv-doc-words strong { display: block; font-size: 8px; color: var(--inv-dark); }
+  .inv-doc-words .value { color: var(--inv-body); }
+
+  .inv-doc-footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem; padding-top: 0.6rem; border-top: 1px solid var(--inv-border); }
+  .inv-doc-section-head { display: flex; align-items: center; gap: 0.3rem; font-weight: 700; font-size: 8.5px; color: var(--inv-dark); margin-bottom: 0.35rem; }
+  .inv-doc-section-head i { color: var(--inv-primary); font-size: 10px; }
+  .inv-doc-bank-line { font-size: 8px; color: var(--inv-body); display: flex; justify-content: space-between; gap: 0.4rem; padding: 0.08rem 0; }
+  .inv-doc-bank-line span:first-child { color: var(--inv-muted); }
+  .inv-doc-payment-icons { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .inv-doc-payment-icon { border: 1px solid var(--inv-border); border-radius: 6px; padding: 0.3rem 0.4rem; text-align: center; font-size: 7px; color: var(--inv-body); min-width: 42px; }
+  .inv-doc-payment-icon i { display: block; font-size: 12px; color: var(--inv-primary); margin-bottom: 0.1rem; }
+
+  .inv-doc-terms-col ol { margin: 0; padding-left: 1rem; font-size: 7.5px; color: var(--inv-muted); line-height: 1.6; }
+  .inv-doc-sign-col { text-align: right; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; }
+  .inv-doc-sign-col img { max-width: 90px; max-height: 32px; margin-bottom: 0.2rem; }
+  .inv-doc-sign-col .signatory-name { font-size: 8.5px; font-weight: 700; color: var(--inv-dark); }
+  .inv-doc-sign-col .signatory-designation,
+  .inv-doc-sign-col .signatory-company { font-size: 7.5px; color: var(--inv-muted); }
+
+  .inv-doc.fullscreen .inv-doc-company-name,
+  .inv-doc.fullscreen .inv-doc-title { font-size: 1.5em; }
+  .inv-doc.fullscreen .inv-doc-company-line,
+  .inv-doc.fullscreen .inv-doc-company-contacts span,
+  .inv-doc.fullscreen .inv-doc-billto,
+  .inv-doc.fullscreen .inv-doc-meta-box,
+  .inv-doc.fullscreen .inv-doc-totals,
+  .inv-doc.fullscreen .inv-doc-words,
+  .inv-doc.fullscreen .inv-doc-bank-line,
+  .inv-doc.fullscreen .inv-doc-terms-col ol { font-size: 1.15em; }
 
   @media (max-width: 1199px) { .inv-grid { grid-template-columns: 1fr; } .inv-preview-wrap { position: static; } }
+  @media (max-width: 480px) {
+    .inv-doc-info-grid, .inv-doc-footer-grid { grid-template-columns: 1fr; }
+    .inv-doc-sign-col { align-items: flex-start; text-align: left; }
+  }
 </style>
 {% endblock %}
 
@@ -195,8 +251,9 @@
             <div class="inv-field">
               <label>Invoice Type *</label>
               <select name="invoice_type" id="invoiceTypeSelect" required>
-                {% for value, label in invoice_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                {% for value, label in invoice_types %}<option value="{{ value }}" {% if invoice.invoice_type == value or not invoice and value == 'tax_invoice' %}selected{% endif %}>{{ label }}</option>{% endfor %}
               </select>
+              <input type="text" name="custom_type_label" id="customTypeLabelInput" placeholder="e.g. Proforma Invoice" value="{{ invoice.custom_type_label }}" style="margin-top:0.4rem;display:none;">
             </div>
             <div class="inv-field"><label>Invoice Date *</label><input type="date" name="invoice_date" id="invoiceDateInput" value="{{ invoice.invoice_date|date:'Y-m-d'|default:today }}" required></div>
             <div class="inv-field"><label>Due Date</label><input type="date" name="due_date" id="dueDateInput" value="{{ invoice.due_date|date:'Y-m-d' }}"></div>
@@ -207,15 +264,16 @@
           </div>
           <div class="inv-row-4">
             <div class="inv-field"><label>Place of Supply *</label><input type="text" name="place_of_supply_state" id="placeOfSupplyInput" value="{{ invoice.place_of_supply_state }}" placeholder="e.g. Uttar Pradesh" required></div>
-            <div class="inv-field">
+            <div class="inv-field pending-only-field">
               <label>Payment Terms</label>
               <select name="payment_terms" id="paymentTermsSelect">
                 {% for value, label in payment_terms_choices %}<option value="{{ value }}" {% if invoice.payment_terms == value or default_payment_terms == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
               </select>
+              <span class="hint">Only applies while payment is pending.</span>
             </div>
             <div class="inv-field">
               <label>Sales Person</label>
-              <select name="sales_person">
+              <select name="sales_person" id="salesPersonSelect">
                 <option value="">None</option>
                 {% for e in employees %}<option value="{{ e.pk }}" {% if invoice.sales_person_id == e.pk %}selected{% endif %}>{{ e.full_name }}</option>{% endfor %}
               </select>
@@ -237,6 +295,31 @@
               </thead>
               <tbody id="itemsBody"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Payment Status -->
+        <div class="inv-card">
+          <div class="inv-card-head"><div class="inv-card-icon"><i class="bx bx-wallet"></i></div><h5>Payment Status</h5></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.8rem;">
+            <div class="inv-field">
+              <label>Status</label>
+              <select name="payment_status" id="paymentStatusSelect">
+                {% for value, label in payment_status_choices %}<option value="{{ value }}" {% if invoice.payment_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+              <span class="hint">Pending shows bank/UPI details to pay. Paid shows the payment you record.</span>
+            </div>
+            <div class="inv-field paid-only-field" style="display:none;">
+              <label>Payment Method</label>
+              <select name="payment_method" id="paymentMethodSelect">
+                <option value="">Select method</option>
+                {% for value, label in payment_method_choices %}<option value="{{ value }}" {% if invoice.payment_method == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="inv-field paid-only-field" style="display:none;">
+              <label>Transaction / Reference ID</label>
+              <input type="text" name="transaction_id" id="transactionIdInput" value="{{ invoice.transaction_id }}" placeholder="e.g. UTR / UPI ref no.">
+            </div>
           </div>
         </div>
 
@@ -270,41 +353,127 @@
             </div>
             <div class="inv-doc" id="invoiceDoc">
               <div class="inv-doc-header">
+                <div class="inv-doc-logo">
+                  {% if company.logo_url %}
+                    <img src="{{ company.logo_url }}" alt="{{ company.name }}">
+                  {% else %}
+                    <span class="inv-doc-logo-fallback">{{ company.name }}</span>
+                  {% endif %}
+                </div>
                 <div class="inv-doc-company">
-                  {{ office.name }}<br>
-                  <span style="font-weight:400;color:var(--inv-muted);">{{ office.address }}</span><br>
-                  {% if office.gst_number %}<span style="font-weight:400;color:var(--inv-muted);">GSTIN: {{ office.gst_number }}</span>{% endif %}
+                  <div class="inv-doc-company-name">{{ company.name }}</div>
+                  {% for line in company.address_lines %}<div class="inv-doc-company-line">{{ line }}</div>{% endfor %}
+                  {% if company.gstin %}<div class="inv-doc-company-line">GSTIN: {{ company.gstin }}</div>{% endif %}
+                  <div class="inv-doc-company-contacts">
+                    {% if company.phone %}<span><i class="bx bx-phone"></i>{{ company.phone }}</span>{% endif %}
+                    {% if company.email %}<span><i class="bx bx-envelope"></i>{{ company.email }}</span>{% endif %}
+                    {% if company.website %}<span><i class="bx bx-globe"></i>{{ company.website }}</span>{% endif %}
+                  </div>
                 </div>
               </div>
-              <div class="inv-doc-title" id="doc_title">TAX INVOICE</div>
-              <div class="inv-doc-meta-box">
-                <div><strong>Invoice No.:</strong> <span id="doc_number">Assigned on Generate</span></div>
-                <div><strong>Invoice Date:</strong> <span id="doc_date">-</span></div>
-                <div><strong>Due Date:</strong> <span id="doc_due">-</span></div>
-                <div><strong>Place of Supply:</strong> <span id="doc_pos">-</span></div>
+
+              <div class="inv-doc-title-row">
+                <div class="inv-doc-title" id="doc_title">TAX INVOICE</div>
+                <div class="inv-doc-number-box">
+                  <div class="inv-doc-number-row"><span>Invoice No:</span><strong id="doc_number">Assigned on Generate</strong></div>
+                  <div class="inv-doc-date-row">Date: <span id="doc_date">-</span></div>
+                </div>
               </div>
-              <div class="inv-doc-billto">
-                <div class="label">Bill To</div>
-                <div id="doc_billto">Select a client to see details here.</div>
+
+              <div class="inv-doc-info-grid">
+                <div class="inv-doc-billto">
+                  <div class="label">Bill To</div>
+                  <div id="doc_billto">Select a client to see details here.</div>
+                </div>
+                <div class="inv-doc-meta-box" id="doc_meta2"></div>
               </div>
-              <div style="font-size:8.5px;color:var(--inv-muted);margin-bottom:0.5rem;" id="doc_meta2"></div>
+
               <table class="inv-doc-table">
-                <thead><tr><th style="width:5%;">#</th><th style="width:30%;">Description</th><th style="width:12%;">SAC</th><th style="width:9%;">Qty</th><th style="width:13%;">Rate</th><th style="width:10%;">Disc.</th><th style="width:7%;">Tax</th><th style="width:14%;">Amount</th></tr></thead>
+                <thead><tr>
+                  <th style="width:5%;background:#696CFF!important;color:#fff!important;padding:0.3rem!important;text-align:left!important;">#</th>
+                  <th style="width:30%;background:#696CFF!important;color:#fff!important;padding:0.3rem!important;text-align:left!important;">Description</th>
+                  <th style="width:12%;background:#696CFF!important;color:#fff!important;padding:0.3rem!important;text-align:left!important;">SAC</th>
+                  <th style="width:9%;background:#696CFF!important;color:#fff!important;padding:0.3rem!important;text-align:left!important;">Qty</th>
+                  <th style="width:13%;background:#696CFF!important;color:#fff!important;padding:0.3rem!important;text-align:left!important;">Rate (₹)</th>
+                  <th style="width:10%;background:#696CFF!important;color:#fff!important;padding:0.3rem!important;text-align:left!important;">Disc.</th>
+                  <th style="width:7%;background:#696CFF!important;color:#fff!important;padding:0.3rem!important;text-align:left!important;">Tax</th>
+                  <th style="width:14%;background:#696CFF!important;color:#fff!important;padding:0.3rem!important;text-align:left!important;">Amount (₹)</th>
+                </tr></thead>
                 <tbody id="doc_items"><tr><td colspan="8" style="text-align:center;color:var(--inv-muted);">No items added yet</td></tr></tbody>
               </table>
-              <div class="inv-doc-totals">
-                <div class="inv-doc-totals-row"><span>Subtotal</span><span id="doc_subtotal">₹0.00</span></div>
-                <div class="inv-doc-totals-row"><span>Discount</span><span id="doc_discount">₹0.00</span></div>
-                <div class="inv-doc-totals-row"><span>Taxable Amount</span><span id="doc_taxable">₹0.00</span></div>
-                <div class="inv-doc-totals-row" id="doc_row_cgst" style="display:none;"><span>CGST</span><span id="doc_cgst">₹0.00</span></div>
-                <div class="inv-doc-totals-row" id="doc_row_sgst" style="display:none;"><span>SGST</span><span id="doc_sgst">₹0.00</span></div>
-                <div class="inv-doc-totals-row" id="doc_row_igst" style="display:none;"><span>IGST</span><span id="doc_igst">₹0.00</span></div>
+
+              <div class="inv-doc-totals-wrap">
+                <div style="width:60%;">
+                  <div class="inv-doc-totals">
+                    <div class="inv-doc-totals-row"><span>Subtotal</span><span id="doc_subtotal">₹0.00</span></div>
+                    <div class="inv-doc-totals-row"><span>Discount</span><span id="doc_discount">₹0.00</span></div>
+                    <div class="inv-doc-totals-row"><span>Taxable Amount</span><span id="doc_taxable">₹0.00</span></div>
+                    <div class="inv-doc-totals-row" id="doc_row_cgst" style="display:none;"><span id="doc_cgst_label">CGST</span><span id="doc_cgst">₹0.00</span></div>
+                    <div class="inv-doc-totals-row" id="doc_row_sgst" style="display:none;"><span id="doc_sgst_label">SGST</span><span id="doc_sgst">₹0.00</span></div>
+                    <div class="inv-doc-totals-row" id="doc_row_igst" style="display:none;"><span>IGST</span><span id="doc_igst">₹0.00</span></div>
+                  </div>
+                  <div class="inv-doc-grand"><span>Total Amount</span><span id="doc_grand">₹0.00</span></div>
+                </div>
               </div>
-              <div class="inv-doc-grand"><span>Total Amount Payable</span><span id="doc_grand">₹0.00</span></div>
-              <div class="inv-doc-words"><strong>Amount in Words:</strong> <span id="doc_words">-</span></div>
-              <div class="inv-doc-bank" id="doc_bank"></div>
-              <div class="inv-doc-terms" id="doc_terms"></div>
-              <div class="inv-doc-sign" id="doc_sign"></div>
+
+              <div class="inv-doc-words">
+                <i class="bx bx-receipt"></i>
+                <div><strong>Amount in Words</strong><div class="value" id="doc_words">-</div></div>
+              </div>
+
+              <div class="inv-doc-footer-grid" id="docPendingPaymentBlock">
+                <div class="inv-doc-bank-col">
+                  <div class="inv-doc-section-head"><i class="bx bx-bank"></i> Bank Details</div>
+                  {% if settings_row and settings_row.bank_name %}
+                    <div class="inv-doc-bank-line"><span>Bank Name</span><span>{{ settings_row.bank_name }}</span></div>
+                    <div class="inv-doc-bank-line"><span>Account Name</span><span>{{ settings_row.bank_account_name }}</span></div>
+                    <div class="inv-doc-bank-line"><span>Account No.</span><span>{{ settings_row.bank_account_number }}</span></div>
+                    <div class="inv-doc-bank-line"><span>IFSC Code</span><span>{{ settings_row.ifsc_code }}</span></div>
+                    <div class="inv-doc-bank-line"><span>Branch</span><span>{{ settings_row.bank_branch_name }}</span></div>
+                  {% else %}
+                    <div class="inv-doc-bank-line"><span>No bank details configured yet - </span><a href="{% url 'employees:invoice_settings' %}" target="_blank">add some</a></div>
+                  {% endif %}
+                </div>
+                <div class="inv-doc-payment-col">
+                  <div class="inv-doc-section-head">Payment Methods</div>
+                  <div class="inv-doc-payment-icons">
+                    {% if settings_row and settings_row.bank_name %}<div class="inv-doc-payment-icon"><i class="bx bx-bank"></i>Bank Transfer</div>{% endif %}
+                    {% if settings_row and settings_row.upi_vpa %}
+                      <div class="inv-doc-payment-icon"><i class="bx bx-qr-scan"></i>UPI</div>
+                      <div class="inv-doc-payment-icon"><i class="bx bx-wallet"></i>GPay</div>
+                      <div class="inv-doc-payment-icon"><i class="bx bx-wallet"></i>PhonePe</div>
+                      <div class="inv-doc-payment-icon"><i class="bx bx-wallet"></i>Paytm</div>
+                    {% endif %}
+                    {% if not settings_row or not settings_row.bank_name and not settings_row.upi_vpa %}
+                      <span style="font-size:8px;color:var(--inv-muted);">No payment methods configured yet.</span>
+                    {% endif %}
+                  </div>
+                  {% if settings_row and settings_row.upi_vpa %}<div style="font-size:7.5px;color:var(--inv-muted);margin-top:0.3rem;">Scannable QR code is included on the downloaded PDF.</div>{% endif %}
+                </div>
+              </div>
+
+              <div id="docPaidPaymentBlock" style="display:none;background:#E8F8EE;border:0.6px solid var(--inv-success);border-radius:6px;padding:0.55rem 0.7rem;margin-top:0.8rem;">
+                <div class="inv-doc-section-head" style="color:#3f9a1c;margin-bottom:0.25rem;"><i class="bx bx-check-circle" style="color:#3f9a1c;"></i> Payment Received</div>
+                <div class="inv-doc-bank-line"><span>Payment Method</span><span id="doc_paid_method">-</span></div>
+                <div class="inv-doc-bank-line" id="doc_paid_txn_row"><span>Transaction ID</span><span id="doc_paid_txn">-</span></div>
+              </div>
+
+              <div class="inv-doc-footer-grid">
+                <div class="inv-doc-terms-col">
+                  <div class="inv-doc-section-head"><i class="bx bx-file"></i> Terms &amp; Conditions</div>
+                  <ol id="doc_terms"></ol>
+                </div>
+                <div class="inv-doc-sign-col">
+                  {% if settings_row and settings_row.signature_image %}<img src="{{ settings_row.signature_image.url }}" alt="Signature">{% endif %}
+                  {% if settings_row and settings_row.signatory_name %}
+                    <div class="signatory-name">{{ settings_row.signatory_name }}</div>
+                    {% if settings_row.signatory_designation %}<div class="signatory-designation">{{ settings_row.signatory_designation }}</div>{% endif %}
+                    <div class="signatory-company">{{ company.name }}</div>
+                  {% else %}
+                    <div class="signatory-designation">Authorized Signatory</div>
+                  {% endif %}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -318,7 +487,6 @@
 {{ clients_data|json_script:"clientsDataJson" }}
 {{ projects_data|json_script:"projectsDataJson" }}
 {{ existing_items_data|json_script:"existingItemsDataJson" }}
-{{ bank_lines|json_script:"bankLinesJson" }}
 {% endblock %}
 
 {% block page_js %}
@@ -329,7 +497,6 @@ document.addEventListener('DOMContentLoaded', function () {
   var PROJECTS = JSON.parse(document.getElementById('projectsDataJson').textContent);
   var EXISTING_ITEMS = JSON.parse(document.getElementById('existingItemsDataJson').textContent);
   var SELLER_STATE = "{{ branch.state|default:''|escapejs }}";
-  var BANK_LINES = JSON.parse(document.getElementById('bankLinesJson').textContent);
 
   var form = document.getElementById('invoiceForm');
   var clientSelect = document.getElementById('clientSelect');
@@ -339,6 +506,42 @@ document.addEventListener('DOMContentLoaded', function () {
   var docItemsBody = document.getElementById('doc_items');
 
   function money(n) { return '₹' + (Math.round((n + Number.EPSILON) * 100) / 100).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
+  // Mirrors employees/invoicing_calculations.py's amount_in_words() - same
+  // Indian numbering system (lakh/crore), kept in sync by hand since this
+  // is purely for instant preview; the server recomputes the real value on save.
+  var WORDS_ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  var WORDS_TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  function threeDigitWords(n) {
+    var parts = [];
+    if (n >= 100) { parts.push(WORDS_ONES[Math.floor(n / 100)] + ' Hundred'); n %= 100; }
+    if (n >= 20) {
+      var tens = WORDS_TENS[Math.floor(n / 10)], ones = n % 10;
+      parts.push(ones ? tens + '-' + WORDS_ONES[ones] : tens);
+    } else if (n > 0) { parts.push(WORDS_ONES[n]); }
+    return parts.join(' ');
+  }
+  function integerToIndianWords(n) {
+    if (n === 0) return 'Zero';
+    var crore = Math.floor(n / 10000000); n %= 10000000;
+    var lakh = Math.floor(n / 100000); n %= 100000;
+    var thousand = Math.floor(n / 1000); var hundred = n % 1000;
+    var segments = [];
+    if (crore) segments.push(threeDigitWords(crore) + ' Crore');
+    if (lakh) segments.push(threeDigitWords(lakh) + ' Lakh');
+    if (thousand) segments.push(threeDigitWords(thousand) + ' Thousand');
+    if (hundred) segments.push(threeDigitWords(hundred));
+    return segments.join(' ');
+  }
+  function amountInWords(value) {
+    var rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    var rupees = Math.floor(rounded);
+    var paise = Math.round((rounded - rupees) * 100);
+    var words = 'Rupees ' + integerToIndianWords(rupees);
+    if (paise) words += ' and ' + integerToIndianWords(paise) + ' Paise';
+    return words + ' Only';
+  }
 
   function findClient(id) { return CLIENTS.find(function (c) { return String(c.id) === String(id); }); }
 
@@ -378,7 +581,29 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   clientSelect.addEventListener('change', onClientChange);
   document.getElementById('placeOfSupplyInput').addEventListener('input', recalc);
-  document.getElementById('invoiceTypeSelect').addEventListener('change', recalc);
+
+  var invoiceTypeSelect = document.getElementById('invoiceTypeSelect');
+  var customTypeLabelInput = document.getElementById('customTypeLabelInput');
+  function toggleCustomTypeLabel() {
+    customTypeLabelInput.style.display = invoiceTypeSelect.value === 'custom' ? 'block' : 'none';
+  }
+  invoiceTypeSelect.addEventListener('change', function () { toggleCustomTypeLabel(); recalc(); });
+  customTypeLabelInput.addEventListener('input', recalc);
+  toggleCustomTypeLabel();
+
+  var paymentStatusSelect = document.getElementById('paymentStatusSelect');
+  var paidOnlyFields = document.querySelectorAll('.paid-only-field');
+  var pendingOnlyFields = document.querySelectorAll('.pending-only-field');
+  function togglePaidFields() {
+    var show = paymentStatusSelect.value === 'paid';
+    paidOnlyFields.forEach(function (el) { el.style.display = show ? 'block' : 'none'; });
+    pendingOnlyFields.forEach(function (el) { el.style.display = show ? 'none' : 'block'; });
+  }
+  paymentStatusSelect.addEventListener('change', function () { togglePaidFields(); updateDocMeta(); });
+  document.getElementById('paymentMethodSelect').addEventListener('change', updateDocMeta);
+  document.getElementById('transactionIdInput').addEventListener('input', updateDocMeta);
+  togglePaidFields();
+
   document.getElementById('invoiceDateInput').addEventListener('input', updateDocMeta);
   document.getElementById('dueDateInput').addEventListener('input', updateDocMeta);
 
@@ -467,6 +692,14 @@ document.addEventListener('DOMContentLoaded', function () {
     else if (taxMode === 'igst') { igst = taxTotal; }
     var grand = taxable + cgst + sgst + igst;
 
+    // Show each line's own tax rate halved in the CGST/SGST label when every
+    // line shares one rate (the common case); fall back to a plain label
+    // when items use different rates, since one % wouldn't be accurate.
+    var distinctRates = items.map(function (i) { return i.taxRate; }).filter(function (v, idx, arr) { return arr.indexOf(v) === idx; });
+    var halfRateLabel = distinctRates.length === 1 ? ' (' + (distinctRates[0] / 2) + '%)' : '';
+    document.getElementById('doc_cgst_label').textContent = 'CGST' + halfRateLabel;
+    document.getElementById('doc_sgst_label').textContent = 'SGST' + halfRateLabel;
+
     document.getElementById('sumSubtotal').textContent = money(subtotal);
     document.getElementById('sumDiscount').textContent = money(discountTotal);
     document.getElementById('sumTaxable').textContent = money(taxable);
@@ -489,9 +722,9 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('doc_row_sgst').style.display = taxMode === 'split' ? 'flex' : 'none';
     document.getElementById('doc_row_igst').style.display = taxMode === 'igst' ? 'flex' : 'none';
 
-    document.getElementById('doc_title').textContent = invoiceType === 'bill_of_supply' ? 'BILL OF SUPPLY' : (invoiceType === 'non_gst' ? 'INVOICE' : 'TAX INVOICE');
-    document.getElementById('doc_pos').textContent = placeOfSupply || '-';
-    document.getElementById('doc_words').textContent = grand > 0 ? '(computed on save)' : '-';
+    var titleByType = { bill_of_supply: 'BILL OF SUPPLY', non_gst: 'INVOICE', custom: (customTypeLabelInput.value.trim() || 'INVOICE').toUpperCase() };
+    document.getElementById('doc_title').textContent = titleByType[invoiceType] || 'TAX INVOICE';
+    document.getElementById('doc_words').textContent = grand > 0 ? amountInWords(grand) : '-';
 
     updateDocMeta();
   }
@@ -503,31 +736,50 @@ document.addEventListener('DOMContentLoaded', function () {
   function updateDocMeta() {
     var client = findClient(clientSelect.value);
     document.getElementById('doc_billto').innerHTML = client
-      ? '<strong>' + escapeHtml(client.name) + '</strong><br>' +
-        (client.contact_person ? escapeHtml(client.contact_person) + '<br>' : '') +
-        (client.billing_address ? escapeHtml(client.billing_address) + '<br>' : '') +
-        [client.state, client.pincode].filter(Boolean).join(' ') + '<br>' +
-        (client.gstin ? 'GSTIN: ' + escapeHtml(client.gstin) + '<br>' : '') +
-        (client.phone ? 'Phone: ' + escapeHtml(client.phone) + '<br>' : '') +
-        (client.email ? 'Email: ' + escapeHtml(client.email) : '')
+      ? '<div class="client-name">' + escapeHtml(client.name) + '</div>' +
+        (client.contact_person ? '<div>' + escapeHtml(client.contact_person) + '</div>' : '') +
+        (client.billing_address ? '<div>' + escapeHtml(client.billing_address) + '</div>' : '') +
+        ([client.state, client.pincode].filter(Boolean).length ? '<div>' + escapeHtml([client.state, client.pincode].filter(Boolean).join(' - ')) + '</div>' : '') +
+        (client.gstin ? '<div class="icon-line"><i class="bx bx-receipt"></i>GSTIN: ' + escapeHtml(client.gstin) + '</div>' : '') +
+        (client.phone ? '<div class="icon-line"><i class="bx bx-phone"></i>' + escapeHtml(client.phone) + '</div>' : '') +
+        (client.email ? '<div class="icon-line"><i class="bx bx-envelope"></i>' + escapeHtml(client.email) + '</div>' : '')
       : 'Select a client to see details here.';
 
     var dateVal = document.getElementById('invoiceDateInput').value;
-    var dueVal = document.getElementById('dueDateInput').value;
     document.getElementById('doc_date').textContent = dateVal || '-';
-    document.getElementById('doc_due').textContent = dueVal || '-';
 
     var projectOpt = projectSelect.options[projectSelect.selectedIndex];
     var paymentOpt = document.getElementById('paymentTermsSelect');
-    document.getElementById('doc_meta2').textContent = [
-      projectOpt && projectOpt.value ? 'Project: ' + projectOpt.textContent : '',
-      'Payment Terms: ' + (paymentOpt.options[paymentOpt.selectedIndex] ? paymentOpt.options[paymentOpt.selectedIndex].textContent : ''),
-    ].filter(Boolean).join(' | ');
+    var salesOpt = document.getElementById('salesPersonSelect');
+    var isPaidForMeta = paymentStatusSelect.value === 'paid';
+    var metaItems = [
+      ['Project', projectOpt && projectOpt.value ? projectOpt.textContent : ''],
+      ['Invoice Date', dateVal || '-'],
+      ['Due Date', document.getElementById('dueDateInput').value || ''],
+      ['Payment Terms', isPaidForMeta ? '' : (paymentOpt.options[paymentOpt.selectedIndex] ? paymentOpt.options[paymentOpt.selectedIndex].textContent : '-')],
+      ['Place of Supply', document.getElementById('placeOfSupplyInput').value || '-'],
+      ['Sales Person', salesOpt.options[salesOpt.selectedIndex] && salesOpt.value ? salesOpt.options[salesOpt.selectedIndex].textContent : ''],
+    ].filter(function (pair) { return pair[1]; }); // omit fields left blank
+    document.getElementById('doc_meta2').innerHTML = metaItems.map(function (pair) {
+      return '<div class="item"><span class="k">' + escapeHtml(pair[0]) + '</span><span class="v">' + escapeHtml(pair[1]) + '</span></div>';
+    }).join('');
 
-    document.getElementById('doc_terms').textContent = document.getElementById('termsInput').value;
-    document.getElementById('doc_bank').innerHTML = BANK_LINES.length
-      ? '<strong>Bank Details</strong><br>' + BANK_LINES.map(escapeHtml).join('<br>')
-      : '';
+    var termsLines = document.getElementById('termsInput').value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    document.getElementById('doc_terms').innerHTML = termsLines.length
+      ? termsLines.map(function (l) { return '<li>' + escapeHtml(l.replace(/^\d+[.)]\s*/, '')) + '</li>'; }).join('')
+      : '<li style="list-style:none;margin-left:-1rem;color:var(--inv-muted);">No terms added.</li>';
+
+    var isPaid = paymentStatusSelect.value === 'paid';
+    document.getElementById('docPendingPaymentBlock').style.display = isPaid ? 'none' : 'grid';
+    document.getElementById('docPaidPaymentBlock').style.display = isPaid ? 'block' : 'none';
+    if (isPaid) {
+      var methodSelect = document.getElementById('paymentMethodSelect');
+      var methodText = methodSelect.options[methodSelect.selectedIndex] && methodSelect.value ? methodSelect.options[methodSelect.selectedIndex].textContent : '-';
+      var txnId = document.getElementById('transactionIdInput').value;
+      document.getElementById('doc_paid_method').textContent = methodText;
+      document.getElementById('doc_paid_txn').textContent = txnId || '-';
+      document.getElementById('doc_paid_txn_row').style.display = txnId ? 'flex' : 'none';
+    }
   }
   document.getElementById('paymentTermsSelect').addEventListener('change', updateDocMeta);
   document.getElementById('termsInput').addEventListener('input', updateDocMeta);
