@@ -45,6 +45,17 @@
 <body class="{% block body_classes %}{% endblock body_classes %}">
   <!-- beautify ignore:end -->
 
+  <!-- Global page-navigation loader: sits as a direct child of body (not inside
+       the layout wrapper) so position:fixed isn't trapped by a transformed
+       sidebar ancestor. -->
+  <div id="dvxPageLoaderBar" aria-hidden="true"></div>
+  <div id="dvxPageLoaderOverlay" role="status" aria-live="polite">
+    <div class="dvx-page-loader-card">
+      <div class="dvx-page-loader-spinner" aria-hidden="true"></div>
+      <div class="dvx-page-loader-text">Loading your workspace...</div>
+    </div>
+  </div>
+
   {% block layout %}
   {% endblock layout %}
 
