@@ -71,7 +71,7 @@
               <div class="office-card-header">
                 <div>
                   <div class="office-name">
-                    {{ office.name }}
+                    <a href="{% url 'employees:platform_office_detail' office.pk %}" style="color:inherit;text-decoration:none;">{{ office.name }}</a>
                     <span class="status-badge status-{{ office.status }}">{{ office.get_status_display }}</span>
                     {% if office.plan %}<span class="plan-badge">{{ office.plan.name }} plan</span>{% else %}<span class="plan-badge none">No plan (unrestricted)</span>{% endif %}
                   </div>

@@ -1,0 +1,197 @@
+{% extends layout_path %}
+
+{% block title %}Registration Document Types | Platform Admin{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .doctypes-shell { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.2rem; padding: 0.75rem 0 2rem; }
+
+  .doctypes-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .doctypes-header h1 { font-size: 1.5rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.6rem; }
+  .doctypes-header h1 i { color: #4f46e5; }
+  .doctypes-header p { font-size: 0.86rem; color: #6b7280; margin: 0.2rem 0 0; max-width: 65ch; }
+
+  .doctype-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148, 163, 184, 0.2); padding: 1rem 1.2rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+  .doctype-card.inactive { opacity: 0.6; }
+  .doctype-name { font-size: 1rem; font-weight: 700; color: #1f2937; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .doctype-desc { font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem; }
+  .doctype-meta { font-size: 0.74rem; color: #9ca3af; margin-top: 0.3rem; display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .req-badge { font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .req-badge.required { background: #fee2e2; color: #b91c1c; }
+  .req-badge.optional { background: #f3f4f6; color: #6b7280; }
+
+  .doctype-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .doctype-btn { border: none; border-radius: 8px; padding: 0.35rem 0.7rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+  .doctype-btn.edit { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
+  .doctype-btn.toggle.on { background: rgba(16, 185, 129, 0.12); color: #047857; }
+  .doctype-btn.toggle.off { background: rgba(148, 163, 184, 0.16); color: #64748b; }
+  .doctype-btn.delete { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+  /* Side panel (same slide-in pattern as Subscription Plans) */
+  .panel-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); z-index: 1200; display: none; }
+  .panel-backdrop.show { display: block; }
+  .doctype-panel {
+    position: fixed; inset-block: 0; inset-inline-end: 0; width: min(480px, 100vw); background: #fff; z-index: 1201;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15); transform: translateX(100%); transition: transform 0.2s ease-in-out;
+    display: flex; flex-direction: column;
+  }
+  .doctype-panel.show { transform: translateX(0); }
+  .panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+  .panel-header h2 { font-size: 1.05rem; font-weight: 700; margin: 0; color: #1f2937; }
+  .panel-close { background: none; border: none; font-size: 1.3rem; color: #6b7280; cursor: pointer; }
+  .panel-body { padding: 1.1rem 1.25rem; overflow-y: auto; flex: 1 1 auto; }
+
+  .field-row { display: flex; gap: 0.75rem; }
+  .field-row .field { flex: 1 1 0; }
+  .field { margin-bottom: 0.9rem; }
+  .field label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; font-weight: 600; display: block; margin-bottom: 0.3rem; }
+  .field .form-control { width: 100%; }
+  .field-check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.7rem; }
+  .field-check label { margin: 0; font-size: 0.85rem; font-weight: 600; color: #374151; }
+  .field-hint { font-size: 0.76rem; color: #9ca3af; margin-top: 0.25rem; display: block; }
+
+  .panel-save { width: 100%; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; border-radius: 10px; padding: 0.7rem; font-weight: 600; margin-top: 1rem; cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="doctypes-shell">
+  <div class="doctypes-header">
+    <div>
+      <h1><i class="bx bx-file-find"></i> Registration Document Types</h1>
+      <p>Which documents a company must submit on the public registration form (GST certificate, PAN card, incorporation certificate, etc.). Add one here and it appears on the form immediately - no code change needed. This is the in-site version of the same list in Django admin.</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="openPanelBtn"><i class="bx bx-plus me-1"></i>New Document Type</button>
+  </div>
+
+  {% if doc_types %}
+    {% for doc_type in doc_types %}
+      <div class="doctype-card {% if not doc_type.is_active %}inactive{% endif %}">
+        <div>
+          <div class="doctype-name">
+            {{ doc_type.name }}
+            <span class="req-badge {% if doc_type.is_required %}required{% else %}optional{% endif %}">{% if doc_type.is_required %}Required{% else %}Optional{% endif %}</span>
+          </div>
+          {% if doc_type.description %}<div class="doctype-desc">{{ doc_type.description }}</div>{% endif %}
+          <div class="doctype-meta">
+            <span>{{ doc_type.submission_count }} office{{ doc_type.submission_count|pluralize }} submitted this</span>
+            <span>Order {{ doc_type.display_order }}</span>
+          </div>
+        </div>
+        <div class="doctype-actions">
+          <button type="button" class="doctype-btn edit js-edit" data-key="{{ doc_type.pk }}"><i class="bx bx-edit"></i> Edit</button>
+          <form method="post" action="{% url 'employees:platform_document_type_toggle' doc_type.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="doctype-btn toggle {% if doc_type.is_active %}on{% else %}off{% endif %}">{% if doc_type.is_active %}Active{% else %}Inactive{% endif %}</button>
+          </form>
+          <form method="post" action="{% url 'employees:platform_document_type_delete' doc_type.pk %}" class="d-inline"
+                onsubmit="return confirm('Delete {{ doc_type.name|escapejs }}? Only possible if no office has submitted this document yet.');">
+            {% csrf_token %}
+            <button type="submit" class="doctype-btn delete"><i class="bx bx-trash"></i></button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="text-center text-muted py-5"><i class="bx bx-file-find" style="font-size: 2.5rem;"></i><p class="mt-2 mb-0">No document types yet - add the first one companies must submit at registration.</p></div>
+  {% endif %}
+</div>
+
+<!-- Create / edit panel -->
+<div class="panel-backdrop" id="panelBackdrop"></div>
+<div class="doctype-panel" id="doctypePanel">
+  <div class="panel-header">
+    <h2 id="panelTitle">New document type</h2>
+    <button type="button" class="panel-close" id="panelClose">&times;</button>
+  </div>
+  <div class="panel-body">
+    <form method="post" id="doctypeForm" action="{% url 'employees:platform_document_types' %}">
+      {% csrf_token %}
+      <div class="field">
+        <label for="id_name">Name</label>
+        <input type="text" name="name" id="id_name" class="form-control" placeholder="e.g. GST Certificate" required>
+      </div>
+      <div class="field">
+        <label for="id_code">Code</label>
+        <input type="text" name="code" id="id_code" class="form-control" placeholder="Leave blank to auto-generate">
+      </div>
+      <div class="field">
+        <label for="id_description">Description</label>
+        <input type="text" name="description" id="id_description" class="form-control" placeholder="Shown to the registrant, e.g. accepted file types">
+      </div>
+      <div class="field">
+        <label for="id_display_order">Display order</label>
+        <input type="number" name="display_order" id="id_display_order" class="form-control" min="0" value="0">
+      </div>
+
+      <div class="field-check">
+        <input type="checkbox" name="is_required" id="id_is_required" class="form-check-input" checked>
+        <label for="id_is_required">Required</label>
+      </div>
+      <span class="field-hint">Required documents must be uploaded before the registration form can be submitted.</span>
+
+      <div class="field-check" style="margin-top: 0.8rem;">
+        <input type="checkbox" name="is_active" id="id_is_active" class="form-check-input" checked>
+        <label for="id_is_active">Active</label>
+      </div>
+      <span class="field-hint">Inactive types are hidden from the registration form but existing submissions are kept.</span>
+
+      <button type="submit" class="panel-save" id="panelSave">Save document type</button>
+    </form>
+  </div>
+</div>
+
+{{ edit_data|json_script:"editData" }}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var panel = document.getElementById('doctypePanel');
+  var backdrop = document.getElementById('panelBackdrop');
+  var form = document.getElementById('doctypeForm');
+  var title = document.getElementById('panelTitle');
+  var save = document.getElementById('panelSave');
+  var createUrl = "{% url 'employees:platform_document_types' %}";
+  var editData = JSON.parse(document.getElementById('editData').textContent);
+
+  function openPanel() { panel.classList.add('show'); backdrop.classList.add('show'); }
+  function closePanel() { panel.classList.remove('show'); backdrop.classList.remove('show'); }
+
+  function fill(values) {
+    Object.entries(values).forEach(function (pair) {
+      var el = form.querySelector('[name="' + pair[0] + '"]');
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!pair[1];
+      else el.value = pair[1] === null || pair[1] === undefined ? '' : pair[1];
+    });
+  }
+
+  document.getElementById('openPanelBtn').addEventListener('click', function () {
+    form.reset();
+    form.action = createUrl;
+    title.textContent = 'New document type';
+    save.textContent = 'Save document type';
+    openPanel();
+  });
+  document.getElementById('panelClose').addEventListener('click', closePanel);
+  backdrop.addEventListener('click', closePanel);
+
+  document.querySelectorAll('.js-edit').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var item = editData[btn.dataset.key];
+      form.reset();
+      form.action = item.url;
+      fill(item.values);
+      title.textContent = 'Edit "' + item.title + '"';
+      save.textContent = 'Update document type';
+      openPanel();
+    });
+  });
+
+  {% if form_has_errors %}openPanel();{% endif %}
+});
+</script>
+{% endblock %}

@@ -44,6 +44,9 @@
         <li class="menu-item {% if '/platform/plans' in request.path %}active{% endif %}">
           <a href="{% url 'employees:platform_plans' %}" class="menu-link"><div>Subscription Plans</div></a>
         </li>
+        <li class="menu-item {% if '/platform/document-types' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:platform_document_types' %}" class="menu-link"><div>Registration Document Types</div></a>
+        </li>
       </ul>
     </li>
     {% endif %}

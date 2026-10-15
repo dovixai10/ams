@@ -136,12 +136,23 @@
                   <label class="form-label">Office logo</label>
                   {{ form.logo }}
                 </div>
-                <div class="col-md-6 mb-6">
-                  <label class="form-label">Registration document</label>
-                  {{ form.registration_document }}
-                  <div class="form-text">Certificate of incorporation, GST certificate, etc. (optional but speeds up approval)</div>
-                </div>
               </div>
+
+              {% if form.doc_types %}
+                <div class="row">
+                  <div class="col-12 mb-2">
+                    <label class="form-label fw-semibold">Documents to submit</label>
+                  </div>
+                  {% for doc_type, field in form.document_fields %}
+                    <div class="col-md-6 mb-6">
+                      <label class="form-label">{{ doc_type.name }}{% if doc_type.is_required %} <span class="text-danger">*</span>{% endif %}</label>
+                      {{ field }}
+                      {% if doc_type.description %}<div class="form-text">{{ doc_type.description }}</div>{% endif %}
+                      {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>{% endif %}
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
 
               <button type="submit" class="btn btn-primary d-grid w-100">Submit for approval</button>
             </form>

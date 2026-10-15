@@ -145,6 +145,65 @@ class Office(models.Model):
     def is_approved(self):
         return self.status == self.Status.APPROVED
 
+
+class OfficeRegistrationDocumentType(models.Model):
+    """A document a company must/may submit when registering a new office
+    (GST certificate, PAN card, certificate of incorporation, ...) -
+    platform-wide (not per-office, since there's no Office yet at
+    registration time) and configurable from Django admin by the platform
+    admin. Creating one here is what makes a new upload field appear on the
+    public office registration form."""
+
+    name = models.CharField(max_length=100, help_text="e.g. GST Certificate, PAN Card, Certificate of Incorporation")
+    code = models.SlugField(max_length=60, unique=True, blank=True, help_text="Auto-generated from the name if left blank.")
+    description = models.CharField(max_length=255, blank=True, help_text="Short note shown to the registrant, e.g. accepted file types.")
+    is_required = models.BooleanField(default=True, help_text="Required documents must be uploaded before the registration form can be submitted.")
+    is_active = models.BooleanField(default=True, help_text="Inactive types are hidden from the registration form but existing submissions are kept.")
+    display_order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['display_order', 'name']
+        verbose_name = 'Office Registration Document Type'
+        verbose_name_plural = 'Office Registration Document Types'
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            from django.utils.text import slugify
+            self.code = slugify(self.name)[:60]
+        super().save(*args, **kwargs)
+
+    @property
+    def submission_count(self):
+        return self.submissions.count()
+
+
+class OfficeRegistrationDocument(models.Model):
+    """One file a company uploaded, at registration time, for one
+    OfficeRegistrationDocumentType - what the platform admin reviews on the
+    office's approval detail page."""
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='registration_documents')
+    document_type = models.ForeignKey(OfficeRegistrationDocumentType, on_delete=models.PROTECT, related_name='submissions')
+    file = models.FileField(upload_to='office_registration_docs/%Y/%m/%d/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['document_type__display_order', 'document_type__name']
+        verbose_name = 'Office Registration Document'
+        verbose_name_plural = 'Office Registration Documents'
+        constraints = [
+            models.UniqueConstraint(fields=['office', 'document_type'], name='unique_registration_doc_per_office_type'),
+        ]
+
+    def __str__(self):
+        return f"{self.office.name} - {self.document_type.name}"
+
+
 class OfficeAdmin(models.Model):
     """Marks a Django User as the HR/admin for a specific Office.
     This user manages everything within their office once approved."""

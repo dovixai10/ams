@@ -28,7 +28,30 @@ from .models import (
     AttendanceRule
 )
 
-from .models import Office, OfficeAdmin
+from .models import Office, OfficeAdmin, OfficeRegistrationDocumentType, OfficeRegistrationDocument
+
+
+@admin.register(OfficeRegistrationDocumentType)
+class OfficeRegistrationDocumentTypeAdmin(admin.ModelAdmin):
+    """Configure which documents a company must submit when registering a
+    new office. Adding/activating one here immediately makes a matching
+    upload field appear on the public registration form - no code change
+    needed."""
+    list_display = ('name', 'is_required', 'is_active', 'display_order', 'updated_at')
+    list_filter = ('is_required', 'is_active')
+    search_fields = ('name', 'code')
+    ordering = ('display_order', 'name')
+    prepopulated_fields = {'code': ('name',)}
+
+
+class OfficeRegistrationDocumentInline(admin.TabularInline):
+    model = OfficeRegistrationDocument
+    extra = 0
+    readonly_fields = ('document_type', 'file', 'uploaded_at')
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Office)
@@ -39,6 +62,7 @@ class OfficeAdmin_(admin.ModelAdmin):  # named OfficeAdmin_ to avoid clashing wi
     ordering = ('-created_at',)
     readonly_fields = ('slug', 'approved_by', 'approved_at', 'created_at', 'updated_at')
     actions = ['approve_offices', 'reject_offices']
+    inlines = [OfficeRegistrationDocumentInline]
 
     fieldsets = (
         ('Office Details', {

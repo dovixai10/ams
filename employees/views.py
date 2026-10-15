@@ -307,6 +307,135 @@ def platform_office_approvals(request):
 
 @login_required
 @user_passes_test(is_platform_admin)
+def platform_office_detail(request, pk):
+    """Full read/action page for one office - everything they submitted at
+    registration plus every document they uploaded, reached by clicking an
+    office's card from either the dashboard's pending-approvals list or the
+    Office Approvals list (any status, not just pending)."""
+    from .models import SubscriptionPlan, OfficeRegistrationDocumentType
+
+    office = get_object_or_404(
+        Office.objects.select_related('plan', 'approved_by').prefetch_related(
+            'admins__user', 'registration_documents__document_type',
+        ),
+        pk=pk,
+    )
+
+    if _handle_office_approval_post(request):
+        return redirect('employees:platform_office_detail', pk=office.pk)
+
+    submitted_type_ids = set(office.registration_documents.values_list('document_type_id', flat=True))
+    missing_required_docs = OfficeRegistrationDocumentType.objects.filter(
+        is_active=True, is_required=True,
+    ).exclude(id__in=submitted_type_ids).order_by('display_order', 'name')
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'office': office,
+        'plans': SubscriptionPlan.objects.filter(is_active=True).order_by('order', 'price', 'name'),
+        'missing_required_docs': missing_required_docs,
+    })
+    return render(request, 'employees/platform/office_detail.html', context)
+
+
+@login_required
+@user_passes_test(is_platform_admin)
+def platform_document_types(request):
+    """Platform admin: the in-site equivalent of managing
+    OfficeRegistrationDocumentType from Django admin - list + create panel,
+    same screen pattern as Subscription Plans."""
+    from .forms import OfficeRegistrationDocumentTypeForm
+    from .models import OfficeRegistrationDocumentType
+
+    if request.method == 'POST':
+        form = OfficeRegistrationDocumentTypeForm(request.POST)
+        if form.is_valid():
+            doc_type = form.save()
+            messages.success(request, f'Document type "{doc_type.name}" created.')
+            return redirect('employees:platform_document_types')
+        messages.error(request, 'Please correct the errors below.')
+    else:
+        form = OfficeRegistrationDocumentTypeForm()
+
+    doc_types = list(OfficeRegistrationDocumentType.objects.order_by('display_order', 'name'))
+    edit_data = {}
+    for doc_type in doc_types:
+        edit_data[str(doc_type.pk)] = {
+            'url': f'/platform/document-types/{doc_type.pk}/update/',
+            'title': doc_type.name,
+            'values': {
+                'name': doc_type.name, 'code': doc_type.code, 'description': doc_type.description,
+                'is_required': doc_type.is_required, 'is_active': doc_type.is_active,
+                'display_order': doc_type.display_order,
+            },
+        }
+
+    context = TemplateLayout.init(request, context={})
+    context.update({
+        'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
+        'doc_types': doc_types,
+        'form': form,
+        'edit_data': edit_data,
+        'form_has_errors': bool(form.is_bound and form.errors),
+    })
+    return render(request, 'employees/platform/document_types.html', context)
+
+
+@login_required
+@user_passes_test(is_platform_admin)
+@require_http_methods(['POST'])
+def platform_document_type_update(request, pk):
+    from .forms import OfficeRegistrationDocumentTypeForm
+    from .models import OfficeRegistrationDocumentType
+
+    doc_type = get_object_or_404(OfficeRegistrationDocumentType, pk=pk)
+    form = OfficeRegistrationDocumentTypeForm(request.POST, instance=doc_type)
+    if form.is_valid():
+        doc_type = form.save()
+        messages.success(request, f'Document type "{doc_type.name}" updated.')
+    else:
+        errors = '; '.join(f"{form.fields[name].label or name}: {' '.join(errs)}" for name, errs in form.errors.items())
+        messages.error(request, f'Could not update - {errors}')
+    return redirect('employees:platform_document_types')
+
+
+@login_required
+@user_passes_test(is_platform_admin)
+@require_http_methods(['POST'])
+def platform_document_type_toggle(request, pk):
+    from .models import OfficeRegistrationDocumentType
+
+    doc_type = get_object_or_404(OfficeRegistrationDocumentType, pk=pk)
+    doc_type.is_active = not doc_type.is_active
+    doc_type.save(update_fields=['is_active', 'updated_at'])
+    messages.success(request, f'Document type "{doc_type.name}" {"activated" if doc_type.is_active else "deactivated"}.')
+    return redirect('employees:platform_document_types')
+
+
+@login_required
+@user_passes_test(is_platform_admin)
+@require_http_methods(['POST'])
+def platform_document_type_delete(request, pk):
+    from .models import OfficeRegistrationDocumentType
+
+    doc_type = get_object_or_404(OfficeRegistrationDocumentType, pk=pk)
+    submissions = doc_type.submissions.count()
+    if submissions:
+        messages.error(
+            request,
+            f'Cannot delete "{doc_type.name}" - {submissions} office(s) already submitted this document. '
+            f'Deactivate it instead to stop requiring it on new registrations.',
+        )
+    else:
+        name = doc_type.name
+        doc_type.delete()
+        messages.success(request, f'Document type "{name}" deleted.')
+    return redirect('employees:platform_document_types')
+
+
+@login_required
+@user_passes_test(is_platform_admin)
 def platform_dashboard(request):
     """The platform admin's (you) own dashboard - separate from
     admin_dashboard (that one's for a specific office's HR admin, scoped to

@@ -36,7 +36,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 
-from .models import Office, OfficeAdmin
+from .models import Office, OfficeAdmin, OfficeRegistrationDocumentType, OfficeRegistrationDocument
 from .models import Employee, Shift, Branch, Role
 
 
@@ -164,9 +164,25 @@ class OfficeRegistrationForm(forms.Form):
         })
     )
 
-    registration_document = forms.FileField(
-        required=False
-    )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # One file field per active document type, configured by the
+        # platform admin via Django admin - new types appear here with no
+        # code change needed.
+        self.doc_types = list(
+            OfficeRegistrationDocumentType.objects.filter(is_active=True).order_by('display_order', 'name')
+        )
+        for doc_type in self.doc_types:
+            self.fields[f'doc_type_{doc_type.id}'] = forms.FileField(
+                required=doc_type.is_required,
+                label=doc_type.name,
+                help_text=doc_type.description,
+                widget=forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            )
+
+    def document_fields(self):
+        """(doc_type, bound_field) pairs for the template to render in order."""
+        return [(doc_type, self[f'doc_type_{doc_type.id}']) for doc_type in self.doc_types]
 
     # -------------------------
     # Validation
@@ -223,9 +239,13 @@ class OfficeRegistrationForm(forms.Form):
             gst_number=data.get("gst_number"),
             latitude=data["latitude"],
             longitude=data["longitude"],
-            registration_document=data.get("registration_document"),
             status=Office.Status.PENDING,
         )
+
+        for doc_type in self.doc_types:
+            uploaded = self.files.get(f'doc_type_{doc_type.id}')
+            if uploaded:
+                OfficeRegistrationDocument.objects.create(office=office, document_type=doc_type, file=uploaded)
 
         user = User.objects.create_user(
             username=data["email"],
@@ -244,6 +264,38 @@ class OfficeRegistrationForm(forms.Form):
         )
 
         return office
+
+class OfficeRegistrationDocumentTypeForm(forms.ModelForm):
+    """Platform admin: create/edit a document type companies must submit
+    when registering a new office - the in-site equivalent of doing this
+    from Django admin, same screen pattern as SubscriptionPlanForm/plans."""
+
+    class Meta:
+        model = OfficeRegistrationDocumentType
+        fields = ['name', 'code', 'description', 'is_required', 'is_active', 'display_order']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GST Certificate'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Leave blank to auto-generate'}),
+            'description': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Shown to the registrant, e.g. accepted file types'}),
+            'is_required': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'display_order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['code'].required = False
+
+    def clean_code(self):
+        code = (self.cleaned_data.get('code') or '').strip()
+        if code:
+            clash = OfficeRegistrationDocumentType.objects.filter(code=code)
+            if self.instance.pk:
+                clash = clash.exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise forms.ValidationError('A document type with this code already exists.')
+        return code
+
 
 class OfficeProfileForm(forms.ModelForm):
     
