@@ -67,9 +67,15 @@ def is_within_office_premises(office, user_latitude, user_longitude, radius_mete
         where = "branch" if branch is not None else "office"
         return False, None, f"Your {where} hasn't set its location yet. Contact your admin to configure it."
 
+    # Priority: an explicit override > the branch's own radius (if it set
+    # one) > the office's own default radius (if it set one) > the hardcoded
+    # fallback. location_source may already BE the office (branch had no
+    # coordinates of its own), in which case the second and third lookups
+    # here are the same value - harmless, just redundant.
     allowed_radius = (
         radius_meters
         or getattr(location_source, 'attendance_radius_meters', None)
+        or getattr(office, 'attendance_radius_meters', None)
         or DEFAULT_ALLOWED_RADIUS_METERS
     )
 

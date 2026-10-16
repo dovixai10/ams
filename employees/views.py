@@ -5072,6 +5072,25 @@ def mark_attendance(request, token):
     if not raw_images or not isinstance(raw_images, list):
         return JsonResponse({'success': False, 'error': 'bad_request', 'message': 'No images were captured. Please try again.'})
 
+    # ---- Location is required (captured once by the kiosk page at start
+    # and resent on every attempt) - checked here, before any of the heavy
+    # face-detection work below, so a request with no/invalid location
+    # fails fast. The actual distance check happens further down, once we
+    # know which employee (and therefore which branch) this is. ----
+    from employees.geolocation_utils import validate_coordinates, is_within_office_premises
+    kiosk_latitude = payload.get('latitude')
+    kiosk_longitude = payload.get('longitude')
+    if kiosk_latitude is None or kiosk_longitude is None:
+        return JsonResponse({
+            'success': False, 'error': 'location_not_provided',
+            'message': 'Location access is required for this kiosk. Please allow location access and reload the page.',
+        })
+    is_valid_coords, coord_message = validate_coordinates(kiosk_latitude, kiosk_longitude)
+    if not is_valid_coords:
+        return JsonResponse({'success': False, 'error': 'invalid_coordinates', 'message': f'Invalid location: {coord_message}'})
+    kiosk_latitude = float(kiosk_latitude)
+    kiosk_longitude = float(kiosk_longitude)
+
     # ---- Decode every frame in the burst up front ----
     MAX_WIDTH = 480
     frames = []
@@ -5194,6 +5213,20 @@ def mark_attendance(request, token):
 
     employee = match['employee']
     confidence = match['confidence']
+
+    # ---- Must be within the office/branch's allowed radius - same dynamic
+    # radius (branch override, else office default, else 250m) the
+    # logged-in check-in/check-out flows already enforce. Checked only now,
+    # since it needs the matched employee's own branch. ----
+    is_within, distance, location_message = is_within_office_premises(
+        office, kiosk_latitude, kiosk_longitude, branch=employee.branch,
+    )
+    if not is_within:
+        return JsonResponse({
+            'success': False, 'error': 'outside_office_premises',
+            'message': location_message or "This kiosk isn't within the allowed attendance range for your branch.",
+        })
+
     # save_attendance_image() expects a BGR array (it does its own
     # BGR->RGB conversion internally) - frames here are stored as RGB.
     img_for_save = cv2.cvtColor(best_frame, cv2.COLOR_RGB2BGR)

@@ -26,8 +26,8 @@
             <div class="row">
               <!-- Profile Picture Section -->
               <div class="col-md-4 text-center mb-4">
-                <div class="avatar avatar-xl mb-3">
-                  <div class="avatar-initial bg-label-primary rounded-circle" style="width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 48px;">
+                <div class="mb-3 mx-auto" style="width: 120px; height: 120px;">
+                  <div class="bg-label-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 100%; height: 100%; font-size: 48px;">
                     {{ user.get_full_name|first|upper|default:user.username|first|upper }}
                   </div>
                 </div>

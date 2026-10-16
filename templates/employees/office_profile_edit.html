@@ -26,11 +26,13 @@
             <div class="row">
               <!-- Office Logo Section -->
               <div class="col-md-4 text-center mb-4">
-                <div class="avatar avatar-xl mb-3">
+                <div class="mb-3 mx-auto" style="width: 120px; height: 120px;">
                   {% if office.logo %}
-                    <img src="{{ office.logo.url }}" alt="{{ office.name }}" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
+                    <div class="rounded d-flex align-items-center justify-content-center" style="width: 100%; height: 100%; background: #f8f8fb; border: 1px solid #eef0f3; padding: 10px;">
+                      <img src="{{ office.logo.url }}" alt="{{ office.name }}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                    </div>
                   {% else %}
-                    <div class="avatar-initial bg-label-primary rounded-circle" style="width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 48px;">
+                    <div class="bg-label-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 100%; height: 100%; font-size: 48px;">
                       {{ office.name|first|upper }}
                     </div>
                   {% endif %}
@@ -181,6 +183,17 @@
         </button>
 
         <div id="locationStatus" class="form-text mt-2"></div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <label for="{{ form.attendance_radius_meters.id_for_label }}" class="form-label">
+            {{ form.attendance_radius_meters.label }}
+        </label>
+        {{ form.attendance_radius_meters }}
+        <div class="form-text">{{ form.attendance_radius_meters.help_text }}</div>
+        {% if form.attendance_radius_meters.errors %}
+            <div class="text-danger small">{{ form.attendance_radius_meters.errors.0 }}</div>
+        {% endif %}
     </div>
 </div>
 

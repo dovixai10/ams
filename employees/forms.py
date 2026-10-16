@@ -304,7 +304,7 @@ class OfficeProfileForm(forms.ModelForm):
         fields = [
             'name', 'address', 'contact_number', 'website', 'industry',
             'employee_strength', 'registration_number', 'gst_number',
-            'logo', 'latitude', 'longitude',
+            'logo', 'latitude', 'longitude', 'attendance_radius_meters',
         ]
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
@@ -318,7 +318,19 @@ class OfficeProfileForm(forms.ModelForm):
             'logo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'latitude': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'}),
             'longitude': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'}),
+            'attendance_radius_meters': forms.NumberInput(attrs={'class': 'form-control', 'min': '10', 'placeholder': '250 (default)'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['attendance_radius_meters'].required = False
+        self.fields['attendance_radius_meters'].label = 'Attendance check-in radius (meters)'
+        self.fields['attendance_radius_meters'].help_text = (
+            "How far (in meters) an employee can be from the office and still check in/out - "
+            "applies to the employee portal and the Attendance Kiosk URL. "
+            "Leave blank to use the default (250m). A branch can override this with its own radius "
+            "in Branches settings."
+        )
 
 class EmployeeForm(forms.ModelForm):
     """Form for creating new employees"""

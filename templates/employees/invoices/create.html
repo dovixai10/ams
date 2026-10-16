@@ -156,8 +156,7 @@
   .inv-doc-bank-line { font-size: 8px; color: var(--inv-body); display: flex; justify-content: space-between; gap: 0.4rem; padding: 0.08rem 0; }
   .inv-doc-bank-line span:first-child { color: var(--inv-muted); }
   .inv-doc-payment-icons { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-  .inv-doc-payment-icon { border: 1px solid var(--inv-border); border-radius: 6px; padding: 0.3rem 0.4rem; text-align: center; font-size: 7px; color: var(--inv-body); min-width: 42px; }
-  .inv-doc-payment-icon i { display: block; font-size: 12px; color: var(--inv-primary); margin-bottom: 0.1rem; }
+  .inv-doc-payment-icon { border: 1px solid var(--inv-border); border-radius: 6px; padding: 0.3rem 0.5rem; text-align: center; font-size: 7.5px; font-weight: 600; color: var(--inv-dark); white-space: nowrap; }
 
   .inv-doc-terms-col ol { margin: 0; padding-left: 1rem; font-size: 7.5px; color: var(--inv-muted); line-height: 1.6; }
   .inv-doc-sign-col { text-align: right; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; }
@@ -175,6 +174,7 @@
   .inv-doc.fullscreen .inv-doc-totals,
   .inv-doc.fullscreen .inv-doc-words,
   .inv-doc.fullscreen .inv-doc-bank-line,
+  .inv-doc.fullscreen .inv-doc-payment-icon,
   .inv-doc.fullscreen .inv-doc-terms-col ol { font-size: 1.15em; }
 
   @media (max-width: 1199px) { .inv-grid { grid-template-columns: 1fr; } .inv-preview-wrap { position: static; } }
@@ -437,12 +437,12 @@
                 <div class="inv-doc-payment-col">
                   <div class="inv-doc-section-head">Payment Methods</div>
                   <div class="inv-doc-payment-icons">
-                    {% if settings_row and settings_row.bank_name %}<div class="inv-doc-payment-icon"><i class="bx bx-bank"></i>Bank Transfer</div>{% endif %}
+                    {% if settings_row and settings_row.bank_name %}<div class="inv-doc-payment-icon">Bank Transfer</div>{% endif %}
                     {% if settings_row and settings_row.upi_vpa %}
-                      <div class="inv-doc-payment-icon"><i class="bx bx-qr-scan"></i>UPI</div>
-                      <div class="inv-doc-payment-icon"><i class="bx bx-wallet"></i>GPay</div>
-                      <div class="inv-doc-payment-icon"><i class="bx bx-wallet"></i>PhonePe</div>
-                      <div class="inv-doc-payment-icon"><i class="bx bx-wallet"></i>Paytm</div>
+                      <div class="inv-doc-payment-icon">UPI</div>
+                      <div class="inv-doc-payment-icon">GPay</div>
+                      <div class="inv-doc-payment-icon">PhonePe</div>
+                      <div class="inv-doc-payment-icon">Paytm</div>
                     {% endif %}
                     {% if not settings_row or not settings_row.bank_name and not settings_row.upi_vpa %}
                       <span style="font-size:8px;color:var(--inv-muted);">No payment methods configured yet.</span>

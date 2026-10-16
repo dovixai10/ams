@@ -614,3 +614,75 @@ class EmployeeIDCardAdmin(admin.ModelAdmin):
 from django.contrib import admin
 
 admin.site.register([PaidLeaveAdjustment, LeaveType, EmployeeLeaveBalance, LeaveCreditLog, LeaveAdjustment, Holiday, AttendanceRule])
+
+
+# ---------------------------------------------------------------------------
+# Everything below makes every remaining model visible in Django admin too -
+# mostly plain registrations (default list/search) so nothing is hidden from
+# the platform admin, with a few of the more-used ones (Invoice, Client,
+# Lead) given a proper list_display/search/filter since they're looked up
+# most often.
+# ---------------------------------------------------------------------------
+from .models import (
+    Invoice, InvoiceLineItem, InvoiceSettings, Client,
+    Lead, LeadActivity, CrmWebsiteLeadPage, CrmWhatsAppLeadSource,
+    Branch, Role, Department, Designation, EmploymentType,
+    Project, ProjectAttachment, Team, EmployeeTask, TaskAttachment, Sprint, SprintConfig,
+    SubscriptionPlan, SubscriptionPlanFeature,
+    EmployeeDocument, LeaveVerificationDocument, CompanyPolicy, DocumentType,
+    AttendanceBreak, AttendanceDayComment, AttendanceSession, AttendanceRegularizationRequest,
+    ShiftSwapRequest, DeviceRegistration, FaceEnrollmentLog,
+    EmployeeNotification, EmployeePoints, HRTicket, ExpenseClaim,
+    PasswordResetRequest, OfficeRegistrationDocument,
+    WhatsAppAccount, WhatsAppMessageLog, WhatsAppRecipient, WhatsAppReportSchedule, WhatsAppWebSession,
+)
+
+
+class InvoiceLineItemInline(admin.TabularInline):
+    model = InvoiceLineItem
+    extra = 0
+
+
+@admin.register(Invoice)
+class InvoiceAdmin(admin.ModelAdmin):
+    list_display = ('invoice_number', 'client', 'office', 'invoice_type', 'status', 'payment_status', 'grand_total', 'invoice_date', 'due_date')
+    list_filter = ('status', 'payment_status', 'invoice_type', 'office')
+    search_fields = ('invoice_number', 'client__name', 'office__name')
+    date_hierarchy = 'invoice_date'
+    inlines = [InvoiceLineItemInline]
+
+
+@admin.register(Client)
+class ClientAdmin(admin.ModelAdmin):
+    list_display = ('name', 'office', 'contact_person', 'email', 'phone', 'gstin', 'is_active')
+    list_filter = ('is_active', 'office')
+    search_fields = ('name', 'contact_person', 'email', 'phone', 'gstin')
+
+
+class LeadActivityInline(admin.TabularInline):
+    model = LeadActivity
+    extra = 0
+    readonly_fields = ('created_at',)
+
+
+@admin.register(Lead)
+class LeadAdmin(admin.ModelAdmin):
+    list_display = ('name', 'office', 'phone', 'email', 'source', 'status', 'assigned_to', 'created_at')
+    list_filter = ('status', 'source', 'office')
+    search_fields = ('name', 'phone', 'email', 'company')
+    inlines = [LeadActivityInline]
+
+
+admin.site.register([
+    InvoiceSettings, InvoiceLineItem, LeadActivity, DocumentType,
+    CrmWebsiteLeadPage, CrmWhatsAppLeadSource,
+    Branch, Role, Department, Designation, EmploymentType,
+    Project, ProjectAttachment, Team, EmployeeTask, TaskAttachment, Sprint, SprintConfig,
+    SubscriptionPlan, SubscriptionPlanFeature,
+    EmployeeDocument, LeaveVerificationDocument, CompanyPolicy,
+    AttendanceBreak, AttendanceDayComment, AttendanceSession, AttendanceRegularizationRequest,
+    ShiftSwapRequest, DeviceRegistration, FaceEnrollmentLog,
+    EmployeeNotification, EmployeePoints, HRTicket, ExpenseClaim,
+    PasswordResetRequest, OfficeRegistrationDocument,
+    WhatsAppAccount, WhatsAppMessageLog, WhatsAppRecipient, WhatsAppReportSchedule, WhatsAppWebSession,
+])

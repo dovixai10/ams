@@ -155,7 +155,7 @@
 <div id="start-overlay">
   <div class="tap-icon">📷</div>
   <h2>Tap to Start</h2>
-  <p>We'll ask you to look at the camera and blink naturally to mark your attendance.</p>
+  <p>We'll ask for camera and location access, then you look at the camera and blink naturally to mark your attendance.</p>
 </div>
 
 <div class="container">
@@ -197,6 +197,35 @@ let audioUnlocked = false;
 let processing = false;
 let cycleTimer = null;
 
+// This kiosk is a fixed physical device, so its location doesn't change
+// between cycles - captured once at start and reused on every subsequent
+// check-in/out attempt, same geofencing check the logged-in employee portal
+// already does (prevents the kiosk link from being opened remotely to
+// check someone in from off-site).
+let kioskLatitude = null;
+let kioskLongitude = null;
+
+function getKioskLocation() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('Geolocation is not supported by this device/browser.'));
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+            (error) => {
+                const reasons = {
+                    1: 'Location permission denied. Please allow location access and reload this page.',
+                    2: 'Location is currently unavailable. Please try again.',
+                    3: 'Location request timed out. Please try again.',
+                };
+                reject(new Error(reasons[error.code] || 'Unable to get this device\'s location.'));
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+    });
+}
+
 // How wide the frames we send to the server should be. Face recognition
 // speed scales with pixel count, so this is the single biggest lever on
 // end-to-end latency.
@@ -235,15 +264,31 @@ function playSuccessSound() {
     } catch (e) {}
 }
 
-// One-time unlock on first tap — starts camera + primes audio + starts the loop.
+// One-time unlock on first tap — gets location, starts camera + primes
+// audio + starts the loop. Location is required (not just best-effort):
+// without it there's no way to confirm this kiosk is actually at the
+// office, so the loop deliberately does not start without it.
 document.getElementById("start-overlay").addEventListener("click", () => {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+    document.getElementById("start-overlay").remove();
+    setState("idle", "Getting ready", "Requesting camera and location access...");
+
+    getKioskLocation()
+        .then(coords => {
+            kioskLatitude = coords.latitude;
+            kioskLongitude = coords.longitude;
+
+            return navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        })
         .then(stream => {
             video.srcObject = stream;
             video.onloadedmetadata = () => scheduleNextCycle(300);
         })
-        .catch(() => {
-            setState("error", "Camera access denied", "Please allow camera access and reload this page.");
+        .catch(err => {
+            if (kioskLatitude === null) {
+                setState("error", "Location access needed", (err && err.message) || "Please allow location access and reload this page.");
+            } else {
+                setState("error", "Camera access denied", "Please allow camera access and reload this page.");
+            }
         });
 
     successSound.play().then(() => {
@@ -251,9 +296,6 @@ document.getElementById("start-overlay").addEventListener("click", () => {
         successSound.currentTime = 0;
         audioUnlocked = true;
     }).catch(() => { audioUnlocked = true; });
-
-    document.getElementById("start-overlay").remove();
-    setState("idle", "Getting ready", "Look directly at the camera");
 });
 
 function captureFrame() {
@@ -314,7 +356,7 @@ async function runCycle() {
                     "Content-Type": "application/json",
                     "X-CSRFToken": "{{ csrf_token }}"
                 },
-                body: JSON.stringify({ images: frames }),
+                body: JSON.stringify({ images: frames, latitude: kioskLatitude, longitude: kioskLongitude }),
                 signal: controller.signal
             });
         } finally {

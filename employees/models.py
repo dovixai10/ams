@@ -40,6 +40,10 @@ class Office(models.Model):
 
     latitude = models.DecimalField(max_digits=9, decimal_places=7)
     longitude = models.DecimalField(max_digits=9, decimal_places=7)
+    attendance_radius_meters = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Default allowed check-in distance from these coordinates, in meters, for every branch that hasn't set its own override. Defaults to 250m if left blank.",
+    )
 
     employee_strength = models.PositiveIntegerField(null=True, blank=True, help_text="Approximate number of employees")
 
