@@ -1,0 +1,117 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Careers at {{ office.name }}{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .cp { --cp-primary: #696cff; --cp-ink: #1e1b3a; --cp-muted: #64748b; min-height: 100vh; background: #f8f9fc; padding: 2rem 1.25rem; }
+  .cp * { box-sizing: border-box; }
+  .cp-shell { max-width: 1040px; margin: 0 auto; }
+  .cp-header { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.4rem; }
+  .cp-header img { width: 52px; height: 52px; border-radius: 10px; object-fit: contain; background: #fff; border: 1px solid #E5E7EF; padding: 4px; }
+  .cp-header h1 { font-size: 1.4rem; font-weight: 700; color: var(--cp-ink); margin: 0; }
+  .cp-header p { font-size: 0.85rem; color: var(--cp-muted); margin: 0.1rem 0 0; }
+  .cp-intro { font-size: 0.86rem; color: var(--cp-muted); max-width: 70ch; margin: 0.8rem 0 1.4rem; }
+
+  .cp-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.1rem; align-items: start; }
+  @media (max-width: 860px) { .cp-grid { grid-template-columns: 1fr; } }
+
+  .cp-job-list { display: flex; flex-direction: column; gap: 0.7rem; }
+  .cp-job-card { background: #fff; border-radius: 14px; border: 1px solid #E5E7EF; padding: 1rem 1.1rem; text-decoration: none; display: block; }
+  .cp-job-card.active { border-color: var(--cp-primary); box-shadow: 0 6px 18px rgba(105,108,255,0.12); }
+  .cp-job-card h3 { font-size: 0.98rem; font-weight: 700; color: var(--cp-ink); margin: 0 0 0.3rem; }
+  .cp-job-meta { font-size: 0.78rem; color: var(--cp-muted); display: flex; gap: 0.7rem; flex-wrap: wrap; }
+
+  .cp-detail-card { background: #fff; border-radius: 16px; border: 1px solid #E5E7EF; padding: 1.6rem; position: sticky; top: 1.5rem; }
+  .cp-detail-card h2 { font-size: 1.15rem; font-weight: 700; color: var(--cp-ink); margin: 0 0 0.3rem; }
+  .cp-detail-meta { font-size: 0.82rem; color: var(--cp-muted); margin-bottom: 0.9rem; }
+  .cp-detail-desc { font-size: 0.86rem; color: #374151; white-space: pre-line; margin-bottom: 1.2rem; }
+
+  .cp-field { margin-bottom: 0.9rem; }
+  .cp-field label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--cp-ink); margin-bottom: 0.3rem; }
+  .cp-field input, .cp-field textarea { width: 100%; font-size: 0.88rem; padding: 0.6rem 0.8rem; border-radius: 9px; border: 1px solid rgba(30,27,58,0.14); background: #fafafe; }
+  .cp-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+  @media (max-width: 500px) { .cp-row-2 { grid-template-columns: 1fr; } }
+  .cp-submit { width: 100%; border: none; border-radius: 10px; padding: 0.75rem; font-weight: 700; font-size: 0.9rem; color: #fff; background: linear-gradient(135deg, #696cff, #8b5cf6); cursor: pointer; }
+  .cp-error { background: #fff0f0; color: #c23616; border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 0.82rem; margin-bottom: 1rem; }
+  .cp-success { text-align: center; padding: 1.5rem 0; }
+  .cp-success i { font-size: 2.6rem; color: #71dd37; }
+  .cp-empty { text-align: center; color: var(--cp-muted); font-size: 0.86rem; padding: 2.5rem 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cp">
+  <div class="cp-shell">
+    <div class="cp-header">
+      {% if office.logo %}<img src="{{ office.logo.url }}" alt="{{ office.name }}">{% endif %}
+      <div><h1>Careers at {{ office.name }}</h1><p>{{ jobs|length }} open position{{ jobs|length|pluralize }}</p></div>
+    </div>
+    {% if page.intro_text %}<div class="cp-intro">{{ page.intro_text }}</div>{% endif %}
+
+    <div class="cp-grid">
+      <div class="cp-job-list">
+        {% for job in jobs %}
+          <a href="?job={{ job.slug }}" class="cp-job-card {% if selected_job.pk == job.pk %}active{% endif %}">
+            <h3>{{ job.title }}</h3>
+            <div class="cp-job-meta">
+              {% if job.department %}<span><i class="bx bx-buildings"></i> {{ job.department.name }}</span>{% endif %}
+              <span><i class="bx bx-map"></i> {% if job.location %}{{ job.location }}{% elif job.branch %}{{ job.branch.name }}{% else %}Office{% endif %}</span>
+              {% if job.employment_type %}<span><i class="bx bx-time"></i> {{ job.employment_type.name }}</span>{% endif %}
+              {% if job.salary_range_display %}<span><i class="bx bx-rupee"></i> {{ job.salary_range_display }}</span>{% endif %}
+            </div>
+          </a>
+        {% empty %}
+          <div class="cp-empty">No open positions right now - check back soon.</div>
+        {% endfor %}
+      </div>
+
+      <div class="cp-detail-card">
+        {% if submitted %}
+          <div class="cp-success">
+            <i class="bx bx-check-circle"></i>
+            <h2>Application received!</h2>
+            <p style="color:var(--cp-muted);font-size:0.88rem;">Thanks for applying - {{ office.name }} will review your application and reach out if there's a match.</p>
+          </div>
+        {% elif selected_job %}
+          <h2>{{ selected_job.title }}</h2>
+          <div class="cp-detail-meta">
+            {% if selected_job.department %}{{ selected_job.department.name }} &middot; {% endif %}
+            {% if selected_job.location %}{{ selected_job.location }}{% elif selected_job.branch %}{{ selected_job.branch.name }}{% else %}Office{% endif %}
+            {% if selected_job.employment_type %} &middot; {{ selected_job.employment_type.name }}{% endif %}
+            {% if selected_job.salary_range_display %} &middot; {{ selected_job.salary_range_display }}{% endif %}
+          </div>
+          {% if selected_job.description %}<div class="cp-detail-desc">{{ selected_job.description }}</div>{% endif %}
+
+          {% if messages %}{% for message in messages %}<div class="cp-error">{{ message }}</div>{% endfor %}{% endif %}
+
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="job" value="{{ selected_job.slug }}">
+            <div class="cp-row-2">
+              <div class="cp-field"><label>Full Name *</label><input type="text" name="full_name" required></div>
+              <div class="cp-field"><label>Phone *</label><input type="text" name="phone" required></div>
+            </div>
+            <div class="cp-field"><label>Email *</label><input type="email" name="email" required></div>
+            <div class="cp-row-2">
+              <div class="cp-field"><label>Current Location</label><input type="text" name="current_location"></div>
+              <div class="cp-field"><label>Current Company</label><input type="text" name="current_company"></div>
+            </div>
+            <div class="cp-row-2">
+              <div class="cp-field"><label>Current CTC</label><input type="text" name="current_ctc" placeholder="Annual, e.g. 600000"></div>
+              <div class="cp-field"><label>Expected CTC</label><input type="text" name="expected_ctc"></div>
+            </div>
+            <div class="cp-field"><label>Resume *</label><input type="file" name="resume" accept=".pdf,.doc,.docx" required></div>
+            <div class="cp-field"><label>Message</label><textarea name="message" rows="3" placeholder="Anything you'd like us to know"></textarea></div>
+            <button type="submit" class="cp-submit">Submit Application</button>
+          </form>
+        {% else %}
+          <div class="cp-empty">Select a job on the left to view details and apply.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

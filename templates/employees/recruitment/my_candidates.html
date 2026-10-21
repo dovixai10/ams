@@ -1,0 +1,45 @@
+{% extends layout_path %}
+
+{% block title %}My Candidates | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .rec-list-shell { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
+  .rec-list-shell h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+  .rec-list-shell h1 i { color: #696CFF; }
+  .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+  table.rec-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  table.rec-table th { text-align: left; padding: 0.7rem 1.1rem; font-size: 0.72rem; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f1f2f5; }
+  table.rec-table td { padding: 0.65rem 1.1rem; border-bottom: 1px solid #f1f2f5; }
+  .rec-badge { font-size: 0.72rem; font-weight: 700; padding: 0.22rem 0.55rem; border-radius: 999px; background: #F1F2F5; color: #475467; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-list-shell">
+  <h1><i class="bx bx-user-check"></i> My Candidates</h1>
+
+  <div class="rec-card">
+    {% if not has_employee_profile %}
+      <div class="alert alert-info m-3 mb-0">Your account isn't linked to an employee profile, so no candidates can be assigned to you.</div>
+    {% endif %}
+    <table class="rec-table">
+      <thead><tr><th>Candidate</th><th>Applied For</th><th>Phone</th><th>Status</th><th>Applied</th></tr></thead>
+      <tbody>
+        {% for app in applications %}
+          <tr>
+            <td><a href="{% url 'employees:recruitment_application_detail' app.pk %}" style="color:#1f2937;font-weight:600;text-decoration:none;">{{ app.full_name }}</a></td>
+            <td>{{ app.job.title|default:"-" }}</td>
+            <td>{{ app.phone }}</td>
+            <td><span class="rec-badge">{{ app.get_status_display }}</span></td>
+            <td>{{ app.created_at|date:"d M Y" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="text-center text-muted py-4">No candidates assigned to you yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends layout_path %}
+
+{% block title %}{{ job.title }} | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .rec-detail-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
+  .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.2rem 1.4rem; }
+  .rec-detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .rec-detail-header h1 { font-size: 1.25rem; font-weight: 700; color: #1f2937; margin: 0; }
+  .rec-meta-row { font-size: 0.82rem; color: #6b7280; margin-top: 0.4rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+  .rec-toolbar { display: flex; gap: 0.6rem; padding: 0 0 1rem; flex-wrap: wrap; }
+  .rec-toolbar select { font-size: 0.82rem; padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid #E5E7EF; }
+  table.rec-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  table.rec-table th { text-align: left; padding: 0.6rem 0.8rem; font-size: 0.7rem; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f1f2f5; }
+  table.rec-table td { padding: 0.6rem 0.8rem; border-bottom: 1px solid #f1f2f5; }
+  .rec-badge { font-size: 0.72rem; font-weight: 700; padding: 0.22rem 0.55rem; border-radius: 999px; background: #F1F2F5; color: #475467; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-detail-shell">
+  <div class="rec-card">
+    <div class="rec-detail-header">
+      <div>
+        <h1>{{ job.title }}</h1>
+        <div class="rec-meta-row">
+          <span><i class="bx bx-buildings"></i> {{ job.department.name|default:"-" }}</span>
+          <span><i class="bx bx-map"></i> {{ job.branch.name|default:"Office-wide" }}{% if job.location %} &middot; {{ job.location }}{% endif %}</span>
+          <span><i class="bx bx-group"></i> {{ job.openings }} opening{{ job.openings|pluralize }}</span>
+          <span><i class="bx bx-info-circle"></i> {{ job.get_status_display }}</span>
+          {% if job.salary_range_display %}<span><i class="bx bx-rupee"></i> {{ job.salary_range_display }}</span>{% endif %}
+        </div>
+      </div>
+      <a href="{% url 'employees:recruitment_job_update' job.pk %}" class="btn btn-outline-secondary btn-sm">Edit Job</a>
+    </div>
+    {% if job.description %}<p style="margin-top:0.9rem;font-size:0.86rem;color:#374151;white-space:pre-line;">{{ job.description }}</p>{% endif %}
+  </div>
+
+  <div class="rec-card">
+    <h5 style="font-size:0.95rem;font-weight:700;margin-bottom:0.8rem;">Applicants ({{ applications.count }})</h5>
+    <form method="get" class="rec-toolbar">
+      <select name="status" onchange="this.form.submit()">
+        <option value="">All Status</option>
+        {% for value, label in status_choices %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="source" onchange="this.form.submit()">
+        <option value="">All Sources</option>
+        {% for value, label in source_choices %}<option value="{{ value }}" {% if source_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <a href="{% url 'employees:recruitment_job_detail' job.pk %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+    </form>
+    <table class="rec-table">
+      <thead><tr><th>Candidate</th><th>Phone</th><th>Source</th><th>Status</th><th>Applied</th><th>Resume</th></tr></thead>
+      <tbody>
+        {% for app in applications %}
+          <tr>
+            <td><a href="{% url 'employees:recruitment_application_detail' app.pk %}" style="color:#1f2937;font-weight:600;text-decoration:none;">{{ app.full_name }}</a></td>
+            <td>{{ app.phone }}</td>
+            <td><span class="rec-badge">{{ app.get_source_display }}</span></td>
+            <td><span class="rec-badge">{{ app.get_status_display }}</span></td>
+            <td>{{ app.created_at|date:"d M Y" }}</td>
+            <td>{% if app.resume %}<a href="{{ app.resume.url }}" target="_blank" rel="noopener"><i class="bx bx-download"></i> Download</a>{% else %}-{% endif %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-4">No applicants yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

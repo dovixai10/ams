@@ -452,6 +452,8 @@ def crm_settings(request):
         return redirect('employees:crm_leads')
 
     website_page, _ = CrmWebsiteLeadPage.objects.get_or_create(office=office)
+    if not website_page.api_key:  # backfill for pages created before api_key existed
+        website_page.save()
     whatsapp_source = CrmWhatsAppLeadSource.objects.filter(office=office).first()
 
     if request.method == 'POST':
@@ -485,6 +487,11 @@ def crm_settings(request):
             whatsapp_source.save(update_fields=['is_active'])
             messages.success(request, 'WhatsApp lead source disabled.')
 
+        elif action == 'regenerate_api_key':
+            website_page.api_key = ''
+            website_page.save()  # save() fills in a fresh random key when blank
+            messages.success(request, 'Website API key regenerated. Update it in your website\'s form/script - the old key stops working immediately.')
+
         elif action == 'test_whatsapp_source' and whatsapp_source:
             from .integrations.crm_whatsapp import poll_source
             created = poll_source(whatsapp_source)
@@ -497,12 +504,14 @@ def crm_settings(request):
         return redirect('employees:crm_settings')
 
     website_url = request.build_absolute_uri(f'/l/{website_page.slug}/')
+    api_url = request.build_absolute_uri(f'/api/v1/leads/capture/{website_page.api_key}/')
 
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'website_page': website_page,
         'website_url': website_url,
+        'api_url': api_url,
         'whatsapp_source': whatsapp_source,
     })
     return render(request, 'employees/crm/settings.html', context)

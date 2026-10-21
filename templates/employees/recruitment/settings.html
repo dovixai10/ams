@@ -1,0 +1,61 @@
+{% extends layout_path %}
+
+{% block title %}Recruitment Settings | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .rec-settings-shell { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
+  .rec-settings-shell h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+  .rec-settings-shell h1 i { color: #696CFF; }
+  .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.2rem 1.4rem; }
+  .rec-card h5 { font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0 0 0.3rem; }
+  .rec-card .hint { font-size: 0.8rem; color: #6b7280; margin: 0 0 1rem; }
+  .rec-url-box { display: flex; gap: 0.5rem; align-items: center; background: #F5F6FA; border: 1px solid #E5E7EF; border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 0.85rem; font-family: monospace; color: #2B2C40; word-break: break-all; }
+  .rec-url-box button { flex-shrink: 0; border: none; background: #696CFF; color: #fff; font-size: 0.75rem; font-weight: 600; padding: 0.4rem 0.7rem; border-radius: 7px; cursor: pointer; }
+  .rec-status-pill { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; }
+  .rec-status-pill.on { background: #E8F8EE; color: #3f9a1c; }
+  .rec-status-pill.off { background: #F1F2F5; color: #8592A3; }
+  .rec-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.8rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-settings-shell">
+  <h1><i class="bx bx-cog"></i> Recruitment Settings</h1>
+
+  <div class="rec-card">
+    <h5>Careers Page</h5>
+    <p class="hint">The public page candidates use to browse your open jobs and apply - share this link on your real website or job ads.</p>
+    <div class="rec-url-box">
+      <span style="flex:1 1 auto;">{{ careers_url }}</span>
+      <button type="button" onclick="navigator.clipboard.writeText('{{ careers_url }}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy', 1500);">Copy</button>
+    </div>
+    <div style="margin-top:0.8rem;">
+      Status:
+      {% if page.is_active %}<span class="rec-status-pill on"><i class="bx bx-check-circle"></i> Active - accepting applications</span>
+      {% else %}<span class="rec-status-pill off"><i class="bx bx-x-circle"></i> Inactive</span>{% endif %}
+    </div>
+    <div class="rec-actions">
+      <form method="post"><input type="hidden" name="action" value="toggle_page">{% csrf_token %}
+        <button type="submit" class="btn btn-outline-secondary btn-sm">{% if page.is_active %}Deactivate Page{% else %}Activate Page{% endif %}</button>
+      </form>
+      <a href="{{ careers_url }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Open Page &rarr;</a>
+      <form method="post" onsubmit="return confirm('Regenerate the careers page link? The old link stops working immediately.');"><input type="hidden" name="action" value="regenerate_slug">{% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger btn-sm">Regenerate Link</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="rec-card">
+    <h5>Intro Text</h5>
+    <p class="hint">Optional blurb shown above the job list on the careers page.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_intro">
+      <textarea name="intro_text" class="form-control" rows="4">{{ page.intro_text }}</textarea>
+      <button type="submit" class="btn btn-primary btn-sm mt-2">Save</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

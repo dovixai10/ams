@@ -4826,6 +4826,10 @@ class EmployeeNotification(models.Model):
         RULE_UPDATE = ('rule_update', 'Policy Update')
         ALERT = ('alert', 'Alert')
 
+        # Recruitment
+        RECRUITER_ASSIGNED = ('recruiter_assigned', 'Assigned as Recruiter')
+        INTERVIEW_SCHEDULED = ('interview_scheduled', 'Interview Scheduled')
+
     office = models.ForeignKey(
             Office,
             on_delete=models.CASCADE,
@@ -5555,7 +5559,13 @@ class CrmWebsiteLeadPage(models.Model):
 
     office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name='crm_website_page')
     slug = models.SlugField(max_length=40, unique=True, blank=True)
-    is_active = models.BooleanField(default=True, help_text="Turn off to stop accepting new submissions from this page.")
+    api_key = models.CharField(
+        max_length=43, unique=True, blank=True, db_index=True,
+        help_text="Public key for the website lead-capture API (POST /api/v1/leads/capture/<api_key>/) "
+                   "- a client's own website posts its contact form here. Separate from slug so either "
+                   "can be regenerated without affecting the other.",
+    )
+    is_active = models.BooleanField(default=True, help_text="Turn off to stop accepting new submissions from this page and the API.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -5564,6 +5574,9 @@ class CrmWebsiteLeadPage(models.Model):
             from django.utils.text import slugify
             base = slugify(self.office.name)[:24] or 'office'
             self.slug = f"{base}-{secrets.token_hex(4)}"
+        if not self.api_key:
+            import secrets
+            self.api_key = secrets.token_urlsafe(32)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -5614,6 +5627,251 @@ class CrmWhatsAppLeadSource(models.Model):
 
     def __str__(self):
         return f"WhatsApp lead source for {self.office.name}"
+
+
+# ===========================
+# Recruitment
+# ===========================
+
+class Job(models.Model):
+    """A job opening posted by an office. Shown on that office's public
+    careers page (RecruitmentCareersPage) while status=OPEN, and tracked
+    internally regardless of status."""
+
+    class Status(models.TextChoices):
+        DRAFT = ('draft', 'Draft')
+        OPEN = ('open', 'Open')
+        ON_HOLD = ('on_hold', 'On Hold')
+        CLOSED = ('closed', 'Closed')
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='jobs', db_index=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Leave blank to make this opening visible office-wide, across every branch.",
+    )
+
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220, blank=True)
+    description = models.TextField(blank=True)
+
+    department = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True, blank=True, related_name='jobs')
+    designation = models.ForeignKey('Designation', on_delete=models.SET_NULL, null=True, blank=True, related_name='jobs')
+    employment_type = models.ForeignKey('EmploymentType', on_delete=models.SET_NULL, null=True, blank=True, related_name='jobs')
+    location = models.CharField(max_length=200, blank=True, help_text="Shown publicly, e.g. 'Remote' or a city - independent of Branch.")
+
+    salary_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Annual, e.g. 600000. Leave both blank to not show a range.")
+    salary_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Annual, e.g. 900000.")
+
+    openings = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Job'
+        verbose_name_plural = 'Jobs'
+        constraints = [
+            models.UniqueConstraint(fields=['office', 'slug'], name='unique_job_slug_per_office'),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def salary_range_display(self):
+        if self.salary_min and self.salary_max:
+            return f"Rs. {self.salary_min:,.0f} - {self.salary_max:,.0f}"
+        if self.salary_min:
+            return f"Rs. {self.salary_min:,.0f}+"
+        if self.salary_max:
+            return f"Up to Rs. {self.salary_max:,.0f}"
+        return ''
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        if self.status == self.Status.CLOSED and self.closed_at is None:
+            self.closed_at = timezone.now()
+        elif self.status != self.Status.CLOSED:
+            self.closed_at = None
+        super().save(*args, **kwargs)
+        if is_new and not self.slug:
+            from django.utils.text import slugify
+            self.slug = f"{slugify(self.title)[:190] or 'job'}-{self.pk}"
+            super().save(update_fields=['slug'])
+
+
+class JobApplication(models.Model):
+    """One person's application - either submitted through a Job's public
+    careers-page listing, or logged manually by an admin (job=None covers a
+    walk-in/referral with no matching posting). Fuses "the applicant" and
+    "their submission" into one row, same as Lead does for CRM prospects."""
+
+    class Source(models.TextChoices):
+        WEBSITE = ('website', 'Website')
+        LINKEDIN = ('linkedin', 'LinkedIn')
+        REFERRAL = ('referral', 'Referral')
+        WHATSAPP = ('whatsapp', 'WhatsApp')
+        JOB_BOARD = ('job_board', 'Job Board')
+        MANUAL = ('manual', 'Manual')
+        CSV = ('csv', 'CSV Import')
+
+    class Status(models.TextChoices):
+        APPLIED = ('applied', 'Applied')
+        SCREENING = ('screening', 'Screening')
+        SHORTLISTED = ('shortlisted', 'Shortlisted')
+        INTERVIEW = ('interview', 'Interview')
+        TECHNICAL = ('technical', 'Technical')
+        OFFER = ('offer', 'Offer')
+        HIRED = ('hired', 'Hired')
+        REJECTED = ('rejected', 'Rejected')
+
+    class InterviewMode(models.TextChoices):
+        VIDEO_CALL = ('video_call', 'Video Call')
+        IN_PERSON = ('in_person', 'In Person')
+
+    job = models.ForeignKey(Job, on_delete=models.SET_NULL, null=True, blank=True, related_name='applications')
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='job_applications', db_index=True)
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="The branch this application belongs to, if known.",
+    )
+
+    full_name = models.CharField(max_length=150)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(
+        max_length=30, blank=True,
+        validators=[RegexValidator(r'^\+?1?\d{9,15}$', 'Enter a valid phone number.')],
+    )
+    current_location = models.CharField(max_length=150, blank=True)
+    current_company = models.CharField(max_length=150, blank=True)
+    current_ctc = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Annual CTC, if shared.")
+    expected_ctc = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    department = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_applications')
+    designation = models.ForeignKey('Designation', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_applications')
+    employment_type = models.ForeignKey('EmploymentType', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_applications')
+
+    resume = models.FileField(
+        upload_to='recruitment/resumes/%Y/%m/%d/',
+        validators=[FileExtensionValidator(['pdf', 'doc', 'docx'])],
+        blank=True, null=True,
+    )
+    message = models.TextField(blank=True)
+
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.MANUAL, db_index=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.APPLIED, db_index=True)
+
+    assigned_recruiters = models.ManyToManyField(
+        'Employee', through='JobApplicationRecruiter', blank=True, related_name='assigned_applications',
+    )
+
+    interview_scheduled_at = models.DateTimeField(null=True, blank=True)
+    interview_title = models.CharField(max_length=100, blank=True, help_text="e.g. '1st Interview', 'Technical Interview', 'HR Round'")
+    interview_mode = models.CharField(max_length=10, choices=InterviewMode.choices, blank=True)
+    interviewers = models.ManyToManyField(
+        'Employee', blank=True, related_name='interviews_to_conduct',
+        help_text="Employees conducting this interview - separate from assigned_recruiters, who own the candidate's process overall.",
+    )
+
+    external_id = models.CharField(
+        max_length=150, blank=True, db_index=True,
+        help_text="Source's own record id, for future dedupe against an external job board/ATS.",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Job Application'
+        verbose_name_plural = 'Job Applications'
+
+    def __str__(self):
+        return f"{self.full_name} - {self.job.title if self.job else 'Manual entry'}"
+
+    def log_activity(self, description, user=None, new_status=''):
+        return JobApplicationActivity.objects.create(
+            application=self, office_id=self.office_id, branch_id=self.branch_id,
+            description=description, new_status=new_status,
+            created_by=user if (user and user.is_authenticated) else None,
+        )
+
+
+class JobApplicationActivity(models.Model):
+    """One timeline entry for a JobApplication: submitted, status changed,
+    recruiter assigned, interview scheduled, or a free-text note. new_status
+    is populated only for status-change rows, so dashboard trend tiles can
+    query it directly instead of parsing free-text descriptions."""
+
+    application = models.ForeignKey(JobApplication, on_delete=models.CASCADE, related_name='activities')
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='job_application_activities', db_index=True)
+    branch = models.ForeignKey('Branch', on_delete=models.SET_NULL, null=True, blank=True)
+    description = models.CharField(max_length=255)
+    new_status = models.CharField(max_length=12, choices=JobApplication.Status.choices, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Job Application Activity'
+        verbose_name_plural = 'Job Application Activities'
+
+    def __str__(self):
+        return self.description
+
+
+class JobApplicationRecruiter(models.Model):
+    """Through-model for JobApplication.assigned_recruiters - carries who
+    assigned whom and when, for the activity log/notifications."""
+
+    application = models.ForeignKey(JobApplication, on_delete=models.CASCADE, related_name='recruiter_assignments')
+    recruiter = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='recruitment_assignments')
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['application', 'recruiter'], name='unique_recruiter_per_application'),
+        ]
+
+    def __str__(self):
+        return f"{self.recruiter} -> {self.application}"
+
+
+class RecruitmentCareersPage(models.Model):
+    """One public careers page per office, reachable at /careers/<slug>/
+    with no login required - lists every OPEN Job across all of the
+    office's branches, with an apply form. Mirrors CrmWebsiteLeadPage."""
+
+    office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name='careers_page')
+    slug = models.SlugField(max_length=40, unique=True, blank=True)
+    intro_text = models.TextField(blank=True, help_text="Optional blurb shown above the job list.")
+    is_active = models.BooleanField(default=True, help_text="Turn off to stop accepting new applications from this page.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            import secrets
+            from django.utils.text import slugify
+            base = slugify(self.office.name)[:24] or 'office'
+            self.slug = f"{base}-{secrets.token_hex(4)}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Careers page for {self.office.name}"
 
 
 # ===========================

@@ -24,6 +24,7 @@ from .models import (
     Department,
     EmploymentType,
     SubscriptionPlan,
+    Job,
 )
 
 from django.utils import timezone
@@ -1700,6 +1701,62 @@ class ProjectForm(forms.ModelForm):
             project.save()
             self.save_m2m()
         return project
+
+
+class JobForm(forms.ModelForm):
+    """Form for recruitment.manage holders to create or edit a job posting."""
+
+    class Meta:
+        model = Job
+        fields = [
+            'title', 'description', 'department', 'designation', 'employment_type',
+            'branch', 'location', 'salary_min', 'salary_max', 'openings', 'status',
+        ]
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Backend Developer'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'placeholder': 'Role summary, responsibilities, requirements'}),
+            'department': forms.Select(attrs={'class': 'form-select'}),
+            'designation': forms.Select(attrs={'class': 'form-select'}),
+            'employment_type': forms.Select(attrs={'class': 'form-select'}),
+            'branch': forms.Select(attrs={'class': 'form-select'}),
+            'location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': "e.g. Remote, or a city"}),
+            'salary_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Annual, e.g. 600000'}),
+            'salary_max': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Annual, e.g. 900000'}),
+            'openings': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, request=None, created_by=None, **kwargs):
+        self.request = request
+        self.created_by = created_by
+        super().__init__(*args, **kwargs)
+
+        if self.request:
+            self.fields['department'].queryset = tenant_queryset(self.request, Department.objects.filter(is_active=True))
+            self.fields['designation'].queryset = tenant_queryset(self.request, Designation.objects.filter(is_active=True))
+            self.fields['employment_type'].queryset = tenant_queryset(self.request, EmploymentType.objects.filter(is_active=True))
+            # Branch has no 'branch' field of its own (it IS the branch) - tenant_queryset()
+            # is for models that reference a branch, so scope this one directly instead.
+            office = get_request_office(self.request)
+            self.fields['branch'].queryset = (
+                Branch.objects.filter(office=office, is_active=True) if office else Branch.objects.none()
+            )
+
+        for key in ('department', 'designation', 'employment_type', 'branch'):
+            self.fields[key].required = False
+        self.fields['branch'].empty_label = 'Office-wide (every branch)'
+        self.fields['status'].choices = Job.Status.choices
+
+    def save(self, commit=True):
+        job = super().save(commit=False)
+        if self.created_by and not job.created_by_id:
+            job.created_by = self.created_by
+        if not job.office_id and self.request:
+            from .permissions import get_request_office
+            job.office = get_request_office(self.request)
+        if commit:
+            job.save()
+        return job
 
 
 class TeamForm(forms.ModelForm):

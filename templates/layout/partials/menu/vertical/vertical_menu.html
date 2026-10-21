@@ -282,6 +282,39 @@
     </li>
     {% endif %}
 
+    {% if 'recruitment.manage' in office_visible_features %}
+    <!-- ===============================
+           RECRUITMENT GROUP
+    =================================-->
+    <li class="menu-item {% if '/recruitment/' in request.path %}menu-item-open active{% endif %}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <i class="menu-icon bx bx-briefcase"></i>
+        <div>Recruitment</div>
+      </a>
+      <ul class="menu-sub">
+        <li class="menu-item {% if request.path == '/recruitment/dashboard/' %}active{% endif %}">
+          <a href="{% url 'employees:recruitment_dashboard' %}" class="menu-link"><div>Dashboard</div></a>
+        </li>
+        <li class="menu-item {% if '/recruitment/jobs' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:recruitment_job_list' %}" class="menu-link"><div>Jobs</div></a>
+        </li>
+        <li class="menu-item {% if '/recruitment/pipeline' in request.path %}active{% endif %}">
+          <a href="{% url 'employees:recruitment_pipeline' %}" class="menu-link"><div>Pipeline</div></a>
+        </li>
+        <li class="menu-item {% if request.path == '/recruitment/settings/' %}active{% endif %}">
+          <a href="{% url 'employees:recruitment_settings' %}" class="menu-link"><div>Settings</div></a>
+        </li>
+      </ul>
+    </li>
+    {% elif 'recruitment.recruiter' in office_visible_features %}
+    <li class="menu-item {% if request.path == '/recruitment/my-candidates/' %}active{% endif %}">
+      <a href="{% url 'employees:recruitment_my_candidates' %}" class="menu-link">
+        <i class="menu-icon bx bx-user-check"></i>
+        <div>My Candidates</div>
+      </a>
+    </li>
+    {% endif %}
+
     {% if 'integrations.manage' in office_visible_features %}
     <!-- ===============================
            INTEGRATIONS GROUP

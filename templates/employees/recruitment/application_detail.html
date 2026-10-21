@@ -1,0 +1,166 @@
+{% extends layout_path %}
+
+{% block title %}{{ application.full_name }} | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .rec-app-shell { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
+  .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.2rem 1.4rem; }
+  .rec-app-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .rec-app-header h1 { font-size: 1.25rem; font-weight: 700; color: #1f2937; margin: 0; }
+  .rec-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1.5rem; margin-top: 0.9rem; font-size: 0.85rem; }
+  @media (max-width: 600px) { .rec-info-grid { grid-template-columns: 1fr; } }
+  .rec-info-grid .k { color: #9ca3af; font-size: 0.72rem; text-transform: uppercase; }
+  .rec-info-grid .v { color: #1f2937; font-weight: 600; }
+  .rec-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 800px) { .rec-grid-2 { grid-template-columns: 1fr; } }
+  .rec-field { margin-bottom: 0.8rem; }
+  .rec-field label { font-size: 0.78rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.3rem; }
+  .rec-field .form-control, .rec-field .form-select { width: 100%; }
+  .rec-activity-row { display: flex; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid #f1f2f5; font-size: 0.83rem; }
+  .rec-activity-row:last-child { border-bottom: none; }
+  .rec-activity-time { font-size: 0.72rem; color: #9ca3af; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-app-shell">
+  <div class="rec-card">
+    <div class="rec-app-header">
+      <div>
+        <h1>{{ application.full_name }}</h1>
+        <div style="font-size:0.84rem;color:#6b7280;margin-top:0.2rem;">Applied for {{ application.job.title|default:"— manual entry —" }} &middot; {{ application.get_source_display }}</div>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        {% if application.resume %}<a href="{{ application.resume.url }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bx bx-download me-1"></i>Resume</a>{% endif %}
+        {% if is_manager %}
+        <form method="post" action="{% url 'employees:recruitment_application_delete' application.pk %}" onsubmit="return confirm('Delete this application?');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bx bx-trash"></i></button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    <div class="rec-info-grid">
+      <div><div class="k">Email</div><div class="v">{{ application.email|default:"-" }}</div></div>
+      <div><div class="k">Phone</div><div class="v">{{ application.phone|default:"-" }}</div></div>
+      <div><div class="k">Current Location</div><div class="v">{{ application.current_location|default:"-" }}</div></div>
+      <div><div class="k">Current Company</div><div class="v">{{ application.current_company|default:"-" }}</div></div>
+      <div><div class="k">Current CTC</div><div class="v">{{ application.current_ctc|default:"-" }}</div></div>
+      <div><div class="k">Expected CTC</div><div class="v">{{ application.expected_ctc|default:"-" }}</div></div>
+      <div><div class="k">Department</div><div class="v">{{ application.department.name|default:"-" }}</div></div>
+      <div><div class="k">Designation</div><div class="v">{{ application.designation.name|default:"-" }}</div></div>
+      <div><div class="k">Employment Type</div><div class="v">{{ application.employment_type.name|default:"-" }}</div></div>
+    </div>
+    {% if application.message %}<div style="margin-top:0.9rem;"><div class="rec-info-grid-k" style="font-size:0.72rem;color:#9ca3af;text-transform:uppercase;">Message</div><div style="font-size:0.85rem;color:#374151;white-space:pre-line;">{{ application.message }}</div></div>{% endif %}
+  </div>
+
+  <div class="rec-grid-2">
+    <div class="rec-card">
+      <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Status</h5>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_status">
+        <div class="rec-field">
+          <select name="status" class="form-select">
+            {% for value, label in status_choices %}<option value="{{ value }}" {% if application.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Update Status</button>
+      </form>
+    </div>
+
+    <div class="rec-card">
+      <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Assigned Recruiters</h5>
+      {% if is_manager %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="assign_recruiters">
+        <div class="rec-field">
+          <select name="recruiters" class="form-select" multiple size="5">
+            {% for recruiter in recruiter_options %}
+              <option value="{{ recruiter.pk }}" {% if recruiter.pk in assigned_recruiter_ids %}selected{% endif %}>{{ recruiter.full_name|default:recruiter.name }} ({{ recruiter.email }})</option>
+            {% empty %}
+              <option disabled>No employees hold the recruiter permission yet.</option>
+            {% endfor %}
+          </select>
+          <span class="field-hint" style="font-size:0.72rem;color:#9ca3af;">Hold Ctrl/Cmd to select more than one.</span>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Save Recruiters</button>
+      </form>
+      {% else %}
+        <div style="font-size:0.84rem;color:#374151;">
+          {% for recruiter in recruiter_options %}{% if recruiter.pk in assigned_recruiter_ids %}{{ recruiter.full_name|default:recruiter.name }}<br>{% endif %}{% endfor %}
+        </div>
+        <span class="field-hint" style="font-size:0.72rem;color:#9ca3af;">Only recruitment managers can change this.</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="rec-grid-2">
+    <div class="rec-card">
+      <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Schedule Interview</h5>
+      {% if application.interview_scheduled_at %}
+        <div style="font-size:0.82rem;color:#374151;margin-bottom:0.8rem;">
+          Currently: {% if application.interview_title %}<strong>{{ application.interview_title }}</strong> - {% endif %}{{ application.interview_scheduled_at|date:"d M Y, h:i A" }}{% if application.interview_mode %} &middot; {{ application.get_interview_mode_display }}{% endif %}
+          {% with names=application.interviewers.all %}{% if names %}<br>Interviewer(s): {% for p in names %}{{ p.full_name|default:p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% endwith %}
+        </div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="schedule_interview">
+        <div class="rec-field">
+          <label>Title</label>
+          <input type="text" name="interview_title" class="form-control" placeholder="e.g. 1st Interview, Technical Interview, HR Round" value="{{ application.interview_title }}">
+        </div>
+        <div class="rec-field">
+          <label>Date &amp; Time</label>
+          <input type="datetime-local" name="interview_scheduled_at" class="form-control" value="{{ application.interview_scheduled_at|date:'Y-m-d\TH:i' }}">
+        </div>
+        <div class="rec-field">
+          <label>Mode</label>
+          <select name="interview_mode" class="form-select">
+            <option value="">-</option>
+            {% for value, label in interview_mode_choices %}<option value="{{ value }}" {% if application.interview_mode == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="rec-field">
+          <label>Interviewer(s)</label>
+          <select name="interviewers" class="form-select" multiple size="4">
+            {% for emp in interviewer_options %}
+              <option value="{{ emp.pk }}" {% if emp.pk in assigned_interviewer_ids %}selected{% endif %}>{{ emp.full_name|default:emp.name }} ({{ emp.email }})</option>
+            {% endfor %}
+          </select>
+          <span class="field-hint" style="font-size:0.72rem;color:#9ca3af;">Any employee - not just recruiters. Hold Ctrl/Cmd to select more than one.</span>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Schedule</button>
+      </form>
+    </div>
+
+    <div class="rec-card">
+      <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Add Note</h5>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_note">
+        <div class="rec-field">
+          <textarea name="note" class="form-control" rows="4" placeholder="Interview feedback, a call summary, anything worth logging..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Add Note</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="rec-card">
+    <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Activity</h5>
+    {% for activity in activities %}
+      <div class="rec-activity-row">
+        <i class="bx bx-circle" style="font-size:0.5rem;color:#696CFF;margin-top:0.3rem;"></i>
+        <div><div>{{ activity.description }}</div><div class="rec-activity-time">{% if activity.created_by %}{{ activity.created_by.get_full_name|default:activity.created_by.username }}{% else %}System{% endif %} &middot; {{ activity.created_at|timesince }} ago</div></div>
+      </div>
+    {% empty %}
+      <div class="text-muted" style="font-size:0.85rem;">No activity yet.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

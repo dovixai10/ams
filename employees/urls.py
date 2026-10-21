@@ -1,5 +1,5 @@
 from django.urls import path, include
-from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views, integration_views, reports_views, subscription_views, crm_views, invoice_views
+from . import views, holiday_views, api_views, leave_views, attendance_admin_views, drf_views, integration_views, reports_views, subscription_views, crm_views, invoice_views, crm_lead_api, recruitment_views, recruitment_public_views
 
 app_name = 'employees'
 
@@ -216,6 +216,7 @@ urlpatterns = [
     path('api/v1/token-auth/', drf_views.TokenAuthView.as_view(), name='api_token_auth'),
     path('api/v1/profile/', drf_views.EmployeeProfileAPIView.as_view(), name='employee_profile_api'),
     path('api/v1/salary-slips/', drf_views.SalarySlipListAPIView.as_view(), name='salary_slips_api'),
+    path('api/v1/leads/capture/<str:api_key>/', crm_lead_api.CaptureLeadView.as_view(), name='crm_capture_lead_api'),
 
     # Dashboard API
     path('api/dashboard/', api_views.dashboard_api, name='dashboard_api'),
@@ -308,6 +309,25 @@ urlpatterns = [
     path('crm/settings/', crm_views.crm_settings, name='crm_settings'),
     # Public sample lead-capture page for one office - no login required.
     path('l/<slug:slug>/', crm_views.crm_public_lead_page, name='crm_public_lead_page'),
+
+    # Recruitment
+    path('recruitment/dashboard/', recruitment_views.recruitment_dashboard, name='recruitment_dashboard'),
+    path('recruitment/jobs/', recruitment_views.recruitment_job_list, name='recruitment_job_list'),
+    path('recruitment/jobs/create/', recruitment_views.recruitment_job_create, name='recruitment_job_create'),
+    path('recruitment/jobs/<int:pk>/', recruitment_views.recruitment_job_detail, name='recruitment_job_detail'),
+    path('recruitment/jobs/<int:pk>/update/', recruitment_views.recruitment_job_update, name='recruitment_job_update'),
+    path('recruitment/jobs/<int:pk>/delete/', recruitment_views.recruitment_job_delete, name='recruitment_job_delete'),
+    path('recruitment/pipeline/', recruitment_views.recruitment_pipeline, name='recruitment_pipeline'),
+    path('recruitment/pipeline/<int:pk>/move/', recruitment_views.recruitment_pipeline_move, name='recruitment_pipeline_move'),
+    path('recruitment/applications/<int:pk>/', recruitment_views.recruitment_application_detail, name='recruitment_application_detail'),
+    path('recruitment/applications/<int:pk>/delete/', recruitment_views.recruitment_application_delete, name='recruitment_application_delete'),
+    path('recruitment/applications/export/', recruitment_views.recruitment_application_export, name='recruitment_application_export'),
+    path('recruitment/applications/import/', recruitment_views.recruitment_application_import, name='recruitment_application_import'),
+    path('recruitment/applications/import/sample/', recruitment_views.recruitment_application_import_sample, name='recruitment_application_import_sample'),
+    path('recruitment/my-candidates/', recruitment_views.recruitment_my_candidates, name='recruitment_my_candidates'),
+    path('recruitment/settings/', recruitment_views.recruitment_settings, name='recruitment_settings'),
+    # Public careers page for one office - no login required.
+    path('careers/<slug:slug>/', recruitment_public_views.recruitment_public_careers_page, name='recruitment_public_careers_page'),
 
     # Invoicing
     path('invoices/', invoice_views.invoice_list, name='invoice_list'),

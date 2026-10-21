@@ -1,0 +1,89 @@
+{% extends layout_path %}
+
+{% block title %}{{ title }} | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .rec-form-shell { max-width: 760px; margin: 0 auto; padding: 0.75rem 0 2rem; }
+  .rec-form-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.4rem 1.6rem; }
+  .rec-form-card h1 { font-size: 1.2rem; font-weight: 700; color: #1f2937; margin: 0 0 1.1rem; display: flex; align-items: center; gap: 0.5rem; }
+  .rec-form-card h1 i { color: #696CFF; }
+  .rec-field { margin-bottom: 1rem; }
+  .rec-field label { font-size: 0.8rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.3rem; }
+  .rec-field .form-control, .rec-field .form-select { width: 100%; }
+  .rec-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+  @media (max-width: 600px) { .rec-row-2 { grid-template-columns: 1fr; } }
+  .text-danger.small { font-size: 0.76rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-form-shell">
+  <div class="rec-form-card">
+    <h1><i class="bx bx-briefcase"></i> {{ title }}</h1>
+    <form method="post">
+      {% csrf_token %}
+      <div class="rec-field">
+        <label for="{{ form.title.id_for_label }}">Job Title *</label>
+        {{ form.title }}
+        {% if form.title.errors %}<div class="text-danger small">{{ form.title.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="rec-field">
+        <label for="{{ form.description.id_for_label }}">Description</label>
+        {{ form.description }}
+      </div>
+      <div class="rec-row-2">
+        <div class="rec-field">
+          <label for="{{ form.department.id_for_label }}">Department</label>
+          {{ form.department }}
+        </div>
+        <div class="rec-field">
+          <label for="{{ form.designation.id_for_label }}">Designation</label>
+          {{ form.designation }}
+        </div>
+      </div>
+      <div class="rec-row-2">
+        <div class="rec-field">
+          <label for="{{ form.employment_type.id_for_label }}">Employment Type</label>
+          {{ form.employment_type }}
+        </div>
+        <div class="rec-field">
+          <label for="{{ form.branch.id_for_label }}">Branch</label>
+          {{ form.branch }}
+        </div>
+      </div>
+      <div class="rec-row-2">
+        <div class="rec-field">
+          <label for="{{ form.location.id_for_label }}">Location</label>
+          {{ form.location }}
+        </div>
+        <div class="rec-field">
+          <label for="{{ form.openings.id_for_label }}">Openings</label>
+          {{ form.openings }}
+        </div>
+      </div>
+      <div class="rec-row-2">
+        <div class="rec-field">
+          <label for="{{ form.salary_min.id_for_label }}">Salary Range - Min</label>
+          {{ form.salary_min }}
+        </div>
+        <div class="rec-field">
+          <label for="{{ form.salary_max.id_for_label }}">Salary Range - Max</label>
+          {{ form.salary_max }}
+        </div>
+      </div>
+      <span class="field-hint" style="font-size:0.74rem;color:#9ca3af;display:block;margin:-0.6rem 0 1rem;">Leave both blank to not show a salary range on the careers page.</span>
+      <div class="rec-field">
+        <label for="{{ form.status.id_for_label }}">Status</label>
+        {{ form.status }}
+        <span class="field-hint" style="font-size:0.74rem;color:#9ca3af;">Only "Open" jobs show on the public careers page.</span>
+      </div>
+      <div style="display:flex;gap:0.6rem;margin-top:1rem;">
+        <button type="submit" class="btn btn-primary">Save Job</button>
+        <a href="{% url 'employees:recruitment_job_list' %}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends layout_path %}
+
+{% block title %}Pipeline | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .rec-pipeline-shell { max-width: 100%; padding: 0.75rem 1rem 2rem; }
+  .rec-pipeline-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .rec-pipeline-header h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+  .rec-pipeline-header h1 i { color: #696CFF; }
+  .rec-pipeline-header select { font-size: 0.82rem; padding: 0.45rem 0.7rem; border-radius: 8px; border: 1px solid #E5E7EF; }
+
+  .rec-board { display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 1rem; }
+  .rec-column { flex: 0 0 240px; background: #F5F6FA; border-radius: 12px; padding: 0.7rem; }
+  .rec-column-head { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 700; color: #374151; margin-bottom: 0.6rem; padding: 0 0.2rem; }
+  .rec-column-count { background: #fff; border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.72rem; color: #6b7280; }
+  .rec-column-body { min-height: 60px; display: flex; flex-direction: column; gap: 0.5rem; }
+  .rec-column-body.drag-over { background: rgba(105, 108, 255, 0.08); border-radius: 8px; }
+
+  .rec-pcard { background: #fff; border-radius: 10px; border: 1px solid #E5E7EF; border-left: 3px solid #696CFF; padding: 0.6rem 0.7rem; cursor: grab; font-size: 0.82rem; }
+  .rec-pcard:active { cursor: grabbing; }
+  .rec-pcard-name { font-weight: 600; color: #1f2937; margin-bottom: 0.2rem; }
+  .rec-pcard-meta { font-size: 0.72rem; color: #9ca3af; }
+  .rec-pcard a { color: inherit; text-decoration: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-pipeline-shell">
+  <div class="rec-pipeline-header">
+    <h1><i class="bx bx-trending-up"></i> Pipeline</h1>
+    <form method="get">
+      <select name="job" onchange="this.form.submit()">
+        <option value="">All Jobs</option>
+        {% for job in jobs %}<option value="{{ job.pk }}" {% if job_filter == job.pk|stringformat:'s' %}selected{% endif %}>{{ job.title }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <div class="rec-board">
+    {% for column in columns %}
+      <div class="rec-column">
+        <div class="rec-column-head"><span>{{ column.label }}</span><span class="rec-column-count">{{ column.applications|length }}</span></div>
+        <div class="rec-column-body" data-status="{{ column.key }}">
+          {% for app in column.applications %}
+            <div class="rec-pcard" draggable="true" data-app-id="{{ app.pk }}">
+              <a href="{% url 'employees:recruitment_application_detail' app.pk %}"><div class="rec-pcard-name">{{ app.full_name }}</div></a>
+              <div class="rec-pcard-meta">{{ app.job.title|default:"Manual entry" }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var CSRF_TOKEN = '{{ csrf_token }}';
+
+  function apiPost(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify(body || {}),
+    }).then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); });
+  }
+
+  document.querySelectorAll('.rec-pcard').forEach(function (card) {
+    card.addEventListener('dragstart', function (e) {
+      e.dataTransfer.setData('text/plain', card.dataset.appId);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+  });
+
+  document.querySelectorAll('.rec-column-body').forEach(function (body) {
+    body.addEventListener('dragover', function (e) { e.preventDefault(); body.classList.add('drag-over'); });
+    body.addEventListener('dragleave', function () { body.classList.remove('drag-over'); });
+    body.addEventListener('drop', function (e) {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      var appId = e.dataTransfer.getData('text/plain');
+      var card = document.querySelector('.rec-pcard[data-app-id="' + appId + '"]');
+      if (!card) return;
+      var newStatus = body.dataset.status;
+      var previousParent = card.parentElement;
+      if (previousParent === body) return;
+      body.appendChild(card);
+      apiPost('/recruitment/pipeline/' + appId + '/move/', { status: newStatus }).then(function (res) {
+        if (!res.ok || !res.data.success) {
+          previousParent.appendChild(card);
+          alert((res.data && res.data.error) || 'Could not move this card. Please try again.');
+        }
+      });
+    });
+  });
+});
+</script>
+{% endblock %}

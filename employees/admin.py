@@ -630,6 +630,7 @@ from .models import (
     Project, ProjectAttachment, Team, EmployeeTask, TaskAttachment, Sprint, SprintConfig,
     SubscriptionPlan, SubscriptionPlanFeature,
     EmployeeDocument, LeaveVerificationDocument, CompanyPolicy, DocumentType,
+    Job, JobApplication, JobApplicationActivity, JobApplicationRecruiter, RecruitmentCareersPage,
     AttendanceBreak, AttendanceDayComment, AttendanceSession, AttendanceRegularizationRequest,
     ShiftSwapRequest, DeviceRegistration, FaceEnrollmentLog,
     EmployeeNotification, EmployeePoints, HRTicket, ExpenseClaim,
@@ -673,9 +674,31 @@ class LeadAdmin(admin.ModelAdmin):
     inlines = [LeadActivityInline]
 
 
+@admin.register(Job)
+class JobAdmin(admin.ModelAdmin):
+    list_display = ('title', 'office', 'department', 'branch', 'status', 'openings', 'created_at')
+    list_filter = ('status', 'office', 'department')
+    search_fields = ('title',)
+
+
+class JobApplicationActivityInline(admin.TabularInline):
+    model = JobApplicationActivity
+    extra = 0
+    readonly_fields = ('created_at',)
+
+
+@admin.register(JobApplication)
+class JobApplicationAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'office', 'job', 'phone', 'email', 'source', 'status', 'created_at')
+    list_filter = ('status', 'source', 'office')
+    search_fields = ('full_name', 'phone', 'email')
+    inlines = [JobApplicationActivityInline]
+
+
 admin.site.register([
     InvoiceSettings, InvoiceLineItem, LeadActivity, DocumentType,
     CrmWebsiteLeadPage, CrmWhatsAppLeadSource,
+    JobApplicationRecruiter, RecruitmentCareersPage,
     Branch, Role, Department, Designation, EmploymentType,
     Project, ProjectAttachment, Team, EmployeeTask, TaskAttachment, Sprint, SprintConfig,
     SubscriptionPlan, SubscriptionPlanFeature,

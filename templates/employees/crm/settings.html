@@ -63,6 +63,39 @@
   </div>
 
   <div class="crm-settings-card">
+    <h5><i class="bx bx-code-alt"></i> Website API (for your own website)</h5>
+    <p class="hint">If your client already has their own website with a contact form, point that form at this URL instead - no code change needed here, just update their form's <code>action</code>. Every submission becomes a Lead immediately, same as the sample page above. This endpoint uses the same on/off switch as the Website Lead Page (toggle it above).</p>
+    <div class="crm-url-box">
+      <span style="flex:1 1 auto;">POST {{ api_url }}</span>
+      <button type="button" onclick="navigator.clipboard.writeText('{{ api_url }}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy', 1500);">Copy</button>
+    </div>
+
+    <div style="margin-top:0.9rem;font-size:0.82rem;color:#374151;">
+      <strong>Fields:</strong> <code>name</code> and <code>phone</code> required; <code>email</code>, <code>company</code>, <code>message</code> optional.
+    </div>
+
+    <div style="margin-top:0.7rem;">
+      <span class="field-hint" style="display:block;margin-bottom:0.35rem;">Minimal HTML form example (no JavaScript needed) - just match these field names:</span>
+      <pre style="background:#F5F6FA;border:1px solid #E5E7EF;border-radius:10px;padding:0.7rem 0.9rem;font-size:0.76rem;overflow-x:auto;margin:0;">&lt;form method="post" action="{{ api_url }}"&gt;
+  &lt;input name="name" required&gt;
+  &lt;input name="phone" required&gt;
+  &lt;input name="email" type="email"&gt;
+  &lt;input name="message"&gt;
+  &lt;button type="submit"&gt;Send&lt;/button&gt;
+&lt;/form&gt;</pre>
+    </div>
+
+    <div class="crm-settings-actions">
+      <a href="/api/docs/#/CRM%20Lead%20Capture" target="_blank" rel="noopener" class="crm-settings-btn outline" style="text-decoration:none;display:inline-flex;align-items:center;">Full API Docs &rarr;</a>
+      <form method="post" style="display:inline;" onsubmit="return confirm('Regenerate the API key? Any website already using the old link will stop working until updated.');">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="regenerate_api_key">
+        <button type="submit" class="crm-settings-btn danger">Regenerate Key</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="crm-settings-card">
     <h5><i class="bx bxl-whatsapp"></i> WhatsApp Lead Source</h5>
     <p class="hint">Point this at your WhatsApp marketing service's "received messages" endpoint. We check it every couple of minutes and turn new messages into Leads - only the customer's number, name and message are stored.</p>
 

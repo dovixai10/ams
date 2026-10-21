@@ -50,6 +50,8 @@ FEATURE_PERMISSIONS = [
     ('roles.manage', 'Manage Roles & Permissions', 'Company Settings'),
     ('integrations.manage', 'Manage Integrations (WhatsApp accounts, recipients & report schedules)', 'Integrations'),
     ('reports.view', 'View Reports (Employee Performance)', 'Reports'),
+    ('recruitment.manage', 'Manage Recruitment (Jobs, Pipeline & Dashboard)', 'Recruitment'),
+    ('recruitment.recruiter', 'Be Assignable as a Recruiter', 'Recruitment'),
 ]
 
 FEATURE_PERMISSION_KEYS = {key for key, _, _ in FEATURE_PERMISSIONS}
@@ -231,3 +233,18 @@ def tenant_object_or_404(request, model, **lookup):
 
     queryset = tenant_queryset(request, model.objects.all())
     return get_object_or_404(queryset, **lookup)
+
+
+def employees_holding_permission(request, perm_key):
+    """Employees in the current tenant scope whose active, same-branch
+    roles grant perm_key - e.g. who's assignable as a recruiter. Filtered
+    in Python via employee_has_permission() rather than a single ORM query,
+    since Role.permissions is a JSON list and the branch-matching rule
+    isn't safely expressible as one filter; the result is still handed
+    back as a real queryset (pk__in=[...]) so it works anywhere a
+    ModelMultipleChoiceField/queryset is expected."""
+    from .models import Employee
+
+    candidates = tenant_queryset(request, Employee.objects.all())
+    matching_ids = [e.pk for e in candidates if employee_has_permission(e, perm_key)]
+    return Employee.objects.filter(pk__in=matching_ids)

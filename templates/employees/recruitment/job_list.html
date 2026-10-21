@@ -1,0 +1,77 @@
+{% extends layout_path %}
+
+{% block title %}Jobs | Dovix AI{% endblock %}
+
+{% block page_css %}
+{{ block.super }}
+<style>
+  .rec-list-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
+  .rec-list-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .rec-list-header h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+  .rec-list-header h1 i { color: #696CFF; }
+  .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+  .rec-toolbar { display: flex; gap: 0.6rem; padding: 1rem 1.2rem; border-bottom: 1px solid #f1f2f5; flex-wrap: wrap; }
+  .rec-toolbar select { font-size: 0.82rem; padding: 0.45rem 0.7rem; border-radius: 8px; border: 1px solid #E5E7EF; }
+  table.rec-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  table.rec-table th { text-align: left; padding: 0.7rem 1.1rem; font-size: 0.72rem; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f1f2f5; }
+  table.rec-table td { padding: 0.65rem 1.1rem; border-bottom: 1px solid #f1f2f5; vertical-align: middle; }
+  .rec-badge { font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; }
+  .rec-badge.draft { background: #F1F2F5; color: #8592A3; }
+  .rec-badge.open { background: #E8F8EE; color: #3f9a1c; }
+  .rec-badge.on_hold { background: #FFF4E5; color: #B45309; }
+  .rec-badge.closed { background: #FFF0F0; color: #c23616; }
+  .rec-row-actions { display: flex; gap: 0.4rem; }
+  .rec-icon-btn { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1px solid #E5E7EF; background: #fff; color: #566A7F; font-size: 0.8rem; cursor: pointer; text-decoration: none; }
+  .rec-icon-btn:hover { border-color: #696CFF; color: #696CFF; }
+  .rec-icon-btn.danger:hover { border-color: #FF3E1D; color: #FF3E1D; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-list-shell">
+  <div class="rec-list-header">
+    <h1><i class="bx bx-briefcase"></i> Jobs</h1>
+    <div style="display:flex;gap:0.5rem;">
+      <a href="{% url 'employees:recruitment_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+      <a href="{% url 'employees:recruitment_job_create' %}" class="btn btn-primary btn-sm"><i class="bx bx-plus me-1"></i>Create Job</a>
+    </div>
+  </div>
+
+  <div class="rec-card">
+    <form method="get" class="rec-toolbar">
+      <select name="status" onchange="this.form.submit()">
+        <option value="">All Status</option>
+        {% for value, label in status_choices %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <a href="{% url 'employees:recruitment_job_list' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+    </form>
+    <table class="rec-table">
+      <thead><tr><th>Title</th><th>Department</th><th>Branch</th><th>Openings</th><th>Applicants</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for job in jobs %}
+          <tr>
+            <td><a href="{% url 'employees:recruitment_job_detail' job.pk %}" style="color:#1f2937;font-weight:600;text-decoration:none;">{{ job.title }}</a></td>
+            <td>{{ job.department.name|default:"-" }}</td>
+            <td>{{ job.branch.name|default:"Office-wide" }}</td>
+            <td>{{ job.openings }}</td>
+            <td>{{ job.applicant_count }}</td>
+            <td><span class="rec-badge {{ job.status }}">{{ job.get_status_display }}</span></td>
+            <td>
+              <div class="rec-row-actions">
+                <a class="rec-icon-btn" href="{% url 'employees:recruitment_job_detail' job.pk %}" title="View"><i class="bx bx-show"></i></a>
+                <a class="rec-icon-btn" href="{% url 'employees:recruitment_job_update' job.pk %}" title="Edit"><i class="bx bx-edit"></i></a>
+                <form method="post" action="{% url 'employees:recruitment_job_delete' job.pk %}" onsubmit="return confirm('Delete {{ job.title|escapejs }}? Existing applications are kept, just unlinked.');">
+                  {% csrf_token %}
+                  <button type="submit" class="rec-icon-btn danger" title="Delete"><i class="bx bx-trash"></i></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-4">No jobs yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
