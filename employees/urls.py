@@ -313,6 +313,8 @@ urlpatterns = [
     # Recruitment
     path('recruitment/dashboard/', recruitment_views.recruitment_dashboard, name='recruitment_dashboard'),
     path('recruitment/jobs/', recruitment_views.recruitment_job_list, name='recruitment_job_list'),
+    path('recruitment/jobs/export/', recruitment_views.recruitment_job_export, name='recruitment_job_export'),
+    path('recruitment/jobs/bulk-delete/', recruitment_views.recruitment_job_bulk_delete, name='recruitment_job_bulk_delete'),
     path('recruitment/jobs/create/', recruitment_views.recruitment_job_create, name='recruitment_job_create'),
     path('recruitment/jobs/<int:pk>/', recruitment_views.recruitment_job_detail, name='recruitment_job_detail'),
     path('recruitment/jobs/<int:pk>/update/', recruitment_views.recruitment_job_update, name='recruitment_job_update'),

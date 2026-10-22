@@ -31,11 +31,24 @@
           <span><i class="bx bx-group"></i> {{ job.openings }} opening{{ job.openings|pluralize }}</span>
           <span><i class="bx bx-info-circle"></i> {{ job.get_status_display }}</span>
           {% if job.salary_range_display %}<span><i class="bx bx-rupee"></i> {{ job.salary_range_display }}</span>{% endif %}
+          {% if job.experience_range_display %}<span><i class="bx bx-time-five"></i> {{ job.experience_range_display }}</span>{% endif %}
         </div>
       </div>
       <a href="{% url 'employees:recruitment_job_update' job.pk %}" class="btn btn-outline-secondary btn-sm">Edit Job</a>
     </div>
-    {% if job.description %}<p style="margin-top:0.9rem;font-size:0.86rem;color:#374151;white-space:pre-line;">{{ job.description }}</p>{% endif %}
+    {% if job.description %}<div style="margin-top:0.9rem;font-size:0.86rem;color:#374151;">{{ job.description|safe }}</div>{% endif %}
+    {% if job.required_skills_list %}
+      <div style="margin-top:1rem;">
+        <div style="font-size:0.72rem;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:0.4rem;">Required Skills</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for skill in job.required_skills_list %}<span class="rec-badge">{{ skill }}</span>{% endfor %}</div>
+      </div>
+    {% endif %}
+    {% if job.benefits_list %}
+      <div style="margin-top:0.8rem;">
+        <div style="font-size:0.72rem;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:0.4rem;">Job Benefits</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for benefit in job.benefits_list %}<span class="rec-badge" style="background:#FFF4E5;color:#B45309;">{{ benefit }}</span>{% endfor %}</div>
+      </div>
+    {% endif %}
   </div>
 
   <div class="rec-card">

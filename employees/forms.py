@@ -1710,18 +1710,23 @@ class JobForm(forms.ModelForm):
         model = Job
         fields = [
             'title', 'description', 'department', 'designation', 'employment_type',
-            'branch', 'location', 'salary_min', 'salary_max', 'openings', 'status',
+            'branch', 'location', 'experience_min', 'experience_max', 'salary_min', 'salary_max',
+            'required_skills', 'benefits', 'openings', 'status',
         ]
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Backend Developer'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'placeholder': 'Role summary, responsibilities, requirements'}),
+            'description': forms.HiddenInput(),
             'department': forms.Select(attrs={'class': 'form-select'}),
             'designation': forms.Select(attrs={'class': 'form-select'}),
             'employment_type': forms.Select(attrs={'class': 'form-select'}),
             'branch': forms.Select(attrs={'class': 'form-select'}),
             'location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': "e.g. Remote, or a city"}),
+            'experience_min': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Min years'}),
+            'experience_max': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Max years'}),
             'salary_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Annual, e.g. 600000'}),
             'salary_max': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Annual, e.g. 900000'}),
+            'required_skills': forms.HiddenInput(),
+            'benefits': forms.HiddenInput(),
             'openings': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
         }
@@ -1742,7 +1747,7 @@ class JobForm(forms.ModelForm):
                 Branch.objects.filter(office=office, is_active=True) if office else Branch.objects.none()
             )
 
-        for key in ('department', 'designation', 'employment_type', 'branch'):
+        for key in ('department', 'designation', 'employment_type', 'branch', 'experience_min', 'experience_max'):
             self.fields[key].required = False
         self.fields['branch'].empty_label = 'Office-wide (every branch)'
         self.fields['status'].choices = Job.Status.choices

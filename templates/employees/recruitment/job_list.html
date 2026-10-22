@@ -1,77 +1,295 @@
 {% extends layout_path %}
+{% load static %}
 
 {% block title %}Jobs | Dovix AI{% endblock %}
 
 {% block page_css %}
 {{ block.super }}
 <style>
-  .rec-list-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
-  .rec-list-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-  .rec-list-header h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
-  .rec-list-header h1 i { color: #696CFF; }
-  .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
-  .rec-toolbar { display: flex; gap: 0.6rem; padding: 1rem 1.2rem; border-bottom: 1px solid #f1f2f5; flex-wrap: wrap; }
-  .rec-toolbar select { font-size: 0.82rem; padding: 0.45rem 0.7rem; border-radius: 8px; border: 1px solid #E5E7EF; }
-  table.rec-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
-  table.rec-table th { text-align: left; padding: 0.7rem 1.1rem; font-size: 0.72rem; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f1f2f5; }
-  table.rec-table td { padding: 0.65rem 1.1rem; border-bottom: 1px solid #f1f2f5; vertical-align: middle; }
-  .rec-badge { font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; }
-  .rec-badge.draft { background: #F1F2F5; color: #8592A3; }
-  .rec-badge.open { background: #E8F8EE; color: #3f9a1c; }
-  .rec-badge.on_hold { background: #FFF4E5; color: #B45309; }
-  .rec-badge.closed { background: #FFF0F0; color: #c23616; }
-  .rec-row-actions { display: flex; gap: 0.4rem; }
-  .rec-icon-btn { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1px solid #E5E7EF; background: #fff; color: #566A7F; font-size: 0.8rem; cursor: pointer; text-decoration: none; }
-  .rec-icon-btn:hover { border-color: #696CFF; color: #696CFF; }
-  .rec-icon-btn.danger:hover { border-color: #FF3E1D; color: #FF3E1D; }
+  .jl-shell { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
+  .jl-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .jl-header h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; }
+  .jl-header p { font-size: 0.85rem; color: #6b7280; margin: 0.2rem 0 0; }
+
+  .jl-toolbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: nowrap; flex-shrink: 0; }
+  @media (max-width: 767px) { .jl-toolbar { flex-wrap: wrap; } }
+
+  .jl-search { position: relative; flex: 0 1 200px; max-width: 220px; min-width: 150px; }
+  .jl-search i { position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 0.9rem; }
+  .jl-search input { width: 100%; font-size: 0.84rem; padding: 0.5rem 0.8rem 0.5rem 2rem; border-radius: 9px; border: 1px solid #E5E7EF; }
+  .jl-toolbar select { font-size: 0.82rem; padding: 0.5rem 0.8rem; border-radius: 9px; border: 1px solid #E5E7EF; background: #fff; flex-shrink: 0; }
+
+  .jl-adv-wrap { position: relative; flex-shrink: 0; }
+  .jl-adv-wrap > button { white-space: nowrap; }
+  .jl-adv-panel { display: none; position: absolute; top: calc(100% + 0.4rem); left: 0; background: #fff; border: 1px solid #E5E7EF; border-radius: 12px; box-shadow: 0 16px 32px rgba(15,23,42,0.12); padding: 1rem; min-width: 260px; z-index: 20; }
+  .jl-adv-panel.show { display: block; }
+  .jl-adv-panel .jl-field { margin-bottom: 0.8rem; }
+  .jl-adv-panel .jl-field label { font-size: 0.75rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.25rem; }
+  .jl-adv-panel select { width: 100%; }
+  .jl-adv-actions { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
+
+  .jl-toolbar > a.btn { flex-shrink: 0; white-space: nowrap; }
+
+  .jl-kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; }
+  @media (max-width: 1050px) { .jl-kpi-row { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 650px) { .jl-kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  .jl-kpi-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1rem 1.1rem; display: flex; align-items: flex-start; gap: 0.7rem; }
+  .jl-kpi-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .jl-kpi-icon.purple { background: #EEF2FF; color: #696CFF; }
+  .jl-kpi-icon.green { background: #E8F8EE; color: #3f9a1c; }
+  .jl-kpi-icon.blue { background: #E7F4FF; color: #2563eb; }
+  .jl-kpi-icon.orange { background: #FFF4E5; color: #B45309; }
+  .jl-kpi-icon.pink { background: #FDF0F4; color: #C0265F; }
+  .jl-kpi-label { font-size: 0.76rem; color: #6b7280; font-weight: 600; }
+  .jl-kpi-value { font-size: 1.35rem; font-weight: 700; color: #1f2937; margin-top: 0.1rem; }
+  .jl-kpi-trend { font-size: 0.72rem; margin-top: 0.15rem; }
+  .jl-kpi-trend.up { color: #16a34a; }
+  .jl-kpi-trend.down { color: #ef4444; }
+  .jl-kpi-trend.flat { color: #9ca3af; }
+
+  .jl-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); }
+  .jl-card-head { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.2rem; border-bottom: 1px solid #f1f2f5; gap: 0.6rem; }
+  .jl-card-head h5 { font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0; }
+  .jl-card-head-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+  .jl-bulk-delete-btn { display: none; color: #FF3E1D; border-color: #FF3E1D; background: #FFF0ED; }
+  .jl-bulk-delete-btn.show { display: inline-flex; align-items: center; }
+
+  table.jl-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  table.jl-table th { text-align: left; padding: 0.7rem 0.9rem; font-size: 0.7rem; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f1f2f5; white-space: nowrap; }
+  table.jl-table td { padding: 0.65rem 0.9rem; border-bottom: 1px solid #f1f2f5; vertical-align: middle; }
+  .jl-job-cell { display: flex; align-items: center; gap: 0.6rem; }
+  .jl-job-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+  .jl-job-title { font-weight: 600; color: #1f2937; }
+  .jl-job-code { font-size: 0.72rem; color: #9ca3af; }
+  .jl-type-badge { font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 8px; background: #EEF2FF; color: #4338CA; white-space: nowrap; }
+  .jl-apps-count { color: #2563eb; font-weight: 700; }
+  .jl-status-badge { font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+  .jl-status-badge.draft { background: #F1F2F5; color: #8592A3; }
+  .jl-status-badge.open { background: #E8F8EE; color: #3f9a1c; }
+  .jl-status-badge.on_hold { background: #FFF4E5; color: #B45309; }
+  .jl-status-badge.closed { background: #FFF0F0; color: #c23616; }
+  .jl-row-actions { display: flex; gap: 0.4rem; }
+  .jl-icon-btn { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1px solid #E5E7EF; background: #fff; color: #566A7F; font-size: 0.8rem; cursor: pointer; text-decoration: none; }
+  .jl-icon-btn:hover { border-color: #696CFF; color: #696CFF; }
+  .jl-icon-btn.danger:hover { border-color: #FF3E1D; color: #FF3E1D; }
+
+  .jl-pagination { display: flex; justify-content: space-between; align-items: center; padding: 0.9rem 1.2rem; font-size: 0.8rem; color: #6b7280; flex-wrap: wrap; gap: 0.6rem; }
+  .jl-pagination .pages { display: flex; gap: 0.35rem; }
+  .jl-pagination .pages a, .jl-pagination .pages span { padding: 0.3rem 0.65rem; border-radius: 6px; border: 1px solid #E5E7EF; color: #374151; text-decoration: none; }
+  .jl-pagination .pages .active { background: linear-gradient(135deg, #696CFF, #8B5CF6); color: #fff; border: none; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="rec-list-shell">
-  <div class="rec-list-header">
-    <h1><i class="bx bx-briefcase"></i> Jobs</h1>
-    <div style="display:flex;gap:0.5rem;">
-      <a href="{% url 'employees:recruitment_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+<div class="jl-shell">
+  <div class="jl-header">
+    <div>
+      <h1>Jobs</h1>
+      <p>Manage your job postings and track applications, interviews and hiring progress.</p>
+    </div>
+    <form method="get" class="jl-toolbar" id="filterForm">
+      <div class="jl-search"><i class="bx bx-search"></i><input type="text" name="q" value="{{ q }}" placeholder="Search jobs..."></div>
+      <select name="status" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        {% for value, label in status_choices %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <div class="jl-adv-wrap">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="advToggle"><i class="bx bx-filter-alt me-1"></i>Advanced Filters</button>
+        <div class="jl-adv-panel" id="advPanel">
+          <div class="jl-field">
+            <label>Department</label>
+            <select name="department" class="form-select form-select-sm">
+              <option value="">All Departments</option>
+              {% for dept in department_choices %}<option value="{{ dept.pk }}" {% if department_filter == dept.pk|stringformat:'s' %}selected{% endif %}>{{ dept.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="jl-field">
+            <label>Employment Type</label>
+            <select name="employment_type" class="form-select form-select-sm">
+              <option value="">All Types</option>
+              {% for et in employment_type_choices %}<option value="{{ et.pk }}" {% if employment_type_filter == et.pk|stringformat:'s' %}selected{% endif %}>{{ et.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="jl-field">
+            <label>Branch</label>
+            <select name="branch" class="form-select form-select-sm">
+              <option value="">All Branches</option>
+              {% for br in branch_choices %}<option value="{{ br.pk }}" {% if branch_filter == br.pk|stringformat:'s' %}selected{% endif %}>{{ br.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="jl-adv-actions">
+            <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            <a href="{% url 'employees:recruitment_job_list' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+          </div>
+        </div>
+      </div>
+    <div>  
       <a href="{% url 'employees:recruitment_job_create' %}" class="btn btn-primary btn-sm"><i class="bx bx-plus me-1"></i>Create Job</a>
+    </div>
+      
+    </form>
+  </div>
+
+  <div class="jl-kpi-row">
+    <div class="jl-kpi-card">
+      <div class="jl-kpi-icon purple"><i class="bx bx-briefcase"></i></div>
+      <div><div class="jl-kpi-label">Total Jobs</div><div class="jl-kpi-value">{{ total_jobs }}</div>{% if total_jobs_trend is not None %}<div class="jl-kpi-trend {% if total_jobs_trend > 0 %}up{% elif total_jobs_trend < 0 %}down{% else %}flat{% endif %}">{% if total_jobs_trend > 0 %}&uarr;{% elif total_jobs_trend < 0 %}&darr;{% endif %} {{ total_jobs_trend }}% vs last month</div>{% endif %}</div>
+    </div>
+    <div class="jl-kpi-card">
+      <div class="jl-kpi-icon green"><i class="bx bx-file"></i></div>
+      <div><div class="jl-kpi-label">Active Jobs</div><div class="jl-kpi-value">{{ active_jobs }}</div>{% if active_jobs_trend is not None %}<div class="jl-kpi-trend {% if active_jobs_trend > 0 %}up{% elif active_jobs_trend < 0 %}down{% else %}flat{% endif %}">{% if active_jobs_trend > 0 %}&uarr;{% elif active_jobs_trend < 0 %}&darr;{% endif %} {{ active_jobs_trend }}% vs last month</div>{% endif %}</div>
+    </div>
+    <div class="jl-kpi-card">
+      <div class="jl-kpi-icon blue"><i class="bx bx-group"></i></div>
+      <div><div class="jl-kpi-label">Total Applications</div><div class="jl-kpi-value">{{ total_applications }}</div>{% if total_applications_trend is not None %}<div class="jl-kpi-trend {% if total_applications_trend > 0 %}up{% elif total_applications_trend < 0 %}down{% else %}flat{% endif %}">{% if total_applications_trend > 0 %}&uarr;{% elif total_applications_trend < 0 %}&darr;{% endif %} {{ total_applications_trend }}% vs last month</div>{% endif %}</div>
+    </div>
+    <div class="jl-kpi-card">
+      <div class="jl-kpi-icon orange"><i class="bx bx-calendar-check"></i></div>
+      <div><div class="jl-kpi-label">Interviews Scheduled</div><div class="jl-kpi-value">{{ interviews_scheduled }}</div>{% if interviews_trend is not None %}<div class="jl-kpi-trend {% if interviews_trend > 0 %}up{% elif interviews_trend < 0 %}down{% else %}flat{% endif %}">{% if interviews_trend > 0 %}&uarr;{% elif interviews_trend < 0 %}&darr;{% endif %} {{ interviews_trend }}% vs last month</div>{% endif %}</div>
+    </div>
+    <div class="jl-kpi-card">
+      <div class="jl-kpi-icon pink"><i class="bx bx-user-check"></i></div>
+      <div><div class="jl-kpi-label">Hired</div><div class="jl-kpi-value">{{ hired_count }}</div>{% if hired_trend is not None %}<div class="jl-kpi-trend {% if hired_trend > 0 %}up{% elif hired_trend < 0 %}down{% else %}flat{% endif %}">{% if hired_trend > 0 %}&uarr;{% elif hired_trend < 0 %}&darr;{% endif %} {{ hired_trend }}% vs last month</div>{% endif %}</div>
     </div>
   </div>
 
-  <div class="rec-card">
-    <form method="get" class="rec-toolbar">
-      <select name="status" onchange="this.form.submit()">
-        <option value="">All Status</option>
-        {% for value, label in status_choices %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-      <a href="{% url 'employees:recruitment_job_list' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+  <div class="jl-card">
+    <div class="jl-card-head">
+      <h5>All Jobs ({{ total_count }})</h5>
+      <div class="jl-card-head-actions">
+        <button type="button" class="btn btn-outline-danger btn-sm jl-bulk-delete-btn" id="jlBulkDeleteBtn" title="Delete selected">
+          <i class="bx bx-trash me-1"></i>Delete (<span id="jlBulkCount">0</span>)
+        </button>
+        <a href="{% url 'employees:recruitment_job_export' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm" id="exportBtn"><i class="bx bx-download me-1"></i>Export</a>
+      </div>
+    </div>
+    <form method="post" action="{% url 'employees:recruitment_job_bulk_delete' %}" id="jlBulkDeleteForm" style="display:none;">
+      {% csrf_token %}
+      <input type="hidden" name="ids" id="jlBulkDeleteIds" value="">
+      <input type="hidden" name="next_qs" value="{{ request.GET.urlencode }}">
     </form>
-    <table class="rec-table">
-      <thead><tr><th>Title</th><th>Department</th><th>Branch</th><th>Openings</th><th>Applicants</th><th>Status</th><th>Actions</th></tr></thead>
+    <div style="overflow-x:auto;">
+    <table class="jl-table">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="selectAll"></th>
+          <th>#</th>
+          <th>Job Title</th>
+          <th>Department</th>
+          <th>Location</th>
+          <th>Type</th>
+          <th>Experience</th>
+          <th>Applications</th>
+          <th>Status</th>
+          <th>Posted On</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
       <tbody>
-        {% for job in jobs %}
+        {% for job in page_obj %}
           <tr>
-            <td><a href="{% url 'employees:recruitment_job_detail' job.pk %}" style="color:#1f2937;font-weight:600;text-decoration:none;">{{ job.title }}</a></td>
-            <td>{{ job.department.name|default:"-" }}</td>
-            <td>{{ job.branch.name|default:"Office-wide" }}</td>
-            <td>{{ job.openings }}</td>
-            <td>{{ job.applicant_count }}</td>
-            <td><span class="rec-badge {{ job.status }}">{{ job.get_status_display }}</span></td>
+            <td><input type="checkbox" class="jl-row-check" value="{{ job.pk }}"></td>
+            <td>{{ forloop.counter0|add:page_obj.start_index }}</td>
             <td>
-              <div class="rec-row-actions">
-                <a class="rec-icon-btn" href="{% url 'employees:recruitment_job_detail' job.pk %}" title="View"><i class="bx bx-show"></i></a>
-                <a class="rec-icon-btn" href="{% url 'employees:recruitment_job_update' job.pk %}" title="Edit"><i class="bx bx-edit"></i></a>
+              <div class="jl-job-cell">
+                {% cycle '#EEF2FF' '#E8F8EE' '#E7F4FF' '#FFF4E5' '#FDF0F4' as jlbg silent %}
+                {% cycle '#696CFF' '#3f9a1c' '#2563eb' '#B45309' '#C0265F' as jlfg silent %}
+                {% cycle 'bx-briefcase' 'bx-code-alt' 'bx-palette' 'bx-cog' 'bx-user' as jlicon silent %}
+                <div class="jl-job-icon" style="background:{{ jlbg }};color:{{ jlfg }};"><i class="bx {{ jlicon }}"></i></div>
+                <div>
+                  <a href="{% url 'employees:recruitment_job_detail' job.pk %}" class="jl-job-title" style="text-decoration:none;display:block;">{{ job.title }}</a>
+                  {% if job.job_code %}<div class="jl-job-code">{{ job.job_code }}</div>{% endif %}
+                </div>
+              </div>
+            </td>
+            <td>{{ job.department.name|default:"-" }}</td>
+            <td>{% if job.location %}{{ job.location }}{% elif job.branch %}{{ job.branch.name }}{% else %}-{% endif %}</td>
+            <td>{% if job.employment_type %}<span class="jl-type-badge">{{ job.employment_type.name }}</span>{% else %}-{% endif %}</td>
+            <td>{{ job.experience_range_display|default:"-" }}</td>
+            <td><a href="{% url 'employees:recruitment_job_detail' job.pk %}" class="jl-apps-count" style="text-decoration:none;">{{ job.applicant_count }}</a></td>
+            <td><span class="jl-status-badge {{ job.status }}">{{ job.get_status_display }}</span></td>
+            <td>{{ job.created_at|date:"d M, Y" }}</td>
+            <td>
+              <div class="jl-row-actions">
+                <a class="jl-icon-btn" href="{% url 'employees:recruitment_job_detail' job.pk %}" title="View"><i class="bx bx-show"></i></a>
+                <a class="jl-icon-btn" href="{% url 'employees:recruitment_job_update' job.pk %}" title="Edit"><i class="bx bx-edit"></i></a>
                 <form method="post" action="{% url 'employees:recruitment_job_delete' job.pk %}" onsubmit="return confirm('Delete {{ job.title|escapejs }}? Existing applications are kept, just unlinked.');">
                   {% csrf_token %}
-                  <button type="submit" class="rec-icon-btn danger" title="Delete"><i class="bx bx-trash"></i></button>
+                  <button type="submit" class="jl-icon-btn danger" title="Delete"><i class="bx bx-trash"></i></button>
                 </form>
               </div>
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="7" class="text-center text-muted py-4">No jobs yet.</td></tr>
+          <tr><td colspan="11" class="text-center text-muted py-4">No jobs match these filters.</td></tr>
         {% endfor %}
       </tbody>
     </table>
+    </div>
+    {% if page_obj.paginator.count %}
+      <div class="jl-pagination">
+        <span>Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} job{{ page_obj.paginator.count|pluralize }}</span>
+        <div class="pages">
+          {% if page_obj.has_previous %}<a href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}"><i class="bx bx-chevron-left"></i></a>{% endif %}
+          {% for num in page_obj.paginator.page_range %}
+            {% if num == page_obj.number %}<span class="active">{{ num }}</span>{% else %}<a href="?{{ request.GET.urlencode }}&page={{ num }}">{{ num }}</a>{% endif %}
+          {% endfor %}
+          {% if page_obj.has_next %}<a href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}"><i class="bx bx-chevron-right"></i></a>{% endif %}
+        </div>
+      </div>
+    {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var advToggle = document.getElementById('advToggle');
+  var advPanel = document.getElementById('advPanel');
+  advToggle.addEventListener('click', function (e) {
+    e.stopPropagation();
+    advPanel.classList.toggle('show');
+  });
+  document.addEventListener('click', function (e) {
+    if (!advPanel.contains(e.target) && e.target !== advToggle) advPanel.classList.remove('show');
+  });
+
+  var selectAll = document.getElementById('selectAll');
+  var rowChecks = document.querySelectorAll('.jl-row-check');
+  var exportBtn = document.getElementById('exportBtn');
+  var baseExportUrl = exportBtn.getAttribute('href');
+  var bulkDeleteBtn = document.getElementById('jlBulkDeleteBtn');
+  var bulkCountEl = document.getElementById('jlBulkCount');
+  var bulkDeleteForm = document.getElementById('jlBulkDeleteForm');
+  var bulkDeleteIds = document.getElementById('jlBulkDeleteIds');
+
+  selectAll.addEventListener('change', function () {
+    rowChecks.forEach(function (cb) { cb.checked = selectAll.checked; });
+    updateSelection();
+  });
+  rowChecks.forEach(function (cb) { cb.addEventListener('change', updateSelection); });
+
+  function updateSelection() {
+    var selected = Array.prototype.filter.call(rowChecks, function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+    if (selected.length) {
+      exportBtn.setAttribute('href', "{% url 'employees:recruitment_job_export' %}?scope=selected&ids=" + selected.join(','));
+    } else {
+      exportBtn.setAttribute('href', baseExportUrl);
+    }
+    bulkCountEl.textContent = selected.length;
+    bulkDeleteIds.value = selected.join(',');
+    bulkDeleteBtn.classList.toggle('show', selected.length > 0);
+  }
+
+  bulkDeleteBtn.addEventListener('click', function () {
+    var count = bulkDeleteIds.value.split(',').filter(Boolean).length;
+    if (!count) return;
+    if (confirm('Delete ' + count + ' selected job(s)? Their applications are kept, just unlinked. This cannot be undone.')) {
+      bulkDeleteForm.submit();
+    }
+  });
+});
+</script>
 {% endblock %}

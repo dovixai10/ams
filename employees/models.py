@@ -5652,6 +5652,10 @@ class Job(models.Model):
 
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220, blank=True)
+    job_code = models.CharField(
+        max_length=30, blank=True, db_index=True,
+        help_text="Auto-generated requisition code, e.g. JR-ENG-001 - sequential per office+department.",
+    )
     description = models.TextField(blank=True)
 
     department = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True, blank=True, related_name='jobs')
@@ -5661,6 +5665,12 @@ class Job(models.Model):
 
     salary_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Annual, e.g. 600000. Leave both blank to not show a range.")
     salary_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Annual, e.g. 900000.")
+
+    experience_min = models.PositiveIntegerField(null=True, blank=True, help_text="Years. Leave both blank to not show a range.")
+    experience_max = models.PositiveIntegerField(null=True, blank=True, help_text="Years.")
+
+    required_skills = models.CharField(max_length=500, blank=True, help_text="Comma-separated, e.g. React.js, JavaScript, HTML, CSS, REST APIs")
+    benefits = models.CharField(max_length=500, blank=True, help_text="Comma-separated, e.g. Health Insurance, Flexible Hours, Remote Work")
 
     openings = models.PositiveIntegerField(default=1)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT, db_index=True)
@@ -5693,6 +5703,24 @@ class Job(models.Model):
             return f"Up to Rs. {self.salary_max:,.0f}"
         return ''
 
+    @property
+    def experience_range_display(self):
+        if self.experience_min and self.experience_max:
+            return f"{self.experience_min} - {self.experience_max} Years"
+        if self.experience_min:
+            return f"{self.experience_min}+ Years"
+        if self.experience_max:
+            return f"Up to {self.experience_max} Years"
+        return ''
+
+    @property
+    def required_skills_list(self):
+        return [s.strip() for s in self.required_skills.split(',') if s.strip()]
+
+    @property
+    def benefits_list(self):
+        return [b.strip() for b in self.benefits.split(',') if b.strip()]
+
     def save(self, *args, **kwargs):
         is_new = self._state.adding
         if self.status == self.Status.CLOSED and self.closed_at is None:
@@ -5700,10 +5728,19 @@ class Job(models.Model):
         elif self.status != self.Status.CLOSED:
             self.closed_at = None
         super().save(*args, **kwargs)
+        update_fields = []
         if is_new and not self.slug:
             from django.utils.text import slugify
             self.slug = f"{slugify(self.title)[:190] or 'job'}-{self.pk}"
-            super().save(update_fields=['slug'])
+            update_fields.append('slug')
+        if not self.job_code:
+            abbrev = (self.department.code[:3].upper() if self.department_id and self.department else 'GEN')
+            prefix = f"JR-{abbrev}-"
+            seq = Job.objects.filter(office=self.office, job_code__startswith=prefix).count() + 1
+            self.job_code = f"{prefix}{seq:03d}"
+            update_fields.append('job_code')
+        if update_fields:
+            super().save(update_fields=update_fields)
 
 
 class JobApplication(models.Model):

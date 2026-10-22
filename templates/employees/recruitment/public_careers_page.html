@@ -81,9 +81,22 @@
             {% if selected_job.department %}{{ selected_job.department.name }} &middot; {% endif %}
             {% if selected_job.location %}{{ selected_job.location }}{% elif selected_job.branch %}{{ selected_job.branch.name }}{% else %}Office{% endif %}
             {% if selected_job.employment_type %} &middot; {{ selected_job.employment_type.name }}{% endif %}
+            {% if selected_job.experience_range_display %} &middot; {{ selected_job.experience_range_display }}{% endif %}
             {% if selected_job.salary_range_display %} &middot; {{ selected_job.salary_range_display }}{% endif %}
           </div>
-          {% if selected_job.description %}<div class="cp-detail-desc">{{ selected_job.description }}</div>{% endif %}
+          {% if selected_job.description %}<div class="cp-detail-desc">{{ selected_job.description|safe }}</div>{% endif %}
+          {% if selected_job.required_skills_list %}
+            <div style="margin-bottom:0.9rem;">
+              <div style="font-size:0.72rem;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:0.4rem;">Required Skills</div>
+              <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for skill in selected_job.required_skills_list %}<span style="background:#EEF2FF;color:#4338CA;font-size:0.76rem;font-weight:600;padding:0.2rem 0.55rem;border-radius:999px;">{{ skill }}</span>{% endfor %}</div>
+            </div>
+          {% endif %}
+          {% if selected_job.benefits_list %}
+            <div style="margin-bottom:0.9rem;">
+              <div style="font-size:0.72rem;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:0.4rem;">Job Benefits</div>
+              <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for benefit in selected_job.benefits_list %}<span style="background:#FFF4E5;color:#B45309;font-size:0.76rem;font-weight:600;padding:0.2rem 0.55rem;border-radius:999px;">{{ benefit }}</span>{% endfor %}</div>
+            </div>
+          {% endif %}
 
           {% if messages %}{% for message in messages %}<div class="cp-error">{{ message }}</div>{% endfor %}{% endif %}
 

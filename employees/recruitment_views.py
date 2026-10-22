@@ -20,6 +20,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
@@ -28,8 +29,8 @@ from web_project.template_helpers.theme import TemplateHelper
 
 from .forms import JobForm
 from .models import (
-    Employee, Job, JobApplication, JobApplicationActivity, JobApplicationRecruiter,
-    RecruitmentCareersPage,
+    Branch, Department, Employee, EmploymentType, Job, JobApplication, JobApplicationActivity,
+    JobApplicationRecruiter, RecruitmentCareersPage,
 )
 from .notification_utils import create_notification
 from .permissions import (
@@ -53,6 +54,142 @@ PIPELINE_STAGES = [
 ]
 
 INTERVIEW_SCHEDULED_MARKER = 'Interview scheduled'
+
+DASHBOARD_RANGE_CHOICES = [
+    ('week', 'This Week'),
+    ('month', 'This Month'),
+    ('custom', 'Custom Range'),
+]
+
+
+def _week_range(today):
+    start = today - timedelta(days=today.weekday())  # Monday
+    return start, start + timedelta(days=6)
+
+
+def _month_range(today):
+    import calendar
+    start = today.replace(day=1)
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    return start, today.replace(day=last_day)
+
+
+def _previous_period(start, end):
+    span = (end - start).days + 1
+    prev_end = start - timedelta(days=1)
+    return prev_end - timedelta(days=span - 1), prev_end
+
+
+def _parse_date(value):
+    from datetime import date
+    try:
+        return date.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def _resolve_dashboard_period(request):
+    """(start, end, mode, label, notice) - mirrors reports_views._resolve_period's
+    This Week / This Month / Custom Range mechanism, minus the sprint option
+    (not relevant here)."""
+    today = timezone.localdate()
+    mode = request.GET.get('range', 'month')
+    if mode not in dict(DASHBOARD_RANGE_CHOICES):
+        mode = 'month'
+    notice = ''
+
+    if mode == 'week':
+        start, end = _week_range(today)
+        label = f"{start:%b %d} - {end:%b %d, %Y}"
+    elif mode == 'custom':
+        start = _parse_date(request.GET.get('start'))
+        end = _parse_date(request.GET.get('end'))
+        if not start or not end or start > end:
+            start, end = _month_range(today)
+            mode = 'month'
+            notice = 'Enter a valid start and end date - showing this month instead.'
+            label = today.strftime('%B %Y')
+        else:
+            label = f"{start:%b %d, %Y} - {end:%b %d, %Y}"
+    else:
+        mode = 'month'
+        start, end = _month_range(today)
+        label = today.strftime('%B %Y')
+
+    return start, end, mode, label, notice
+
+
+def _day_bounds(start_date, end_date):
+    """[start, end] calendar dates -> timezone-aware [start_dt, end_dt] covering
+    the full first and last day, for filtering DateTimeField columns."""
+    from datetime import datetime
+    start_dt = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+    end_dt = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+    return start_dt, end_dt
+
+
+def _pct_change(this_count, last_count):
+    if not last_count:
+        return None
+    return round((this_count - last_count) / last_count * 100, 1)
+
+
+_DESCRIPTION_ALLOWED_TAGS = {'b', 'strong', 'i', 'em', 'u', 'ul', 'ol', 'li', 'br', 'p', 'div', 'span'}
+# Void elements never get a matching end tag in real HTML - if one of these
+# shows up disallowed (e.g. a smuggled <img onerror=...>), it must just be
+# dropped outright, never treated as opening a scope to skip, or the skip
+# counter would stay incremented for the rest of the document with no
+# closing tag ever arriving to bring it back down.
+_VOID_ELEMENTS = {'img', 'input', 'br', 'hr', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'}
+
+
+def _sanitize_job_description(raw_html):
+    """Allowlist-based sanitizer for the job description rich-text editor.
+    The editor's toolbar only ever produces bold/italic/underline/lists
+    (no links, images, or raw HTML paste), so this only needs to let those
+    tags through and strip everything else - crucially EVERY attribute on
+    every tag (no href/src/style/on*), which is what actually closes off
+    the XSS surface, since this becomes public-facing content on the
+    careers page once a job is posted."""
+    from html.parser import HTMLParser
+
+    class _Sanitizer(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.out = []
+            self.skip_depth = 0  # >0 while inside a disallowed tag (e.g. <script>) - its
+                                  # text content (not just the tag itself) must be dropped
+                                  # entirely, not escaped and kept as visible text.
+
+        def handle_starttag(self, tag, attrs):
+            if tag in _DESCRIPTION_ALLOWED_TAGS:
+                if self.skip_depth == 0:
+                    self.out.append(f'<{tag}>')
+            elif tag not in _VOID_ELEMENTS:
+                self.skip_depth += 1
+            # a disallowed void element (e.g. <img>) is simply dropped - it
+            # has no content/closing tag, so it must never affect skip_depth
+
+        def handle_endtag(self, tag):
+            if tag in _DESCRIPTION_ALLOWED_TAGS:
+                if self.skip_depth == 0:
+                    self.out.append(f'</{tag}>')
+            elif tag not in _VOID_ELEMENTS and self.skip_depth > 0:
+                self.skip_depth -= 1
+
+        def handle_startendtag(self, tag, attrs):
+            if tag == 'br' and self.skip_depth == 0:
+                self.out.append('<br>')
+
+        def handle_data(self, data):
+            if self.skip_depth > 0:
+                return
+            from django.utils.html import escape
+            self.out.append(escape(data))
+
+    sanitizer = _Sanitizer()
+    sanitizer.feed(raw_html or '')
+    return ''.join(sanitizer.out)
 
 REQUIRED_CSV_COLUMNS = {'full_name', 'email', 'phone'}
 ALL_CSV_COLUMNS = ['full_name', 'email', 'phone', 'current_location', 'current_company', 'current_ctc', 'expected_ctc', 'job_title', 'message']
@@ -84,52 +221,43 @@ def _safe_decimal(raw):
 @recruitment_required
 def recruitment_dashboard(request):
     now = timezone.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    prev_month_end = month_start - timedelta(seconds=1)
-    prev_month_start = prev_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    start_date, end_date, range_mode, period_label, notice = _resolve_dashboard_period(request)
+    if notice:
+        messages.info(request, notice)
+    start_dt, end_dt = _day_bounds(start_date, end_date)
+    prev_start_date, prev_end_date = _previous_period(start_date, end_date)
+    prev_start_dt, prev_end_dt = _day_bounds(prev_start_date, prev_end_date)
 
     jobs = tenant_queryset(request, Job.objects.all())
     applications = tenant_queryset(request, JobApplication.objects.all())
     activities = tenant_queryset(request, JobApplicationActivity.objects.all())
 
-    def pct_change(this_count, last_count):
-        if last_count == 0:
-            return None
-        return round((this_count - last_count) / last_count * 100, 1)
+    period_jobs = jobs.filter(status=Job.Status.OPEN, created_at__range=(start_dt, end_dt))
+    prev_period_jobs = jobs.filter(status=Job.Status.OPEN, created_at__range=(prev_start_dt, prev_end_dt))
 
-    open_jobs = jobs.filter(status=Job.Status.OPEN).count()
-    open_jobs_this_month = jobs.filter(status=Job.Status.OPEN, created_at__gte=month_start).count()
-    open_jobs_last_month = jobs.filter(status=Job.Status.OPEN, created_at__gte=prev_month_start, created_at__lte=prev_month_end).count()
+    period_apps = applications.filter(created_at__range=(start_dt, end_dt))
+    prev_period_apps = applications.filter(created_at__range=(prev_start_dt, prev_end_dt))
 
-    total_apps_this_month = applications.filter(created_at__gte=month_start).count()
-    total_apps_last_month = applications.filter(created_at__gte=prev_month_start, created_at__lte=prev_month_end).count()
+    shortlisted_this_period = activities.filter(
+        new_status=JobApplication.Status.SHORTLISTED, created_at__range=(start_dt, end_dt),
+    ).values('application_id').distinct().count()
+    shortlisted_prev_period = activities.filter(
+        new_status=JobApplication.Status.SHORTLISTED, created_at__range=(prev_start_dt, prev_end_dt),
+    ).values('application_id').distinct().count()
 
-    shortlisted_count = applications.filter(status=JobApplication.Status.SHORTLISTED).count()
-    shortlisted_this_month = activities.filter(new_status=JobApplication.Status.SHORTLISTED, created_at__gte=month_start).count()
-    shortlisted_last_month = activities.filter(new_status=JobApplication.Status.SHORTLISTED, created_at__gte=prev_month_start, created_at__lte=prev_month_end).count()
+    interviews_this_period = applications.filter(interview_scheduled_at__range=(start_dt, end_dt)).count()
+    interviews_prev_period = applications.filter(interview_scheduled_at__range=(prev_start_dt, prev_end_dt)).count()
 
-    interviews_upcoming = applications.filter(interview_scheduled_at__gte=now).count()
-    interview_logs = activities.filter(description__startswith=INTERVIEW_SCHEDULED_MARKER)
-    interviews_this_month = interview_logs.filter(created_at__gte=month_start).count()
-    interviews_last_month = interview_logs.filter(created_at__gte=prev_month_start, created_at__lte=prev_month_end).count()
-
-    pipeline_counts = {row['status']: row['count'] for row in applications.values('status').annotate(count=Count('id'))}
+    pipeline_counts = {row['status']: row['count'] for row in period_apps.values('status').annotate(count=Count('id'))}
     pipeline_data = [{'label': JobApplication.Status(s).label, 'count': pipeline_counts.get(s, 0)} for s in PIPELINE_STAGES]
 
-    source_counts = {row['source']: row['count'] for row in applications.values('source').annotate(count=Count('id'))}
-    others = source_counts.get(JobApplication.Source.MANUAL, 0) + source_counts.get(JobApplication.Source.CSV, 0)
-    source_data = [
-        {'label': 'Website', 'count': source_counts.get(JobApplication.Source.WEBSITE, 0)},
-        {'label': 'LinkedIn', 'count': source_counts.get(JobApplication.Source.LINKEDIN, 0)},
-        {'label': 'Referral', 'count': source_counts.get(JobApplication.Source.REFERRAL, 0)},
-        {'label': 'WhatsApp', 'count': source_counts.get(JobApplication.Source.WHATSAPP, 0)},
-        {'label': 'Job Board', 'count': source_counts.get(JobApplication.Source.JOB_BOARD, 0)},
-        {'label': 'Others', 'count': others},
-    ]
+    recent_applications = period_apps.select_related('job').order_by('-created_at')[:10]
 
-    recent_applications = applications.select_related('job').order_by('-created_at')[:10]
-
-    top_jobs_qs = list(jobs.annotate(applicant_count=Count('applications')).order_by('-applicant_count')[:5])
+    top_jobs_qs = list(
+        jobs.annotate(
+            applicant_count=Count('applications', filter=Q(applications__created_at__range=(start_dt, end_dt))),
+        ).filter(applicant_count__gt=0).order_by('-applicant_count')[:5]
+    )
     max_applicants = max((j.applicant_count for j in top_jobs_qs), default=0)
     top_jobs = [{'job': j, 'pct': (j.applicant_count / max_applicants * 100) if max_applicants else 0} for j in top_jobs_qs]
 
@@ -145,16 +273,20 @@ def recruitment_dashboard(request):
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
-        'open_jobs': open_jobs,
-        'open_jobs_trend': pct_change(open_jobs_this_month, open_jobs_last_month),
-        'total_applications': applications.count(),
-        'total_applications_trend': pct_change(total_apps_this_month, total_apps_last_month),
-        'shortlisted_count': shortlisted_count,
-        'shortlisted_trend': pct_change(shortlisted_this_month, shortlisted_last_month),
-        'interviews_upcoming': interviews_upcoming,
-        'interviews_trend': pct_change(interviews_this_month, interviews_last_month),
+        'range_choices': DASHBOARD_RANGE_CHOICES,
+        'range_mode': range_mode,
+        'period_label': period_label,
+        'custom_start': request.GET.get('start', ''),
+        'custom_end': request.GET.get('end', ''),
+        'open_jobs': period_jobs.count(),
+        'open_jobs_trend': _pct_change(period_jobs.count(), prev_period_jobs.count()),
+        'total_applications': period_apps.count(),
+        'total_applications_trend': _pct_change(period_apps.count(), prev_period_apps.count()),
+        'shortlisted_count': shortlisted_this_period,
+        'shortlisted_trend': _pct_change(shortlisted_this_period, shortlisted_prev_period),
+        'interviews_upcoming': interviews_this_period,
+        'interviews_trend': _pct_change(interviews_this_period, interviews_prev_period),
         'pipeline_data': pipeline_data,
-        'source_data': source_data,
         'recent_applications': recent_applications,
         'top_jobs': top_jobs,
         'upcoming_interviews': upcoming_interviews,
@@ -171,22 +303,133 @@ def recruitment_dashboard(request):
 @login_required
 @recruitment_required
 def recruitment_job_list(request):
-    jobs = tenant_queryset(request, Job.objects.select_related('department', 'designation', 'branch'))
+    from django.core.paginator import Paginator
+
+    jobs_all = tenant_queryset(request, Job.objects.select_related('department', 'designation', 'employment_type', 'branch'))
+    applications_all = tenant_queryset(request, JobApplication.objects.all())
+    activities_all = tenant_queryset(request, JobApplicationActivity.objects.all())
+
+    # --- Search + status + advanced filters: applied to the table AND the
+    # KPI tiles above it, so the cards always reflect what's filtered. ---
+    jobs_base = jobs_all
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        jobs_base = jobs_base.filter(Q(title__icontains=q) | Q(job_code__icontains=q))
 
     status = request.GET.get('status', '').strip()
     if status in Job.Status.values:
-        jobs = jobs.filter(status=status)
+        jobs_base = jobs_base.filter(status=status)
 
-    jobs = jobs.annotate(applicant_count=Count('applications')).order_by('-created_at')
+    department_id = request.GET.get('department', '').strip()
+    if department_id.isdigit():
+        jobs_base = jobs_base.filter(department_id=int(department_id))
+    employment_type_id = request.GET.get('employment_type', '').strip()
+    if employment_type_id.isdigit():
+        jobs_base = jobs_base.filter(employment_type_id=int(employment_type_id))
+    branch_id = request.GET.get('branch', '').strip()
+    if branch_id.isdigit():
+        jobs_base = jobs_base.filter(branch_id=int(branch_id))
+
+    jobs = jobs_base.annotate(applicant_count=Count('applications')).order_by('-created_at')
+    applications = applications_all.filter(job_id__in=jobs_base.values('id'))
+    activities = activities_all.filter(application_id__in=applications.values('id'))
+
+    # --- KPI tiles: "this month vs last month", scoped to the active filters ---
+    today = timezone.localdate()
+    month_start, month_end = _month_range(today)
+    prev_start, prev_end = _previous_period(month_start, month_end)
+    month_start_dt, month_end_dt = _day_bounds(month_start, month_end)
+    prev_start_dt, prev_end_dt = _day_bounds(prev_start, prev_end)
+
+    total_jobs = jobs_base.count()
+    total_jobs_trend = _pct_change(
+        jobs_base.filter(created_at__range=(month_start_dt, month_end_dt)).count(),
+        jobs_base.filter(created_at__range=(prev_start_dt, prev_end_dt)).count(),
+    )
+    active_jobs = jobs_base.filter(status=Job.Status.OPEN).count()
+    active_jobs_trend = _pct_change(
+        jobs_base.filter(status=Job.Status.OPEN, created_at__range=(month_start_dt, month_end_dt)).count(),
+        jobs_base.filter(status=Job.Status.OPEN, created_at__range=(prev_start_dt, prev_end_dt)).count(),
+    )
+    total_applications = applications.count()
+    total_applications_trend = _pct_change(
+        applications.filter(created_at__range=(month_start_dt, month_end_dt)).count(),
+        applications.filter(created_at__range=(prev_start_dt, prev_end_dt)).count(),
+    )
+    interviews_scheduled = applications.filter(interview_scheduled_at__gte=timezone.now()).count()
+    interview_logs = activities.filter(description__startswith=INTERVIEW_SCHEDULED_MARKER)
+    interviews_trend = _pct_change(
+        interview_logs.filter(created_at__range=(month_start_dt, month_end_dt)).count(),
+        interview_logs.filter(created_at__range=(prev_start_dt, prev_end_dt)).count(),
+    )
+    hired_count = applications.filter(status=JobApplication.Status.HIRED).count()
+    hired_logs = activities.filter(new_status=JobApplication.Status.HIRED)
+    hired_trend = _pct_change(
+        hired_logs.filter(created_at__range=(month_start_dt, month_end_dt)).values('application_id').distinct().count(),
+        hired_logs.filter(created_at__range=(prev_start_dt, prev_end_dt)).values('application_id').distinct().count(),
+    )
+
+    paginator = Paginator(jobs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    office = get_request_office(request)
 
     context = TemplateLayout.init(request, context={})
     context.update({
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
-        'jobs': jobs,
+        'page_obj': page_obj,
+        'total_count': jobs.count(),
         'status_choices': Job.Status.choices,
         'status_filter': status,
+        'q': q,
+        'department_choices': tenant_queryset(request, Department.objects.filter(is_active=True)).order_by('name') if office else Department.objects.none(),
+        'employment_type_choices': tenant_queryset(request, EmploymentType.objects.filter(is_active=True)).order_by('name') if office else EmploymentType.objects.none(),
+        'branch_choices': Branch.objects.filter(office=office, is_active=True).order_by('name') if office else Branch.objects.none(),
+        'department_filter': department_id,
+        'employment_type_filter': employment_type_id,
+        'branch_filter': branch_id,
+        'total_jobs': total_jobs, 'total_jobs_trend': total_jobs_trend,
+        'active_jobs': active_jobs, 'active_jobs_trend': active_jobs_trend,
+        'total_applications': total_applications, 'total_applications_trend': total_applications_trend,
+        'interviews_scheduled': interviews_scheduled, 'interviews_trend': interviews_trend,
+        'hired_count': hired_count, 'hired_trend': hired_trend,
     })
     return render(request, 'employees/recruitment/job_list.html', context)
+
+
+@login_required
+@recruitment_required
+def recruitment_job_export(request):
+    scope = request.GET.get('scope', 'filtered')
+    if scope == 'selected':
+        ids = [int(i) for i in request.GET.get('ids', '').split(',') if i.isdigit()]
+        jobs = tenant_queryset(request, Job.objects.filter(pk__in=ids))
+    elif scope == 'all':
+        jobs = tenant_queryset(request, Job.objects.all())
+    else:
+        jobs = tenant_queryset(request, Job.objects.all())
+        q = request.GET.get('q', '').strip()
+        if q:
+            jobs = jobs.filter(Q(title__icontains=q) | Q(job_code__icontains=q))
+        status = request.GET.get('status', '').strip()
+        if status in Job.Status.values:
+            jobs = jobs.filter(status=status)
+
+    jobs = jobs.select_related('department', 'designation', 'employment_type', 'branch').annotate(applicant_count=Count('applications')).order_by('-created_at')
+
+    response = HttpResponse(content_type='text/csv')
+    stamp = timezone.now().strftime('%Y%m%d_%H%M')
+    response['Content-Disposition'] = f'attachment; filename="jobs_{stamp}.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Job Code', 'Title', 'Department', 'Location', 'Employment Type', 'Experience', 'Applications', 'Status', 'Posted On'])
+    for job in jobs:
+        writer.writerow([
+            job.job_code, job.title, job.department.name if job.department else '',
+            job.location or (job.branch.name if job.branch else ''), job.employment_type.name if job.employment_type else '',
+            job.experience_range_display, job.applicant_count, job.get_status_display(), job.created_at.strftime('%Y-%m-%d'),
+        ])
+    return response
 
 
 @login_required
@@ -195,7 +438,9 @@ def recruitment_job_create(request):
     if request.method == 'POST':
         form = JobForm(request.POST, request=request, created_by=request.user)
         if form.is_valid():
-            job = form.save()
+            job = form.save(commit=False)
+            job.description = _sanitize_job_description(job.description)
+            job.save()
             messages.success(request, f'Job "{job.title}" created.')
             return redirect('employees:recruitment_job_list')
         messages.error(request, 'Please correct the errors below.')
@@ -207,6 +452,8 @@ def recruitment_job_create(request):
         'layout_path': TemplateHelper.set_layout('layout_vertical.html', context),
         'form': form,
         'title': 'Create Job',
+        'office': get_request_office(request),
+        'careers_url': '',
     })
     return render(request, 'employees/recruitment/job_form.html', context)
 
@@ -218,12 +465,20 @@ def recruitment_job_update(request, pk):
     if request.method == 'POST':
         form = JobForm(request.POST, instance=job, request=request)
         if form.is_valid():
-            form.save()
+            job = form.save(commit=False)
+            job.description = _sanitize_job_description(job.description)
+            job.save()
             messages.success(request, f'Job "{job.title}" updated.')
             return redirect('employees:recruitment_job_list')
         messages.error(request, 'Please correct the errors below.')
     else:
         form = JobForm(instance=job, request=request)
+
+    careers_url = ''
+    office = get_request_office(request)
+    if office:
+        careers_page, _ = RecruitmentCareersPage.objects.get_or_create(office=office)
+        careers_url = request.build_absolute_uri(f'/careers/{careers_page.slug}/?job={job.slug}')
 
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -231,6 +486,8 @@ def recruitment_job_update(request, pk):
         'form': form,
         'title': f'Edit "{job.title}"',
         'job': job,
+        'office': office,
+        'careers_url': careers_url,
     })
     return render(request, 'employees/recruitment/job_form.html', context)
 
@@ -244,6 +501,23 @@ def recruitment_job_delete(request, pk):
     job.delete()  # JobApplication.job is SET_NULL - existing applications just become "manual entry", not deleted
     messages.success(request, f'Job "{title}" deleted. Any applications it had are kept, just unlinked from it.')
     return redirect('employees:recruitment_job_list')
+
+
+@login_required
+@recruitment_required
+@require_http_methods(['POST'])
+def recruitment_job_bulk_delete(request):
+    ids = [int(i) for i in request.POST.get('ids', '').split(',') if i.isdigit()]
+    qs = tenant_queryset(request, Job.objects.filter(pk__in=ids))
+    count = qs.count()
+    qs.delete()  # JobApplication.job is SET_NULL - existing applications just become "manual entry", not deleted
+    if count:
+        messages.success(request, f'Deleted {count} job(s). Any applications they had are kept, just unlinked.')
+    else:
+        messages.error(request, 'No jobs were selected.')
+    url = reverse('employees:recruitment_job_list')
+    qs_string = request.POST.get('next_qs', '')
+    return redirect(f'{url}?{qs_string}' if qs_string else url)
 
 
 @login_required

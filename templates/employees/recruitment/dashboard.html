@@ -7,26 +7,44 @@
 {{ block.super }}
 <style>
   .rec-shell { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
-  .rec-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .rec-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
   .rec-header h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
   .rec-header h1 i { color: #696CFF; }
   .rec-header p { font-size: 0.85rem; color: #6b7280; margin: 0.2rem 0 0; }
+  .rec-header-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+
+  .rec-filters { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .rec-filters select, .rec-filters input[type="date"] {
+    font-size: 0.82rem; padding: 0.5rem 0.8rem; border-radius: 9px; border: 1px solid #E5E7EF; background: #fff;
+  }
+  .rec-custom-dates { display: none; align-items: center; gap: 0.4rem; }
+  .rec-custom-dates.show { display: flex; }
+  .rec-period-label { font-size: 0.8rem; color: #6b7280; display: flex; align-items: center; gap: 0.3rem; margin-top: -0.4rem; }
 
   .rec-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
   @media (max-width: 900px) { .rec-kpi-row { grid-template-columns: repeat(2, 1fr); } }
   .rec-kpi-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1rem 1.2rem; }
-  .rec-kpi-label { font-size: 0.78rem; color: #6b7280; }
-  .rec-kpi-value { font-size: 1.6rem; font-weight: 700; color: #1f2937; margin-top: 0.2rem; }
-  .rec-kpi-trend { font-size: 0.76rem; margin-top: 0.3rem; }
+  .rec-kpi-top { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; }
+  .rec-kpi-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; }
+  .rec-kpi-icon.purple { background: #EEF2FF; color: #696CFF; }
+  .rec-kpi-icon.green { background: #E8F8EE; color: #3f9a1c; }
+  .rec-kpi-icon.blue { background: #E7F4FF; color: #2563eb; }
+  .rec-kpi-icon.orange { background: #FFF4E5; color: #B45309; }
+  .rec-kpi-label { font-size: 0.78rem; color: #6b7280; font-weight: 600; }
+  .rec-kpi-value { font-size: 1.6rem; font-weight: 700; color: #1f2937; }
+  .rec-kpi-trend { font-size: 0.76rem; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.2rem; }
   .rec-kpi-trend.up { color: #16a34a; }
   .rec-kpi-trend.down { color: #ef4444; }
   .rec-kpi-trend.flat { color: #9ca3af; }
 
-  .rec-grid-2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 1rem; }
-  @media (max-width: 1100px) { .rec-grid-2 { grid-template-columns: 1fr; } }
   .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.1rem 1.3rem; }
-  .rec-card h5 { font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0 0 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+  .rec-card h5 { font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0 0 0.9rem; display: flex; align-items: center; gap: 0.4rem; justify-content: space-between; }
+  .rec-card h5 .rec-card-title { display: flex; align-items: center; gap: 0.4rem; }
+  .rec-card h5 .rec-icon-dot { width: 26px; height: 26px; border-radius: 8px; background: #EEF2FF; color: #696CFF; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; }
   .rec-card h5 a { font-size: 0.78rem; font-weight: 600; color: #696CFF; text-decoration: none; }
+
+  .rec-grid-2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 1rem; }
+  @media (max-width: 1100px) { .rec-grid-2 { grid-template-columns: 1fr; } }
 
   table.rec-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
   table.rec-table th { text-align: left; padding: 0.5rem 0.6rem; font-size: 0.7rem; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f1f2f5; }
@@ -35,26 +53,36 @@
   .rec-badge.source { background: #EEF2FF; color: #4338CA; }
   .rec-badge.status { background: #F1F2F5; color: #475467; }
 
-  .rec-top-job { margin-bottom: 0.8rem; }
-  .rec-top-job-head { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.3rem; }
-  .rec-top-job-bar { background: #F1F2F5; border-radius: 999px; height: 7px; overflow: hidden; }
-  .rec-top-job-bar span { display: block; height: 100%; background: linear-gradient(135deg, #696CFF, #8B5CF6); border-radius: 999px; }
+  .rec-top-job { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.9rem; }
+  .rec-top-job:last-child { margin-bottom: 0; }
+  .rec-top-job-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+  .rec-top-job-body { flex: 1 1 auto; min-width: 0; }
+  .rec-top-job-head { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.3rem; gap: 0.5rem; }
+  .rec-top-job-head .name { font-weight: 600; color: #1f2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec-top-job-head .count { color: #9ca3af; font-size: 0.76rem; flex-shrink: 0; }
+  .rec-top-job-bar { background: #F1F2F5; border-radius: 999px; height: 6px; overflow: hidden; }
+  .rec-top-job-bar span { display: block; height: 100%; border-radius: 999px; }
 
   .rec-quick-actions { display: flex; flex-direction: column; gap: 0.5rem; }
-  .rec-quick-actions a { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.7rem; border-radius: 10px; border: 1px solid #E5E7EF; color: #374151; text-decoration: none; font-size: 0.84rem; font-weight: 600; }
-  .rec-quick-actions a i { color: #696CFF; font-size: 1.1rem; }
+  .rec-quick-actions a { display: flex; align-items: center; gap: 0.7rem; padding: 0.6rem 0.7rem; border-radius: 10px; border: 1px solid #E5E7EF; color: #1f2937; text-decoration: none; }
   .rec-quick-actions a:hover { background: #F5F6FA; }
+  .rec-quick-actions .rec-qa-icon { width: 34px; height: 34px; border-radius: 9px; background: #EEF2FF; color: #696CFF; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+  .rec-quick-actions .rec-qa-title { font-size: 0.85rem; font-weight: 600; }
+  .rec-quick-actions .rec-qa-sub { font-size: 0.72rem; color: #9ca3af; }
 
-  .rec-interview-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid #f1f2f5; }
+  .rec-interview-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 1px solid #f1f2f5; }
   .rec-interview-row:last-child { border-bottom: none; }
   .rec-avatar { width: 34px; height: 34px; border-radius: 50%; background: #EEF2FF; color: #4338CA; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
   .rec-interview-meta { font-size: 0.74rem; color: #9ca3af; }
-  .rec-mode-badge { font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; margin-left: auto; }
+  .rec-interview-right { margin-left: auto; text-align: right; flex-shrink: 0; }
+  .rec-interview-right .time { font-size: 0.78rem; font-weight: 600; color: #1f2937; }
+  .rec-mode-badge { font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; display: inline-block; margin-top: 0.2rem; }
   .rec-mode-badge.video_call { background: #E8F8EE; color: #3f9a1c; }
   .rec-mode-badge.in_person { background: #FFF4E5; color: #B45309; }
 
-  .rec-activity-row { display: flex; gap: 0.6rem; padding: 0.45rem 0; font-size: 0.82rem; color: #374151; }
-  .rec-activity-row i { color: #696CFF; margin-top: 0.15rem; }
+  .rec-activity-row { display: flex; gap: 0.6rem; padding: 0.5rem 0; font-size: 0.82rem; color: #374151; }
+  .rec-activity-row:last-child { padding-bottom: 0; }
+  .rec-activity-icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; margin-top: 0.1rem; }
   .rec-activity-time { font-size: 0.72rem; color: #9ca3af; }
 </style>
 {% endblock %}
@@ -66,45 +94,81 @@
       <h1><i class="bx bx-briefcase"></i> Recruitment Dashboard</h1>
       <p>Track your open jobs, applications, interviews and hiring progress - all in one place.</p>
     </div>
+    <div class="rec-header-actions">
+      <form method="get" class="rec-filters" id="rangeForm">
+        <select name="range" id="rangeSelect">
+          {% for key, label in range_choices %}
+            <option value="{{ key }}" {% if key == range_mode %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <span class="rec-custom-dates {% if range_mode == 'custom' %}show{% endif %}" id="customDates">
+          <input type="date" name="start" value="{{ custom_start }}">
+          <span>&ndash;</span>
+          <input type="date" name="end" value="{{ custom_end }}">
+          <button type="submit" class="btn btn-sm btn-outline-primary">Go</button>
+        </span>
+      </form>
+      <a href="{% url 'employees:recruitment_job_create' %}" class="btn btn-primary btn-sm"><i class="bx bx-plus me-1"></i>Create Job</a>
+    </div>
   </div>
+  <div class="rec-period-label"><i class="bx bx-calendar"></i> {{ period_label }}</div>
 
   <div class="rec-kpi-row">
     <div class="rec-kpi-card">
-      <div class="rec-kpi-label">Open Jobs</div>
+      <div class="rec-kpi-top"><div class="rec-kpi-icon purple"><i class="bx bx-briefcase"></i></div><div class="rec-kpi-label">Open Jobs</div></div>
       <div class="rec-kpi-value">{{ open_jobs }}</div>
-      {% if open_jobs_trend is not None %}<div class="rec-kpi-trend {% if open_jobs_trend > 0 %}up{% elif open_jobs_trend < 0 %}down{% else %}flat{% endif %}">{{ open_jobs_trend }}% vs last month</div>{% endif %}
+      {% if open_jobs_trend is not None %}<div class="rec-kpi-trend {% if open_jobs_trend > 0 %}up{% elif open_jobs_trend < 0 %}down{% else %}flat{% endif %}"><i class="bx {% if open_jobs_trend > 0 %}bx-trending-up{% elif open_jobs_trend < 0 %}bx-trending-down{% else %}bx-minus{% endif %}"></i> {{ open_jobs_trend }}% vs previous period</div>{% endif %}
     </div>
     <div class="rec-kpi-card">
-      <div class="rec-kpi-label">Total Applications</div>
+      <div class="rec-kpi-top"><div class="rec-kpi-icon green"><i class="bx bx-file"></i></div><div class="rec-kpi-label">Total Applications</div></div>
       <div class="rec-kpi-value">{{ total_applications }}</div>
-      {% if total_applications_trend is not None %}<div class="rec-kpi-trend {% if total_applications_trend > 0 %}up{% elif total_applications_trend < 0 %}down{% else %}flat{% endif %}">{{ total_applications_trend }}% vs last month</div>{% endif %}
+      {% if total_applications_trend is not None %}<div class="rec-kpi-trend {% if total_applications_trend > 0 %}up{% elif total_applications_trend < 0 %}down{% else %}flat{% endif %}"><i class="bx {% if total_applications_trend > 0 %}bx-trending-up{% elif total_applications_trend < 0 %}bx-trending-down{% else %}bx-minus{% endif %}"></i> {{ total_applications_trend }}% vs previous period</div>{% endif %}
     </div>
     <div class="rec-kpi-card">
-      <div class="rec-kpi-label">Shortlisted</div>
+      <div class="rec-kpi-top"><div class="rec-kpi-icon blue"><i class="bx bx-user"></i></div><div class="rec-kpi-label">Shortlisted</div></div>
       <div class="rec-kpi-value">{{ shortlisted_count }}</div>
-      {% if shortlisted_trend is not None %}<div class="rec-kpi-trend {% if shortlisted_trend > 0 %}up{% elif shortlisted_trend < 0 %}down{% else %}flat{% endif %}">{{ shortlisted_trend }}% vs last month</div>{% endif %}
+      {% if shortlisted_trend is not None %}<div class="rec-kpi-trend {% if shortlisted_trend > 0 %}up{% elif shortlisted_trend < 0 %}down{% else %}flat{% endif %}"><i class="bx {% if shortlisted_trend > 0 %}bx-trending-up{% elif shortlisted_trend < 0 %}bx-trending-down{% else %}bx-minus{% endif %}"></i> {{ shortlisted_trend }}% vs previous period</div>{% endif %}
     </div>
     <div class="rec-kpi-card">
-      <div class="rec-kpi-label">Interviews Scheduled</div>
+      <div class="rec-kpi-top"><div class="rec-kpi-icon orange"><i class="bx bx-calendar-check"></i></div><div class="rec-kpi-label">Interviews Scheduled</div></div>
       <div class="rec-kpi-value">{{ interviews_upcoming }}</div>
-      {% if interviews_trend is not None %}<div class="rec-kpi-trend {% if interviews_trend > 0 %}up{% elif interviews_trend < 0 %}down{% else %}flat{% endif %}">{{ interviews_trend }}% vs last month</div>{% endif %}
+      {% if interviews_trend is not None %}<div class="rec-kpi-trend {% if interviews_trend > 0 %}up{% elif interviews_trend < 0 %}down{% else %}flat{% endif %}"><i class="bx {% if interviews_trend > 0 %}bx-trending-up{% elif interviews_trend < 0 %}bx-trending-down{% else %}bx-minus{% endif %}"></i> {{ interviews_trend }}% vs previous period</div>{% endif %}
     </div>
   </div>
 
   <div class="rec-grid-2">
     <div class="rec-card">
-      <h5>Hiring Pipeline</h5>
+      <h5><span class="rec-card-title"><span class="rec-icon-dot"><i class="bx bx-trending-up"></i></span>Hiring Pipeline</span></h5>
       <div id="pipelineChart"></div>
     </div>
     <div class="rec-card">
-      <h5>Applications by Source</h5>
-      <div id="sourceChart"></div>
+      <h5><span class="rec-card-title"><span class="rec-icon-dot"><i class="bx bx-bolt-circle"></i></span>Quick Actions</span></h5>
+      <div class="rec-quick-actions">
+        <a href="{% url 'employees:recruitment_job_create' %}">
+          <span class="rec-qa-icon"><i class="bx bx-plus-circle"></i></span>
+          <span><span class="rec-qa-title d-block">Create Job</span><span class="rec-qa-sub">Post a new job opening</span></span>
+        </a>
+        {% if careers_url %}
+        <a href="javascript:void(0);" onclick="navigator.clipboard.writeText('{{ careers_url }}'); this.querySelector('.rec-qa-sub').textContent='Copied!';">
+          <span class="rec-qa-icon"><i class="bx bx-link"></i></span>
+          <span><span class="rec-qa-title d-block">Share Job Link</span><span class="rec-qa-sub">Get shareable link &amp; QR code</span></span>
+        </a>
+        {% endif %}
+        <a href="{% url 'employees:recruitment_application_import_sample' %}">
+          <span class="rec-qa-icon"><i class="bx bx-upload"></i></span>
+          <span><span class="rec-qa-title d-block">Import Candidates</span><span class="rec-qa-sub">Upload CSV file</span></span>
+        </a>
+        <a href="{% url 'employees:recruitment_job_list' %}">
+          <span class="rec-qa-icon"><i class="bx bx-list-ul"></i></span>
+          <span><span class="rec-qa-title d-block">View All Jobs</span><span class="rec-qa-sub">Browse and manage jobs</span></span>
+        </a>
+      </div>
     </div>
   </div>
 
   <div class="rec-grid-2">
     <div class="rec-card">
-      <h5>Recent Applications <a href="{% url 'employees:recruitment_job_list' %}">View All</a></h5>
+      <h5><span class="rec-card-title">Recent Applications</span><a href="{% url 'employees:recruitment_job_list' %}">View All</a></h5>
       <table class="rec-table">
         <thead><tr><th>Candidate</th><th>Applied For</th><th>Source</th><th>Applied On</th><th>Status</th></tr></thead>
         <tbody>
@@ -117,54 +181,87 @@
               <td><span class="rec-badge status">{{ app.get_status_display }}</span></td>
             </tr>
           {% empty %}
-            <tr><td colspan="5" class="text-center text-muted py-3">No applications yet.</td></tr>
+            <tr><td colspan="5" class="text-center text-muted py-3">No applications in this period.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     <div class="rec-card">
-      <h5>Top Hiring Positions</h5>
+      <h5><span class="rec-card-title">Top Hiring Positions</span><a href="{% url 'employees:recruitment_job_list' %}">View All</a></h5>
       {% for item in top_jobs %}
+        {% cycle '#EEF2FF' '#E8F8EE' '#E7F4FF' '#FFF4E5' '#FDF2FA' as bgcycle silent %}
+        {% cycle '#696CFF' '#3f9a1c' '#2563eb' '#B45309' '#C026D3' as fgcycle silent %}
         <div class="rec-top-job">
-          <div class="rec-top-job-head"><span>{{ item.job.title }}</span><span>{{ item.job.applicant_count }}</span></div>
-          <div class="rec-top-job-bar"><span style="width:{{ item.pct }}%;"></span></div>
+          <div class="rec-top-job-icon" style="background:{{ bgcycle }};color:{{ fgcycle }};"><i class="bx bx-briefcase"></i></div>
+          <div class="rec-top-job-body">
+            <div class="rec-top-job-head"><span class="name">{{ item.job.title }}</span><span class="count">{{ item.job.applicant_count }} application{{ item.job.applicant_count|pluralize }}</span></div>
+            <div class="rec-top-job-bar"><span style="width:{{ item.pct }}%;background:{{ fgcycle }};"></span></div>
+          </div>
         </div>
       {% empty %}
-        <div class="text-muted" style="font-size:0.85rem;">No jobs posted yet.</div>
+        <div class="text-muted" style="font-size:0.85rem;">No applications in this period.</div>
       {% endfor %}
     </div>
   </div>
 
   <div class="rec-grid-2">
     <div class="rec-card">
-      <h5>Upcoming Interviews <a href="{% url 'employees:recruitment_pipeline' %}">View All</a></h5>
+      <h5><span class="rec-card-title">Upcoming Interviews</span><a href="{% url 'employees:recruitment_pipeline' %}">View All</a></h5>
       {% for app in upcoming_interviews %}
         <div class="rec-interview-row">
           <div class="rec-avatar">{{ app.full_name|first|upper }}</div>
           <div>
             <div style="font-weight:600;font-size:0.85rem;">{{ app.full_name }}</div>
-            <div class="rec-interview-meta">{% if app.interview_title %}{{ app.interview_title }} &middot; {% endif %}{{ app.job.title|default:"-" }} &middot; {{ app.interview_scheduled_at|date:"d M, h:i A" }}</div>
+            <div class="rec-interview-meta">{% if app.interview_title %}{{ app.interview_title }} &middot; {% endif %}{{ app.job.title|default:"-" }}</div>
           </div>
-          {% if app.interview_mode %}<span class="rec-mode-badge {{ app.interview_mode }}">{{ app.get_interview_mode_display }}</span>{% endif %}
+          <div class="rec-interview-right">
+            <div class="time">{{ app.interview_scheduled_at|date:"d M, h:i A" }}</div>
+            {% if app.interview_mode %}<span class="rec-mode-badge {{ app.interview_mode }}">{{ app.get_interview_mode_display }}</span>{% endif %}
+          </div>
         </div>
       {% empty %}
         <div class="text-muted" style="font-size:0.85rem;">No interviews scheduled.</div>
       {% endfor %}
     </div>
     <div class="rec-card">
-      <h5>Quick Actions</h5>
-      <div class="rec-quick-actions">
-        <a href="{% url 'employees:recruitment_job_create' %}"><i class="bx bx-plus-circle"></i> Create Job</a>
-        {% if careers_url %}<a href="javascript:void(0);" onclick="navigator.clipboard.writeText('{{ careers_url }}'); this.querySelector('span').textContent='Copied!';"><i class="bx bx-link"></i> <span>Share Job Link</span></a>{% endif %}
-        <a href="{% url 'employees:recruitment_job_list' %}"><i class="bx bx-list-ul"></i> View All Jobs</a>
-        <a href="{% url 'employees:recruitment_application_import_sample' %}"><i class="bx bx-upload"></i> Import Candidates</a>
-      </div>
-      <h5 style="margin-top:1.1rem;">Recent Activities</h5>
+      <h5><span class="rec-card-title">Recent Activities</span><a href="{% url 'employees:recruitment_pipeline' %}">View All</a></h5>
       {% for activity in recent_activities %}
-        <div class="rec-activity-row">
-          <i class="bx bx-circle" style="font-size:0.5rem;"></i>
-          <div><div>{{ activity.description }}</div><div class="rec-activity-time">{{ activity.application.full_name }} &middot; {{ activity.created_at|timesince }} ago</div></div>
-        </div>
+        {% if 'Applied' in activity.description %}
+          {% with icon='bx-user-plus' bg='#EEF2FF' fg='#696CFF' %}
+          <div class="rec-activity-row">
+            <div class="rec-activity-icon" style="background:{{ bg }};color:{{ fg }};"><i class="bx {{ icon }}"></i></div>
+            <div><div>{{ activity.description }} - {{ activity.application.full_name }}</div><div class="rec-activity-time">{{ activity.created_at|timesince }} ago</div></div>
+          </div>
+          {% endwith %}
+        {% elif 'Status changed' in activity.description %}
+          {% with icon='bx-check-circle' bg='#E8F8EE' fg='#3f9a1c' %}
+          <div class="rec-activity-row">
+            <div class="rec-activity-icon" style="background:{{ bg }};color:{{ fg }};"><i class="bx {{ icon }}"></i></div>
+            <div><div>{{ activity.application.full_name }} {{ activity.description|lower }}</div><div class="rec-activity-time">{{ activity.created_at|timesince }} ago</div></div>
+          </div>
+          {% endwith %}
+        {% elif 'Interview' in activity.description %}
+          {% with icon='bx-calendar-check' bg='#FFF4E5' fg='#B45309' %}
+          <div class="rec-activity-row">
+            <div class="rec-activity-icon" style="background:{{ bg }};color:{{ fg }};"><i class="bx {{ icon }}"></i></div>
+            <div><div>{{ activity.application.full_name }} - {{ activity.description }}</div><div class="rec-activity-time">{{ activity.created_at|timesince }} ago</div></div>
+          </div>
+          {% endwith %}
+        {% elif 'Recruiter' in activity.description %}
+          {% with icon='bx-user-check' bg='#E7F4FF' fg='#2563eb' %}
+          <div class="rec-activity-row">
+            <div class="rec-activity-icon" style="background:{{ bg }};color:{{ fg }};"><i class="bx {{ icon }}"></i></div>
+            <div><div>{{ activity.application.full_name }} - {{ activity.description }}</div><div class="rec-activity-time">{{ activity.created_at|timesince }} ago</div></div>
+          </div>
+          {% endwith %}
+        {% else %}
+          {% with icon='bx-note' bg='#F1F2F5' fg='#8592A3' %}
+          <div class="rec-activity-row">
+            <div class="rec-activity-icon" style="background:{{ bg }};color:{{ fg }};"><i class="bx {{ icon }}"></i></div>
+            <div><div>{{ activity.application.full_name }} - {{ activity.description }}</div><div class="rec-activity-time">{{ activity.created_at|timesince }} ago</div></div>
+          </div>
+          {% endwith %}
+        {% endif %}
       {% empty %}
         <div class="text-muted" style="font-size:0.85rem;">No activity yet.</div>
       {% endfor %}
@@ -173,7 +270,6 @@
 </div>
 
 {{ pipeline_data|json_script:"pipeline-data" }}
-{{ source_data|json_script:"source-data" }}
 {% endblock %}
 
 {% block page_js %}
@@ -181,33 +277,28 @@
 <script src="{% static 'vendor/libs/apex-charts/apexcharts.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var pipeline = JSON.parse(document.getElementById('pipeline-data').textContent);
-  var source = JSON.parse(document.getElementById('source-data').textContent);
+  var rangeSelect = document.getElementById('rangeSelect');
+  var customDates = document.getElementById('customDates');
+  rangeSelect.addEventListener('change', function () {
+    if (rangeSelect.value === 'custom') {
+      customDates.classList.add('show');
+      customDates.querySelector('input[name="start"]').focus();
+    } else {
+      rangeSelect.form.submit();
+    }
+  });
 
+  var pipeline = JSON.parse(document.getElementById('pipeline-data').textContent);
   var pipelineEl = document.getElementById('pipelineChart');
   if (pipelineEl && window.ApexCharts) {
     new ApexCharts(pipelineEl, {
-      chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
+      chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
       series: [{ name: 'Applications', data: pipeline.map(function (p) { return p.count; }) }],
       xaxis: { categories: pipeline.map(function (p) { return p.label; }), labels: { style: { fontSize: '10px' } } },
       colors: ['#696CFF'],
-      plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
+      plotOptions: { bar: { borderRadius: 6, columnWidth: '50%' } },
       dataLabels: { enabled: false },
       grid: { borderColor: '#f1f5f9' },
-    }).render();
-  }
-
-  var sourceEl = document.getElementById('sourceChart');
-  if (sourceEl && window.ApexCharts) {
-    new ApexCharts(sourceEl, {
-      chart: { type: 'donut', height: 280, fontFamily: 'inherit' },
-      series: source.map(function (s) { return s.count; }),
-      labels: source.map(function (s) { return s.label; }),
-      colors: ['#696CFF', '#8B5CF6', '#03C3EC', '#71DD37', '#FFAB00', '#8592A3'],
-      legend: { position: 'bottom', fontSize: '11px' },
-      dataLabels: { enabled: false },
-      plotOptions: { pie: { donut: { size: '68%', labels: { show: true, total: { show: true, label: 'Total' } } } } },
-      stroke: { width: 2, colors: ['#fff'] },
     }).render();
   }
 });

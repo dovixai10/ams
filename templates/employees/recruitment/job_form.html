@@ -1,89 +1,404 @@
 {% extends layout_path %}
+{% load static %}
 
 {% block title %}{{ title }} | Dovix AI{% endblock %}
 
 {% block page_css %}
 {{ block.super }}
 <style>
-  .rec-form-shell { max-width: 760px; margin: 0 auto; padding: 0.75rem 0 2rem; }
-  .rec-form-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.4rem 1.6rem; }
-  .rec-form-card h1 { font-size: 1.2rem; font-weight: 700; color: #1f2937; margin: 0 0 1.1rem; display: flex; align-items: center; gap: 0.5rem; }
-  .rec-form-card h1 i { color: #696CFF; }
-  .rec-field { margin-bottom: 1rem; }
-  .rec-field label { font-size: 0.8rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.3rem; }
-  .rec-field .form-control, .rec-field .form-select { width: 100%; }
-  .rec-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
-  @media (max-width: 600px) { .rec-row-2 { grid-template-columns: 1fr; } }
-  .text-danger.small { font-size: 0.76rem; }
+  .jf-shell { max-width: 1280px; margin: 0 auto; padding: 0.75rem 0 2rem; }
+  .jf-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
+  .jf-header h1 { font-size: 1.35rem; font-weight: 700; color: #1f2937; margin: 0; }
+  .jf-header p { font-size: 0.85rem; color: #6b7280; margin: 0.2rem 0 0; }
+  .jf-header-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+  .jf-grid { display: grid; grid-template-columns: 59fr 41fr; gap: 1rem; align-items: start; }
+  @media (max-width: 1100px) { .jf-grid { grid-template-columns: 1fr; } }
+
+  .jf-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.1rem 1.3rem; margin-bottom: 1rem; }
+  .jf-card-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; }
+  .jf-icon-dot { width: 30px; height: 30px; border-radius: 9px; background: #EEF2FF; color: #696CFF; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0; }
+  .jf-card-head h5 { font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0; }
+
+  .jf-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+  .jf-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.9rem; }
+  @media (max-width: 650px) { .jf-row-2, .jf-row-3 { grid-template-columns: 1fr; } }
+  .jf-field { margin-bottom: 0.9rem; }
+  .jf-row-2 .jf-field, .jf-row-3 .jf-field { margin-bottom: 0; }
+  .jf-field label { font-size: 0.78rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.3rem; }
+  .jf-field .form-control, .jf-field .form-select { width: 100%; }
+  .jf-range-pair { display: flex; align-items: center; gap: 0.4rem; }
+  .jf-range-pair span { color: #9ca3af; font-size: 0.8rem; }
+
+  .jf-rte-toolbar { display: flex; align-items: center; gap: 0.2rem; border: 1px solid #E5E7EF; border-bottom: none; border-radius: 9px 9px 0 0; padding: 0.4rem 0.5rem; background: #F8F9FC; flex-wrap: wrap; }
+  .jf-rte-toolbar button { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; color: #475467; cursor: pointer; font-size: 0.85rem; }
+  .jf-rte-toolbar button:hover, .jf-rte-toolbar button.active { background: #EEF2FF; color: #696CFF; }
+  .jf-rte-sep { width: 1px; height: 18px; background: #E5E7EF; margin: 0 0.3rem; }
+  .jf-rte-area { border: 1px solid #E5E7EF; border-radius: 0 0 9px 9px; padding: 0.8rem 0.9rem; min-height: 180px; font-size: 0.85rem; color: #1f2937; }
+  .jf-rte-area:focus { outline: none; border-color: #696CFF; }
+  .jf-rte-area ul, .jf-rte-area ol { margin: 0.3rem 0 0.3rem 1.2rem; padding: 0; }
+  .jf-rte-count { font-size: 0.72rem; color: #9ca3af; text-align: right; margin-top: 0.35rem; }
+
+  .jf-tag-input { border: 1px solid #E5E7EF; border-radius: 9px; padding: 0.5rem 0.6rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .jf-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .jf-tag { background: #EEF2FF; color: #4338CA; font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.5rem 0.25rem 0.6rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.3rem; }
+  .jf-tag button { border: none; background: none; color: #4338CA; cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0; }
+  .jf-tag-text { border: none; outline: none; flex: 1 1 140px; font-size: 0.84rem; min-width: 140px; }
+
+  .jf-preview-wrap { position: sticky; top: 12px; }
+  .jf-preview-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
+  .jf-preview-head h5 { font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.4rem; }
+  .jf-preview-head button { border: 1px solid #E5E7EF; background: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; color: #566A7F; }
+
+  .jf-doc { background: #fff; border: 1px solid rgba(148,163,184,0.2); border-radius: 14px; overflow: hidden; max-height: 82vh; overflow-y: auto; }
+  .jf-doc.fullscreen { position: fixed; top: 3vh; left: 50%; transform: translateX(-50%); width: min(720px, 94vw); max-height: 94vh; z-index: 1300; box-shadow: 0 30px 70px rgba(0,0,0,0.35); }
+  .jf-doc-hero { background: linear-gradient(135deg, #696CFF, #8B5CF6); padding: 1.4rem; color: #fff; display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+  .jf-doc-hero .company { display: flex; align-items: center; gap: 0.6rem; }
+  .jf-doc-hero .company img { width: 34px; height: 34px; border-radius: 8px; background: #fff; object-fit: contain; padding: 3px; }
+  .jf-doc-hero .company-name { font-weight: 700; font-size: 0.95rem; }
+  .jf-doc-hero .tagline { font-size: 0.74rem; opacity: 0.9; }
+  .jf-doc-body { padding: 1.2rem 1.4rem; }
+  .jf-doc-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.6rem; margin-bottom: 0.6rem; }
+  .jf-doc-title { font-size: 1.15rem; font-weight: 700; color: #1f2937; }
+  .jf-doc-status { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 999px; background: #E8F8EE; color: #3f9a1c; white-space: nowrap; }
+  .jf-doc-status.draft { background: #F1F2F5; color: #8592A3; }
+  .jf-doc-meta { display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; font-size: 0.78rem; color: #6b7280; margin-bottom: 1rem; }
+  .jf-doc-meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .jf-doc-meta i { color: #696CFF; }
+  .jf-doc-section-title { font-size: 0.85rem; font-weight: 700; color: #1f2937; margin: 1rem 0 0.4rem; }
+  .jf-doc-desc { font-size: 0.82rem; color: #374151; line-height: 1.6; }
+  .jf-doc-desc ul, .jf-doc-desc ol { margin: 0.3rem 0 0.3rem 1.2rem; padding: 0; }
+  .jf-doc-actions { display: flex; gap: 0.6rem; margin: 1rem 0; flex-wrap: wrap; }
+  .jf-doc-actions button, .jf-doc-actions a { border: none; border-radius: 9px; padding: 0.5rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem; }
+  .jf-doc-apply { background: linear-gradient(135deg, #696CFF, #8B5CF6); color: #fff; }
+  .jf-doc-copy { background: #F5F6FA; color: #374151; border: 1px solid #E5E7EF !important; }
+  .jf-doc-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .jf-doc-tag { background: #EEF2FF; color: #4338CA; font-size: 0.76rem; font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 999px; }
+  .jf-doc-tag.benefit { background: #FFF4E5; color: #B45309; }
+  .jf-doc-empty { color: #9ca3af; font-size: 0.8rem; }
+
+  #docBackdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 1290; display: none; }
+  #docBackdrop.show { display: block; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="rec-form-shell">
-  <div class="rec-form-card">
-    <h1><i class="bx bx-briefcase"></i> {{ title }}</h1>
-    <form method="post">
-      {% csrf_token %}
-      <div class="rec-field">
-        <label for="{{ form.title.id_for_label }}">Job Title *</label>
-        {{ form.title }}
-        {% if form.title.errors %}<div class="text-danger small">{{ form.title.errors.0 }}</div>{% endif %}
-      </div>
-      <div class="rec-field">
-        <label for="{{ form.description.id_for_label }}">Description</label>
-        {{ form.description }}
-      </div>
-      <div class="rec-row-2">
-        <div class="rec-field">
-          <label for="{{ form.department.id_for_label }}">Department</label>
-          {{ form.department }}
-        </div>
-        <div class="rec-field">
-          <label for="{{ form.designation.id_for_label }}">Designation</label>
-          {{ form.designation }}
-        </div>
-      </div>
-      <div class="rec-row-2">
-        <div class="rec-field">
-          <label for="{{ form.employment_type.id_for_label }}">Employment Type</label>
-          {{ form.employment_type }}
-        </div>
-        <div class="rec-field">
-          <label for="{{ form.branch.id_for_label }}">Branch</label>
-          {{ form.branch }}
-        </div>
-      </div>
-      <div class="rec-row-2">
-        <div class="rec-field">
-          <label for="{{ form.location.id_for_label }}">Location</label>
-          {{ form.location }}
-        </div>
-        <div class="rec-field">
-          <label for="{{ form.openings.id_for_label }}">Openings</label>
-          {{ form.openings }}
-        </div>
-      </div>
-      <div class="rec-row-2">
-        <div class="rec-field">
-          <label for="{{ form.salary_min.id_for_label }}">Salary Range - Min</label>
-          {{ form.salary_min }}
-        </div>
-        <div class="rec-field">
-          <label for="{{ form.salary_max.id_for_label }}">Salary Range - Max</label>
-          {{ form.salary_max }}
-        </div>
-      </div>
-      <span class="field-hint" style="font-size:0.74rem;color:#9ca3af;display:block;margin:-0.6rem 0 1rem;">Leave both blank to not show a salary range on the careers page.</span>
-      <div class="rec-field">
-        <label for="{{ form.status.id_for_label }}">Status</label>
-        {{ form.status }}
-        <span class="field-hint" style="font-size:0.74rem;color:#9ca3af;">Only "Open" jobs show on the public careers page.</span>
-      </div>
-      <div style="display:flex;gap:0.6rem;margin-top:1rem;">
-        <button type="submit" class="btn btn-primary">Save Job</button>
-        <a href="{% url 'employees:recruitment_job_list' %}" class="btn btn-outline-secondary">Cancel</a>
-      </div>
-    </form>
+<div class="jf-shell">
+  <div class="jf-header">
+    <div>
+      <h1>{{ title }}</h1>
+      <p>{% if job %}Update this job posting.{% else %}Create a new job posting and attract the best talent.{% endif %}</p>
+    </div>
+    <div class="jf-header-actions">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="saveDraftBtn"><i class="bx bx-save me-1"></i>Save as Draft</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="previewBtn"><i class="bx bx-show me-1"></i>Preview</button>
+      <button type="button" class="btn btn-primary btn-sm" id="postBtn"><i class="bx bx-rocket me-1"></i>Post</button>
+    </div>
   </div>
+
+  <form method="post" id="jobForm">
+    {% csrf_token %}
+    <div class="jf-grid">
+      <div class="jf-left">
+
+        <div class="jf-card">
+          <div class="jf-card-head"><span class="jf-icon-dot"><i class="bx bx-briefcase"></i></span><h5>Job Information</h5></div>
+          <div class="jf-row-3" style="margin-bottom:0.9rem;">
+            <div class="jf-field"><label for="{{ form.title.id_for_label }}">Job Title *</label>{{ form.title }}</div>
+            <div class="jf-field"><label for="{{ form.department.id_for_label }}">Department</label>{{ form.department }}</div>
+            <div class="jf-field"><label for="{{ form.designation.id_for_label }}">Designation</label>{{ form.designation }}</div>
+          </div>
+          <div class="jf-row-3" style="margin-bottom:0.9rem;">
+            <div class="jf-field"><label for="{{ form.employment_type.id_for_label }}">Employment Type</label>{{ form.employment_type }}</div>
+            <div class="jf-field"><label for="{{ form.branch.id_for_label }}">Branch</label>{{ form.branch }}</div>
+            <div class="jf-field"><label for="{{ form.location.id_for_label }}">Location</label>{{ form.location }}</div>
+          </div>
+          <div class="jf-row-3">
+            <div class="jf-field"><label for="{{ form.openings.id_for_label }}">Number of Openings</label>{{ form.openings }}</div>
+            <div class="jf-field">
+              <label>Experience Required (Years)</label>
+              <div class="jf-range-pair">{{ form.experience_min }}<span>&ndash;</span>{{ form.experience_max }}</div>
+            </div>
+            <div class="jf-field">
+              <label>Salary Range (Rs.)</label>
+              <div class="jf-range-pair">{{ form.salary_min }}<span>&ndash;</span>{{ form.salary_max }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="jf-card">
+          <div class="jf-card-head"><span class="jf-icon-dot"><i class="bx bx-file"></i></span><h5>Job Description</h5></div>
+          <div class="jf-rte-toolbar">
+            <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+            <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
+            <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+            <span class="jf-rte-sep"></span>
+            <button type="button" data-cmd="insertUnorderedList" title="Bullet list"><i class="bx bx-list-ul"></i></button>
+            <button type="button" data-cmd="insertOrderedList" title="Numbered list"><i class="bx bx-list-ol"></i></button>
+          </div>
+          <div class="jf-rte-area" id="descriptionEditor" contenteditable="true" data-placeholder="Role summary, responsibilities, requirements..."></div>
+          <div class="jf-rte-count"><span id="descCharCount">0</span>/2000</div>
+          {{ form.description }}
+        </div>
+
+        <div class="jf-card">
+          <div class="jf-card-head"><span class="jf-icon-dot"><i class="bx bx-code-alt"></i></span><h5>Required Skills</h5></div>
+          <div class="jf-tag-input">
+            <div class="jf-tags" id="skillsTags"></div>
+            <input type="text" class="jf-tag-text" id="skillsTagText" placeholder="Type a skill and press Enter">
+          </div>
+          {{ form.required_skills }}
+        </div>
+
+        <div class="jf-card">
+          <div class="jf-card-head"><span class="jf-icon-dot"><i class="bx bx-gift"></i></span><h5>Job Benefits</h5></div>
+          <div class="jf-tag-input">
+            <div class="jf-tags" id="benefitsTags"></div>
+            <input type="text" class="jf-tag-text" id="benefitsTagText" placeholder="Type a benefit and press Enter">
+          </div>
+          {{ form.benefits }}
+        </div>
+
+        <div class="jf-card">
+          <div class="jf-card-head"><span class="jf-icon-dot"><i class="bx bx-toggle-left"></i></span><h5>Job Status</h5></div>
+          <div class="jf-field" style="margin-bottom:0;">
+            <label for="{{ form.status.id_for_label }}">Status</label>
+            {{ form.status }}
+            <span class="field-hint" style="font-size:0.74rem;color:#9ca3af;">Only "Open" jobs show on the public careers page. "Save as Draft" / "Post" above set this automatically too.</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="jf-right">
+        <div class="jf-preview-wrap">
+          <div class="jf-preview-head">
+            <h5><i class="bx bx-show"></i> Job Preview</h5>
+            <button type="button" id="maximizePreviewBtn"><i class="bx bx-expand"></i></button>
+          </div>
+          <div class="jf-doc" id="jobDoc">
+            <div class="jf-doc-hero">
+              <div class="company">
+                {% if office.logo %}<img src="{{ office.logo.url }}" alt="{{ office.name }}">{% endif %}
+                <div><div class="company-name">{{ office.name|default:"Your Company" }}</div><div class="tagline">Build Your Future With Us</div></div>
+              </div>
+            </div>
+            <div class="jf-doc-body">
+              <div class="jf-doc-title-row">
+                <div class="jf-doc-title" id="doc_title">Job Title</div>
+                <span class="jf-doc-status" id="doc_status">Draft</span>
+              </div>
+              <div class="jf-doc-meta" id="doc_meta"></div>
+
+              <div class="jf-doc-section-title">About the Role</div>
+              <div class="jf-doc-desc" id="doc_description"><span class="jf-doc-empty">Start typing a description to see it here.</span></div>
+
+              <div class="jf-doc-actions">
+                <button type="button" class="jf-doc-apply" disabled><i class="bx bx-send"></i> Apply Now</button>
+                <button type="button" class="jf-doc-copy" id="copyLinkBtn"><i class="bx bx-link"></i> Copy Job Link</button>
+              </div>
+
+              <div class="jf-doc-section-title">Required Skills</div>
+              <div class="jf-doc-tags" id="doc_skills"><span class="jf-doc-empty">No skills added yet.</span></div>
+
+              <div class="jf-doc-section-title">Job Benefits</div>
+              <div class="jf-doc-tags" id="doc_benefits"><span class="jf-doc-empty">No benefits added yet.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
 </div>
+
+<div id="docBackdrop"></div>
+{{ careers_url|default:""|json_script:"careers-url-raw" }}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var form = document.getElementById('jobForm');
+  var statusSelect = document.getElementById('{{ form.status.id_for_label }}');
+  var CAREERS_URL = JSON.parse(document.getElementById('careers-url-raw').textContent);
+
+  // ---- Rich text description editor ----
+  var editor = document.getElementById('descriptionEditor');
+  var descHidden = document.getElementById('{{ form.description.id_for_label }}');
+  var charCount = document.getElementById('descCharCount');
+
+  if (descHidden.value) { editor.innerHTML = descHidden.value; }
+
+  document.querySelectorAll('.jf-rte-toolbar button[data-cmd]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      editor.focus();
+      document.execCommand(btn.dataset.cmd, false, null);
+      syncDescription();
+    });
+  });
+
+  function syncDescription() {
+    descHidden.value = editor.innerHTML;
+    var text = editor.innerText || '';
+    charCount.textContent = text.length;
+    updatePreview();
+  }
+  editor.addEventListener('input', syncDescription);
+  editor.addEventListener('blur', syncDescription);
+
+  // ---- Tag inputs (Required Skills / Job Benefits) ----
+  function setupTagInput(hiddenId, tagsBoxId, textInputId) {
+    var hidden = document.getElementById(hiddenId);
+    var box = document.getElementById(tagsBoxId);
+    var input = document.getElementById(textInputId);
+    var tags = (hidden.value || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+
+    function render() {
+      box.innerHTML = '';
+      tags.forEach(function (tag, idx) {
+        var chip = document.createElement('span');
+        chip.className = 'jf-tag';
+        chip.innerHTML = tag.replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' <button type="button" aria-label="Remove">&times;</button>';
+        chip.querySelector('button').addEventListener('click', function () {
+          tags.splice(idx, 1);
+          sync();
+        });
+        box.appendChild(chip);
+      });
+      hidden.value = tags.join(', ');
+    }
+    function sync() { render(); updatePreview(); }
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        var val = input.value.trim().replace(/,$/, '');
+        if (val && tags.indexOf(val) === -1) { tags.push(val); sync(); }
+        input.value = '';
+      } else if (e.key === 'Backspace' && !input.value && tags.length) {
+        tags.pop();
+        sync();
+      }
+    });
+    render();
+    return tags;
+  }
+  var skillsTags = setupTagInput('{{ form.required_skills.id_for_label }}', 'skillsTags', 'skillsTagText');
+  var benefitsTags = setupTagInput('{{ form.benefits.id_for_label }}', 'benefitsTags', 'benefitsTagText');
+
+  // ---- Live preview ----
+  function fieldVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+  function selectedText(id) {
+    var el = document.getElementById(id);
+    if (!el || el.selectedIndex < 0) return '';
+    var opt = el.options[el.selectedIndex];
+    return (opt && el.value) ? opt.textContent : '';
+  }
+
+  function updatePreview() {
+    document.getElementById('doc_title').textContent = fieldVal('{{ form.title.id_for_label }}') || 'Job Title';
+
+    var statusVal = statusSelect.value;
+    var statusLabel = statusSelect.options[statusSelect.selectedIndex] ? statusSelect.options[statusSelect.selectedIndex].textContent : 'Draft';
+    var statusEl = document.getElementById('doc_status');
+    statusEl.textContent = statusLabel;
+    statusEl.className = 'jf-doc-status' + (statusVal === 'open' ? '' : ' draft');
+
+    var metaParts = [];
+    var dept = selectedText('{{ form.department.id_for_label }}');
+    var desig = selectedText('{{ form.designation.id_for_label }}');
+    if (dept || desig) metaParts.push('<span><i class="bx bx-buildings"></i>' + [dept, desig].filter(Boolean).join(' / ') + '</span>');
+    var location = fieldVal('{{ form.location.id_for_label }}');
+    if (location) metaParts.push('<span><i class="bx bx-map"></i>' + location + '</span>');
+    var expMin = fieldVal('{{ form.experience_min.id_for_label }}'), expMax = fieldVal('{{ form.experience_max.id_for_label }}');
+    if (expMin || expMax) {
+      var expText = (expMin && expMax) ? (expMin + ' - ' + expMax + ' Years') : (expMin ? expMin + '+ Years' : 'Up to ' + expMax + ' Years');
+      metaParts.push('<span><i class="bx bx-time-five"></i>' + expText + '</span>');
+    }
+    var empType = selectedText('{{ form.employment_type.id_for_label }}');
+    if (empType) metaParts.push('<span><i class="bx bx-briefcase"></i>' + empType + '</span>');
+    var openings = fieldVal('{{ form.openings.id_for_label }}');
+    if (openings) metaParts.push('<span><i class="bx bx-group"></i>' + openings + ' Opening' + (openings == 1 ? '' : 's') + '</span>');
+    var salMin = fieldVal('{{ form.salary_min.id_for_label }}'), salMax = fieldVal('{{ form.salary_max.id_for_label }}');
+    if (salMin || salMax) {
+      var salText = (salMin && salMax) ? ('Rs. ' + Number(salMin).toLocaleString('en-IN') + ' - ' + Number(salMax).toLocaleString('en-IN')) : '';
+      if (salText) metaParts.push('<span><i class="bx bx-rupee"></i>' + salText + '</span>');
+    }
+    document.getElementById('doc_meta').innerHTML = metaParts.join('');
+
+    var descText = editor.innerText.trim();
+    document.getElementById('doc_description').innerHTML = descText ? editor.innerHTML : '<span class="jf-doc-empty">Start typing a description to see it here.</span>';
+
+    var skillsBox = document.getElementById('doc_skills');
+    skillsBox.innerHTML = skillsTags.length
+      ? skillsTags.map(function (s) { return '<span class="jf-doc-tag">' + s.replace(/</g, '&lt;') + '</span>'; }).join('')
+      : '<span class="jf-doc-empty">No skills added yet.</span>';
+
+    var benefitsBox = document.getElementById('doc_benefits');
+    benefitsBox.innerHTML = benefitsTags.length
+      ? benefitsTags.map(function (b) { return '<span class="jf-doc-tag benefit">' + b.replace(/</g, '&lt;') + '</span>'; }).join('')
+      : '<span class="jf-doc-empty">No benefits added yet.</span>';
+  }
+
+  ['{{ form.title.id_for_label }}', '{{ form.department.id_for_label }}', '{{ form.designation.id_for_label }}',
+   '{{ form.employment_type.id_for_label }}', '{{ form.branch.id_for_label }}', '{{ form.location.id_for_label }}',
+   '{{ form.openings.id_for_label }}', '{{ form.experience_min.id_for_label }}', '{{ form.experience_max.id_for_label }}',
+   '{{ form.salary_min.id_for_label }}', '{{ form.salary_max.id_for_label }}', '{{ form.status.id_for_label }}'
+  ].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) { el.addEventListener('input', updatePreview); el.addEventListener('change', updatePreview); }
+  });
+  updatePreview();
+
+  // ---- Copy job link ----
+  var copyBtn = document.getElementById('copyLinkBtn');
+  copyBtn.addEventListener('click', function () {
+    if (!CAREERS_URL) {
+      alert('Save this job first to get its link.');
+      return;
+    }
+    navigator.clipboard.writeText(CAREERS_URL);
+    var original = copyBtn.innerHTML;
+    copyBtn.innerHTML = '<i class="bx bx-check"></i> Copied!';
+    setTimeout(function () { copyBtn.innerHTML = original; }, 1500);
+  });
+
+  // ---- Save as Draft / Post ----
+  document.getElementById('saveDraftBtn').addEventListener('click', function () {
+    syncDescription();
+    statusSelect.value = 'draft';
+    form.submit();
+  });
+  document.getElementById('postBtn').addEventListener('click', function () {
+    if (!fieldVal('{{ form.title.id_for_label }}').trim()) { alert('Please enter a job title.'); return; }
+    syncDescription();
+    statusSelect.value = 'open';
+    form.submit();
+  });
+
+  // ---- Fullscreen preview (same portal pattern as the Invoice preview -
+  // escapes a transformed sidebar ancestor that otherwise breaks position:fixed) ----
+  var docEl = document.getElementById('jobDoc');
+  var backdrop = document.getElementById('docBackdrop');
+  var docHome = docEl.parentNode;
+  var docHomeNextSibling = docEl.nextSibling;
+
+  function toggleFullscreen(on) {
+    if (on) {
+      document.body.appendChild(backdrop);
+      document.body.appendChild(docEl);
+      docEl.classList.add('fullscreen');
+      backdrop.classList.add('show');
+    } else {
+      docEl.classList.remove('fullscreen');
+      backdrop.classList.remove('show');
+      docHome.insertBefore(docEl, docHomeNextSibling);
+    }
+  }
+  document.getElementById('previewBtn').addEventListener('click', function () { toggleFullscreen(true); });
+  document.getElementById('maximizePreviewBtn').addEventListener('click', function () { toggleFullscreen(!docEl.classList.contains('fullscreen')); });
+  backdrop.addEventListener('click', function () { toggleFullscreen(false); });
+});
+</script>
 {% endblock %}
