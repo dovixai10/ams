@@ -53,6 +53,16 @@ PIPELINE_STAGES = [
     JobApplication.Status.HIRED,
 ]
 
+PIPELINE_STAGE_META = {
+    JobApplication.Status.APPLIED: {'icon': 'bx-file-blank', 'bg': '#EEF2FF', 'fg': '#4338CA'},
+    JobApplication.Status.SCREENING: {'icon': 'bx-search-alt', 'bg': '#F3E8FF', 'fg': '#7e22ce'},
+    JobApplication.Status.SHORTLISTED: {'icon': 'bx-user-check', 'bg': '#E8F8EE', 'fg': '#3f9a1c'},
+    JobApplication.Status.INTERVIEW: {'icon': 'bx-calendar-check', 'bg': '#FFF4E5', 'fg': '#B45309'},
+    JobApplication.Status.TECHNICAL: {'icon': 'bx-cog', 'bg': '#F3E8FF', 'fg': '#7e22ce'},
+    JobApplication.Status.OFFER: {'icon': 'bx-gift', 'bg': '#FCEFE0', 'fg': '#c2660f'},
+    JobApplication.Status.HIRED: {'icon': 'bx-check-circle', 'bg': '#E7F4FF', 'fg': '#2563eb'},
+}
+
 INTERVIEW_SCHEDULED_MARKER = 'Interview scheduled'
 
 DASHBOARD_RANGE_CHOICES = [
@@ -524,8 +534,33 @@ def recruitment_job_bulk_delete(request):
 @recruitment_required
 def recruitment_job_detail(request, pk):
     job = get_object_or_404(
-        tenant_queryset(request, Job.objects.select_related('department', 'designation', 'employment_type', 'branch')), pk=pk,
+        tenant_queryset(request, Job.objects.select_related('department', 'designation', 'employment_type', 'branch', 'created_by')), pk=pk,
     )
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'duplicate':
+            clone = Job.objects.create(
+                office=job.office, branch=job.branch, title=f'{job.title} (Copy)', description=job.description,
+                department=job.department, designation=job.designation, employment_type=job.employment_type,
+                location=job.location, openings=job.openings, salary_min=job.salary_min, salary_max=job.salary_max,
+                experience_min=job.experience_min, experience_max=job.experience_max,
+                required_skills=job.required_skills, benefits=job.benefits,
+                status=Job.Status.DRAFT, created_by=request.user,
+            )
+            messages.success(request, f'Duplicated as "{clone.title}" (saved as a draft).')
+            return redirect('employees:recruitment_job_update', pk=clone.pk)
+
+        elif action == 'toggle_pause':
+            if job.status == Job.Status.OPEN:
+                job.status = Job.Status.ON_HOLD
+                messages.success(request, f'"{job.title}" paused - hidden from the careers page until resumed.')
+            elif job.status == Job.Status.ON_HOLD:
+                job.status = Job.Status.OPEN
+                messages.success(request, f'"{job.title}" resumed - visible on the careers page again.')
+            job.save(update_fields=['status', 'closed_at'])
+            return redirect('employees:recruitment_job_detail', pk=job.pk)
+
     applications = job.applications.all().order_by('-created_at')
 
     status = request.GET.get('status', '').strip()
@@ -534,6 +569,16 @@ def recruitment_job_detail(request, pk):
     source = request.GET.get('source', '').strip()
     if source in JobApplication.Source.values:
         applications = applications.filter(source=source)
+
+    all_applications = job.applications.all()
+    interviews = job.applications.filter(interview_scheduled_at__isnull=False).order_by('-interview_scheduled_at')
+    activities = JobApplicationActivity.objects.filter(application__job=job).select_related('application').order_by('-created_at')[:30]
+
+    careers_url = ''
+    office = get_request_office(request)
+    if office:
+        careers_page, _ = RecruitmentCareersPage.objects.get_or_create(office=office)
+        careers_url = request.build_absolute_uri(f'/careers/{careers_page.slug}/?job={job.slug}')
 
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -544,6 +589,15 @@ def recruitment_job_detail(request, pk):
         'source_choices': JobApplication.Source.choices,
         'status_filter': status,
         'source_filter': source,
+        'applications_count': all_applications.count(),
+        'shortlisted_count': all_applications.filter(status=JobApplication.Status.SHORTLISTED).count(),
+        'interviews_count': interviews.count(),
+        'hired_count': all_applications.filter(status=JobApplication.Status.HIRED).count(),
+        'interviews': interviews,
+        'activities': activities,
+        'careers_url': careers_url,
+        'can_pause': job.status in (Job.Status.OPEN, Job.Status.ON_HOLD),
+        'pause_label': 'Pause' if job.status == Job.Status.OPEN else 'Resume',
     })
     return render(request, 'employees/recruitment/job_detail.html', context)
 
@@ -555,23 +609,42 @@ def recruitment_job_detail(request, pk):
 @login_required
 @recruitment_required
 def recruitment_pipeline(request):
-    applications = tenant_queryset(request, JobApplication.objects.select_related('job')).exclude(
+    applications = tenant_queryset(request, JobApplication.objects.select_related('job', 'job__branch')).exclude(
         status=JobApplication.Status.REJECTED,
-    )
+    ).order_by('-created_at')
 
     job_id = request.GET.get('job', '').strip()
     if job_id.isdigit():
         applications = applications.filter(job_id=int(job_id))
 
+    department_id = request.GET.get('department', '').strip()
+    if department_id.isdigit():
+        applications = applications.filter(job__department_id=int(department_id))
+    branch_id = request.GET.get('branch', '').strip()
+    if branch_id.isdigit():
+        applications = applications.filter(branch_id=int(branch_id))
+    employment_type_id = request.GET.get('employment_type', '').strip()
+    if employment_type_id.isdigit():
+        applications = applications.filter(job__employment_type_id=int(employment_type_id))
+
+    applications = list(applications)
+
     columns = []
     for stage in PIPELINE_STAGES:
+        stage_apps = [a for a in applications if a.status == stage]
+        meta = PIPELINE_STAGE_META[stage]
         columns.append({
             'key': stage,
             'label': JobApplication.Status(stage).label,
-            'applications': [a for a in applications if a.status == stage],
+            'applications': stage_apps,
+            'visible_applications': stage_apps[:4],
+            'icon': meta['icon'],
+            'bg': meta['bg'],
+            'fg': meta['fg'],
         })
 
     jobs = tenant_queryset(request, Job.objects.all()).order_by('title')
+    office = get_request_office(request)
 
     context = TemplateLayout.init(request, context={})
     context.update({
@@ -580,6 +653,12 @@ def recruitment_pipeline(request):
         'jobs': jobs,
         'job_filter': job_id,
         'status_choices': JobApplication.Status.choices,
+        'department_choices': tenant_queryset(request, Department.objects.filter(is_active=True)).order_by('name') if office else Department.objects.none(),
+        'branch_choices': Branch.objects.filter(office=office, is_active=True).order_by('name') if office else Branch.objects.none(),
+        'employment_type_choices': tenant_queryset(request, EmploymentType.objects.filter(is_active=True)).order_by('name') if office else EmploymentType.objects.none(),
+        'department_filter': department_id,
+        'branch_filter': branch_id,
+        'employment_type_filter': employment_type_id,
     })
     return render(request, 'employees/recruitment/pipeline_board.html', context)
 
@@ -785,10 +864,13 @@ def recruitment_settings(request):
             page.is_active = not page.is_active
             page.save(update_fields=['is_active'])
             messages.success(request, f"Careers page is now {'active' if page.is_active else 'inactive'}.")
-        elif action == 'update_intro':
+        elif action == 'update_hero':
+            page.hero_badge_text = request.POST.get('hero_badge_text', '').strip()
+            page.hero_title = request.POST.get('hero_title', '').strip()
             page.intro_text = request.POST.get('intro_text', '').strip()
-            page.save(update_fields=['intro_text'])
-            messages.success(request, 'Intro text updated.')
+            page.hero_features = request.POST.get('hero_features', '').strip()
+            page.save(update_fields=['hero_badge_text', 'hero_title', 'intro_text', 'hero_features'])
+            messages.success(request, 'Careers page banner updated.')
         elif action == 'regenerate_slug':
             page.slug = ''
             page.save()

@@ -972,7 +972,7 @@
 
     function markAsRead(element, notificationId) {
         element.classList.remove('unread');
-        fetch(`/employees/api/notifications/${notificationId}/mark-read/`, {
+        fetch(`/api/notifications/${notificationId}/mark-read/`, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
@@ -1000,7 +1000,7 @@
     }
 
     function loadNotifications() {
-        fetch('/employees/api/notifications/list/?limit=20', {
+        fetch('/api/notifications/list/?limit=20', {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',

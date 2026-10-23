@@ -6,23 +6,23 @@
 {% block page_css %}
 {{ block.super }}
 <style>
-  .jf-shell { max-width: 1280px; margin: 0 auto; padding: 0.75rem 0 2rem; }
+  .jf-shell { max-width: 1280px; margin: 0 auto; padding: 0.75rem 1rem 2rem; overflow-x: hidden; }
   .jf-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
   .jf-header h1 { font-size: 1.35rem; font-weight: 700; color: #1f2937; margin: 0; }
   .jf-header p { font-size: 0.85rem; color: #6b7280; margin: 0.2rem 0 0; }
   .jf-header-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
-  .jf-grid { display: grid; grid-template-columns: 59fr 41fr; gap: 1rem; align-items: start; }
-  @media (max-width: 1100px) { .jf-grid { grid-template-columns: 1fr; } }
+  .jf-grid { display: grid; grid-template-columns: minmax(0, 59fr) minmax(0, 41fr); gap: 1rem; align-items: start; }
+  @media (max-width: 1100px) { .jf-grid { grid-template-columns: minmax(0, 1fr); } }
 
   .jf-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.1rem 1.3rem; margin-bottom: 1rem; }
   .jf-card-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; }
   .jf-icon-dot { width: 30px; height: 30px; border-radius: 9px; background: #EEF2FF; color: #696CFF; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0; }
   .jf-card-head h5 { font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0; }
 
-  .jf-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
-  .jf-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.9rem; }
-  @media (max-width: 650px) { .jf-row-2, .jf-row-3 { grid-template-columns: 1fr; } }
+  .jf-row-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.9rem; }
+  .jf-row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem; }
+  @media (max-width: 650px) { .jf-row-2, .jf-row-3 { grid-template-columns: minmax(0, 1fr); } }
   .jf-field { margin-bottom: 0.9rem; }
   .jf-row-2 .jf-field, .jf-row-3 .jf-field { margin-bottom: 0; }
   .jf-field label { font-size: 0.78rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.3rem; }

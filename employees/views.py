@@ -5039,14 +5039,14 @@ def mark_attendance(request, token):
        the DB query and merely passed a "within tolerance" test - that's
        what let a merely-close-enough employee "steal" someone else's
        attendance.
-    2. Liveness: requires a real blink across the submitted frame burst
-       (see face_utils.detect_blink_in_sequence) before accepting
-       anything, so a printed/screen photo held up to an unattended
-       kiosk can't check someone else in.
+    2. Best frame selection: face_utils.detect_blink_in_sequence() still
+       scores the submitted frame burst to pick the sharpest usable frame
+       to match against - it no longer gates acceptance on a blink being
+       detected (that hard requirement was removed; it was blocking real
+       attendance too often).
 
     Expects a JSON body: {"images": ["data:image/jpeg;base64,...", ...]} -
-    a short burst of frames spanning a natural blink, captured by the
-    kiosk page's own JS.
+    a short burst of frames captured by the kiosk page's own JS.
     """
     office = get_object_or_404(
         Office,
@@ -5176,15 +5176,12 @@ def mark_attendance(request, token):
             'message': "We couldn't see your face clearly. Please step closer and look directly at the camera.",
         })
 
-    blink_detected, best_index = detect_blink_in_sequence(ear_sequence)
-    if not blink_detected:
-        return JsonResponse({
-            'success': False, 'error': 'no_blink',
-            'message': 'Please blink your eyes naturally and try again.',
-        })
+    # Blink-liveness is no longer required to mark attendance - just pick
+    # the sharpest usable frame from the burst to match against.
+    _blink_detected, best_index = detect_blink_in_sequence(ear_sequence)
 
-    # ---- Encode the face from the chosen (best, post-blink) frame -
-    # reusing the location already found for it above. ----
+    # ---- Encode the face from the chosen (best) frame - reusing the
+    # location already found for it above. ----
     best_frame = frames[best_index]
     best_location = locations_by_frame[best_index]
     if best_location is None:

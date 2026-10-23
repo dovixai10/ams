@@ -6,125 +6,499 @@
 {% block page_css %}
 {{ block.super }}
 <style>
-  .cp { --cp-primary: #696cff; --cp-ink: #1e1b3a; --cp-muted: #64748b; min-height: 100vh; background: #f8f9fc; padding: 2rem 1.25rem; }
+  .cp { --cp-primary: #696cff; --cp-ink: #1e1b3a; --cp-muted: #64748b; min-height: 100vh; background: #f8f9fc; padding-bottom: 2.5rem; overflow-x: hidden; }
   .cp * { box-sizing: border-box; }
-  .cp-shell { max-width: 1040px; margin: 0 auto; }
-  .cp-header { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.4rem; }
-  .cp-header img { width: 52px; height: 52px; border-radius: 10px; object-fit: contain; background: #fff; border: 1px solid #E5E7EF; padding: 4px; }
-  .cp-header h1 { font-size: 1.4rem; font-weight: 700; color: var(--cp-ink); margin: 0; }
-  .cp-header p { font-size: 0.85rem; color: var(--cp-muted); margin: 0.1rem 0 0; }
-  .cp-intro { font-size: 0.86rem; color: var(--cp-muted); max-width: 70ch; margin: 0.8rem 0 1.4rem; }
+  .cp-shell { max-width: 1280px; margin: 0 auto; padding: 0 1.25rem; }
 
-  .cp-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.1rem; align-items: start; }
-  @media (max-width: 860px) { .cp-grid { grid-template-columns: 1fr; } }
+  /* ---------- Hero banner ---------- */
+  .cp-hero { position: relative; overflow: hidden; background: linear-gradient(135deg, #ECEBFE 0%, #F4F3FD 55%, #EFF3FE 100%); padding: 2.4rem 1.25rem 2.1rem; margin-bottom: 1.6rem; }
+  .cp-hero::before { content: ''; position: absolute; top: -60px; right: -60px; width: 260px; height: 260px; border-radius: 50%; background: radial-gradient(circle, rgba(105,108,255,0.14), transparent 70%); }
+  .cp-hero-inner { max-width: 1280px; margin: 0 auto; position: relative; display: flex; align-items: center; gap: 2rem; }
+  .cp-hero-text { flex: 1 1 auto; min-width: 0; }
+  .cp-badge { display: inline-flex; align-items: center; gap: 0.35rem; background: #fff; color: var(--cp-primary); font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; margin-bottom: 0.8rem; box-shadow: 0 2px 8px rgba(105,108,255,0.1); }
+  .cp-hero h1 { font-size: 2.1rem; font-weight: 800; color: var(--cp-ink); margin: 0 0 0.6rem; max-width: 720px; }
+  .cp-hero-sub { font-size: 0.92rem; color: var(--cp-muted); max-width: 640px; margin: 0 0 1.3rem; line-height: 1.6; }
+  .cp-feature-row { display: flex; flex-wrap: wrap; gap: 1.4rem; }
+  .cp-feature { display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; font-weight: 600; color: #3b3860; }
+  .cp-feature .ic { width: 28px; height: 28px; border-radius: 8px; background: rgba(105,108,255,0.14); color: var(--cp-primary); display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0; }
+  .cp-hero-illustration-wrap { width: 230px; flex-shrink: 0; }
+  .cp-hero-illustration-wrap svg { width: 100%; height: auto; display: block; }
+  @media (max-width: 820px) { .cp-hero-illustration-wrap { display: none; } }
 
-  .cp-job-list { display: flex; flex-direction: column; gap: 0.7rem; }
-  .cp-job-card { background: #fff; border-radius: 14px; border: 1px solid #E5E7EF; padding: 1rem 1.1rem; text-decoration: none; display: block; }
-  .cp-job-card.active { border-color: var(--cp-primary); box-shadow: 0 6px 18px rgba(105,108,255,0.12); }
-  .cp-job-card h3 { font-size: 0.98rem; font-weight: 700; color: var(--cp-ink); margin: 0 0 0.3rem; }
-  .cp-job-meta { font-size: 0.78rem; color: var(--cp-muted); display: flex; gap: 0.7rem; flex-wrap: wrap; }
+  /* ---------- Layout ---------- */
+  .cp-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 1.2rem; align-items: start; }
+  @media (max-width: 900px) { .cp-layout { grid-template-columns: minmax(0, 1fr); } }
 
-  .cp-detail-card { background: #fff; border-radius: 16px; border: 1px solid #E5E7EF; padding: 1.6rem; position: sticky; top: 1.5rem; }
-  .cp-detail-card h2 { font-size: 1.15rem; font-weight: 700; color: var(--cp-ink); margin: 0 0 0.3rem; }
-  .cp-detail-meta { font-size: 0.82rem; color: var(--cp-muted); margin-bottom: 0.9rem; }
-  .cp-detail-desc { font-size: 0.86rem; color: #374151; white-space: pre-line; margin-bottom: 1.2rem; }
+  .cp-filters { background: #fff; border-radius: 14px; border: 1px solid #E5E7EF; padding: 1.2rem 1.2rem 1.4rem; position: sticky; top: 1rem; }
+  .cp-filters-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem; }
+  .cp-filters-head h5 { font-size: 0.98rem; font-weight: 700; color: var(--cp-ink); margin: 0; }
+  .cp-filters-head a { font-size: 0.78rem; color: var(--cp-primary); text-decoration: none; font-weight: 600; }
+  .cp-filter-group { margin-bottom: 1rem; }
+  .cp-filter-group label { display: block; font-size: 0.76rem; font-weight: 700; color: #374151; text-transform: uppercase; margin-bottom: 0.4rem; }
+  .cp-filter-group select, .cp-filter-group input[type="text"] { width: 100%; font-size: 0.84rem; padding: 0.5rem 0.7rem; border-radius: 9px; border: 1px solid #E5E7EF; background: #fafafe; }
+  .cp-search { position: relative; }
+  .cp-search i { position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 0.9rem; }
+  .cp-filter-group.cp-search input[type="text"] { padding-left: 2.1rem; }
+  .cp-checkbox-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; color: #374151; padding: 0.3rem 0; }
+  .cp-checkbox-row input { accent-color: var(--cp-primary); width: 15px; height: 15px; }
+  .cp-filter-submit { width: 100%; border: none; border-radius: 10px; padding: 0.6rem; font-weight: 700; font-size: 0.85rem; color: #fff; background: linear-gradient(135deg, #696cff, #8b5cf6); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+
+  .cp-main-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.6rem; }
+  .cp-main-head .count { font-size: 0.92rem; font-weight: 700; color: var(--cp-ink); }
+  .cp-sort { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--cp-muted); }
+  .cp-sort select { font-size: 0.82rem; padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid #E5E7EF; background: #fff; }
+
+  .cp-job-list { display: flex; flex-direction: column; gap: 0.8rem; }
+  .cp-job-card { background: #fff; border-radius: 14px; border: 1px solid #E5E7EF; padding: 1.1rem 1.2rem; display: flex; gap: 0.9rem; align-items: flex-start; }
+  .cp-job-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; }
+  .cp-job-body { flex: 1 1 auto; min-width: 0; }
+  .cp-job-title-row { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+  .cp-job-title-row h3 { font-size: 1.02rem; font-weight: 700; color: var(--cp-ink); margin: 0; }
+  .cp-job-title-row h3 a { color: inherit; text-decoration: none; }
+  .cp-status-pill { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; background: #E8F8EE; color: #3f9a1c; white-space: nowrap; }
+  .cp-job-meta { font-size: 0.78rem; color: var(--cp-muted); display: flex; gap: 0.9rem; flex-wrap: wrap; margin: 0.35rem 0 0.5rem; }
+  .cp-job-meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .cp-job-desc { font-size: 0.82rem; color: #52525b; margin-bottom: 0.6rem; max-width: 70ch; }
+  .cp-chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .cp-chip { font-size: 0.72rem; font-weight: 600; padding: 0.18rem 0.55rem; border-radius: 999px; background: #EEF2FF; color: #4338CA; }
+  .cp-job-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.6rem; }
+  .cp-posted { font-size: 0.74rem; color: #9ca3af; white-space: nowrap; }
+  .cp-job-side-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .cp-apply-btn { border: none; border-radius: 9px; padding: 0.5rem 0.9rem; font-size: 0.82rem; font-weight: 700; color: #fff; background: linear-gradient(135deg, #696cff, #8b5cf6); text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+  .cp-bookmark-btn { width: 36px; height: 36px; border-radius: 9px; border: 1px solid #E5E7EF; background: #fff; color: #9ca3af; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+  .cp-bookmark-btn.saved { color: var(--cp-primary); border-color: var(--cp-primary); }
+  @media (max-width: 560px) {
+    .cp-job-card { flex-wrap: wrap; }
+    .cp-job-side { flex-direction: row-reverse; align-items: center; justify-content: space-between; width: 100%; margin-left: 56px; }
+  }
+
+  .cp-empty { text-align: center; color: var(--cp-muted); font-size: 0.86rem; padding: 3rem 1rem; background: #fff; border-radius: 14px; border: 1px solid #E5E7EF; }
+
+  /* ---------- Selected job detail / apply ---------- */
+  .cp-back-link { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; color: var(--cp-primary); text-decoration: none; font-weight: 600; margin-bottom: 0.9rem; }
+  .cp-detail-card { background: #fff; border-radius: 16px; border: 1px solid #E5E7EF; padding: 1.6rem; }
+  .cp-detail-card h2 { font-size: 1.2rem; font-weight: 700; color: var(--cp-ink); margin: 0 0 0.3rem; }
 
   .cp-field { margin-bottom: 0.9rem; }
   .cp-field label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--cp-ink); margin-bottom: 0.3rem; }
-  .cp-field input, .cp-field textarea { width: 100%; font-size: 0.88rem; padding: 0.6rem 0.8rem; border-radius: 9px; border: 1px solid rgba(30,27,58,0.14); background: #fafafe; }
-  .cp-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
-  @media (max-width: 500px) { .cp-row-2 { grid-template-columns: 1fr; } }
-  .cp-submit { width: 100%; border: none; border-radius: 10px; padding: 0.75rem; font-weight: 700; font-size: 0.9rem; color: #fff; background: linear-gradient(135deg, #696cff, #8b5cf6); cursor: pointer; }
+  .cp-field input, .cp-field textarea, .cp-field select { width: 100%; font-size: 0.88rem; padding: 0.6rem 0.8rem; border-radius: 9px; border: 1px solid rgba(30,27,58,0.14); background: #fafafe; }
+  .cp-row-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.8rem; }
+  @media (max-width: 500px) { .cp-row-2 { grid-template-columns: minmax(0, 1fr); } }
+  .cp-submit { width: 100%; border: none; border-radius: 10px; padding: 0.75rem; font-weight: 700; font-size: 0.9rem; color: #fff; background: linear-gradient(135deg, #696cff, #8b5cf6); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
   .cp-error { background: #fff0f0; color: #c23616; border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 0.82rem; margin-bottom: 1rem; }
-  .cp-success { text-align: center; padding: 1.5rem 0; }
+  .cp-success-wrap { display: flex; align-items: center; justify-content: center; min-height: 80vh; padding: 1.5rem 0; }
+  .cp-success { text-align: center; padding: 2rem 2.5rem; max-width: 520px; width: 100%; }
   .cp-success i { font-size: 2.6rem; color: #71dd37; }
-  .cp-empty { text-align: center; color: var(--cp-muted); font-size: 0.86rem; padding: 2.5rem 1rem; }
+
+  /* ---------- Apply header band ---------- */
+  .cp-apply-topbar { max-width: 1280px; margin: 0 auto; padding: 1rem 1.25rem 0; }
+  .cp-breadcrumb { display: inline-flex; align-items: center; gap: 0.35rem; background: #EEF2FF; color: var(--cp-primary); font-size: 0.78rem; font-weight: 600; padding: 0.3rem 0.75rem; border-radius: 999px; }
+  .cp-breadcrumb a { color: inherit; text-decoration: none; }
+  .cp-breadcrumb .sep { color: #b4b6f2; margin: 0 0.1rem; }
+  .cp-breadcrumb .current { color: #4338CA; }
+
+  .cp-apply-header { position: relative; overflow: hidden; background: linear-gradient(135deg, #ECEBFE 0%, #F4F3FD 55%, #EFF3FE 100%); padding: 1rem 1.25rem 1.6rem; margin-bottom: 1.6rem; }
+  .cp-apply-header-inner { max-width: 1280px; margin: 0 auto; display: flex; align-items: flex-start; gap: 1rem; position: relative; }
+  .cp-apply-icon { width: 56px; height: 56px; border-radius: 14px; background: rgba(255,255,255,0.7); color: var(--cp-primary); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
+  .cp-apply-title-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  .cp-apply-title-row h1 { font-size: 1.5rem; font-weight: 800; color: var(--cp-ink); margin: 0; }
+  .cp-apply-meta { font-size: 0.82rem; color: var(--cp-muted); display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.4rem; }
+  .cp-apply-meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .cp-apply-tagline { font-size: 0.86rem; color: #52525b; margin-top: 0.6rem; max-width: 560px; }
+
+  /* ---------- Apply layout ---------- */
+  .cp-apply-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 1.2rem; align-items: start; }
+  @media (max-width: 900px) { .cp-apply-layout { grid-template-columns: minmax(0, 1fr); } }
+  .cp-apply-card .sub { font-size: 0.82rem; color: var(--cp-muted); margin-bottom: 1.2rem; }
+
+  .cp-upload-box { position: relative; border: 1.5px dashed #c7c9d9; border-radius: 10px; padding: 0.9rem 1rem; display: flex; align-items: center; gap: 0.8rem; background: #fafafe; margin-bottom: 0.4rem; flex-wrap: wrap; }
+  .cp-upload-box .ic { width: 38px; height: 38px; border-radius: 9px; background: #EEF2FF; color: var(--cp-primary); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .cp-upload-box .label { font-size: 0.85rem; font-weight: 600; color: var(--cp-ink); }
+  .cp-upload-box .hint { font-size: 0.74rem; color: #9ca3af; }
+  .cp-upload-box input[type="file"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .cp-upload-box .choose-btn { margin-left: auto; border: 1px solid #E5E7EF; background: #fff; color: #374151; font-size: 0.8rem; font-weight: 600; padding: 0.4rem 0.8rem; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .cp-filename { font-size: 0.78rem; color: var(--cp-primary); font-weight: 600; margin-bottom: 0.9rem; min-height: 1em; }
+
+  .cp-consent-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.8rem; color: #52525b; margin-bottom: 1rem; }
+  .cp-consent-row input { margin-top: 0.2rem; accent-color: var(--cp-primary); }
+  .cp-consent-row a { color: var(--cp-primary); text-decoration: none; }
+
+  .cp-char-count { text-align: right; font-size: 0.72rem; color: #9ca3af; margin: -0.6rem 0 0.9rem; }
+
+  .cp-apply-actions { display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap; }
+  .cp-apply-actions .cp-submit { flex: 1 1 auto; }
+  .cp-back-detail-link { font-size: 0.82rem; color: var(--cp-primary); text-decoration: none; font-weight: 600; white-space: nowrap; }
+
+  .cp-side-card { background: #fff; border-radius: 14px; border: 1px solid #E5E7EF; padding: 1.1rem 1.2rem; margin-bottom: 1rem; }
+  .cp-side-card:last-child { margin-bottom: 0; }
+  .cp-side-card h6 { font-size: 0.9rem; font-weight: 700; color: var(--cp-ink); margin: 0 0 0.9rem; display: flex; align-items: center; gap: 0.4rem; }
+  .cp-overview-row { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.85rem; }
+  .cp-overview-row:last-child { margin-bottom: 0; }
+  .cp-overview-row .ic { width: 32px; height: 32px; border-radius: 9px; background: #EEF2FF; color: var(--cp-primary); display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0; }
+  .cp-overview-row .lbl { font-size: 0.72rem; color: #9ca3af; font-weight: 600; }
+  .cp-overview-row .val { font-size: 0.84rem; color: var(--cp-ink); font-weight: 700; }
+
+  .cp-bullet-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .cp-bullet-list li { display: flex; gap: 0.5rem; font-size: 0.82rem; color: #374151; align-items: flex-start; }
+  .cp-bullet-list li i { color: #3f9a1c; font-size: 1rem; flex-shrink: 0; margin-top: 0.05rem; }
+
+  .cp-help-text { font-size: 0.8rem; color: var(--cp-muted); margin-bottom: 0.6rem; }
+  .cp-help-link { font-size: 0.84rem; color: var(--cp-primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; }
+
+  @media (max-width: 480px) {
+    .cp-shell { padding: 0 1rem; }
+    .cp-hero { padding: 1.6rem 1rem 1.5rem; }
+    .cp-hero h1 { font-size: 1.5rem; }
+    .cp-hero-sub { font-size: 0.85rem; }
+    .cp-feature-row { gap: 0.8rem 1rem; }
+    .cp-filters { padding: 1rem; }
+    .cp-job-card { padding: 1rem; }
+    .cp-apply-topbar { padding: 1rem 1rem 0; }
+    .cp-apply-header { padding: 1rem 1rem 1.3rem; }
+    .cp-apply-header-inner { gap: 0.7rem; }
+    .cp-apply-icon { width: 42px; height: 42px; font-size: 1.2rem; border-radius: 11px; }
+    .cp-apply-title-row h1 { font-size: 1.15rem; }
+    .cp-detail-card { padding: 1.1rem; }
+    .cp-side-card { padding: 1rem; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="cp">
-  <div class="cp-shell">
-    <div class="cp-header">
-      {% if office.logo %}<img src="{{ office.logo.url }}" alt="{{ office.name }}">{% endif %}
-      <div><h1>Careers at {{ office.name }}</h1><p>{{ jobs|length }} open position{{ jobs|length|pluralize }}</p></div>
-    </div>
-    {% if page.intro_text %}<div class="cp-intro">{{ page.intro_text }}</div>{% endif %}
+  {% if not selected_job %}
+  <div class="cp-hero">
+    <div class="cp-hero-inner">
+      <div class="cp-hero-text">
+        {% if page.hero_badge_text %}<div class="cp-badge"><i class="bx bx-briefcase-alt-2"></i> {{ page.hero_badge_text }}</div>{% endif %}
+        <h1>{{ page.hero_title|default:"We're Hiring" }}</h1>
+        {% if page.intro_text %}<p class="cp-hero-sub">{{ page.intro_text }}</p>{% endif %}
+        {% if page.hero_features_list %}
+          <div class="cp-feature-row">
+            {% for feature in page.hero_features_list %}
+              <div class="cp-feature">
+                <span class="ic">{% cycle 'bx-group' 'bx-trending-up' 'bx-time-five' 'bx-coin-stack' 'bx-star' 'bx-heart' as cpfeatureicon silent %}<i class="bx {{ cpfeatureicon }}"></i></span>
+                {{ feature }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+     </div>
+  </div>
+  {% endif %}
 
-    <div class="cp-grid">
-      <div class="cp-job-list">
-        {% for job in jobs %}
-          <a href="?job={{ job.slug }}" class="cp-job-card {% if selected_job.pk == job.pk %}active{% endif %}">
-            <h3>{{ job.title }}</h3>
-            <div class="cp-job-meta">
-              {% if job.department %}<span><i class="bx bx-buildings"></i> {{ job.department.name }}</span>{% endif %}
-              <span><i class="bx bx-map"></i> {% if job.location %}{{ job.location }}{% elif job.branch %}{{ job.branch.name }}{% else %}Office{% endif %}</span>
-              {% if job.employment_type %}<span><i class="bx bx-time"></i> {{ job.employment_type.name }}</span>{% endif %}
-              {% if job.salary_range_display %}<span><i class="bx bx-rupee"></i> {{ job.salary_range_display }}</span>{% endif %}
-            </div>
-          </a>
-        {% empty %}
-          <div class="cp-empty">No open positions right now - check back soon.</div>
-        {% endfor %}
+  <div class="cp-shell">
+    {% if submitted %}
+      <div class="cp-success-wrap">
+        <div class="cp-detail-card cp-success">
+          <i class="bx bx-check-circle"></i>
+          <h2>Application received!</h2>
+          <p style="color:var(--cp-muted);font-size:0.88rem;">Thanks for applying - {{ office.name }} will review your application and reach out if there's a match.</p>
+          <a href="?{{ filters_qs }}" class="cp-back-link" style="justify-content:center;margin-top:0.8rem;"><i class="bx bx-left-arrow-alt"></i> Back to all jobs</a>
+        </div>
       </div>
 
-      <div class="cp-detail-card">
-        {% if submitted %}
-          <div class="cp-success">
-            <i class="bx bx-check-circle"></i>
-            <h2>Application received!</h2>
-            <p style="color:var(--cp-muted);font-size:0.88rem;">Thanks for applying - {{ office.name }} will review your application and reach out if there's a match.</p>
+    {% elif selected_job %}
+    </div>
+
+    <div class="cp-apply-topbar">
+      <div class="cp-breadcrumb">
+        <a href="?{{ filters_qs }}">Jobs</a> <span class="sep">/</span> <span class="current">{{ selected_job.title }}</span>
+      </div>
+    </div>
+
+    <div class="cp-apply-header" id="cpApplyTop">
+      <div class="cp-apply-header-inner">
+        {% cycle 'bx-code-alt' 'bx-briefcase' 'bx-palette' 'bx-megaphone' 'bx-cog' as cpdicon silent %}
+        <div class="cp-apply-icon"><i class="bx {{ cpdicon }}"></i></div>
+        <div>
+          <div class="cp-apply-title-row">
+            <h1>{{ selected_job.title }}</h1>
+            <span class="cp-status-pill">Active</span>
           </div>
-        {% elif selected_job %}
-          <h2>{{ selected_job.title }}</h2>
-          <div class="cp-detail-meta">
-            {% if selected_job.department %}{{ selected_job.department.name }} &middot; {% endif %}
-            {% if selected_job.location %}{{ selected_job.location }}{% elif selected_job.branch %}{{ selected_job.branch.name }}{% else %}Office{% endif %}
-            {% if selected_job.employment_type %} &middot; {{ selected_job.employment_type.name }}{% endif %}
-            {% if selected_job.experience_range_display %} &middot; {{ selected_job.experience_range_display }}{% endif %}
-            {% if selected_job.salary_range_display %} &middot; {{ selected_job.salary_range_display }}{% endif %}
+          <div class="cp-apply-meta">
+            {% if selected_job.department %}<span><i class="bx bx-buildings"></i> {{ selected_job.department.name }}</span>{% endif %}
+            <span><i class="bx bx-map"></i> {% if selected_job.location %}{{ selected_job.location }}{% elif selected_job.branch %}{{ selected_job.branch.name }}{% else %}Office{% endif %}</span>
+            {% if selected_job.employment_type %}<span><i class="bx bx-time"></i> {{ selected_job.employment_type.name }}</span>{% endif %}
+            {% if selected_job.experience_range_display %}<span><i class="bx bx-group"></i> {{ selected_job.experience_range_display }}</span>{% endif %}
           </div>
-          {% if selected_job.description %}<div class="cp-detail-desc">{{ selected_job.description|safe }}</div>{% endif %}
-          {% if selected_job.required_skills_list %}
-            <div style="margin-bottom:0.9rem;">
-              <div style="font-size:0.72rem;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:0.4rem;">Required Skills</div>
-              <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for skill in selected_job.required_skills_list %}<span style="background:#EEF2FF;color:#4338CA;font-size:0.76rem;font-weight:600;padding:0.2rem 0.55rem;border-radius:999px;">{{ skill }}</span>{% endfor %}</div>
-            </div>
-          {% endif %}
-          {% if selected_job.benefits_list %}
-            <div style="margin-bottom:0.9rem;">
-              <div style="font-size:0.72rem;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:0.4rem;">Job Benefits</div>
-              <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for benefit in selected_job.benefits_list %}<span style="background:#FFF4E5;color:#B45309;font-size:0.76rem;font-weight:600;padding:0.2rem 0.55rem;border-radius:999px;">{{ benefit }}</span>{% endfor %}</div>
-            </div>
-          {% endif %}
+          {% if selected_job.description %}<div class="cp-apply-tagline">{{ selected_job.description|striptags|truncatewords:20 }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="cp-shell">
+      <div class="cp-apply-layout">
+        <div class="cp-detail-card cp-apply-card">
+          <h2>Apply for this Position</h2>
+          <div class="sub">Complete the form below to submit your application.</div>
 
           {% if messages %}{% for message in messages %}<div class="cp-error">{{ message }}</div>{% endfor %}{% endif %}
+          {% if selected_job.required_skills_list %}
+            <div style="margin-bottom:1.1rem;">
+              <div style="font-size:0.72rem;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:0.4rem;">Required Skills</div>
+              <div class="cp-chip-row">{% for skill in selected_job.required_skills_list %}<span class="cp-chip">{{ skill }}</span>{% endfor %}</div>
+            </div>
+          {% endif %}
 
-          <form method="post" enctype="multipart/form-data">
+          <form method="post" enctype="multipart/form-data" id="cpApplyForm">
             {% csrf_token %}
             <input type="hidden" name="job" value="{{ selected_job.slug }}">
             <div class="cp-row-2">
               <div class="cp-field"><label>Full Name *</label><input type="text" name="full_name" required></div>
-              <div class="cp-field"><label>Phone *</label><input type="text" name="phone" required></div>
-            </div>
-            <div class="cp-field"><label>Email *</label><input type="email" name="email" required></div>
-            <div class="cp-row-2">
-              <div class="cp-field"><label>Current Location</label><input type="text" name="current_location"></div>
-              <div class="cp-field"><label>Current Company</label><input type="text" name="current_company"></div>
+              <div class="cp-field"><label>Email Address *</label><input type="email" name="email" required></div>
             </div>
             <div class="cp-row-2">
-              <div class="cp-field"><label>Current CTC</label><input type="text" name="current_ctc" placeholder="Annual, e.g. 600000"></div>
-              <div class="cp-field"><label>Expected CTC</label><input type="text" name="expected_ctc"></div>
+              <div class="cp-field"><label>Phone Number *</label><input type="text" name="phone" required></div>
+              <div class="cp-field"><label>Current Location *</label><input type="text" name="current_location" required></div>
             </div>
-            <div class="cp-field"><label>Resume *</label><input type="file" name="resume" accept=".pdf,.doc,.docx" required></div>
-            <div class="cp-field"><label>Message</label><textarea name="message" rows="3" placeholder="Anything you'd like us to know"></textarea></div>
-            <button type="submit" class="cp-submit">Submit Application</button>
+            <div class="cp-row-2">
+              <div class="cp-field"><label>LinkedIn Profile (optional)</label><input type="url" name="linkedin_url" placeholder="https://linkedin.com/in/yourname"></div>
+              <div class="cp-field"><label>Portfolio / GitHub URL (optional)</label><input type="url" name="portfolio_url" placeholder="https://github.com/yourname"></div>
+            </div>
+            <div class="cp-field">
+              <label>Years of Experience *</label>
+              <select name="years_of_experience" required>
+                <option value="">Select experience</option>
+                {% for key, label in years_of_experience_choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="cp-row-2">
+              <div class="cp-field"><label>Current Salary (optional)</label><input type="text" name="current_ctc" placeholder="Annual, e.g. 600000"></div>
+              <div class="cp-field"><label>Expected Salary (optional)</label><input type="text" name="expected_ctc" placeholder="Annual, e.g. 900000"></div>
+            </div>
+            <div class="cp-field">
+              <label>Why are you a good fit for this role? *</label>
+              <textarea name="message" id="cpMessage" rows="4" maxlength="500" placeholder="Tell us about your skills, experience and what makes you a great fit..." required></textarea>
+            </div>
+            <div class="cp-char-count"><span id="cpMsgCount">0</span>/500</div>
+
+            <div class="cp-upload-box">
+              <div class="ic"><i class="bx bx-cloud-upload"></i></div>
+              <div>
+                <div class="label">Upload your resume</div>
+                <div class="hint">PDF or DOCX &middot; Max 5 MB</div>
+              </div>
+              <button type="button" class="choose-btn" id="cpChooseFileBtn">Choose File</button>
+              <input type="file" name="resume" id="cpResumeInput" accept=".pdf,.doc,.docx" required>
+            </div>
+            <div class="cp-filename" id="cpFileName"></div>
+
+            <div class="cp-consent-row">
+              <input type="checkbox" name="consent" id="cpConsent" required>
+              <label for="cpConsent">I agree to the <a href="{% url 'employees:privacy_policy' %}" target="_blank" rel="noopener">privacy policy</a> and consent to the processing of my application data.</label>
+            </div>
+
+            <div class="cp-apply-actions">
+              <button type="submit" class="cp-submit">Submit Application <i class="bx bx-right-arrow-alt"></i></button>
+              <a href="#cpApplyTop" class="cp-back-detail-link">Back to Job Details</a>
+            </div>
           </form>
-        {% else %}
-          <div class="cp-empty">Select a job on the left to view details and apply.</div>
-        {% endif %}
+        </div>
+
+        <div>
+          <div class="cp-side-card">
+            <h6><i class="bx bx-info-circle"></i> Job Overview</h6>
+            <div class="cp-overview-row">
+              <div class="ic"><i class="bx bx-buildings"></i></div>
+              <div><div class="lbl">Department</div><div class="val">{{ selected_job.department.name|default:"-" }}</div></div>
+            </div>
+            <div class="cp-overview-row">
+              <div class="ic"><i class="bx bx-briefcase-alt"></i></div>
+              <div><div class="lbl">Job Type</div><div class="val">{{ selected_job.employment_type.name|default:"-" }}</div></div>
+            </div>
+            {% if selected_job.experience_range_display %}
+            <div class="cp-overview-row">
+              <div class="ic"><i class="bx bx-time-five"></i></div>
+              <div><div class="lbl">Experience</div><div class="val">{{ selected_job.experience_range_display }}</div></div>
+            </div>
+            {% endif %}
+            <div class="cp-overview-row">
+              <div class="ic"><i class="bx bx-map"></i></div>
+              <div><div class="lbl">Location</div><div class="val">{% if selected_job.location %}{{ selected_job.location }}{% elif selected_job.branch %}{{ selected_job.branch.name }}{% else %}Office{% endif %}</div></div>
+            </div>
+            <div class="cp-overview-row">
+              <div class="ic"><i class="bx bx-calendar"></i></div>
+              <div><div class="lbl">Posted</div><div class="val">{{ selected_job.created_at|timesince }} ago</div></div>
+            </div>
+          </div>
+
+          {% if selected_job_bullets %}
+          <div class="cp-side-card">
+            <h6><i class="bx bx-list-check"></i> What you'll do</h6>
+            <ul class="cp-bullet-list">
+              {% for bullet in selected_job_bullets %}<li><i class="bx bx-check"></i> {{ bullet }}</li>{% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+
+          {% if selected_job.benefits_list %}
+          <div class="cp-side-card">
+            <h6><i class="bx bx-gift"></i> Job Benefits</h6>
+            <div class="cp-chip-row">{% for benefit in selected_job.benefits_list %}<span class="cp-chip" style="background:#FFF4E5;color:#B45309;">{{ benefit }}</span>{% endfor %}</div>
+          </div>
+          {% endif %}
+
+          <div class="cp-side-card">
+            <h6><i class="bx bx-help-circle"></i> Need help?</h6>
+            <div class="cp-help-text">Contact {{ office.name }} if you have questions about this role.</div>
+            {% if office.contact_number %}<a href="tel:{{ office.contact_number }}" class="cp-help-link"><i class="bx bx-phone"></i> {{ office.contact_number }}</a>{% endif %}
+          </div>
+        </div>
       </div>
-    </div>
+
+    {% else %}
+      <div class="cp-layout">
+        <div class="cp-filters">
+          <div class="cp-filters-head">
+            <h5>Filter Jobs</h5>
+            <a href="?">Clear All</a>
+          </div>
+          <form method="get">
+            <div class="cp-filter-group cp-search">
+              <i class="bx bx-search"></i>
+              <input type="text" name="q" value="{{ q }}" placeholder="Search job title or skill...">
+            </div>
+            <div class="cp-filter-group">
+              <label>Department</label>
+              <select name="department">
+                <option value="">All Departments</option>
+                {% for dept in department_choices %}<option value="{{ dept.pk }}" {% if department_filter == dept.pk|stringformat:'s' %}selected{% endif %}>{{ dept.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="cp-filter-group">
+              <label>Experience</label>
+              <select name="experience">
+                <option value="">All Experience Levels</option>
+                {% for key, label, b_min, b_max in experience_buckets %}<option value="{{ key }}" {% if experience_filter == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="cp-filter-group">
+              <label>Location</label>
+              <select name="location">
+                <option value="">All Locations</option>
+                {% for loc in location_choices %}<option value="{{ loc }}" {% if location_filter == loc %}selected{% endif %}>{{ loc }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="cp-filter-group">
+              <label>Employment Type</label>
+              {% for et in employment_type_choices %}
+                <div class="cp-checkbox-row">
+                  <input type="checkbox" name="employment_type" value="{{ et.pk }}" id="et-{{ et.pk }}" {% if et.pk in employment_type_filter_ids %}checked{% endif %}>
+                  <label for="et-{{ et.pk }}" style="margin:0;text-transform:none;font-size:0.84rem;font-weight:400;color:#374151;">{{ et.name }}</label>
+                </div>
+              {% endfor %}
+            </div>
+            <button type="submit" class="cp-filter-submit"><i class="bx bx-filter-alt"></i> Apply Filters</button>
+          </form>
+        </div>
+
+        <div>
+          <div class="cp-main-head">
+            <div class="count">Showing {{ jobs|length }} job{{ jobs|length|pluralize }}</div>
+            <form method="get" class="cp-sort" id="cpSortForm">
+              {% for key, value in request.GET.items %}{% if key != 'sort' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+              Sort by:
+              <select name="sort" onchange="this.form.submit()">
+                {% for key, label in sort_choices %}<option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+            </form>
+          </div>
+
+          <div class="cp-job-list">
+            {% for job in jobs %}
+              <div class="cp-job-card">
+                {% cycle '#EEF2FF' '#E8F8EE' '#E7F4FF' '#FFF4E5' '#FDF0F4' as cpbg silent %}
+                {% cycle '#696CFF' '#3f9a1c' '#2563eb' '#B45309' '#C0265F' as cpfg silent %}
+                {% cycle 'bx-code-alt' 'bx-briefcase' 'bx-palette' 'bx-megaphone' 'bx-cog' as cpicon silent %}
+                <div class="cp-job-icon" style="background:{{ cpbg }};color:{{ cpfg }};"><i class="bx {{ cpicon }}"></i></div>
+                <div class="cp-job-body">
+                  <div class="cp-job-title-row">
+                    <h3><a href="?{{ filters_qs }}{% if filters_qs %}&{% endif %}job={{ job.slug }}">{{ job.title }}</a></h3>
+                    <span class="cp-status-pill">Active</span>
+                  </div>
+                  <div class="cp-job-meta">
+                    {% if job.department %}<span><i class="bx bx-buildings"></i> {{ job.department.name }}</span>{% endif %}
+                    <span><i class="bx bx-map"></i> {% if job.location %}{{ job.location }}{% elif job.branch %}{{ job.branch.name }}{% else %}Office{% endif %}</span>
+                    {% if job.employment_type %}<span><i class="bx bx-time"></i> {{ job.employment_type.name }}</span>{% endif %}
+                    {% if job.experience_range_display %}<span><i class="bx bx-briefcase-alt"></i> {{ job.experience_range_display }}</span>{% endif %}
+                  </div>
+                  {% if job.description %}<div class="cp-job-desc">{{ job.description|striptags|truncatewords:22 }}</div>{% endif %}
+                  {% if job.required_skills_list %}
+                    <div class="cp-chip-row">{% for skill in job.required_skills_list|slice:":5" %}<span class="cp-chip">{{ skill }}</span>{% endfor %}</div>
+                  {% endif %}
+                </div>
+                <div class="cp-job-side">
+                  <div class="cp-posted">Posted {{ job.created_at|timesince }} ago</div>
+                  <div class="cp-job-side-actions">
+                    <button type="button" class="cp-bookmark-btn" data-job-slug="{{ job.slug }}" title="Save for later (saved in this browser only)"><i class="bx bx-bookmark"></i></button>
+                    <a href="?{{ filters_qs }}{% if filters_qs %}&{% endif %}job={{ job.slug }}" class="cp-apply-btn">Apply Now <i class="bx bx-right-arrow-alt"></i></a>
+                  </div>
+                </div>
+              </div>
+            {% empty %}
+              <div class="cp-empty">No open positions match these filters right now - try adjusting them or check back soon.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var STORAGE_KEY = 'cp_saved_jobs_{{ office.slug }}';
+  function getSaved() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function setSaved(list) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  var saved = getSaved();
+  document.querySelectorAll('.cp-bookmark-btn').forEach(function (btn) {
+    var slug = btn.getAttribute('data-job-slug');
+    if (saved.indexOf(slug) !== -1) {
+      btn.classList.add('saved');
+      btn.querySelector('i').className = 'bx bxs-bookmark';
+    }
+    btn.addEventListener('click', function () {
+      var list = getSaved();
+      var idx = list.indexOf(slug);
+      if (idx === -1) {
+        list.push(slug);
+        btn.classList.add('saved');
+        btn.querySelector('i').className = 'bx bxs-bookmark';
+      } else {
+        list.splice(idx, 1);
+        btn.classList.remove('saved');
+        btn.querySelector('i').className = 'bx bx-bookmark';
+      }
+      setSaved(list);
+    });
+  });
+
+  var msgInput = document.getElementById('cpMessage');
+  var msgCount = document.getElementById('cpMsgCount');
+  if (msgInput && msgCount) {
+    var updateCount = function () { msgCount.textContent = msgInput.value.length; };
+    msgInput.addEventListener('input', updateCount);
+    updateCount();
+  }
+
+  var chooseBtn = document.getElementById('cpChooseFileBtn');
+  var resumeInput = document.getElementById('cpResumeInput');
+  var fileNameEl = document.getElementById('cpFileName');
+  if (chooseBtn && resumeInput) {
+    chooseBtn.addEventListener('click', function () { resumeInput.click(); });
+    resumeInput.addEventListener('change', function () {
+      fileNameEl.textContent = resumeInput.files.length ? resumeInput.files[0].name : '';
+    });
+  }
+});
+</script>
 {% endblock %}

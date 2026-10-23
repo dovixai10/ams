@@ -415,25 +415,31 @@ class CheckInDashboard {
     }
 
     handleNotificationClick(notification) {
+        // Mark as read BEFORE navigating - a plain fetch() gets cancelled by
+        // window.location.href on the next line before it reaches the server,
+        // which is why notifications kept reverting to unread on reload.
+        this.markNotificationAsRead(notification.id);
+
         if (notification.action_url) {
             window.location.href = notification.action_url;
         }
-        
-        // Mark as read
-        this.markNotificationAsRead(notification.id);
     }
 
-    async markNotificationAsRead(notificationId) {
-        try {
-            await fetch(`/api/notifications/${notificationId}/mark-read/`, {
+    markNotificationAsRead(notificationId) {
+        const url = `/api/notifications/${notificationId}/mark-read/`;
+        if (navigator.sendBeacon) {
+            const data = new FormData();
+            data.append('csrfmiddlewaretoken', this.getCsrfToken());
+            navigator.sendBeacon(url, data);
+        } else {
+            fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': this.getCsrfToken()
-                }
-            });
-        } catch (error) {
-            console.error('Error marking notification as read:', error);
+                },
+                keepalive: true
+            }).catch((error) => console.error('Error marking notification as read:', error));
         }
     }
 

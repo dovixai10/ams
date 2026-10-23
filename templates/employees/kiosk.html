@@ -57,30 +57,57 @@
   /* Ring that changes color with state - gives a glanceable cue even
      before reading the text below. */
   .video-frame.state-idle { border-color: rgba(255, 255, 255, 0.15); }
-  .video-frame.state-blink { border-color: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25), 0 20px 45px rgba(0,0,0,0.4); }
+  .video-frame.state-countdown { border-color: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25), 0 20px 45px rgba(0,0,0,0.4); }
   .video-frame.state-verify { border-color: #4da6ff; box-shadow: 0 0 0 4px rgba(77, 166, 255, 0.25), 0 20px 45px rgba(0,0,0,0.4); }
   .video-frame.state-success { border-color: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.28), 0 20px 45px rgba(0,0,0,0.4); }
   .video-frame.state-error { border-color: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25), 0 20px 45px rgba(0,0,0,0.4); }
 
-  .blink-prompt {
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    padding: 14px 12px 16px;
-    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.75) 40%);
-    font-size: clamp(1rem, 4.5vw, 1.25rem);
-    font-weight: 700;
+  /* Face-outline guide - always visible once the camera is live, so people
+     know where to position themselves before they even tap Capture. */
+  .face-oval {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%);
+    width: 58%; aspect-ratio: 3 / 4; border-radius: 50%;
+    border: 3px solid rgba(77, 166, 255, 0.55);
+    pointer-events: none;
+  }
+  .video-frame.state-countdown .face-oval { border-color: #f59e0b; }
+
+  .verify-badge {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.35);
+    font-size: 0.72rem; font-weight: 700; padding: 5px 12px; border-radius: 999px;
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  .countdown-number {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%);
+    font-size: 3.2rem; font-weight: 800; color: #fff;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
     display: none;
   }
-  .video-frame.state-blink .blink-prompt { display: block; }
+  .video-frame.state-countdown .countdown-number { display: block; }
 
-  .eye-icon {
-    display: inline-block;
-    animation: blink-cue 1.1s infinite;
+  .capturing-badge {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.6); color: #fff; font-size: 0.78rem; font-weight: 700;
+    padding: 5px 12px; border-radius: 999px; display: none; align-items: center; gap: 6px;
   }
-  @keyframes blink-cue {
-    0%, 100% { transform: scaleY(1); }
-    50% { transform: scaleY(0.15); }
+  .capturing-badge .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; animation: pulse 1s infinite ease-in-out; }
+  .video-frame.state-verify .capturing-badge { display: flex; }
+  .video-frame.state-verify .verify-badge { display: none; }
+
+  .capture-btn {
+    margin-top: 18px; width: 100%; border: none; border-radius: 14px;
+    padding: 14px 16px; font-size: 1rem; font-weight: 700; color: #0b0f19;
+    background: #4da6ff; cursor: pointer;
   }
+  .capture-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .skip-wait-btn {
+    margin-top: 10px; width: 100%; border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+    padding: 10px 14px; font-size: 0.85rem; font-weight: 600; color: #cbd5e1;
+    background: transparent; cursor: pointer; display: none;
+  }
+  .skip-wait-btn.show { display: block; }
 
   #status {
     margin-top: 20px;
@@ -103,7 +130,7 @@
   }
 
   .status-idle .status-headline { color: #cbd5e1; }
-  .status-blink .status-headline { color: #fbbf24; }
+  .status-countdown .status-headline { color: #fbbf24; }
   .status-verify .status-headline { color: #60a5fa; }
   .status-success .status-headline { color: #4ade80; }
   .status-error .status-headline { color: #f87171; }
@@ -155,7 +182,7 @@
 <div id="start-overlay">
   <div class="tap-icon">📷</div>
   <h2>Tap to Start</h2>
-  <p>We'll ask for camera and location access, then you look at the camera and blink naturally to mark your attendance.</p>
+  <p>We'll ask for camera and location access, then you center your face and tap Check Attendance to mark your attendance.</p>
 </div>
 
 <div class="container">
@@ -163,7 +190,10 @@
 
   <div class="video-frame state-idle" id="videoFrame">
     <video id="video" autoplay playsinline muted></video>
-    <div class="blink-prompt"><span class="eye-icon">👁️</span> Please blink your eyes</div>
+    <div class="verify-badge">📷 Real-Time Face Verification</div>
+    <div class="capturing-badge"><span class="rec-dot"></span> Capturing...</div>
+    <div class="face-oval"></div>
+    <div class="countdown-number" id="countdownNumber">3</div>
   </div>
   <canvas id="sendCanvas"></canvas>
 
@@ -172,10 +202,13 @@
     <div class="status-sub" id="statusSub">Look directly at the camera</div>
   </div>
 
+  <button class="capture-btn" id="captureBtn" disabled>Check Attendance</button>
+  <button class="skip-wait-btn" id="skipWaitBtn">Don't want to wait? Tap to capture now</button>
+
   <div class="steps">
-    <span>1️⃣ Look at the camera</span>
-    <span>2️⃣ Blink naturally</span>
-    <span>3️⃣ Done!</span>
+    <span>1️⃣ Center your face</span>
+    <span>2️⃣ Tap Check Attendance</span>
+    <span>3️⃣ Hold still 3s</span>
   </div>
 </div>
 
@@ -231,26 +264,24 @@ function getKioskLocation() {
 // end-to-end latency.
 const SEND_WIDTH = 480;
 
-// One capture "attempt" = a short burst of frames spanning a natural
-// blink, sent together so the server can confirm liveness (a printed or
-// screen photo can't blink) and pick the sharpest post-blink frame to
-// actually identify you from. Kept short on purpose - people are reacting
-// to the on-screen "blink now" prompt, not blinking at some random point
-// in a long window, so this doesn't need to be long to catch it.
+// One capture "attempt" = a short burst of frames taken right after the
+// on-screen countdown finishes, sent together so the server can confirm
+// liveness (a printed or screen photo won't vary frame-to-frame the way
+// a real face does) and pick the sharpest frame to actually identify you
+// from. The server requires at least 4 frames per attempt.
 const BURST_FRAME_COUNT = 5;
 const BURST_FRAME_GAP_MS = 140;   // ~0.6s total burst duration
 
 const REQUEST_TIMEOUT_MS = 8000;
-const CYCLE_GAP_MS = 700;         // pause between attempts (idle "look at camera")
 const SUCCESS_PAUSE_MS = 2800;
-// Errors stay on screen long enough to actually read them before the
-// kiosk quietly retries - a couple of seconds was disappearing mid-read.
+// Errors stay on screen long enough to actually read before the kiosk
+// resets and waits for the next tap.
 const ERROR_PAUSE_MS = 5000;
 
 function setState(mode, headline, sub) {
     videoFrame.className = "video-frame state-" + mode;
     statusDiv.className = "status-" + mode;
-    const showDot = mode === "idle" || mode === "blink" || mode === "verify";
+    const showDot = mode === "idle" || mode === "countdown" || mode === "verify";
     statusHeadline.innerHTML = headline + (showDot ? '<span class="dot"></span>' : "");
     statusSub.textContent = sub || "";
 }
@@ -281,7 +312,7 @@ document.getElementById("start-overlay").addEventListener("click", () => {
         })
         .then(stream => {
             video.srcObject = stream;
-            video.onloadedmetadata = () => scheduleNextCycle(300);
+            video.onloadedmetadata = () => readyForNextCapture(300);
         })
         .catch(err => {
             if (kioskLatitude === null) {
@@ -327,21 +358,68 @@ async function captureBurst() {
     return frames;
 }
 
-function scheduleNextCycle(delayMs) {
+const captureBtn = document.getElementById("captureBtn");
+const skipWaitBtn = document.getElementById("skipWaitBtn");
+const countdownNumberEl = document.getElementById("countdownNumber");
+const COUNTDOWN_SECONDS = 3;
+let skipResolver = null;
+
+function readyForNextCapture(delayMs) {
     if (cycleTimer) clearTimeout(cycleTimer);
-    cycleTimer = setTimeout(runCycle, delayMs);
+    cycleTimer = setTimeout(() => {
+        setState("idle", "Ready", "Center your face and tap Check Attendance");
+        captureBtn.disabled = false;
+    }, delayMs);
 }
 
-async function runCycle() {
-    if (processing || video.readyState !== 4) {
-        scheduleNextCycle(CYCLE_GAP_MS);
-        return;
-    }
+skipWaitBtn.addEventListener("click", () => { if (skipResolver) skipResolver(); });
+
+// Runs for COUNTDOWN_SECONDS (or until the person taps "capture now"),
+// grabbing a frame every tick along the way. Spreading frames across the
+// full visible countdown - instead of only a tight burst at the very end -
+// gives someone's natural blink (required server-side for liveness) much
+// more of a window to land in, without needing an explicit "blink now" cue.
+function runCountdown() {
+    return new Promise((resolve) => {
+        let remaining = COUNTDOWN_SECONDS;
+        const spreadFrames = [captureFrame()];
+        countdownNumberEl.textContent = remaining;
+        skipWaitBtn.classList.add("show");
+
+        function finish() {
+            clearInterval(tick);
+            skipWaitBtn.classList.remove("show");
+            skipResolver = null;
+            resolve(spreadFrames);
+        }
+
+        const tick = setInterval(() => {
+            remaining -= 1;
+            spreadFrames.push(captureFrame());
+            if (remaining > 0) {
+                countdownNumberEl.textContent = remaining;
+            } else {
+                finish();
+            }
+        }, 1000);
+
+        skipResolver = finish;
+    });
+}
+
+captureBtn.addEventListener("click", startCaptureFlow);
+
+async function startCaptureFlow() {
+    if (processing || video.readyState !== 4) return;
     processing = true;
+    captureBtn.disabled = true;
 
     try {
-        setState("blink", "Please blink your eyes", "Hold still and blink naturally");
-        const frames = await captureBurst();
+        setState("countdown", "Hold on...", "Center your face in the frame");
+        const spreadFrames = await runCountdown();
+
+        setState("verify", "Capturing", "Hold still...");
+        const frames = spreadFrames.concat(await captureBurst());
 
         setState("verify", "Verifying", "Checking your face...");
 
@@ -368,19 +446,19 @@ async function runCycle() {
         if (data.success) {
             setState("success", "✅ " + data.message, data.time || "");
             if (data.action !== "ignored") playSuccessSound();
-            scheduleNextCycle(SUCCESS_PAUSE_MS);
+            readyForNextCapture(SUCCESS_PAUSE_MS);
         } else {
-            setState("error", data.message || "Something went wrong. Please try again.", "We'll try again automatically...");
-            scheduleNextCycle(ERROR_PAUSE_MS);
+            setState("error", data.message || "Something went wrong. Please try again.", "Tap Check Attendance to retry");
+            readyForNextCapture(ERROR_PAUSE_MS);
         }
 
     } catch (e) {
         if (e.name === "AbortError") {
-            setState("error", "Taking longer than usual", "We'll try again automatically...");
+            setState("error", "Taking longer than usual", "Tap Check Attendance to retry");
         } else {
-            setState("error", "Connection issue", "We'll try again automatically...");
+            setState("error", "Connection issue", "Tap Check Attendance to retry");
         }
-        scheduleNextCycle(ERROR_PAUSE_MS);
+        readyForNextCapture(ERROR_PAUSE_MS);
     } finally {
         processing = false;
     }

@@ -5,104 +5,215 @@
 {% block page_css %}
 {{ block.super }}
 <style>
-  .rec-app-shell { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
-  .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.2rem 1.4rem; }
-  .rec-app-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
-  .rec-app-header h1 { font-size: 1.25rem; font-weight: 700; color: #1f2937; margin: 0; }
-  .rec-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1.5rem; margin-top: 0.9rem; font-size: 0.85rem; }
-  @media (max-width: 600px) { .rec-info-grid { grid-template-columns: 1fr; } }
-  .rec-info-grid .k { color: #9ca3af; font-size: 0.72rem; text-transform: uppercase; }
-  .rec-info-grid .v { color: #1f2937; font-weight: 600; }
-  .rec-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  @media (max-width: 800px) { .rec-grid-2 { grid-template-columns: 1fr; } }
-  .rec-field { margin-bottom: 0.8rem; }
-  .rec-field label { font-size: 0.78rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.3rem; }
-  .rec-field .form-control, .rec-field .form-select { width: 100%; }
-  .rec-activity-row { display: flex; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid #f1f2f5; font-size: 0.83rem; }
-  .rec-activity-row:last-child { border-bottom: none; }
-  .rec-activity-time { font-size: 0.72rem; color: #9ca3af; }
+  .ad-shell { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 1rem 2rem; overflow-x: hidden; }
+  .ad-back-link { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.84rem; color: #696CFF; text-decoration: none; font-weight: 600; }
+  .ad-card { background: #fff; border-radius: 16px; border: 1px solid rgba(148,163,184,0.2); padding: 1.3rem 1.4rem; }
+
+  .ad-header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .ad-header-left { display: flex; align-items: flex-start; gap: 0.9rem; }
+  .ad-avatar { width: 56px; height: 56px; border-radius: 50%; background: #EEF2FF; color: #4338CA; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.3rem; flex-shrink: 0; text-transform: uppercase; }
+  .ad-name-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  .ad-name-row h1 { font-size: 1.3rem; font-weight: 800; color: #1f2937; margin: 0; }
+  .ad-sub { font-size: 0.84rem; color: #6b7280; margin-top: 0.2rem; }
+  .ad-status-pill { font-size: 0.72rem; font-weight: 700; padding: 0.22rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+  .ad-status-pill.applied { background: #EEF2FF; color: #4338CA; }
+  .ad-status-pill.screening { background: #FFF4E5; color: #B45309; }
+  .ad-status-pill.shortlisted { background: #E7F4FF; color: #2563eb; }
+  .ad-status-pill.interview, .ad-status-pill.technical { background: #F3E8FF; color: #7e22ce; }
+  .ad-status-pill.offer { background: #FCEFE0; color: #c2660f; }
+  .ad-status-pill.hired { background: #E8F8EE; color: #3f9a1c; }
+  .ad-status-pill.rejected { background: #FFF0F0; color: #c23616; }
+
+  .ad-header-actions { display: flex; align-items: center; gap: 0.5rem; }
+  .ad-kebab-wrap { position: relative; }
+  .ad-kebab-btn { width: 34px; height: 34px; border-radius: 9px; border: 1px solid #E5E7EF; background: #fff; color: #566A7F; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .ad-kebab-menu { display: none; position: absolute; top: calc(100% + 0.4rem); right: 0; background: #fff; border: 1px solid #E5E7EF; border-radius: 10px; box-shadow: 0 16px 32px rgba(15,23,42,0.12); min-width: 160px; z-index: 20; overflow: hidden; }
+  .ad-kebab-menu.show { display: block; }
+  .ad-kebab-menu button { width: 100%; text-align: left; border: none; background: none; padding: 0.6rem 0.9rem; font-size: 0.82rem; color: #c23616; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; }
+  .ad-kebab-menu button:hover { background: #FFF0F0; }
+
+  .ad-contact-row { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-top: 0.9rem; font-size: 0.82rem; color: #6b7280; }
+  .ad-contact-row span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .ad-contact-row a { color: inherit; text-decoration: none; }
+
+  .ad-divider { border: none; border-top: 1px solid #f1f2f5; margin: 1rem 0; }
+
+  .ad-info-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem 1.4rem; font-size: 0.85rem; }
+  @media (max-width: 700px) { .ad-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 460px) { .ad-info-grid { grid-template-columns: minmax(0, 1fr); } }
+  .ad-info-grid .k { color: #9ca3af; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+  .ad-info-grid .v { color: #1f2937; font-weight: 600; margin-top: 0.1rem; overflow-wrap: anywhere; }
+  .ad-info-grid .v a { color: #696CFF; text-decoration: none; }
+
+  .ad-message-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: #9ca3af; margin-bottom: 0.3rem; }
+  .ad-message-text { font-size: 0.85rem; color: #374151; white-space: pre-line; }
+
+  .ad-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+  @media (max-width: 800px) { .ad-grid-2 { grid-template-columns: minmax(0, 1fr); } }
+  .ad-card h5 { font-size: 0.92rem; font-weight: 700; color: #1f2937; margin: 0 0 1rem; display: flex; align-items: center; gap: 0.4rem; }
+
+  /* Status stepper */
+  .ad-stepper { display: flex; align-items: flex-start; overflow-x: auto; padding-bottom: 0.3rem; }
+  .ad-step-btn { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; cursor: pointer; flex: 1 1 0; min-width: 70px; padding: 0; }
+  .ad-step-connector { flex: 1 1 24px; height: 2px; background: #E5E7EF; margin-top: 13px; min-width: 14px; }
+  .ad-step-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #E5E7EF; background: #fff; display: flex; align-items: center; justify-content: center; }
+  .ad-step-btn.current .ad-step-dot { background: #696CFF; border-color: #696CFF; }
+  .ad-step-btn.current .ad-step-dot::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+  .ad-step-label { font-size: 0.7rem; color: #9ca3af; font-weight: 600; text-align: center; }
+  .ad-step-btn.current .ad-step-label { color: #696CFF; font-weight: 700; }
+
+  /* Schedule interview */
+  .ad-field { margin-bottom: 0.9rem; }
+  .ad-field label { font-size: 0.78rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.35rem; }
+  .ad-field input[type="text"], .ad-field input[type="datetime-local"] { width: 100%; font-size: 0.85rem; padding: 0.5rem 0.7rem; border-radius: 9px; border: 1px solid #E5E7EF; }
+  .ad-mode-row { display: flex; gap: 0.6rem; }
+  .ad-mode-radio { position: absolute; opacity: 0; width: 0; height: 0; }
+  .ad-mode-btn { flex: 1 1 0; text-align: center; font-size: 0.82rem; font-weight: 600; color: #374151; border: 1px solid #E5E7EF; border-radius: 9px; padding: 0.5rem 0.6rem; cursor: pointer; }
+  .ad-mode-radio:checked + .ad-mode-btn { background: #EEF2FF; border-color: #696CFF; color: #4338CA; }
+  .ad-checklist { border: 1px solid #E5E7EF; border-radius: 9px; max-height: 150px; overflow-y: auto; padding: 0.4rem 0.2rem; }
+  .ad-checklist-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.6rem; font-size: 0.82rem; color: #374151; }
+  .ad-checklist-row input { accent-color: #696CFF; }
+  .ad-current-interview { font-size: 0.82rem; color: #374151; background: #F8F9FC; border-radius: 10px; padding: 0.7rem 0.9rem; margin-bottom: 1rem; }
+
+  /* Chip multi-select (Assigned Recruiters) */
+  .ad-chip-select { border: 1px solid #E5E7EF; border-radius: 9px; padding: 0.5rem 0.6rem; }
+  .ad-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.4rem; }
+  .ad-chips:empty { margin-bottom: 0; }
+  .ad-chip { background: #EEF2FF; color: #4338CA; font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.5rem 0.25rem 0.6rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+  .ad-chip button { border: none; background: none; color: #4338CA; cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0; }
+  .ad-chip-dropdown { width: 100%; border: none; outline: none; font-size: 0.84rem; background: transparent; color: #6b7280; }
+  .ad-field-hint { font-size: 0.72rem; color: #9ca3af; margin-top: 0.4rem; }
+
+  /* Activity */
+  .ad-activity-row { display: flex; gap: 0.7rem; padding: 0.55rem 0; }
+  .ad-activity-dot-wrap { display: flex; flex-direction: column; align-items: center; }
+  .ad-activity-dot { width: 9px; height: 9px; border-radius: 50%; background: #696CFF; flex-shrink: 0; margin-top: 0.3rem; }
+  .ad-activity-line { width: 2px; flex: 1 1 auto; background: #E5E7EF; margin-top: 0.2rem; }
+  .ad-activity-row:last-child .ad-activity-line { display: none; }
+  .ad-activity-desc { font-size: 0.85rem; color: #1f2937; }
+  .ad-activity-time { font-size: 0.72rem; color: #9ca3af; margin-top: 0.15rem; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="rec-app-shell">
-  <div class="rec-card">
-    <div class="rec-app-header">
-      <div>
-        <h1>{{ application.full_name }}</h1>
-        <div style="font-size:0.84rem;color:#6b7280;margin-top:0.2rem;">Applied for {{ application.job.title|default:"— manual entry —" }} &middot; {{ application.get_source_display }}</div>
+<div class="ad-shell">
+  {% if application.job %}
+    <a href="{% url 'employees:recruitment_job_detail' application.job.pk %}" class="ad-back-link"><i class="bx bx-left-arrow-alt"></i> Back to Candidates</a>
+  {% else %}
+    <a href="{% url 'employees:recruitment_pipeline' %}" class="ad-back-link"><i class="bx bx-left-arrow-alt"></i> Back to Candidates</a>
+  {% endif %}
+
+  <div class="ad-card">
+    <div class="ad-header-top">
+      <div class="ad-header-left">
+        <div class="ad-avatar">{{ application.full_name|slice:":1" }}</div>
+        <div>
+          <div class="ad-name-row">
+            <span class="ad-status-pill {{ application.status }}">{{ application.get_status_display }}</span>
+          </div>
+          <div class="ad-name-row"><h1>{{ application.full_name }}</h1></div>
+          <div class="ad-sub">Applied for {{ application.job.title|default:"— manual entry —" }} &middot; {{ application.get_source_display }}</div>
+        </div>
       </div>
-      <div style="display:flex;gap:0.5rem;">
-        {% if application.resume %}<a href="{{ application.resume.url }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bx bx-download me-1"></i>Resume</a>{% endif %}
+      <div class="ad-header-actions">
+        {% if application.resume %}<a href="{{ application.resume.url }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bx bx-file me-1"></i>Resume</a>{% endif %}
         {% if is_manager %}
-        <form method="post" action="{% url 'employees:recruitment_application_delete' application.pk %}" onsubmit="return confirm('Delete this application?');">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bx bx-trash"></i></button>
-        </form>
+        <div class="ad-kebab-wrap">
+          <button type="button" class="ad-kebab-btn" id="adKebabBtn"><i class="bx bx-dots-vertical-rounded"></i></button>
+          <div class="ad-kebab-menu" id="adKebabMenu">
+            <form method="post" action="{% url 'employees:recruitment_application_delete' application.pk %}" onsubmit="return confirm('Delete this application?');">
+              {% csrf_token %}
+              <button type="submit"><i class="bx bx-trash"></i> Delete Application</button>
+            </form>
+          </div>
+        </div>
         {% endif %}
       </div>
     </div>
-    <div class="rec-info-grid">
-      <div><div class="k">Email</div><div class="v">{{ application.email|default:"-" }}</div></div>
-      <div><div class="k">Phone</div><div class="v">{{ application.phone|default:"-" }}</div></div>
-      <div><div class="k">Current Location</div><div class="v">{{ application.current_location|default:"-" }}</div></div>
-      <div><div class="k">Current Company</div><div class="v">{{ application.current_company|default:"-" }}</div></div>
-      <div><div class="k">Current CTC</div><div class="v">{{ application.current_ctc|default:"-" }}</div></div>
-      <div><div class="k">Expected CTC</div><div class="v">{{ application.expected_ctc|default:"-" }}</div></div>
+
+    <div class="ad-contact-row">
+      {% if application.email %}<span><i class="bx bx-envelope"></i> {{ application.email }}</span>{% endif %}
+      {% if application.phone %}<span><i class="bx bx-phone"></i> {{ application.phone }}</span>{% endif %}
+      <span><i class="bx bx-map"></i> {{ application.current_location|default:"-" }}</span>
+      <span><i class="bx bx-briefcase"></i> {{ application.current_company|default:"-" }}</span>
+    </div>
+
+    <hr class="ad-divider">
+
+    <div class="ad-info-grid">
+      <div><div class="k">Current CTC</div><div class="v">{% if application.current_ctc %}&#8377; {{ application.current_ctc }}{% else %}-{% endif %}</div></div>
+      <div><div class="k">Expected CTC</div><div class="v">{% if application.expected_ctc %}&#8377; {{ application.expected_ctc }}{% else %}-{% endif %}</div></div>
+      <div><div class="k">Years of Experience</div><div class="v">{{ application.get_years_of_experience_display|default:"-" }}</div></div>
+
+      <div><div class="k">LinkedIn</div><div class="v">{% if application.linkedin_url %}<a href="{{ application.linkedin_url }}" target="_blank" rel="noopener">View Profile</a>{% else %}-{% endif %}</div></div>
+      <div><div class="k">Portfolio / GitHub</div><div class="v">{% if application.portfolio_url %}<a href="{{ application.portfolio_url }}" target="_blank" rel="noopener">View Link</a>{% else %}-{% endif %}</div></div>
       <div><div class="k">Department</div><div class="v">{{ application.department.name|default:"-" }}</div></div>
+
       <div><div class="k">Designation</div><div class="v">{{ application.designation.name|default:"-" }}</div></div>
       <div><div class="k">Employment Type</div><div class="v">{{ application.employment_type.name|default:"-" }}</div></div>
+      <div><div class="k">Privacy Consent</div><div class="v">{% if application.consent_given_at %}{{ application.consent_given_at|date:"d M Y, h:i A" }}{% if application.consent_ip_address %} from {{ application.consent_ip_address }}{% endif %}{% else %}-{% endif %}</div></div>
     </div>
-    {% if application.message %}<div style="margin-top:0.9rem;"><div class="rec-info-grid-k" style="font-size:0.72rem;color:#9ca3af;text-transform:uppercase;">Message</div><div style="font-size:0.85rem;color:#374151;white-space:pre-line;">{{ application.message }}</div></div>{% endif %}
+
+    {% if application.message %}
+      <hr class="ad-divider">
+      <div class="ad-message-label">Message</div>
+      <div class="ad-message-text">{{ application.message }}</div>
+    {% endif %}
   </div>
 
-  <div class="rec-grid-2">
-    <div class="rec-card">
-      <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Status</h5>
-      <form method="post">
+  <div class="ad-grid-2">
+    <div class="ad-card">
+      <h5><i class="bx bx-flag"></i> Status</h5>
+      <form method="post" id="adStatusForm">
         {% csrf_token %}
         <input type="hidden" name="action" value="update_status">
-        <div class="rec-field">
-          <select name="status" class="form-select">
-            {% for value, label in status_choices %}<option value="{{ value }}" {% if application.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-          </select>
+        <div class="ad-stepper">
+          {% for value, label in status_choices %}
+            {% if not forloop.first %}<div class="ad-step-connector"></div>{% endif %}
+            <button type="submit" name="status" value="{{ value }}" class="ad-step-btn {% if application.status == value %}current{% endif %}">
+              <span class="ad-step-dot"></span>
+              <span class="ad-step-label">{{ label }}</span>
+            </button>
+          {% endfor %}
         </div>
-        <button type="submit" class="btn btn-primary btn-sm">Update Status</button>
       </form>
     </div>
 
-    <div class="rec-card">
-      <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Assigned Recruiters</h5>
+    <div class="ad-card">
+      <h5><i class="bx bx-user-voice"></i> Assigned Recruiters</h5>
       {% if is_manager %}
-      <form method="post">
+      <form method="post" id="adRecruitersForm">
         {% csrf_token %}
         <input type="hidden" name="action" value="assign_recruiters">
-        <div class="rec-field">
-          <select name="recruiters" class="form-select" multiple size="5">
+        <div class="ad-chip-select">
+          <div class="ad-chips" id="adRecruiterChips"></div>
+          <select class="ad-chip-dropdown" id="adRecruiterDropdown">
+            <option value="">+ Add recruiter...</option>
             {% for recruiter in recruiter_options %}
-              <option value="{{ recruiter.pk }}" {% if recruiter.pk in assigned_recruiter_ids %}selected{% endif %}>{{ recruiter.full_name|default:recruiter.name }} ({{ recruiter.email }})</option>
+              <option value="{{ recruiter.pk }}" data-label="{{ recruiter.full_name|default:recruiter.name }} ({{ recruiter.email }})" {% if recruiter.pk in assigned_recruiter_ids %}data-selected="1"{% endif %}>{{ recruiter.full_name|default:recruiter.name }} ({{ recruiter.email }})</option>
             {% empty %}
               <option disabled>No employees hold the recruiter permission yet.</option>
             {% endfor %}
           </select>
-          <span class="field-hint" style="font-size:0.72rem;color:#9ca3af;">Hold Ctrl/Cmd to select more than one.</span>
         </div>
-        <button type="submit" class="btn btn-primary btn-sm">Save Recruiters</button>
+        <div id="adRecruiterHiddenInputs"></div>
+        <div class="ad-field-hint">Pick from the dropdown to add - click &times; on a chip to remove.</div>
+        <button type="submit" class="btn btn-primary btn-sm mt-3">Save Recruiters</button>
       </form>
       {% else %}
         <div style="font-size:0.84rem;color:#374151;">
           {% for recruiter in recruiter_options %}{% if recruiter.pk in assigned_recruiter_ids %}{{ recruiter.full_name|default:recruiter.name }}<br>{% endif %}{% endfor %}
         </div>
-        <span class="field-hint" style="font-size:0.72rem;color:#9ca3af;">Only recruitment managers can change this.</span>
+        <div class="ad-field-hint">Only recruitment managers can change this.</div>
       {% endif %}
     </div>
   </div>
 
-  <div class="rec-grid-2">
-    <div class="rec-card">
-      <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Schedule Interview</h5>
+  <div class="ad-grid-2">
+    <div class="ad-card">
+      <h5><i class="bx bx-calendar-event"></i> Schedule Interview</h5>
       {% if application.interview_scheduled_at %}
-        <div style="font-size:0.82rem;color:#374151;margin-bottom:0.8rem;">
+        <div class="ad-current-interview">
           Currently: {% if application.interview_title %}<strong>{{ application.interview_title }}</strong> - {% endif %}{{ application.interview_scheduled_at|date:"d M Y, h:i A" }}{% if application.interview_mode %} &middot; {{ application.get_interview_mode_display }}{% endif %}
           {% with names=application.interviewers.all %}{% if names %}<br>Interviewer(s): {% for p in names %}{{ p.full_name|default:p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% endwith %}
         </div>
@@ -110,57 +221,132 @@
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="schedule_interview">
-        <div class="rec-field">
+        <div class="ad-field">
           <label>Title</label>
-          <input type="text" name="interview_title" class="form-control" placeholder="e.g. 1st Interview, Technical Interview, HR Round" value="{{ application.interview_title }}">
+          <input type="text" name="interview_title" placeholder="e.g. 1st Interview, Technical Interview, HR Round" value="{{ application.interview_title }}">
         </div>
-        <div class="rec-field">
+        <div class="ad-field">
           <label>Date &amp; Time</label>
-          <input type="datetime-local" name="interview_scheduled_at" class="form-control" value="{{ application.interview_scheduled_at|date:'Y-m-d\TH:i' }}">
+          <input type="datetime-local" name="interview_scheduled_at" value="{{ application.interview_scheduled_at|date:'Y-m-d\TH:i' }}">
         </div>
-        <div class="rec-field">
+        <div class="ad-field">
           <label>Mode</label>
-          <select name="interview_mode" class="form-select">
-            <option value="">-</option>
-            {% for value, label in interview_mode_choices %}<option value="{{ value }}" {% if application.interview_mode == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="rec-field">
-          <label>Interviewer(s)</label>
-          <select name="interviewers" class="form-select" multiple size="4">
-            {% for emp in interviewer_options %}
-              <option value="{{ emp.pk }}" {% if emp.pk in assigned_interviewer_ids %}selected{% endif %}>{{ emp.full_name|default:emp.name }} ({{ emp.email }})</option>
+          <div class="ad-mode-row">
+            {% for value, label in interview_mode_choices %}
+              <span style="position:relative;flex:1 1 0;">
+                <input type="radio" name="interview_mode" value="{{ value }}" id="mode-{{ value }}" class="ad-mode-radio" {% if application.interview_mode == value %}checked{% endif %}>
+                <label for="mode-{{ value }}" class="ad-mode-btn">{{ label }}</label>
+              </span>
             {% endfor %}
-          </select>
-          <span class="field-hint" style="font-size:0.72rem;color:#9ca3af;">Any employee - not just recruiters. Hold Ctrl/Cmd to select more than one.</span>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary btn-sm">Schedule</button>
+        <div class="ad-field">
+          <label>Interviewer(s)</label>
+          <div class="ad-checklist">
+            {% for emp in interviewer_options %}
+              <label class="ad-checklist-row">
+                <input type="checkbox" name="interviewers" value="{{ emp.pk }}" {% if emp.pk in assigned_interviewer_ids %}checked{% endif %}>
+                {{ emp.full_name|default:emp.name }} ({{ emp.email }})
+              </label>
+            {% endfor %}
+          </div>
+          <div class="ad-field-hint">Any employee - not just recruiters.</div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="bx bx-calendar-check me-1"></i>Schedule</button>
       </form>
     </div>
 
-    <div class="rec-card">
-      <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Add Note</h5>
+    <div class="ad-card">
+      <h5><i class="bx bx-message-square-detail"></i> Add Note</h5>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="add_note">
-        <div class="rec-field">
-          <textarea name="note" class="form-control" rows="4" placeholder="Interview feedback, a call summary, anything worth logging..."></textarea>
+        <div class="ad-field">
+          <textarea name="note" class="form-control" rows="6" placeholder="Interview feedback, a call summary, anything worth logging..."></textarea>
         </div>
-        <button type="submit" class="btn btn-primary btn-sm">Add Note</button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="bx bx-plus me-1"></i>Add Note</button>
       </form>
     </div>
   </div>
 
-  <div class="rec-card">
-    <h5 style="font-size:0.92rem;font-weight:700;margin-bottom:0.8rem;">Activity</h5>
+  <div class="ad-card">
+    <h5><i class="bx bx-time-five"></i> Activity</h5>
     {% for activity in activities %}
-      <div class="rec-activity-row">
-        <i class="bx bx-circle" style="font-size:0.5rem;color:#696CFF;margin-top:0.3rem;"></i>
-        <div><div>{{ activity.description }}</div><div class="rec-activity-time">{% if activity.created_by %}{{ activity.created_by.get_full_name|default:activity.created_by.username }}{% else %}System{% endif %} &middot; {{ activity.created_at|timesince }} ago</div></div>
+      <div class="ad-activity-row">
+        <div class="ad-activity-dot-wrap">
+          <div class="ad-activity-dot"></div>
+          <div class="ad-activity-line"></div>
+        </div>
+        <div>
+          <div class="ad-activity-desc">{{ activity.description }}</div>
+          <div class="ad-activity-time">{% if activity.created_by %}{{ activity.created_by.get_full_name|default:activity.created_by.username }}{% else %}System{% endif %} &middot; {{ activity.created_at|timesince }} ago</div>
+        </div>
       </div>
     {% empty %}
       <div class="text-muted" style="font-size:0.85rem;">No activity yet.</div>
     {% endfor %}
   </div>
 </div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var kebabBtn = document.getElementById('adKebabBtn');
+  var kebabMenu = document.getElementById('adKebabMenu');
+  if (kebabBtn && kebabMenu) {
+    kebabBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      kebabMenu.classList.toggle('show');
+    });
+    document.addEventListener('click', function (e) {
+      if (!kebabMenu.contains(e.target) && e.target !== kebabBtn) kebabMenu.classList.remove('show');
+    });
+  }
+
+  var dropdown = document.getElementById('adRecruiterDropdown');
+  if (dropdown) {
+    var chipsBox = document.getElementById('adRecruiterChips');
+    var hiddenBox = document.getElementById('adRecruiterHiddenInputs');
+    var selected = [];
+    Array.prototype.forEach.call(dropdown.options, function (opt) {
+      if (opt.dataset.selected) selected.push({ id: opt.value, label: opt.dataset.label });
+    });
+
+    function render() {
+      chipsBox.innerHTML = '';
+      hiddenBox.innerHTML = '';
+      selected.forEach(function (item) {
+        var chip = document.createElement('span');
+        chip.className = 'ad-chip';
+        chip.innerHTML = item.label.replace(/</g, '&lt;') + ' <button type="button" aria-label="Remove">&times;</button>';
+        chip.querySelector('button').addEventListener('click', function () {
+          selected = selected.filter(function (s) { return s.id !== item.id; });
+          render();
+        });
+        chipsBox.appendChild(chip);
+
+        var hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'recruiters';
+        hidden.value = item.id;
+        hiddenBox.appendChild(hidden);
+      });
+    }
+
+    dropdown.addEventListener('change', function () {
+      var opt = dropdown.options[dropdown.selectedIndex];
+      if (!opt.value) return;
+      if (!selected.some(function (s) { return s.id === opt.value; })) {
+        selected.push({ id: opt.value, label: opt.dataset.label });
+        render();
+      }
+      dropdown.value = '';
+    });
+
+    render();
+  }
+});
+</script>
 {% endblock %}

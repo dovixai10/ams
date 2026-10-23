@@ -1,0 +1,12 @@
+<div class="rec-pcard" draggable="true" data-app-id="{{ app.pk }}">
+  <div class="rec-pcard-top">
+    <div class="rec-pcard-avatar">{{ app.full_name|slice:":1" }}</div>
+    <div style="min-width:0;">
+      <a href="{% url 'employees:recruitment_application_detail' app.pk %}" class="name-link"><div class="rec-pcard-name">{{ app.full_name }}</div></a>
+      <div class="rec-pcard-role">{{ app.job.title|default:"Manual entry" }}</div>
+    </div>
+  </div>
+  <div class="rec-pcard-meta-row"><i class="bx bx-map"></i> {% if app.job.location %}{{ app.job.location }}{% elif app.job.branch %}{{ app.job.branch.name }}{% elif app.branch %}{{ app.branch.name }}{% else %}-{% endif %}</div>
+  <div class="rec-pcard-meta-row"><i class="bx bx-calendar"></i> {{ app.created_at|date:"M d, Y" }}</div>
+  <span class="rec-pcard-status rec-pstatus-{{ app.status }}">{{ app.get_status_display }}</span>
+</div>

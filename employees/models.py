@@ -5790,6 +5790,17 @@ class JobApplication(models.Model):
     current_ctc = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Annual CTC, if shared.")
     expected_ctc = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
+    class YearsOfExperience(models.TextChoices):
+        Y0_1 = ('0-1', '0 - 1 Years')
+        Y1_3 = ('1-3', '1 - 3 Years')
+        Y3_5 = ('3-5', '3 - 5 Years')
+        Y5_10 = ('5-10', '5 - 10 Years')
+        Y10_PLUS = ('10+', '10+ Years')
+
+    years_of_experience = models.CharField(max_length=10, choices=YearsOfExperience.choices, blank=True)
+    linkedin_url = models.URLField(blank=True)
+    portfolio_url = models.URLField(blank=True, help_text="Portfolio, GitHub, or any other work-sample link.")
+
     department = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_applications')
     designation = models.ForeignKey('Designation', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_applications')
     employment_type = models.ForeignKey('EmploymentType', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_applications')
@@ -5800,6 +5811,15 @@ class JobApplication(models.Model):
         blank=True, null=True,
     )
     message = models.TextField(blank=True)
+
+    consent_given_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When the applicant ticked the privacy-policy consent checkbox on the public careers page.",
+    )
+    consent_ip_address = models.GenericIPAddressField(
+        null=True, blank=True,
+        help_text="IP address the application (and consent) was submitted from, for audit purposes.",
+    )
 
     source = models.CharField(max_length=10, choices=Source.choices, default=Source.MANUAL, db_index=True)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.APPLIED, db_index=True)
@@ -5895,7 +5915,19 @@ class RecruitmentCareersPage(models.Model):
 
     office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name='careers_page')
     slug = models.SlugField(max_length=40, unique=True, blank=True)
-    intro_text = models.TextField(blank=True, help_text="Optional blurb shown above the job list.")
+    hero_badge_text = models.CharField(
+        max_length=60, blank=True, default='Join Our Team',
+        help_text="Small pill shown above the banner title, e.g. 'Join Our Team'.",
+    )
+    hero_title = models.CharField(
+        max_length=150, blank=True, default='Build Your Future With Us',
+        help_text="Big headline at the top of the careers page.",
+    )
+    intro_text = models.TextField(blank=True, help_text="Subtitle shown under the banner title, above the job list.")
+    hero_features = models.CharField(
+        max_length=300, blank=True, default='Great Culture, Growth Opportunities, Flexible Work, Competitive Pay',
+        help_text="Comma-separated highlights shown as small badges under the banner, e.g. Great Culture, Flexible Work",
+    )
     is_active = models.BooleanField(default=True, help_text="Turn off to stop accepting new applications from this page.")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -5906,6 +5938,10 @@ class RecruitmentCareersPage(models.Model):
             base = slugify(self.office.name)[:24] or 'office'
             self.slug = f"{base}-{secrets.token_hex(4)}"
         super().save(*args, **kwargs)
+
+    @property
+    def hero_features_list(self):
+        return [f.strip() for f in self.hero_features.split(',') if f.strip()]
 
     def __str__(self):
         return f"Careers page for {self.office.name}"

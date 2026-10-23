@@ -1,55 +1,172 @@
 {% extends layout_path %}
 
-{% block title %}Pipeline | Dovix AI{% endblock %}
+{% block title %}Hiring Workflow | Dovix AI{% endblock %}
 
 {% block page_css %}
 {{ block.super }}
 <style>
-  .rec-pipeline-shell { max-width: 100%; padding: 0.75rem 1rem 2rem; }
-  .rec-pipeline-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  .rec-pipeline-header h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
-  .rec-pipeline-header h1 i { color: #696CFF; }
-  .rec-pipeline-header select { font-size: 0.82rem; padding: 0.45rem 0.7rem; border-radius: 8px; border: 1px solid #E5E7EF; }
+  .rec-pipeline-shell { max-width: 100%; padding: 0.75rem 1rem 2rem; overflow-x: hidden; }
+  .rec-pipeline-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.3rem; }
+  .rec-pipeline-title { display: flex; align-items: center; gap: 0.7rem; }
+  .rec-pipeline-title .ic { width: 44px; height: 44px; border-radius: 12px; background: #EEF2FF; color: #696CFF; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+  .rec-pipeline-title h1 { font-size: 1.4rem; font-weight: 800; color: #1f2937; margin: 0; }
+  .rec-pipeline-sub { font-size: 0.85rem; color: #6b7280; margin: 0.3rem 0 0; max-width: 640px; }
 
-  .rec-board { display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 1rem; }
-  .rec-column { flex: 0 0 240px; background: #F5F6FA; border-radius: 12px; padding: 0.7rem; }
-  .rec-column-head { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 700; color: #374151; margin-bottom: 0.6rem; padding: 0 0.2rem; }
-  .rec-column-count { background: #fff; border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.72rem; color: #6b7280; }
-  .rec-column-body { min-height: 60px; display: flex; flex-direction: column; gap: 0.5rem; }
-  .rec-column-body.drag-over { background: rgba(105, 108, 255, 0.08); border-radius: 8px; }
+  .rec-pipeline-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  .rec-job-select-wrap { position: relative; }
+  .rec-job-select-wrap i.prefix { position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: #fff; font-size: 0.95rem; pointer-events: none; }
+  .rec-job-select-wrap i.chev { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); color: #fff; font-size: 0.9rem; pointer-events: none; }
+  .rec-job-select { appearance: none; -webkit-appearance: none; background: linear-gradient(135deg, #696CFF, #8B5CF6); color: #fff; font-weight: 700; font-size: 0.85rem; border: none; border-radius: 10px; padding: 0.6rem 2.2rem 0.6rem 2.4rem; cursor: pointer; }
+  .rec-job-select option { color: #1f2937; background: #fff; font-weight: 500; }
 
-  .rec-pcard { background: #fff; border-radius: 10px; border: 1px solid #E5E7EF; border-left: 3px solid #696CFF; padding: 0.6rem 0.7rem; cursor: grab; font-size: 0.82rem; }
+  .rec-filter-wrap { position: relative; }
+  .rec-filter-btn { width: 40px; height: 40px; border-radius: 10px; border: 1px solid #E5E7EF; background: #fff; color: #696CFF; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .rec-filter-panel { display: none; position: absolute; top: calc(100% + 0.5rem); right: 0; background: #fff; border: 1px solid #E5E7EF; border-radius: 12px; box-shadow: 0 16px 32px rgba(15,23,42,0.12); padding: 1rem; min-width: 240px; z-index: 30; }
+  .rec-filter-panel.show { display: block; }
+  .rec-filter-panel .field { margin-bottom: 0.8rem; }
+  .rec-filter-panel label { font-size: 0.75rem; font-weight: 600; color: #374151; display: block; margin-bottom: 0.25rem; }
+  .rec-filter-panel select { width: 100%; }
+
+  .rec-kpi-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.9rem; margin-bottom: 1.3rem; }
+  @media (max-width: 1200px) { .rec-kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 650px) { .rec-kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 420px) { .rec-kpi-row { grid-template-columns: minmax(0, 1fr); } }
+  .rec-kpi-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 0.9rem 1rem; display: flex; align-items: center; gap: 0.7rem; cursor: pointer; text-decoration: none; }
+  .rec-kpi-card .ic { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .rec-kpi-card .body { flex: 1 1 auto; min-width: 0; }
+  .rec-kpi-card .label { font-size: 0.78rem; color: #6b7280; font-weight: 600; }
+  .rec-kpi-card .value { font-size: 1.2rem; font-weight: 800; color: #1f2937; }
+  .rec-kpi-card .chev { color: #9ca3af; font-size: 1.1rem; flex-shrink: 0; }
+
+  .rec-board { display: flex; gap: 0.9rem; overflow-x: auto; padding-bottom: 1rem; align-items: flex-start; }
+  .rec-column { flex: 0 0 255px; background: #F8F9FC; border-radius: 14px; padding: 0.85rem; }
+  .rec-column-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem; padding: 0 0.1rem; }
+  .rec-column-head .ic { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; }
+  .rec-column-head .lbl { font-size: 0.86rem; font-weight: 700; color: #1f2937; flex: 1 1 auto; }
+  .rec-column-count { background: #fff; border-radius: 999px; padding: 0.1rem 0.55rem; font-size: 0.74rem; font-weight: 700; color: #6b7280; }
+
+  .rec-column-body, .rec-column-extra { display: flex; flex-direction: column; gap: 0.6rem; min-height: 60px; }
+  .rec-column-extra { display: none; margin-top: 0.6rem; }
+  .rec-column-extra.show { display: flex; }
+  .rec-column-body.drag-over { background: rgba(105,108,255,0.08); border-radius: 10px; }
+
+  .rec-pcard { background: #fff; border-radius: 12px; border: 1px solid #E5E7EF; padding: 0.75rem 0.8rem; cursor: grab; }
   .rec-pcard:active { cursor: grabbing; }
-  .rec-pcard-name { font-weight: 600; color: #1f2937; margin-bottom: 0.2rem; }
-  .rec-pcard-meta { font-size: 0.72rem; color: #9ca3af; }
-  .rec-pcard a { color: inherit; text-decoration: none; }
+  .rec-pcard .name-link { text-decoration: none; }
+  .rec-pcard-top { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.5rem; }
+  .rec-pcard-avatar { width: 34px; height: 34px; border-radius: 50%; background: #EEF2FF; color: #4338CA; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; flex-shrink: 0; text-transform: uppercase; }
+  .rec-pcard-name { font-size: 0.85rem; font-weight: 700; color: #1f2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec-pcard-role { font-size: 0.72rem; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec-pcard-meta-row { display: flex; align-items: center; gap: 0.35rem; font-size: 0.74rem; color: #6b7280; margin-bottom: 0.3rem; }
+  .rec-pcard-status { display: inline-block; margin-top: 0.4rem; font-size: 0.7rem; font-weight: 700; padding: 0.18rem 0.55rem; border-radius: 999px; }
+  .rec-pstatus-applied { background: #EEF2FF; color: #4338CA; }
+  .rec-pstatus-screening { background: #F3E8FF; color: #7e22ce; }
+  .rec-pstatus-shortlisted { background: #E8F8EE; color: #3f9a1c; }
+  .rec-pstatus-interview { background: #FFF4E5; color: #B45309; }
+  .rec-pstatus-technical { background: #F3E8FF; color: #7e22ce; }
+  .rec-pstatus-offer { background: #FCEFE0; color: #c2660f; }
+  .rec-pstatus-hired { background: #E7F4FF; color: #2563eb; }
+
+  .rec-column-viewall { display: block; text-align: center; font-size: 0.78rem; font-weight: 600; color: #696CFF; text-decoration: none; padding: 0.55rem 0 0.1rem; cursor: pointer; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="rec-pipeline-shell">
   <div class="rec-pipeline-header">
-    <h1><i class="bx bx-trending-up"></i> Pipeline</h1>
-    <form method="get">
-      <select name="job" onchange="this.form.submit()">
-        <option value="">All Jobs</option>
-        {% for job in jobs %}<option value="{{ job.pk }}" {% if job_filter == job.pk|stringformat:'s' %}selected{% endif %}>{{ job.title }}</option>{% endfor %}
-      </select>
-    </form>
+    <div class="rec-pipeline-title">
+      <div class="ic"><i class="bx bx-group"></i></div>
+      <div>
+        <h1>Hiring Workflow</h1>
+        <p class="rec-pipeline-sub">Track candidates across different stages of your hiring process. Move them through the pipeline and find the best talent for your team.</p>
+      </div>
+    </div>
+
+    <div class="rec-pipeline-actions">
+      <form method="get" id="pipelineJobForm">
+        <input type="hidden" name="department" value="{{ department_filter }}">
+        <input type="hidden" name="branch" value="{{ branch_filter }}">
+        <input type="hidden" name="employment_type" value="{{ employment_type_filter }}">
+        <div class="rec-job-select-wrap">
+          <i class="bx bx-briefcase prefix"></i>
+          <select name="job" class="rec-job-select" onchange="this.form.submit()">
+            <option value="">All Jobs</option>
+            {% for job in jobs %}<option value="{{ job.pk }}" {% if job_filter == job.pk|stringformat:'s' %}selected{% endif %}>{{ job.title }}</option>{% endfor %}
+          </select>
+          <i class="bx bx-chevron-down chev"></i>
+        </div>
+      </form>
+
+      <div class="rec-filter-wrap">
+        <button type="button" class="rec-filter-btn" id="pipelineFilterToggle"><i class="bx bx-slider-alt"></i></button>
+        <div class="rec-filter-panel" id="pipelineFilterPanel">
+          <form method="get">
+            <input type="hidden" name="job" value="{{ job_filter }}">
+            <div class="field">
+              <label>Department</label>
+              <select name="department" class="form-select form-select-sm">
+                <option value="">All Departments</option>
+                {% for dept in department_choices %}<option value="{{ dept.pk }}" {% if department_filter == dept.pk|stringformat:'s' %}selected{% endif %}>{{ dept.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label>Branch</label>
+              <select name="branch" class="form-select form-select-sm">
+                <option value="">All Branches</option>
+                {% for br in branch_choices %}<option value="{{ br.pk }}" {% if branch_filter == br.pk|stringformat:'s' %}selected{% endif %}>{{ br.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label>Employment Type</label>
+              <select name="employment_type" class="form-select form-select-sm">
+                <option value="">All Types</option>
+                {% for et in employment_type_choices %}<option value="{{ et.pk }}" {% if employment_type_filter == et.pk|stringformat:'s' %}selected{% endif %}>{{ et.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div style="display:flex;gap:0.5rem;">
+              <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+              <a href="{% url 'employees:recruitment_pipeline' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rec-kpi-row">
+    {% for column in columns %}
+      <a href="javascript:void(0)" class="rec-kpi-card" data-scroll-target="col-{{ column.key }}">
+        <div class="ic" style="background:{{ column.bg }};color:{{ column.fg }};"><i class="bx {{ column.icon }}"></i></div>
+        <div class="body">
+          <div class="label">{{ column.label }}</div>
+          <div class="value">{{ column.applications|length }}</div>
+        </div>
+        <i class="bx bx-chevron-right chev"></i>
+      </a>
+    {% endfor %}
   </div>
 
   <div class="rec-board">
     {% for column in columns %}
-      <div class="rec-column">
-        <div class="rec-column-head"><span>{{ column.label }}</span><span class="rec-column-count">{{ column.applications|length }}</span></div>
+      <div class="rec-column" id="col-{{ column.key }}">
+        <div class="rec-column-head">
+          <div class="ic" style="background:{{ column.bg }};color:{{ column.fg }};"><i class="bx {{ column.icon }}"></i></div>
+          <div class="lbl">{{ column.label }}</div>
+          <div class="rec-column-count">{{ column.applications|length }}</div>
+        </div>
         <div class="rec-column-body" data-status="{{ column.key }}">
-          {% for app in column.applications %}
-            <div class="rec-pcard" draggable="true" data-app-id="{{ app.pk }}">
-              <a href="{% url 'employees:recruitment_application_detail' app.pk %}"><div class="rec-pcard-name">{{ app.full_name }}</div></a>
-              <div class="rec-pcard-meta">{{ app.job.title|default:"Manual entry" }}</div>
-            </div>
+          {% for app in column.visible_applications %}
+            {% include "employees/recruitment/_pipeline_card.html" with app=app %}
           {% endfor %}
         </div>
+        {% if column.applications|length > 4 %}
+          <div class="rec-column-extra" id="extra-{{ column.key }}">
+            {% for app in column.applications|slice:"4:" %}
+              {% include "employees/recruitment/_pipeline_card.html" with app=app %}
+            {% endfor %}
+          </div>
+          <a href="javascript:void(0)" class="rec-column-viewall" data-toggle-column="{{ column.key }}" data-total="{{ column.applications|length }}">+ View all ({{ column.applications|length }})</a>
+        {% endif %}
       </div>
     {% endfor %}
   </div>
@@ -98,6 +215,38 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
   });
+
+  // KPI card -> scroll the board to that column
+  document.querySelectorAll('.rec-kpi-card').forEach(function (kpi) {
+    kpi.addEventListener('click', function () {
+      var target = document.getElementById(kpi.dataset.scrollTarget);
+      if (target) target.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+    });
+  });
+
+  // "+ View all" toggle per column
+  document.querySelectorAll('.rec-column-viewall').forEach(function (link) {
+    link.addEventListener('click', function () {
+      var key = link.dataset.toggleColumn;
+      var extra = document.getElementById('extra-' + key);
+      if (!extra) return;
+      var expanded = extra.classList.toggle('show');
+      link.textContent = expanded ? '- Show less' : ('+ View all (' + link.dataset.total + ')');
+    });
+  });
+
+  // Advanced filters panel
+  var filterToggle = document.getElementById('pipelineFilterToggle');
+  var filterPanel = document.getElementById('pipelineFilterPanel');
+  if (filterToggle && filterPanel) {
+    filterToggle.addEventListener('click', function (e) {
+      e.stopPropagation();
+      filterPanel.classList.toggle('show');
+    });
+    document.addEventListener('click', function (e) {
+      if (!filterPanel.contains(e.target) && e.target !== filterToggle) filterPanel.classList.remove('show');
+    });
+  }
 });
 </script>
 {% endblock %}

@@ -5,82 +5,344 @@
 {% block page_css %}
 {{ block.super }}
 <style>
-  .rec-detail-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
-  .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.2rem 1.4rem; }
-  .rec-detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
-  .rec-detail-header h1 { font-size: 1.25rem; font-weight: 700; color: #1f2937; margin: 0; }
-  .rec-meta-row { font-size: 0.82rem; color: #6b7280; margin-top: 0.4rem; display: flex; gap: 1rem; flex-wrap: wrap; }
-  .rec-toolbar { display: flex; gap: 0.6rem; padding: 0 0 1rem; flex-wrap: wrap; }
-  .rec-toolbar select { font-size: 0.82rem; padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid #E5E7EF; }
-  table.rec-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
-  table.rec-table th { text-align: left; padding: 0.6rem 0.8rem; font-size: 0.7rem; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f1f2f5; }
-  table.rec-table td { padding: 0.6rem 0.8rem; border-bottom: 1px solid #f1f2f5; }
-  .rec-badge { font-size: 0.72rem; font-weight: 700; padding: 0.22rem 0.55rem; border-radius: 999px; background: #F1F2F5; color: #475467; }
+  .rd-shell { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 1rem 2rem; overflow-x: hidden; }
+  .rd-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.2rem 1.4rem; }
+
+  .rd-header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .rd-title-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  .rd-title-row h1 { font-size: 1.4rem; font-weight: 700; color: #1f2937; margin: 0; }
+  .rd-desc-preview { font-size: 0.85rem; color: #6b7280; margin-top: 0.35rem; max-width: 620px; }
+  .rd-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .rd-status-badge { font-size: 0.74rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 999px; white-space: nowrap; }
+  .rd-status-badge.draft { background: #F1F2F5; color: #8592A3; }
+  .rd-status-badge.open { background: #E8F8EE; color: #3f9a1c; }
+  .rd-status-badge.on_hold { background: #FFF4E5; color: #B45309; }
+  .rd-status-badge.closed { background: #FFF0F0; color: #c23616; }
+
+  .rd-info-row { display: flex; gap: 1.6rem; flex-wrap: wrap; margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid #f1f2f5; align-items: flex-start; }
+  .rd-info-item { display: flex; align-items: center; gap: 0.55rem; }
+  .rd-info-icon { width: 34px; height: 34px; border-radius: 9px; background: #EEF2FF; color: #696CFF; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+  .rd-info-label { font-size: 0.68rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; }
+  .rd-info-value { font-size: 0.86rem; color: #1f2937; font-weight: 600; }
+
+  .rd-side-meta { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.8rem; margin-left: auto; }
+  .rd-side-meta .row { display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end; }
+  .rd-side-meta .label { color: #9ca3af; }
+  .rd-side-meta .value { color: #1f2937; font-weight: 600; }
+
+  .rd-tabs-wrap { display: flex; flex-direction: column; }
+  .rd-tabs { margin: 0 0 1rem; border-bottom: 1px solid #e5e7ef; }
+  .rd-tabs .nav-link { font-size: 0.85rem; font-weight: 600; color: #6b7280; }
+  .rd-tabs .nav-link.active { color: #696CFF; }
+
+  .rd-grid-2 { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+  @media (max-width: 1050px) { .rd-grid-2 { grid-template-columns: minmax(0, 1fr); } }
+
+  .rd-section-title { font-size: 0.72rem; text-transform: uppercase; color: #9ca3af; font-weight: 700; margin-bottom: 0.5rem; }
+  .rd-chip { font-size: 0.72rem; font-weight: 700; padding: 0.22rem 0.55rem; border-radius: 999px; background: #EEF2FF; color: #4338CA; }
+  .rd-chip.benefit { background: #FFF4E5; color: #B45309; }
+
+  .rd-share-link { display: flex; gap: 0.5rem; }
+  .rd-share-link input { flex: 1 1 auto; font-size: 0.8rem; padding: 0.5rem 0.7rem; border-radius: 8px; border: 1px solid #E5E7EF; background: #F8F9FC; color: #475467; }
+  .rd-share-row { display: flex; gap: 0.5rem; margin-top: 0.7rem; flex-wrap: wrap; }
+  .rd-share-row .btn { flex: 1 1 auto; font-size: 0.78rem; white-space: nowrap; }
+
+  .rd-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; }
+  .rd-stat-tile { border: 1px solid #f1f2f5; border-radius: 10px; padding: 0.7rem 0.8rem; }
+  .rd-stat-tile .label { font-size: 0.72rem; color: #9ca3af; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.3rem; }
+  .rd-stat-tile .num { font-size: 1.25rem; font-weight: 700; color: #1f2937; }
+
+  .rd-activity-row { display: flex; gap: 0.6rem; padding: 0.5rem 0; font-size: 0.82rem; color: #374151; border-bottom: 1px solid #f8f9fb; }
+  .rd-activity-row:last-child { border-bottom: none; }
+  .rd-activity-dot { width: 8px; height: 8px; border-radius: 50%; background: #696CFF; margin-top: 0.45rem; flex-shrink: 0; }
+  .rd-activity-time { font-size: 0.72rem; color: #9ca3af; }
+
+  table.rd-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  table.rd-table th { text-align: left; padding: 0.6rem 0.8rem; font-size: 0.7rem; text-transform: uppercase; color: #9ca3af; border-bottom: 1px solid #f1f2f5; white-space: nowrap; }
+  table.rd-table td { padding: 0.6rem 0.8rem; border-bottom: 1px solid #f1f2f5; vertical-align: middle; }
+  .rd-avatar { width: 32px; height: 32px; border-radius: 50%; background: #EEF2FF; color: #4338CA; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.76rem; flex-shrink: 0; text-transform: uppercase; }
+  .rd-candidate-cell { display: flex; align-items: center; gap: 0.55rem; }
+  .rd-badge { font-size: 0.72rem; font-weight: 700; padding: 0.22rem 0.55rem; border-radius: 999px; background: #F1F2F5; color: #475467; white-space: nowrap; }
+  .rd-app-status.applied { background:#EEF2FF; color:#4338CA; }
+  .rd-app-status.screening { background:#FFF4E5; color:#B45309; }
+  .rd-app-status.shortlisted { background:#E7F4FF; color:#2563eb; }
+  .rd-app-status.interview, .rd-app-status.technical { background:#F3E8FF; color:#7e22ce; }
+  .rd-app-status.offer { background:#FCEFE0; color:#c2660f; }
+  .rd-app-status.hired { background:#E8F8EE; color:#3f9a1c; }
+  .rd-app-status.rejected { background:#FFF0F0; color:#c23616; }
+
+  .rd-empty { text-align:center; color:#9ca3af; padding: 2rem 0; font-size: 0.85rem; }
+  .rd-toolbar { display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom: 1rem; }
+  .rd-toolbar select { font-size:0.82rem; padding:0.45rem 0.7rem; border-radius:9px; border:1px solid #E5E7EF; background:#fff; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="rec-detail-shell">
-  <div class="rec-card">
-    <div class="rec-detail-header">
+<div class="rd-shell">
+
+  <div class="rd-card">
+    <div class="rd-header-top">
       <div>
-        <h1>{{ job.title }}</h1>
-        <div class="rec-meta-row">
-          <span><i class="bx bx-buildings"></i> {{ job.department.name|default:"-" }}</span>
-          <span><i class="bx bx-map"></i> {{ job.branch.name|default:"Office-wide" }}{% if job.location %} &middot; {{ job.location }}{% endif %}</span>
-          <span><i class="bx bx-group"></i> {{ job.openings }} opening{{ job.openings|pluralize }}</span>
-          <span><i class="bx bx-info-circle"></i> {{ job.get_status_display }}</span>
-          {% if job.salary_range_display %}<span><i class="bx bx-rupee"></i> {{ job.salary_range_display }}</span>{% endif %}
-          {% if job.experience_range_display %}<span><i class="bx bx-time-five"></i> {{ job.experience_range_display }}</span>{% endif %}
+        <div class="rd-title-row">
+          <h1>{{ job.title }}</h1>
+          <span class="rd-status-badge {{ job.status }}">{{ job.get_status_display }}</span>
         </div>
+        {% if job.description %}<div class="rd-desc-preview">{{ job.description|striptags|truncatewords:30 }}</div>{% endif %}
       </div>
-      <a href="{% url 'employees:recruitment_job_update' job.pk %}" class="btn btn-outline-secondary btn-sm">Edit Job</a>
+      <div class="rd-actions">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="duplicate">
+          <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bx bx-copy me-1"></i>Duplicate</button>
+        </form>
+        {% if can_pause %}
+        <form method="post" onsubmit="return confirm('{{ pause_label }} this job{% if pause_label == "Pause" %} - it will be hidden from the careers page{% endif %}?');">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="toggle_pause">
+          <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bx {% if pause_label == "Pause" %}bx-pause{% else %}bx-play{% endif %} me-1"></i>{{ pause_label }}</button>
+        </form>
+        {% endif %}
+        <a href="{% url 'employees:recruitment_job_update' job.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bx bx-edit-alt me-1"></i>Edit Job</a>
+        <a href="#rdShareCard" class="btn btn-primary btn-sm"><i class="bx bx-share-alt me-1"></i>Share Job</a>
+      </div>
     </div>
-    {% if job.description %}<div style="margin-top:0.9rem;font-size:0.86rem;color:#374151;">{{ job.description|safe }}</div>{% endif %}
-    {% if job.required_skills_list %}
-      <div style="margin-top:1rem;">
-        <div style="font-size:0.72rem;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:0.4rem;">Required Skills</div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for skill in job.required_skills_list %}<span class="rec-badge">{{ skill }}</span>{% endfor %}</div>
+
+    <div class="rd-info-row">
+      <div class="rd-info-item">
+        <div class="rd-info-icon"><i class="bx bx-buildings"></i></div>
+        <div><div class="rd-info-label">Department</div><div class="rd-info-value">{{ job.department.name|default:"-" }}</div></div>
       </div>
-    {% endif %}
-    {% if job.benefits_list %}
-      <div style="margin-top:0.8rem;">
-        <div style="font-size:0.72rem;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:0.4rem;">Job Benefits</div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for benefit in job.benefits_list %}<span class="rec-badge" style="background:#FFF4E5;color:#B45309;">{{ benefit }}</span>{% endfor %}</div>
+      <div class="rd-info-item">
+        <div class="rd-info-icon"><i class="bx bx-map"></i></div>
+        <div><div class="rd-info-label">Location</div><div class="rd-info-value">{% if job.location %}{{ job.location }}{% elif job.branch %}{{ job.branch.name }}{% else %}Office-wide{% endif %}</div></div>
       </div>
-    {% endif %}
+      <div class="rd-info-item">
+        <div class="rd-info-icon"><i class="bx bx-briefcase-alt"></i></div>
+        <div><div class="rd-info-label">Type</div><div class="rd-info-value">{{ job.employment_type.name|default:"-" }}</div></div>
+      </div>
+      {% if job.experience_range_display %}
+      <div class="rd-info-item">
+        <div class="rd-info-icon"><i class="bx bx-time-five"></i></div>
+        <div><div class="rd-info-label">Experience</div><div class="rd-info-value">{{ job.experience_range_display }}</div></div>
+      </div>
+      {% endif %}
+      {% if job.salary_range_display %}
+      <div class="rd-info-item">
+        <div class="rd-info-icon"><i class="bx bx-rupee"></i></div>
+        <div><div class="rd-info-label">Salary Range</div><div class="rd-info-value">{{ job.salary_range_display }}</div></div>
+      </div>
+      {% endif %}
+      <div class="rd-info-item">
+        <div class="rd-info-icon"><i class="bx bx-group"></i></div>
+        <div><div class="rd-info-label">Openings</div><div class="rd-info-value">{{ job.openings }}</div></div>
+      </div>
+
+      <div class="rd-side-meta">
+        <div class="row"><span class="label">Posted On</span><span class="value">{{ job.created_at|date:"d M Y" }}</span></div>
+        <div class="row"><span class="label">Last Updated</span><span class="value">{{ job.updated_at|date:"d M Y" }}</span></div>
+        {% if job.created_by %}<div class="row"><span class="label">Posted By</span><span class="value">{{ job.created_by.get_full_name|default:job.created_by.username }}</span></div>{% endif %}
+      </div>
+    </div>
   </div>
 
-  <div class="rec-card">
-    <h5 style="font-size:0.95rem;font-weight:700;margin-bottom:0.8rem;">Applicants ({{ applications.count }})</h5>
-    <form method="get" class="rec-toolbar">
-      <select name="status" onchange="this.form.submit()">
-        <option value="">All Status</option>
-        {% for value, label in status_choices %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-      <select name="source" onchange="this.form.submit()">
-        <option value="">All Sources</option>
-        {% for value, label in source_choices %}<option value="{{ value }}" {% if source_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-      <a href="{% url 'employees:recruitment_job_detail' job.pk %}" class="btn btn-outline-secondary btn-sm">Reset</a>
-    </form>
-    <table class="rec-table">
-      <thead><tr><th>Candidate</th><th>Phone</th><th>Source</th><th>Status</th><th>Applied</th><th>Resume</th></tr></thead>
-      <tbody>
-        {% for app in applications %}
-          <tr>
-            <td><a href="{% url 'employees:recruitment_application_detail' app.pk %}" style="color:#1f2937;font-weight:600;text-decoration:none;">{{ app.full_name }}</a></td>
-            <td>{{ app.phone }}</td>
-            <td><span class="rec-badge">{{ app.get_source_display }}</span></td>
-            <td><span class="rec-badge">{{ app.get_status_display }}</span></td>
-            <td>{{ app.created_at|date:"d M Y" }}</td>
-            <td>{% if app.resume %}<a href="{{ app.resume.url }}" target="_blank" rel="noopener"><i class="bx bx-download"></i> Download</a>{% else %}-{% endif %}</td>
-          </tr>
+  <div class="rd-tabs-wrap">
+  <ul class="nav nav-tabs rd-tabs" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#rdOverview" type="button">Overview</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rdApplicants" type="button">Applicants ({{ applications_count }})</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rdInterviews" type="button">Interviews ({{ interviews_count }})</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rdActivity" type="button">Activity</button></li>
+  </ul>
+
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="rdOverview" role="tabpanel">
+      <div class="rd-grid-2">
+        <div class="rd-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
+            <h5 style="font-size:0.95rem;font-weight:700;margin:0;"><i class="bx bx-file-blank me-1"></i>Job Description</h5>
+            <a href="{% url 'employees:recruitment_job_update' job.pk %}" style="font-size:0.78rem;font-weight:600;color:#696CFF;text-decoration:none;"><i class="bx bx-edit-alt"></i> Edit</a>
+          </div>
+          {% if job.description %}<div style="font-size:0.86rem;color:#374151;line-height:1.65;">{{ job.description|safe }}</div>{% else %}<p class="text-muted" style="font-size:0.85rem;">No description added yet.</p>{% endif %}
+
+          {% if job.required_skills_list %}
+            <div style="margin-top:1.2rem;">
+              <div class="rd-section-title">Required Skills</div>
+              <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for skill in job.required_skills_list %}<span class="rd-chip">{{ skill }}</span>{% endfor %}</div>
+            </div>
+          {% endif %}
+          {% if job.benefits_list %}
+            <div style="margin-top:1rem;">
+              <div class="rd-section-title">Job Benefits</div>
+              <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">{% for b in job.benefits_list %}<span class="rd-chip benefit">{{ b }}</span>{% endfor %}</div>
+            </div>
+          {% endif %}
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:1rem;">
+          <div class="rd-card" id="rdShareCard">
+            <h5 style="font-size:0.95rem;font-weight:700;margin:0 0 0.3rem;"><i class="bx bx-share-alt me-1"></i>Share Job</h5>
+            {% if careers_url %}
+              <p style="font-size:0.78rem;color:#9ca3af;margin-bottom:0.7rem;">Share this job on LinkedIn, social media or copy the link.</p>
+              <div class="rd-share-link">
+                <input type="text" readonly value="{{ careers_url }}" id="rdShareLink">
+                <button type="button" class="btn btn-primary btn-sm" id="rdCopyLinkBtn"><i class="bx bx-copy"></i> Copy Link</button>
+              </div>
+              <div class="rd-share-row">
+                <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ careers_url|urlencode }}" target="_blank" rel="noopener" class="btn btn-sm" style="background:#0A66C2;color:#fff;"><i class="bx bxl-linkedin"></i> LinkedIn</a>
+                <a href="https://wa.me/?text={{ careers_url|urlencode }}" target="_blank" rel="noopener" class="btn btn-sm" style="background:#25D366;color:#fff;"><i class="bx bxl-whatsapp"></i> WhatsApp</a>
+                <a href="mailto:?subject={{ job.title|urlencode }}&body={{ careers_url|urlencode }}" class="btn btn-outline-secondary btn-sm"><i class="bx bx-envelope"></i> Email</a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#rdQrModal"><i class="bx bx-qr"></i> QR Code</button>
+              </div>
+            {% else %}
+              <p style="font-size:0.8rem;color:#9ca3af;">Activate your careers page in Recruitment &rsaquo; Settings to get a shareable link for this job.</p>
+            {% endif %}
+          </div>
+
+          <div class="rd-card">
+            <h5 style="font-size:0.95rem;font-weight:700;margin:0 0 0.8rem;"><i class="bx bx-bar-chart-alt-2 me-1"></i>Job Statistics</h5>
+            <div class="rd-stat-grid">
+              <div class="rd-stat-tile"><div class="label"><i class="bx bx-group"></i> Applications</div><div class="num">{{ applications_count }}</div></div>
+              <div class="rd-stat-tile"><div class="label"><i class="bx bx-check-circle"></i> Shortlisted</div><div class="num">{{ shortlisted_count }}</div></div>
+              <div class="rd-stat-tile"><div class="label"><i class="bx bx-calendar-check"></i> Interviews</div><div class="num">{{ interviews_count }}</div></div>
+              <div class="rd-stat-tile"><div class="label"><i class="bx bx-user-check"></i> Hired</div><div class="num">{{ hired_count }}</div></div>
+            </div>
+          </div>
+
+          <div class="rd-card">
+            <h5 style="font-size:0.95rem;font-weight:700;margin:0 0 0.6rem;"><i class="bx bx-time me-1"></i>Recent Activity</h5>
+            {% for a in activities|slice:":6" %}
+              <div class="rd-activity-row">
+                <div class="rd-activity-dot"></div>
+                <div><div>{{ a.description }}{% if a.application %} &middot; {{ a.application.full_name }}{% endif %}</div><div class="rd-activity-time">{{ a.created_at|date:"d M Y, h:i A" }}</div></div>
+              </div>
+            {% empty %}
+              <div class="rd-empty">No activity yet.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="rdApplicants" role="tabpanel">
+      <div class="rd-card">
+        <form method="get" class="rd-toolbar">
+          <select name="status" onchange="this.form.submit()">
+            <option value="">All Status</option>
+            {% for value, label in status_choices %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <select name="source" onchange="this.form.submit()">
+            <option value="">All Sources</option>
+            {% for value, label in source_choices %}<option value="{{ value }}" {% if source_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          {% if status_filter or source_filter %}<a href="{% url 'employees:recruitment_job_detail' job.pk %}" class="btn btn-outline-secondary btn-sm">Reset</a>{% endif %}
+        </form>
+        <div style="overflow-x:auto;">
+        <table class="rd-table">
+          <thead><tr><th>#</th><th>Candidate</th><th>Source</th><th>Status</th><th>Applied On</th><th>Resume</th><th>Actions</th></tr></thead>
+          <tbody>
+            {% for app in applications %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                  <div class="rd-candidate-cell">
+                    <div class="rd-avatar">{{ app.full_name|slice:":1" }}</div>
+                    <div>
+                      <a href="{% url 'employees:recruitment_application_detail' app.pk %}" style="color:#1f2937;font-weight:600;text-decoration:none;">{{ app.full_name }}</a>
+                      <div style="font-size:0.72rem;color:#9ca3af;">{{ app.email|default:app.phone }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="rd-badge">{{ app.get_source_display }}</span></td>
+                <td><span class="rd-badge rd-app-status {{ app.status }}">{{ app.get_status_display }}</span></td>
+                <td>{{ app.created_at|date:"d M Y" }}</td>
+                <td>{% if app.resume %}<a href="{{ app.resume.url }}" target="_blank" rel="noopener"><i class="bx bx-download"></i></a>{% else %}-{% endif %}</td>
+                <td><a href="{% url 'employees:recruitment_application_detail' app.pk %}" class="btn btn-outline-secondary btn-sm">View</a></td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="rd-empty">No applicants{% if status_filter or source_filter %} match these filters{% endif %}.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="rdInterviews" role="tabpanel">
+      <div class="rd-card">
+        <div style="overflow-x:auto;">
+        <table class="rd-table">
+          <thead><tr><th>#</th><th>Candidate</th><th>Interview</th><th>Mode</th><th>Scheduled At</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            {% for app in interviews %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                  <div class="rd-candidate-cell">
+                    <div class="rd-avatar">{{ app.full_name|slice:":1" }}</div>
+                    <a href="{% url 'employees:recruitment_application_detail' app.pk %}" style="color:#1f2937;font-weight:600;text-decoration:none;">{{ app.full_name }}</a>
+                  </div>
+                </td>
+                <td>{{ app.interview_title|default:"-" }}</td>
+                <td>{% if app.interview_mode %}<span class="rd-badge">{{ app.get_interview_mode_display }}</span>{% else %}-{% endif %}</td>
+                <td>{{ app.interview_scheduled_at|date:"d M Y, h:i A" }}</td>
+                <td><span class="rd-badge rd-app-status {{ app.status }}">{{ app.get_status_display }}</span></td>
+                <td><a href="{% url 'employees:recruitment_application_detail' app.pk %}" class="btn btn-outline-secondary btn-sm">View</a></td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="rd-empty">No interviews scheduled yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="rdActivity" role="tabpanel">
+      <div class="rd-card">
+        {% for a in activities %}
+          <div class="rd-activity-row">
+            <div class="rd-activity-dot"></div>
+            <div><div>{{ a.description }}{% if a.application %} &middot; <a href="{% url 'employees:recruitment_application_detail' a.application.pk %}" style="color:#696CFF;text-decoration:none;">{{ a.application.full_name }}</a>{% endif %}</div><div class="rd-activity-time">{{ a.created_at|date:"d M Y, h:i A" }}</div></div>
+          </div>
         {% empty %}
-          <tr><td colspan="6" class="text-center text-muted py-4">No applicants yet.</td></tr>
+          <div class="rd-empty">No activity yet.</div>
         {% endfor %}
-      </tbody>
-    </table>
+      </div>
+    </div>
+  </div>
   </div>
 </div>
+
+{% if careers_url %}
+<div class="modal fade" id="rdQrModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header"><h6 class="modal-title">Scan to open this job</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body text-center">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ careers_url|urlencode }}" alt="QR code for {{ job.title }}" style="max-width:100%;border-radius:8px;">
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var copyBtn = document.getElementById('rdCopyLinkBtn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      var input = document.getElementById('rdShareLink');
+      input.select();
+      input.setSelectionRange(0, 99999);
+      navigator.clipboard.writeText(input.value).then(function () {
+        var original = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="bx bx-check"></i> Copied';
+        setTimeout(function () { copyBtn.innerHTML = original; }, 1500);
+      });
+    });
+  }
+});
+</script>
 {% endblock %}

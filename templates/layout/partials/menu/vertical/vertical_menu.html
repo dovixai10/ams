@@ -299,7 +299,7 @@
           <a href="{% url 'employees:recruitment_job_list' %}" class="menu-link"><div>Jobs</div></a>
         </li>
         <li class="menu-item {% if '/recruitment/pipeline' in request.path %}active{% endif %}">
-          <a href="{% url 'employees:recruitment_pipeline' %}" class="menu-link"><div>Pipeline</div></a>
+          <a href="{% url 'employees:recruitment_pipeline' %}" class="menu-link"><div>Candidates</div></a>
         </li>
         <li class="menu-item {% if request.path == '/recruitment/settings/' %}active{% endif %}">
           <a href="{% url 'employees:recruitment_settings' %}" class="menu-link"><div>Settings</div></a>

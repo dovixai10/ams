@@ -5,57 +5,257 @@
 {% block page_css %}
 {{ block.super }}
 <style>
-  .rec-settings-shell { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 0.75rem 0 2rem; }
-  .rec-settings-shell h1 { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
-  .rec-settings-shell h1 i { color: #696CFF; }
-  .rec-card { background: #fff; border-radius: 14px; border: 1px solid rgba(148,163,184,0.2); padding: 1.2rem 1.4rem; }
-  .rec-card h5 { font-size: 0.95rem; font-weight: 700; color: #1f2937; margin: 0 0 0.3rem; }
-  .rec-card .hint { font-size: 0.8rem; color: #6b7280; margin: 0 0 1rem; }
-  .rec-url-box { display: flex; gap: 0.5rem; align-items: center; background: #F5F6FA; border: 1px solid #E5E7EF; border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 0.85rem; font-family: monospace; color: #2B2C40; word-break: break-all; }
-  .rec-url-box button { flex-shrink: 0; border: none; background: #696CFF; color: #fff; font-size: 0.75rem; font-weight: 600; padding: 0.4rem 0.7rem; border-radius: 7px; cursor: pointer; }
-  .rec-status-pill { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; }
-  .rec-status-pill.on { background: #E8F8EE; color: #3f9a1c; }
-  .rec-status-pill.off { background: #F1F2F5; color: #8592A3; }
-  .rec-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.8rem; }
+  .rs-shell { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.2rem; padding: 0.75rem 1rem 2rem; overflow-x: hidden; }
+  .rs-header { display: flex; align-items: flex-start; gap: 0.7rem; }
+  .rs-header .ic { width: 44px; height: 44px; border-radius: 12px; background: #EEF2FF; color: #696CFF; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+  .rs-header h1 { font-size: 1.4rem; font-weight: 800; color: #1f2937; margin: 0; }
+  .rs-header p { font-size: 0.85rem; color: #6b7280; margin: 0.25rem 0 0; }
+
+  .rs-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.2rem; align-items: start; }
+  @media (max-width: 950px) { .rs-row { grid-template-columns: minmax(0, 1fr); } }
+
+  .rs-card { background: #fff; border-radius: 16px; border: 1px solid rgba(148,163,184,0.2); padding: 1.3rem 1.4rem; }
+  .rs-card-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.3rem; }
+  .rs-card-head .ic { width: 32px; height: 32px; border-radius: 9px; background: #EEF2FF; color: #696CFF; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+  .rs-card-head h5 { font-size: 1rem; font-weight: 700; color: #1f2937; margin: 0; }
+  .rs-hint { font-size: 0.8rem; color: #6b7280; margin: 0 0 1.1rem; }
+
+  .rs-field { margin-bottom: 1rem; }
+  .rs-field label { display: block; font-size: 0.8rem; font-weight: 600; color: #1f2937; margin-bottom: 0.35rem; }
+  .rs-field input[type="text"], .rs-field textarea { width: 100%; font-size: 0.86rem; padding: 0.55rem 0.75rem; border-radius: 9px; border: 1px solid #E5E7EF; background: #fafafe; }
+  .rs-char-count { text-align: right; font-size: 0.72rem; color: #9ca3af; margin-top: 0.2rem; }
+
+  .rs-url-box { display: flex; gap: 0.5rem; align-items: center; background: #F5F6FA; border: 1px solid #E5E7EF; border-radius: 10px; padding: 0.65rem 0.9rem; font-size: 0.84rem; color: #2B2C40; word-break: break-all; }
+  .rs-url-box span { flex: 1 1 auto; }
+  .rs-url-box button { flex-shrink: 0; border: none; background: linear-gradient(135deg, #696CFF, #8B5CF6); color: #fff; font-size: 0.78rem; font-weight: 700; padding: 0.5rem 0.8rem; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+
+  .rs-status-pill { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.76rem; font-weight: 700; padding: 0.3rem 0.7rem; border-radius: 999px; }
+  .rs-status-pill.on { background: #E8F8EE; color: #3f9a1c; }
+  .rs-status-pill.off { background: #F1F2F5; color: #8592A3; }
+
+  .rs-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
+
+  .rs-tag-input { border: 1px solid #E5E7EF; border-radius: 9px; padding: 0.5rem 0.6rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; background: #fafafe; }
+  .rs-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .rs-tag { background: #EEF2FF; color: #4338CA; font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.5rem 0.25rem 0.6rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+  .rs-tag button { border: none; background: none; color: #4338CA; cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0; }
+  .rs-tag-text { border: none; outline: none; background: transparent; flex: 1 1 140px; font-size: 0.84rem; min-width: 140px; }
+
+  .rs-frame { border-radius: 14px; overflow: hidden; }
+  .rs-frame-bar { display: flex; align-items: center; gap: 0.4rem; padding: 0.6rem 0.8rem; background: #F1F2F5; }
+  .rs-frame-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .rs-frame-url { margin-left: 0.5rem; font-size: 0.7rem; color: #9ca3af; background: #fff; border: 1px solid #E5E7EF; border-radius: 6px; padding: 0.2rem 0.6rem; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .rs-preview-hero { position: relative; overflow: hidden; background: linear-gradient(135deg, #ECEBFE 0%, #F4F3FD 55%, #EFF3FE 100%); padding: 1.5rem 1.4rem; display: flex; align-items: center; gap: 1rem; }
+  .rs-preview-text { flex: 1 1 auto; min-width: 0; }
+  .rs-preview-badge { display: inline-flex; align-items: center; gap: 0.3rem; background: #fff; color: #696CFF; font-size: 0.68rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; margin-bottom: 0.5rem; }
+  .rs-preview-title { font-size: 1.15rem; font-weight: 800; color: #1e1b3a; margin: 0 0 0.3rem; }
+  .rs-preview-sub { font-size: 0.74rem; color: #64748b; margin: 0 0 0.6rem; line-height: 1.5; }
+  .rs-preview-features { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .rs-preview-feature { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.66rem; font-weight: 600; color: #3b3860; background: rgba(255,255,255,0.7); padding: 0.2rem 0.5rem; border-radius: 999px; }
+  .rs-preview-illustration { width: 120px; flex-shrink: 0; }
+  .rs-preview-illustration svg { width: 100%; height: auto; display: block; }
+  @media (max-width: 420px) { .rs-preview-illustration { display: none; } }
+
+  .rs-preview-caption { font-size: 0.78rem; font-weight: 700; color: #1f2937; padding: 1rem 1.2rem 0.6rem; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="rec-settings-shell">
-  <h1><i class="bx bx-cog"></i> Recruitment Settings</h1>
-
-  <div class="rec-card">
-    <h5>Careers Page</h5>
-    <p class="hint">The public page candidates use to browse your open jobs and apply - share this link on your real website or job ads.</p>
-    <div class="rec-url-box">
-      <span style="flex:1 1 auto;">{{ careers_url }}</span>
-      <button type="button" onclick="navigator.clipboard.writeText('{{ careers_url }}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy', 1500);">Copy</button>
-    </div>
-    <div style="margin-top:0.8rem;">
-      Status:
-      {% if page.is_active %}<span class="rec-status-pill on"><i class="bx bx-check-circle"></i> Active - accepting applications</span>
-      {% else %}<span class="rec-status-pill off"><i class="bx bx-x-circle"></i> Inactive</span>{% endif %}
-    </div>
-    <div class="rec-actions">
-      <form method="post"><input type="hidden" name="action" value="toggle_page">{% csrf_token %}
-        <button type="submit" class="btn btn-outline-secondary btn-sm">{% if page.is_active %}Deactivate Page{% else %}Activate Page{% endif %}</button>
-      </form>
-      <a href="{{ careers_url }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Open Page &rarr;</a>
-      <form method="post" onsubmit="return confirm('Regenerate the careers page link? The old link stops working immediately.');"><input type="hidden" name="action" value="regenerate_slug">{% csrf_token %}
-        <button type="submit" class="btn btn-outline-danger btn-sm">Regenerate Link</button>
-      </form>
+<div class="rs-shell">
+  <div class="rs-header">
+    <div class="ic"><i class="bx bx-cog"></i></div>
+    <div>
+      <h1>Recruitment Settings</h1>
+      <p>Customize your careers page and banner to attract the best talent.</p>
     </div>
   </div>
 
-  <div class="rec-card">
-    <h5>Intro Text</h5>
-    <p class="hint">Optional blurb shown above the job list on the careers page.</p>
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="update_intro">
-      <textarea name="intro_text" class="form-control" rows="4">{{ page.intro_text }}</textarea>
-      <button type="submit" class="btn btn-primary btn-sm mt-2">Save</button>
-    </form>
+  <div class="rs-row">
+    <div class="rs-card">
+      <div class="rs-card-head"><div class="ic"><i class="bx bx-globe"></i></div><h5>Careers Page</h5></div>
+      <p class="rs-hint">The public page candidates use to browse your open jobs and apply - share this link on your real website or job ads.</p>
+
+      <div class="rs-field">
+        <label>Careers Page URL</label>
+        <div class="rs-url-box">
+          <span>{{ careers_url }}</span>
+          <button type="button" id="rsCopyBtn"><i class="bx bx-copy"></i> Copy Link</button>
+        </div>
+      </div>
+
+      <div class="rs-field" style="margin-bottom: 0;">
+        <label>Status</label>
+        {% if page.is_active %}<span class="rs-status-pill on"><i class="bx bx-check-circle"></i> Active - accepting applications</span>
+        {% else %}<span class="rs-status-pill off"><i class="bx bx-x-circle"></i> Inactive</span>{% endif %}
+      </div>
+
+      <div class="rs-actions">
+        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle_page">
+          <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bx {% if page.is_active %}bx-hide{% else %}bx-show{% endif %} me-1"></i>{% if page.is_active %}Deactivate Page{% else %}Activate Page{% endif %}</button>
+        </form>
+        <a href="{{ careers_url }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm"><i class="bx bx-link-external me-1"></i>Open Page</a>
+        <form method="post" onsubmit="return confirm('Regenerate the careers page link? The old link stops working immediately.');">{% csrf_token %}<input type="hidden" name="action" value="regenerate_slug">
+          <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bx bx-refresh me-1"></i>Regenerate Link</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="rs-card" style="padding: 0; overflow: hidden;">
+      <div class="rs-frame">
+        <div class="rs-frame-bar">
+          <span class="rs-frame-dot" style="background:#ef4444;"></span>
+          <span class="rs-frame-dot" style="background:#f59e0b;"></span>
+          <span class="rs-frame-dot" style="background:#22c55e;"></span>
+          <span class="rs-frame-url">{{ careers_url }}</span>
+        </div>
+        <div class="rs-preview-hero">
+          <div class="rs-preview-text">
+            {% if page.hero_badge_text %}<div class="rs-preview-badge"><i class="bx bx-briefcase-alt-2"></i> {{ page.hero_badge_text }}</div>{% endif %}
+            <div class="rs-preview-title">{{ page.hero_title|default:"We're Hiring" }}</div>
+            {% if page.intro_text %}<div class="rs-preview-sub">{{ page.intro_text|truncatewords:18 }}</div>{% endif %}
+            {% if page.hero_features_list %}
+              <div class="rs-preview-features">
+                {% for f in page.hero_features_list|slice:":4" %}<span class="rs-preview-feature"><i class="bx bx-check"></i> {{ f }}</span>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <p class="rs-preview-caption" style="padding-bottom:1rem;">Live preview - this is exactly what candidates see right now.</p>
+    </div>
+  </div>
+
+  <div class="rs-row">
+    <div class="rs-card">
+      <div class="rs-card-head"><div class="ic"><i class="bx bx-image-alt"></i></div><h5>Careers Page Banner</h5></div>
+      <p class="rs-hint">The top banner candidates see first on your careers page - the pill, the headline, the subtitle, and the small highlight badges underneath.</p>
+      <form method="post" id="rsBannerForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_hero">
+        <div class="rs-field">
+          <label>Badge Text</label>
+          <input type="text" name="hero_badge_text" id="rsBadgeInput" value="{{ page.hero_badge_text }}" placeholder="e.g. Join Our Team" maxlength="60">
+        </div>
+        <div class="rs-field">
+          <label>Headline</label>
+          <input type="text" name="hero_title" id="rsTitleInput" value="{{ page.hero_title }}" placeholder="e.g. Build Your Future With Us" maxlength="150">
+        </div>
+        <div class="rs-field">
+          <label>Subtitle</label>
+          <textarea name="intro_text" id="rsSubInput" rows="3" maxlength="300" placeholder="e.g. Explore exciting career opportunities and join our team.">{{ page.intro_text }}</textarea>
+          <div class="rs-char-count"><span id="rsSubCount">0</span>/300</div>
+        </div>
+        <div class="rs-field" style="margin-bottom: 0.4rem;">
+          <label>Highlights</label>
+          <div class="rs-tag-input">
+            <div class="rs-tags" id="rsFeatureTags"></div>
+            <input type="text" class="rs-tag-text" id="rsFeatureTagText" placeholder="Add highlight...">
+          </div>
+          <input type="hidden" name="hero_features" id="rsFeaturesHidden" value="{{ page.hero_features }}">
+          <div class="form-text" style="font-size: 0.74rem;">Press Enter or comma to add. Shown as small badges under the subtitle - add, remove or rename as many as you like.</div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm mt-2"><i class="bx bx-save me-1"></i>Save Banner</button>
+      </form>
+    </div>
+
+    <div class="rs-card" style="padding: 0; overflow: hidden;">
+      <p class="rs-preview-caption">Banner Preview</p>
+      <div class="rs-preview-hero">
+        <div class="rs-preview-text">
+          <div class="rs-preview-badge" id="rsPrevBadgeWrap" style="display:none;"><i class="bx bx-briefcase-alt-2"></i> <span id="rsPrevBadge"></span></div>
+          <div class="rs-preview-title" id="rsPrevTitle"></div>
+          <div class="rs-preview-sub" id="rsPrevSub" style="display:none;"></div>
+          <div class="rs-preview-features" id="rsPrevFeatures"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var copyBtn = document.getElementById('rsCopyBtn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      navigator.clipboard.writeText('{{ careers_url|escapejs }}').then(function () {
+        var original = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="bx bx-check"></i> Copied';
+        setTimeout(function () { copyBtn.innerHTML = original; }, 1500);
+      });
+    });
+  }
+
+  var badgeInput = document.getElementById('rsBadgeInput');
+  var titleInput = document.getElementById('rsTitleInput');
+  var subInput = document.getElementById('rsSubInput');
+  var subCount = document.getElementById('rsSubCount');
+  var prevBadgeWrap = document.getElementById('rsPrevBadgeWrap');
+  var prevBadge = document.getElementById('rsPrevBadge');
+  var prevTitle = document.getElementById('rsPrevTitle');
+  var prevSub = document.getElementById('rsPrevSub');
+  var prevFeatures = document.getElementById('rsPrevFeatures');
+
+  var hiddenFeatures = document.getElementById('rsFeaturesHidden');
+  var tagsBox = document.getElementById('rsFeatureTags');
+  var tagInput = document.getElementById('rsFeatureTagText');
+  var tags = (hiddenFeatures.value || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+
+  function updateLivePreview() {
+    var badgeVal = badgeInput.value.trim();
+    prevBadgeWrap.style.display = badgeVal ? 'inline-flex' : 'none';
+    prevBadge.textContent = badgeVal;
+    prevTitle.textContent = titleInput.value.trim() || "We're Hiring";
+    var subVal = subInput.value.trim();
+    prevSub.style.display = subVal ? 'block' : 'none';
+    prevSub.textContent = subVal;
+    prevFeatures.innerHTML = '';
+    tags.slice(0, 4).forEach(function (f) {
+      var span = document.createElement('span');
+      span.className = 'rs-preview-feature';
+      span.innerHTML = '<i class="bx bx-check"></i> ' + f.replace(/</g, '&lt;');
+      prevFeatures.appendChild(span);
+    });
+  }
+
+  function renderTags() {
+    tagsBox.innerHTML = '';
+    tags.forEach(function (tag, idx) {
+      var chip = document.createElement('span');
+      chip.className = 'rs-tag';
+      chip.innerHTML = tag.replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' <button type="button" aria-label="Remove">&times;</button>';
+      chip.querySelector('button').addEventListener('click', function () {
+        tags.splice(idx, 1);
+        syncTags();
+      });
+      tagsBox.appendChild(chip);
+    });
+    hiddenFeatures.value = tags.join(', ');
+  }
+  function syncTags() { renderTags(); updateLivePreview(); }
+
+  tagInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      var val = tagInput.value.trim().replace(/,$/, '');
+      if (val && tags.indexOf(val) === -1) { tags.push(val); syncTags(); }
+      tagInput.value = '';
+    } else if (e.key === 'Backspace' && !tagInput.value && tags.length) {
+      tags.pop();
+      syncTags();
+    }
+  });
+
+  badgeInput.addEventListener('input', updateLivePreview);
+  titleInput.addEventListener('input', updateLivePreview);
+  subInput.addEventListener('input', function () { subCount.textContent = subInput.value.length; updateLivePreview(); });
+
+  renderTags();
+  subCount.textContent = subInput.value.length;
+  updateLivePreview();
+});
+</script>
 {% endblock %}

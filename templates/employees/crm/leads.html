@@ -216,6 +216,13 @@
     .crm-kpis { grid-template-columns: repeat(2, 1fr); }
     table.crm-table { min-width: 900px; }
   }
+  @media (max-width: 480px) {
+    .crm-kpis { grid-template-columns: 1fr; }
+    .crm-toolbar .crm-search { flex-basis: 100%; }
+    .crm-toolbar .crm-date { width: auto; flex: 1 1 120px; }
+    .crm-header-actions { width: 100%; }
+    .crm-header-actions .crm-btn, .crm-header-actions .crm-dropdown { flex: 1 1 auto; }
+  }
 </style>
 {% endblock %}
 
